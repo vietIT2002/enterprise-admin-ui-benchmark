@@ -1,0 +1,726 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>New invoice - Sao Viet Accounting</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+  body { font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; font-size: 14px; color: #0f172a; }
+  .inp { height: 32px; width: 100%; border: 1px solid #94a3b8; border-radius: 4px; background: #fff; padding: 0 8px; font-size: 14px; color: #0f172a; }
+  .inp::placeholder { color: #64748b; }
+  .inp:focus, .btn:focus-visible, .link:focus-visible, .nav a:focus-visible { outline: 2px solid #1d4ed8; outline-offset: 1px; }
+  .inp[aria-invalid="true"] { border-color: #b91c1c; }
+  .inp:disabled { background: #f1f5f9; }
+  .btn { display: inline-flex; height: 32px; align-items: center; justify-content: center; gap: 6px; border-radius: 4px; padding: 0 12px; font-size: 14px; font-weight: 500; white-space: nowrap; }
+  .btn-primary { background: #1d4ed8; color: #fff; }
+  .btn-primary:hover { background: #1e40af; }
+  .btn-primary:disabled { background: #1e40af; cursor: progress; }
+  .btn-outline { border: 1px solid #94a3b8; background: #fff; color: #0f172a; }
+  .btn-outline:hover { background: #f1f5f9; }
+  .btn-ghost { color: #1d4ed8; }
+  .btn-ghost:hover { background: #eff6ff; }
+  .lbl { display: block; margin-bottom: 4px; font-size: 12px; font-weight: 500; color: #334155; }
+  .err { margin-top: 4px; display: flex; align-items: flex-start; gap: 4px; font-size: 12px; color: #b91c1c; }
+  .hint { margin-top: 4px; font-size: 12px; color: #475569; }
+  .sk { background: #e2e8f0; border-radius: 4px; animation: pulse 1.4s ease-in-out infinite; }
+  @keyframes pulse { 50% { opacity: .5; } }
+  th, td { padding: 0 8px; }
+  tbody tr.line { height: 40px; }
+  tbody tr.line td { padding-top: 4px; padding-bottom: 4px; }
+  .num { text-align: right; font-variant-numeric: tabular-nums; }
+  tbody tr.line:hover { background: #f8fafc; }
+  dialog::backdrop { background: rgba(15, 23, 42, .4); }
+  .spin { animation: spin 0.8s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+</style>
+</head>
+<body class="bg-slate-50">
+<div class="flex min-h-screen">
+  <!-- Sidebar -->
+  <aside class="nav hidden w-56 shrink-0 border-r border-slate-200 bg-white lg:block">
+    <div class="flex h-12 items-center border-b border-slate-200 px-4 font-semibold">Sao Viet Accounting</div>
+    <nav aria-label="Main" class="space-y-0.5 p-2">
+      <a href="#dashboard" class="block rounded px-3 py-1.5 text-slate-700 hover:bg-slate-100">Dashboard</a>
+      <a href="#invoices" aria-current="page" class="block rounded bg-blue-50 px-3 py-1.5 font-medium text-blue-800">Invoices</a>
+      <a href="#bills" class="block rounded px-3 py-1.5 text-slate-700 hover:bg-slate-100">Bills</a>
+      <a href="#customers" class="block rounded px-3 py-1.5 text-slate-700 hover:bg-slate-100">Customers</a>
+      <a href="#products" class="block rounded px-3 py-1.5 text-slate-700 hover:bg-slate-100">Products and services</a>
+      <a href="#payments" class="block rounded px-3 py-1.5 text-slate-700 hover:bg-slate-100">Payments</a>
+      <a href="#reports" class="block rounded px-3 py-1.5 text-slate-700 hover:bg-slate-100">Reports</a>
+      <a href="#settings" class="block rounded px-3 py-1.5 text-slate-700 hover:bg-slate-100">Settings</a>
+    </nav>
+  </aside>
+
+  <div class="flex min-w-0 flex-1 flex-col">
+    <header class="flex h-12 items-center justify-between border-b border-slate-200 bg-white px-6">
+      <span class="text-slate-600">Công ty TNHH Kế toán Sao Việt</span>
+      <span class="flex items-center gap-2 text-slate-700">
+        <span class="flex h-6 w-6 items-center justify-center rounded-full bg-slate-200 text-xs font-medium text-slate-800" aria-hidden="true">LH</span>
+        Lê Thu Hà
+      </span>
+    </header>
+
+    <!-- Scroll container: the sticky bar lives inside it -->
+    <div id="scroller" class="relative flex-1 scroll-pb-20">
+      <main class="mx-auto max-w-5xl px-6 pt-6">
+        <nav aria-label="Breadcrumb" class="text-slate-600">
+          <a href="#invoices" class="link hover:underline">Invoices</a> <span aria-hidden="true">/</span> <span class="text-slate-900">New invoice</span>
+        </nav>
+        <div class="mt-2 flex items-center gap-3">
+          <h1 class="text-xl font-semibold">New invoice</h1>
+          <span id="statusBadge" class="inline-flex h-6 items-center rounded-full bg-slate-100 px-2 text-xs font-medium text-slate-700">Draft</span>
+          <span id="savedAt" class="text-xs text-slate-600"></span>
+        </div>
+        <p class="mt-1 text-slate-600">* Required</p>
+
+        <!-- Loading skeleton -->
+        <div id="skeleton" class="mt-6 space-y-6" aria-busy="true" aria-label="Loading form">
+          <div class="rounded-md border border-slate-200 bg-white p-6">
+            <div class="sk h-4 w-32"></div>
+            <div class="mt-5 sk h-8 max-w-xl"></div>
+            <div class="mt-5 flex gap-4"><div class="sk h-8 w-40"></div><div class="sk h-8 w-40"></div><div class="sk h-8 w-40"></div></div>
+          </div>
+          <div class="rounded-md border border-slate-200 bg-white p-6">
+            <div class="sk h-4 w-32"></div>
+            <div class="mt-5 space-y-2"><div class="sk h-10"></div><div class="sk h-10"></div><div class="sk h-10"></div></div>
+          </div>
+        </div>
+
+        <form id="form" class="hidden" novalidate autocomplete="off">
+          <div id="banner" role="alert" class="mt-4"></div>
+          <div id="summary" role="status" class="mt-4"></div>
+
+          <!-- Customer -->
+          <section class="mt-6 rounded-md border border-slate-200 bg-white p-6" aria-labelledby="h-cust">
+            <h2 id="h-cust" class="border-b border-slate-200 pb-2 text-base font-semibold">Customer</h2>
+            <div class="mt-4 grid gap-6 md:grid-cols-2">
+              <div class="relative max-w-xl">
+                <label class="lbl" for="customer" id="customer-lbl">Customer <span aria-hidden="true">*</span></label>
+                <div class="relative">
+                  <button type="button" id="customer" role="combobox" aria-haspopup="listbox" aria-expanded="false" aria-controls="cust-list" aria-labelledby="customer-lbl customer-val"
+                    class="inp flex items-center justify-between text-left">
+                    <span id="customer-val" class="truncate text-slate-500">Select a customer</span>
+                    <svg class="h-4 w-4 shrink-0 text-slate-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
+                  </button>
+                  <button type="button" id="cust-clear" class="btn hidden absolute right-7 top-1 h-6 w-6 !px-0 text-slate-600 hover:bg-slate-100" aria-label="Clear customer">
+                    <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg>
+                  </button>
+                  <div id="cust-pop" class="absolute z-20 mt-1 hidden w-full rounded-md border border-slate-200 bg-white shadow-lg">
+                    <div class="border-b border-slate-200 p-2">
+                      <input id="cust-search" type="text" class="inp" placeholder="Search by name or tax code" aria-label="Search customers" aria-controls="cust-list">
+                    </div>
+                    <ul id="cust-list" role="listbox" aria-label="Customers" class="max-h-64 overflow-auto py-1"></ul>
+                  </div>
+                </div>
+                <p id="customer-err"></p>
+              </div>
+              <div id="cust-card" class="text-slate-700">
+                <p class="lbl">Bill to</p>
+                <p id="cust-card-body" class="text-slate-600">Choose a customer to see their billing details.</p>
+              </div>
+            </div>
+          </section>
+
+          <!-- Invoice details -->
+          <section class="mt-6 rounded-md border border-slate-200 bg-white p-6" aria-labelledby="h-det">
+            <h2 id="h-det" class="border-b border-slate-200 pb-2 text-base font-semibold">Invoice details</h2>
+            <div class="mt-4 flex flex-wrap gap-x-6 gap-y-6">
+              <div class="w-44">
+                <label class="lbl" for="number">Invoice number <span aria-hidden="true">*</span></label>
+                <input id="number" class="inp" value="INV-1043" aria-required="true">
+                <p id="number-err"></p>
+              </div>
+              <div class="w-40">
+                <label class="lbl" for="issue">Invoice date <span aria-hidden="true">*</span></label>
+                <input id="issue" type="date" class="inp" aria-required="true">
+                <p id="issue-err"></p>
+              </div>
+              <div class="w-40">
+                <label class="lbl" for="terms">Payment terms</label>
+                <select id="terms" class="inp">
+                  <option value="0">Due on receipt</option>
+                  <option value="15">Net 15</option>
+                  <option value="30" selected>Net 30</option>
+                  <option value="45">Net 45</option>
+                  <option value="custom">Custom</option>
+                </select>
+              </div>
+              <div class="w-40">
+                <label class="lbl" for="due">Due date <span aria-hidden="true">*</span></label>
+                <input id="due" type="date" class="inp" aria-required="true">
+                <p id="due-err"></p>
+              </div>
+              <div class="w-56">
+                <label class="lbl" for="po">Customer PO reference</label>
+                <input id="po" class="inp" placeholder="PO-2026-0418">
+              </div>
+            </div>
+          </section>
+
+          <!-- Line items -->
+          <section class="mt-6 rounded-md border border-slate-200 bg-white p-6" aria-labelledby="h-lines">
+            <h2 id="h-lines" class="border-b border-slate-200 pb-2 text-base font-semibold">Line items</h2>
+            <div class="mt-4 overflow-x-auto">
+              <table class="w-full min-w-[860px] border-collapse text-sm" id="lines-table">
+                <thead>
+                  <tr class="h-10 border-b border-slate-200 text-left text-xs font-medium text-slate-700">
+                    <th scope="col" class="w-52 text-left">Item <span aria-hidden="true">*</span></th>
+                    <th scope="col" class="text-left">Description</th>
+                    <th scope="col" class="num w-20">Qty <span aria-hidden="true">*</span></th>
+                    <th scope="col" class="num w-32">Unit price (VND) <span aria-hidden="true">*</span></th>
+                    <th scope="col" class="num w-24">Tax rate</th>
+                    <th scope="col" class="num w-32">Amount (VND)</th>
+                    <th scope="col" class="w-10"><span class="sr-only">Remove line</span></th>
+                  </tr>
+                </thead>
+                <tbody id="lines"></tbody>
+              </table>
+            </div>
+            <div id="lines-err" class="mt-2"></div>
+            <div class="mt-3">
+              <button type="button" id="add-line" class="btn btn-ghost">
+                <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>Add line
+              </button>
+            </div>
+
+            <div class="mt-6 flex flex-wrap items-start justify-between gap-6 border-t border-slate-200 pt-4">
+              <div class="w-full max-w-md">
+                <label class="lbl" for="notes">Notes to customer</label>
+                <textarea id="notes" rows="3" class="inp !h-auto py-1.5" placeholder="Payment by bank transfer to account 0071 0012 3456 at Vietcombank."></textarea>
+                <p class="hint">Printed at the bottom of the invoice.</p>
+              </div>
+              <dl class="ml-auto w-72 text-sm" id="totals" aria-live="polite">
+                <div class="flex justify-between py-1"><dt class="text-slate-600">Subtotal</dt><dd class="num" id="t-sub">0 ₫</dd></div>
+                <div id="t-tax-rows"></div>
+                <div class="mt-1 flex justify-between border-t border-slate-300 pt-2 font-semibold"><dt>Total</dt><dd class="num" id="t-total">0 ₫</dd></div>
+              </dl>
+            </div>
+          </section>
+
+          <!-- Sticky action bar -->
+          <div class="sticky bottom-0 -mx-6 mt-6 flex items-center justify-end gap-3 border-t border-slate-200 bg-white px-6 py-3">
+            <span id="dirty" role="status" class="mr-auto text-sm text-slate-600"></span>
+            <button type="button" id="cancel" class="btn btn-outline">Cancel</button>
+            <button type="submit" id="save" class="btn btn-primary"><span id="save-spin"></span><span>Save invoice</span></button>
+          </div>
+        </form>
+      </main>
+    </div>
+  </div>
+</div>
+
+<!-- Leave dialog -->
+<dialog id="leave" class="w-[420px] max-w-[92vw] rounded-lg border border-slate-200 p-0" aria-labelledby="leave-t">
+  <div class="p-6">
+    <h2 id="leave-t" class="text-base font-semibold">You have unsaved changes. Leave without saving?</h2>
+    <p class="mt-2 text-slate-600">The invoice for <span id="leave-who">this customer</span> has not been saved. Leaving discards it.</p>
+  </div>
+  <div class="flex justify-end gap-3 border-t border-slate-200 px-6 py-3">
+    <button type="button" id="leave-yes" class="btn btn-outline !text-red-700">Leave</button>
+    <button type="button" id="leave-no" class="btn btn-primary" autofocus>Stay</button>
+  </div>
+</dialog>
+
+<!-- Toast -->
+<div id="toast" role="status" class="pointer-events-none fixed bottom-20 right-6 z-30"></div>
+
+<script>
+(function () {
+  'use strict';
+  var $ = function (id) { return document.getElementById(id); };
+  var nf0 = new Intl.NumberFormat('vi-VN', { maximumFractionDigits: 0 });
+  var nfQ = new Intl.NumberFormat('vi-VN', { maximumFractionDigits: 2 });
+  var vnd = new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' });
+  var ALERT = '<svg class="mt-px h-4 w-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/></svg>';
+  var SPIN = '<svg class="spin h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" aria-hidden="true"><path d="M21 12a9 9 0 1 1-6.2-8.55" stroke-linecap="round"/></svg>';
+  var XICON = '<svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg>';
+
+  /* ---------- Mock data ---------- */
+  var customers = [
+    { id: 'C-0101', name: 'Công ty TNHH Minh Phát', tax: '0312345678', city: 'TP. Hồ Chí Minh', addr: '45 Nguyễn Huệ, Quận 1, TP. Hồ Chí Minh', email: 'ketoan@minhphat.vn' },
+    { id: 'C-0102', name: 'Công ty CP Hoàng Long', tax: '0108765432', city: 'Hà Nội', addr: '12 Trần Duy Hưng, Cầu Giấy, Hà Nội', email: 'ap@hoanglong.com.vn' },
+    { id: 'C-0103', name: 'Công ty TNHH Thương mại An Khang', tax: '0401234567', city: 'Đà Nẵng', addr: '88 Bạch Đằng, Hải Châu, Đà Nẵng', email: 'thanhtoan@ankhang.vn' },
+    { id: 'C-0104', name: 'Công ty TNHH Xây dựng Thành Đạt', tax: '0309988776', city: 'TP. Hồ Chí Minh', addr: '230 Điện Biên Phủ, Bình Thạnh, TP. Hồ Chí Minh', email: 'accounting@thanhdat.vn' },
+    { id: 'C-0105', name: 'Công ty CP Dược phẩm Hải Nam', tax: '0201122334', city: 'Hải Phòng', addr: '5 Lạch Tray, Ngô Quyền, Hải Phòng', email: 'tc-kt@hainam.vn' },
+    { id: 'C-0106', name: 'Cửa hàng Thời trang Lam Anh', tax: '8123456789-001', city: 'Cần Thơ', addr: '17 Hòa Bình, Ninh Kiều, Cần Thơ', email: 'lamanh.store@gmail.com' },
+    { id: 'C-0107', name: 'Công ty TNHH Vận tải Phương Nam', tax: '0316677889', city: 'Bình Dương', addr: 'KCN Sóng Thần, Dĩ An, Bình Dương', email: 'ketoan@phuongnamlogistics.vn' },
+    { id: 'C-0108', name: 'Công ty CP Công nghệ Việt Sáng', tax: '0109900112', city: 'Hà Nội', addr: 'Tầng 9, 101 Láng Hạ, Đống Đa, Hà Nội', email: 'finance@vietsang.tech' }
+  ];
+  var recent = ['C-0101', 'C-0103', 'C-0108'];
+  var products = [
+    { id: 'P-001', name: 'Monthly bookkeeping', desc: 'Monthly bookkeeping service, up to 200 transactions', price: 4500000, tax: 10 },
+    { id: 'P-002', name: 'VAT return filing', desc: 'Quarterly VAT return preparation and filing', price: 3200000, tax: 10 },
+    { id: 'P-003', name: 'Financial statement audit', desc: 'Annual financial statement audit', price: 18000000, tax: 10 },
+    { id: 'P-004', name: 'Payroll processing', desc: 'Payroll processing, per employee per month', price: 150000, tax: 10 },
+    { id: 'P-005', name: 'Accounting software licence', desc: 'Cloud accounting software, annual licence', price: 7800000, tax: 8 },
+    { id: 'P-006', name: 'Advisory hours', desc: 'Tax and finance advisory, per hour', price: 1200000, tax: 10 },
+    { id: 'P-007', name: 'Business registration', desc: 'Business registration amendment filing', price: 2500000, tax: 0 }
+  ];
+  var TAX_RATES = [0, 5, 8, 10];
+  var EXISTING_NUMBERS = { 'INV-1040': 'Công ty TNHH Minh Phát' };
+
+  /* ---------- State ---------- */
+  var state = { customer: null, lines: [], nextId: 1, dirty: false, saving: false, submitted: false };
+  var touched = {};      // static fields
+  var lineShown = {};    // "lineId:field" -> true
+  var serverErr = {};    // field -> message
+  var lastUndo = null;
+
+  /* ---------- Helpers ---------- */
+  function esc(s) { return String(s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
+  function parseNum(s) {
+    s = String(s).trim();
+    if (s === '') return null;
+    s = s.replace(/\./g, '').replace(',', '.');
+    return /^-?\d*\.?\d+$/.test(s) ? Number(s) : NaN;
+  }
+  function iso(d) { return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); }
+  function addDays(isoStr, n) { var d = new Date(isoStr + 'T00:00:00'); d.setDate(d.getDate() + n); return iso(d); }
+  function fmtDate(isoStr) { var p = isoStr.split('-'); return p[2] + '/' + p[1] + '/' + p[0]; }
+  function nowStamp() { var d = new Date(); return fmtDate(iso(d)) + ' ' + String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0'); }
+  function newLine() { return { id: state.nextId++, product: '', desc: '', qty: null, price: null, tax: 10 }; }
+  function lineAmount(l) { return (l.qty > 0 && l.price >= 0 && l.price !== null) ? Math.round(l.qty * l.price) : 0; }
+  function isBlank(l) { return !l.product && l.qty === null && l.price === null && !l.desc; }
+
+  function setError(id, msg) {
+    var el = $(id), box = $(id + '-err');
+    if (msg) {
+      box.className = 'err';
+      box.id = id + '-err';
+      box.innerHTML = ALERT + '<span></span>';
+      box.lastChild.textContent = msg;
+      el.setAttribute('aria-invalid', 'true');
+      el.setAttribute('aria-describedby', id + '-err');
+    } else {
+      box.className = '';
+      box.innerHTML = '';
+      el.removeAttribute('aria-invalid');
+      el.removeAttribute('aria-describedby');
+    }
+  }
+
+  /* ---------- Static field validation ---------- */
+  var rules = {
+    customer: function () { return state.customer ? '' : 'Select a customer to bill'; },
+    number: function () {
+      var v = $('number').value.trim();
+      if (!v) return 'Enter an invoice number like INV-1043';
+      if (!/^[A-Za-z0-9][A-Za-z0-9\-\/]{2,}$/.test(v)) return 'Use letters, digits and dashes, like INV-1043';
+      if (serverErr.number && serverErr.value === v) return serverErr.number;
+      return '';
+    },
+    issue: function () { return $('issue').value ? '' : 'Enter the invoice date'; },
+    due: function () {
+      var d = $('due').value, i = $('issue').value;
+      if (!d) return 'Enter the due date';
+      if (i && d < i) return 'Due date must be on or after the invoice date (' + fmtDate(i) + ')';
+      return '';
+    }
+  };
+  var fieldOrder = ['customer', 'number', 'issue', 'due'];
+  var fieldLabel = { customer: 'Customer', number: 'Invoice number', issue: 'Invoice date', due: 'Due date' };
+
+  function checkField(f) { setError(f, rules[f]()); return rules[f](); }
+
+  /* ---------- Line validation ---------- */
+  function lineErrors(l) {
+    var e = {};
+    if (!l.product) e.product = 'Choose an item';
+    if (l.qty === null) e.qty = 'Enter a quantity';
+    else if (isNaN(l.qty) || l.qty <= 0) e.qty = 'Quantity must be greater than 0';
+    if (l.price === null) e.price = 'Enter a unit price';
+    else if (isNaN(l.price) || l.price < 0) e.price = 'Unit price cannot be negative';
+    return e;
+  }
+  function activeLines() {
+    var nonBlank = state.lines.filter(function (l) { return !isBlank(l); });
+    return nonBlank.length ? nonBlank : state.lines;
+  }
+  function idx(l) { return state.lines.indexOf(l) + 1; }
+
+  function renderLineErrors() {
+    var items = [], seen = {};
+    state.lines.forEach(function (l) {
+      var cells = ['product', 'qty', 'price'];
+      var e = (isBlank(l) && activeLines().length < state.lines.length) ? {} : lineErrors(l);
+      cells.forEach(function (f) {
+        var inp = $('l' + l.id + '-' + f);
+        if (!inp) return;
+        var show = (lineShown[l.id + ':' + f] || state.submitted) && e[f];
+        if (show) { inp.setAttribute('aria-invalid', 'true'); inp.setAttribute('aria-describedby', 'lines-err'); items.push('Line ' + idx(l) + ': ' + e[f]); }
+        else { inp.removeAttribute('aria-invalid'); inp.removeAttribute('aria-describedby'); }
+      });
+    });
+    var box = $('lines-err');
+    if (state.submitted && state.lines.every(isBlank)) items = ['Add at least one line: choose an item, quantity and unit price'];
+    if (items.length) {
+      box.innerHTML = '<ul class="space-y-1"></ul>';
+      items.forEach(function (t) {
+        var li = document.createElement('li');
+        li.className = 'err';
+        li.innerHTML = ALERT + '<span></span>';
+        li.lastChild.textContent = t;
+        box.firstChild.appendChild(li);
+      });
+    } else box.innerHTML = '';
+  }
+
+  /* ---------- Lines table ---------- */
+  function productOptions(sel) {
+    return '<option value="">Select item</option>' + products.map(function (p) {
+      return '<option value="' + p.id + '"' + (p.id === sel ? ' selected' : '') + '>' + esc(p.name) + '</option>';
+    }).join('');
+  }
+  function renderLines() {
+    var tb = $('lines');
+    tb.innerHTML = '';
+    state.lines.forEach(function (l, i) {
+      var tr = document.createElement('tr');
+      tr.className = 'line border-b border-slate-100';
+      tr.dataset.id = l.id;
+      tr.innerHTML =
+        '<td><select id="l' + l.id + '-product" data-f="product" class="inp" aria-label="Item, line ' + (i + 1) + '">' + productOptions(l.product) + '</select></td>' +
+        '<td><input id="l' + l.id + '-desc" data-f="desc" class="inp" aria-label="Description, line ' + (i + 1) + '" value="' + esc(l.desc) + '" placeholder="Description"></td>' +
+        '<td><input id="l' + l.id + '-qty" data-f="qty" class="inp num" inputmode="decimal" aria-label="Quantity, line ' + (i + 1) + '" value="' + (l.qty === null ? '' : nfQ.format(l.qty)) + '"></td>' +
+        '<td><input id="l' + l.id + '-price" data-f="price" class="inp num" inputmode="decimal" aria-label="Unit price in VND, line ' + (i + 1) + '" value="' + (l.price === null ? '' : nf0.format(l.price)) + '"></td>' +
+        '<td><select id="l' + l.id + '-tax" data-f="tax" class="inp num" aria-label="Tax rate, line ' + (i + 1) + '">' +
+          TAX_RATES.map(function (r) { return '<option value="' + r + '"' + (r === l.tax ? ' selected' : '') + '>' + r + '%</option>'; }).join('') + '</select></td>' +
+        '<td class="num" id="l' + l.id + '-amt">' + nf0.format(lineAmount(l)) + '</td>' +
+        '<td class="text-center"><button type="button" data-remove="' + l.id + '" class="btn !h-6 !w-6 !px-0 text-slate-600 hover:bg-slate-100" aria-label="Remove line ' + (i + 1) + '">' + XICON + '</button></td>';
+      tb.appendChild(tr);
+    });
+    renderLineErrors();
+    renderTotals();
+  }
+  function renderTotals() {
+    var sub = 0, byRate = {};
+    state.lines.forEach(function (l) {
+      var a = lineAmount(l);
+      sub += a;
+      var t = Math.round(a * l.tax / 100);
+      byRate[l.tax] = (byRate[l.tax] || 0) + t;
+    });
+    var tax = 0, html = '';
+    Object.keys(byRate).sort(function (a, b) { return a - b; }).forEach(function (r) {
+      if (state.lines.some(function (l) { return String(l.tax) === r && lineAmount(l) > 0; }) || byRate[r] > 0) {
+        tax += byRate[r];
+        html += '<div class="flex justify-between py-1"><dt class="text-slate-600">VAT ' + r + '%</dt><dd class="num">' + vnd.format(byRate[r]) + '</dd></div>';
+      }
+    });
+    if (!html) html = '<div class="flex justify-between py-1"><dt class="text-slate-600">VAT</dt><dd class="num">' + vnd.format(0) + '</dd></div>';
+    $('t-sub').textContent = vnd.format(sub);
+    $('t-tax-rows').innerHTML = html;
+    $('t-total').textContent = vnd.format(sub + tax);
+  }
+  function addLine(focus) {
+    var l = newLine();
+    state.lines.push(l);
+    renderLines();
+    if (focus) $('l' + l.id + '-product').focus();
+    return l;
+  }
+
+  var tbody = $('lines');
+  tbody.addEventListener('input', function (e) {
+    var t = e.target, tr = t.closest('tr'); if (!tr) return;
+    var l = state.lines.filter(function (x) { return String(x.id) === tr.dataset.id; })[0], f = t.dataset.f;
+    if (f === 'desc') l.desc = t.value;
+    if (f === 'qty') l.qty = parseNum(t.value);
+    if (f === 'price') l.price = parseNum(t.value);
+    markDirty();
+    $('l' + l.id + '-amt').textContent = nf0.format(lineAmount(l));
+    renderTotals();
+    if (f === 'qty' || f === 'price') { if (lineShown[l.id + ':' + f]) renderLineErrors(); }
+  });
+  tbody.addEventListener('change', function (e) {
+    var t = e.target, tr = t.closest('tr'); if (!tr) return;
+    var l = state.lines.filter(function (x) { return String(x.id) === tr.dataset.id; })[0], f = t.dataset.f;
+    if (f === 'product') {
+      l.product = t.value;
+      var p = products.filter(function (x) { return x.id === t.value; })[0];
+      if (p) {
+        if (!l.desc) { l.desc = p.desc; $('l' + l.id + '-desc').value = p.desc; }
+        if (l.price === null) { l.price = p.price; $('l' + l.id + '-price').value = nf0.format(p.price); }
+        if (l.qty === null) { l.qty = 1; $('l' + l.id + '-qty').value = '1'; }
+        l.tax = p.tax; $('l' + l.id + '-tax').value = String(p.tax);
+      }
+      lineShown[l.id + ':product'] = true;
+    }
+    if (f === 'tax') l.tax = Number(t.value);
+    markDirty();
+    $('l' + l.id + '-amt').textContent = nf0.format(lineAmount(l));
+    renderTotals(); renderLineErrors();
+  });
+  tbody.addEventListener('focusout', function (e) {
+    var t = e.target, tr = t.closest('tr'); if (!tr || !t.dataset.f) return;
+    var l = state.lines.filter(function (x) { return String(x.id) === tr.dataset.id; })[0], f = t.dataset.f;
+    if (f === 'qty' && l.qty !== null && !isNaN(l.qty)) t.value = nfQ.format(l.qty);
+    if (f === 'price' && l.price !== null && !isNaN(l.price)) t.value = nf0.format(l.price);
+    if (f === 'product' || f === 'qty' || f === 'price') { lineShown[l.id + ':' + f] = true; renderLineErrors(); }
+  });
+  tbody.addEventListener('keydown', function (e) {
+    if (e.key !== 'Enter') return;
+    var t = e.target, tr = t.closest('tr'); if (!tr || !t.dataset.f || t.tagName === 'BUTTON') return;
+    e.preventDefault();
+    var next = tr.nextElementSibling;
+    if (!next) { var l = addLine(false); next = $('lines').lastElementChild; }
+    var target = next.querySelector('[data-f="' + t.dataset.f + '"]');
+    if (target) target.focus();
+  });
+  tbody.addEventListener('click', function (e) {
+    var b = e.target.closest('[data-remove]'); if (!b) return;
+    var id = Number(b.dataset.remove), i = state.lines.findIndex(function (x) { return x.id === id; });
+    var removed = state.lines[i], filled = !isBlank(removed);
+    if (state.lines.length === 1) { state.lines[0] = newLine(); renderLines(); $('l' + state.lines[0].id + '-product').focus(); }
+    else { state.lines.splice(i, 1); renderLines(); var nx = state.lines[Math.min(i, state.lines.length - 1)]; $('l' + nx.id + '-product').focus(); }
+    markDirty();
+    if (filled) {
+      lastUndo = { line: removed, index: i };
+      toast('Line ' + (i + 1) + ' removed', 'Undo', function () {
+        if (state.lines.length === 1 && isBlank(state.lines[0])) state.lines = [];
+        state.lines.splice(Math.min(lastUndo.index, state.lines.length), 0, lastUndo.line);
+        renderLines();
+      }, 6000);
+    }
+  });
+  $('add-line').addEventListener('click', function () { addLine(true); markDirty(); });
+
+  /* ---------- Customer combobox ---------- */
+  var pop = $('cust-pop'), search = $('cust-search'), list = $('cust-list'), custBtn = $('customer');
+  var active = -1, options = [], searchTimer = null;
+  function openPop() {
+    pop.classList.remove('hidden'); custBtn.setAttribute('aria-expanded', 'true');
+    search.value = ''; renderOptions('');
+    search.focus();
+  }
+  function closePop(returnFocus) {
+    pop.classList.add('hidden'); custBtn.setAttribute('aria-expanded', 'false');
+    if (returnFocus) custBtn.focus();
+  }
+  function optHtml(c, i) {
+    return '<li role="option" id="opt-' + i + '" data-i="' + i + '" aria-selected="' + (i === active) + '" class="cursor-pointer px-3 py-1.5 ' + (i === active ? 'bg-blue-50' : 'hover:bg-slate-50') + '">' +
+      '<div class="font-medium">' + esc(c.name) + '</div><div class="text-xs text-slate-600">Tax code ' + esc(c.tax) + ' · ' + esc(c.city) + '</div></li>';
+  }
+  function renderOptions(q, loading) {
+    options = [];
+    if (loading) { list.setAttribute('aria-busy', 'true'); list.innerHTML = '<li class="px-3 py-2 text-slate-600">Searching…</li>'; return; }
+    list.removeAttribute('aria-busy');
+    var html = '';
+    q = q.trim().toLowerCase();
+    if (!q) {
+      html += '<li role="presentation" class="px-3 pb-1 pt-1 text-xs font-medium text-slate-600">Recent</li>';
+      recent.forEach(function (id) { var c = customers.filter(function (x) { return x.id === id; })[0]; options.push({ c: c }); });
+      options.forEach(function (o, i) { html += optHtml(o.c, i); });
+      html += '<li role="presentation" class="px-3 pb-1 pt-2 text-xs font-medium text-slate-600">All customers</li>';
+      var rest = customers.filter(function (c) { return recent.indexOf(c.id) < 0; });
+      rest.forEach(function (c) { options.push({ c: c }); html += optHtml(c, options.length - 1); });
+    } else {
+      var res = customers.filter(function (c) { return (c.name + ' ' + c.tax).toLowerCase().indexOf(q) >= 0; }).slice(0, 10);
+      res.forEach(function (c) { options.push({ c: c }); html += optHtml(c, options.length - 1); });
+      if (!res.length) html += '<li class="px-3 py-2 text-slate-700">No customers match “' + esc(q) + '”</li>';
+      options.push({ create: q });
+      var i = options.length - 1;
+      html += '<li role="option" id="opt-' + i + '" data-i="' + i + '" aria-selected="' + (i === active) + '" class="cursor-pointer border-t border-slate-200 px-3 py-1.5 font-medium text-blue-700 ' + (i === active ? 'bg-blue-50' : 'hover:bg-slate-50') + '">Create “' + esc(search.value.trim()) + '”</li>';
+    }
+    list.innerHTML = html;
+    if (active >= 0) search.setAttribute('aria-activedescendant', 'opt-' + active); else search.removeAttribute('aria-activedescendant');
+  }
+  function choose(o) {
+    var c = o.c;
+    if (o.create) {
+      c = { id: 'C-' + (200 + customers.length), name: search.value.trim(), tax: 'Not provided', city: 'No address yet', addr: 'No billing address yet', email: 'No email yet' };
+      customers.push(c);
+    }
+    state.customer = c;
+    recent = [c.id].concat(recent.filter(function (x) { return x !== c.id; })).slice(0, 3);
+    renderCustomer(); markDirty(); touched.customer = true; checkField('customer');
+    closePop(true);
+  }
+  function renderCustomer() {
+    var c = state.customer, v = $('customer-val');
+    v.textContent = c ? c.name : 'Select a customer';
+    v.className = 'truncate ' + (c ? 'text-slate-900' : 'text-slate-500');
+    $('cust-clear').classList.toggle('hidden', !c);
+    $('cust-card-body').innerHTML = c
+      ? '<span class="block font-medium text-slate-900">' + esc(c.name) + '</span><span class="block">' + esc(c.addr) + '</span><span class="block">Tax code ' + esc(c.tax) + '</span><span class="block">' + esc(c.email) + '</span>'
+      : 'Choose a customer to see their billing details.';
+  }
+  custBtn.addEventListener('click', function () { pop.classList.contains('hidden') ? openPop() : closePop(true); });
+  custBtn.addEventListener('keydown', function (e) { if (e.key === 'ArrowDown') { e.preventDefault(); openPop(); } });
+  custBtn.addEventListener('blur', function () { setTimeout(function () { if (pop.classList.contains('hidden') && touched.customer !== 'x') { touched.customer = true; checkField('customer'); } }, 0); });
+  $('cust-clear').addEventListener('click', function () { state.customer = null; renderCustomer(); markDirty(); touched.customer = true; checkField('customer'); custBtn.focus(); });
+  search.addEventListener('input', function () {
+    active = -1; renderOptions('', true);
+    clearTimeout(searchTimer);
+    searchTimer = setTimeout(function () { active = search.value.trim() ? 0 : -1; renderOptions(search.value); }, 250);
+  });
+  search.addEventListener('keydown', function (e) {
+    if (e.key === 'ArrowDown') { e.preventDefault(); active = Math.min(options.length - 1, active + 1); renderOptions(search.value); scrollActive(); }
+    else if (e.key === 'ArrowUp') { e.preventDefault(); active = Math.max(0, active - 1); renderOptions(search.value); scrollActive(); }
+    else if (e.key === 'Enter') { e.preventDefault(); if (options[active]) choose(options[active]); }
+    else if (e.key === 'Escape') { e.preventDefault(); closePop(true); }
+  });
+  function scrollActive() { var el = $('opt-' + active); if (el) el.scrollIntoView({ block: 'nearest' }); }
+  list.addEventListener('mousedown', function (e) { e.preventDefault(); });
+  list.addEventListener('click', function (e) { var li = e.target.closest('[data-i]'); if (li) choose(options[Number(li.dataset.i)]); });
+  document.addEventListener('mousedown', function (e) { if (!pop.classList.contains('hidden') && !pop.contains(e.target) && !custBtn.contains(e.target)) closePop(false); });
+
+  /* ---------- Dates and terms ---------- */
+  $('issue').addEventListener('change', function () {
+    var t = $('terms').value;
+    if (t !== 'custom') $('due').value = addDays($('issue').value, Number(t));
+    if (touched.due) checkField('due');
+  });
+  $('terms').addEventListener('change', function () {
+    if ($('terms').value !== 'custom' && $('issue').value) $('due').value = addDays($('issue').value, Number($('terms').value));
+    markDirty(); if (touched.due || state.submitted) checkField('due');
+  });
+  $('due').addEventListener('input', function () {
+    var diff = Math.round((new Date($('due').value) - new Date($('issue').value)) / 864e5);
+    var match = [0, 15, 30, 45].indexOf(diff) >= 0 ? String(diff) : 'custom';
+    $('terms').value = match;
+  });
+
+  /* ---------- Static field events ---------- */
+  ['number', 'issue', 'due'].forEach(function (f) {
+    var el = $(f);
+    el.addEventListener('blur', function () { touched[f] = true; checkField(f); });
+    el.addEventListener('input', function () { markDirty(); if (touched[f] || state.submitted) checkField(f); });
+    el.addEventListener('change', function () { markDirty(); if (touched[f] || state.submitted) checkField(f); });
+  });
+  ['po', 'notes'].forEach(function (f) { $(f).addEventListener('input', markDirty); });
+
+  /* ---------- Dirty state and leave guard ---------- */
+  function markDirty() {
+    if (state.dirty) return;
+    state.dirty = true; renderDirty();
+  }
+  function renderDirty() {
+    $('dirty').innerHTML = state.dirty ? '<span aria-hidden="true" class="mr-1.5 inline-block h-1.5 w-1.5 rounded-full bg-amber-500"></span>Unsaved changes' : '';
+  }
+  window.addEventListener('beforeunload', function (e) { if (state.dirty) { e.preventDefault(); e.returnValue = ''; } });
+
+  var leaveAction = null, dlg = $('leave');
+  function confirmLeave(action) {
+    if (!state.dirty) { action(); return; }
+    leaveAction = action;
+    $('leave-who').textContent = state.customer ? state.customer.name : 'this customer';
+    dlg.showModal();
+    $('leave-no').focus();
+  }
+  $('leave-no').addEventListener('click', function () { dlg.close(); leaveAction = null; });
+  $('leave-yes').addEventListener('click', function () { dlg.close(); state.dirty = false; renderDirty(); var a = leaveAction; leaveAction = null; if (a) a(); });
+  document.querySelectorAll('.nav a, nav[aria-label="Breadcrumb"] a').forEach(function (a) {
+    a.addEventListener('click', function (e) {
+      if (!state.dirty) return;
+      e.preventDefault();
+      var href = a.getAttribute('href');
+      confirmLeave(function () { resetForm(); location.hash = href; });
+    });
+  });
+  $('cancel').addEventListener('click', function () { confirmLeave(function () { resetForm(); toast('Draft discarded'); }); });
+
+  function resetForm() {
+    state.customer = null; state.lines = [newLine()]; state.dirty = false; state.submitted = false;
+    touched = {}; lineShown = {}; serverErr = {};
+    $('number').value = 'INV-1043'; $('po').value = ''; $('notes').value = '';
+    $('issue').value = TODAY; $('terms').value = '30'; $('due').value = addDays(TODAY, 30);
+    fieldOrder.forEach(function (f) { setError(f, ''); });
+    $('banner').innerHTML = ''; $('summary').innerHTML = '';
+    renderCustomer(); renderLines(); renderDirty();
+    $('statusBadge').textContent = 'Draft'; $('savedAt').textContent = '';
+  }
+
+  /* ---------- Submit ---------- */
+  function collectErrors() {
+    var errs = [];
+    fieldOrder.forEach(function (f) { var m = rules[f](); setError(f, m); if (m) errs.push({ target: f, label: fieldLabel[f], msg: m }); });
+    var act = activeLines();
+    if (state.lines.every(isBlank)) errs.push({ target: 'l' + state.lines[0].id + '-product', label: 'Line items', msg: 'Add at least one line' });
+    else act.forEach(function (l) {
+      var e = lineErrors(l);
+      ['product', 'qty', 'price'].forEach(function (f) { if (e[f]) errs.push({ target: 'l' + l.id + '-' + f, label: 'Line ' + idx(l), msg: e[f] }); });
+    });
+    return errs;
+  }
+  function renderSummary(errs) {
+    var box = $('summary');
+    if (errs.length < 3) { box.innerHTML = ''; return; }
+    box.innerHTML = '<div class="rounded-md border border-red-200 bg-red-50 p-4 text-red-900"><p class="font-medium">' + errs.length + ' fields need attention</p><ul class="mt-2 list-disc pl-5"></ul></div>';
+    var ul = box.querySelector('ul');
+    errs.forEach(function (er) {
+      var li = document.createElement('li'), a = document.createElement('a');
+      a.href = '#' + er.target; a.className = 'link inline-flex min-h-6 items-center underline';
+      a.textContent = er.label + ': ' + er.msg;
+      a.addEventListener('click', function (ev) { ev.preventDefault(); focusTarget(er.target); });
+      li.appendChild(a); ul.appendChild(li);
+    });
+  }
+  function focusTarget(id) { var el = $(id); if (el) { el.focus(); el.scrollIntoView({ block: 'center' }); } }
+
+  $('form').addEventListener('submit', function (e) {
+    e.preventDefault();
+    if (state.saving) return;
+    state.submitted = true;
+    $('banner').innerHTML = '';
+    var errs = collectErrors();
+    renderLineErrors();
+    renderSummary(errs);
+    if (errs.length) { focusTarget(errs[0].target); return; }
+    save();
+  });
+
+  function save() {
+    state.saving = true;
+    var btn = $('save'); btn.disabled = true; $('save-spin').innerHTML = SPIN;
+    setTimeout(function () {
+      state.saving = false; btn.disabled = false; $('save-spin').innerHTML = '';
+      var num = $('number').value.trim();
+      if (EXISTING_NUMBERS[num]) {
+        serverErr = { number: 'Invoice number already used by ' + num + ' (' + EXISTING_NUMBERS[num] + '). Enter a different number.', value: num };
+        var m = rules.number(); setError('number', m);
+        $('banner').innerHTML = '<div class="flex items-start justify-between gap-4 rounded-md border border-red-200 bg-red-50 p-4 text-red-900"><p><span class="font-medium">The invoice was not saved.</span> The server rejected the invoice number. Your input is kept; fix the number and save again.</p></div>';
+        focusTarget('number');
+        return;
+      }
+      state.dirty = false; renderDirty(); state.submitted = false; serverErr = {};
+      $('summary').innerHTML = '';
+      $('statusBadge').textContent = 'Draft · saved';
+      $('savedAt').textContent = 'Last saved by Lê Thu Hà on ' + nowStamp();
+      toast('Invoice ' + num + ' saved');
+    }, 800);
+  }
+
+  /* ---------- Toast ---------- */
+  var toastTimer;
+  function toast(msg, actionLabel, action, ms) {
+    var box = $('toast');
+    box.innerHTML = '<div class="pointer-events-auto flex items-center gap-4 rounded-md bg-slate-900 px-4 py-2.5 text-white shadow-lg"><span></span></div>';
+    box.firstChild.firstChild.textContent = msg;
+    if (actionLabel) {
+      var b = document.createElement('button');
+      b.type = 'button'; b.className = 'btn !h-6 !px-2 font-semibold text-blue-200 underline hover:bg-slate-800'; b.textContent = actionLabel;
+      b.addEventListener('click', function () { action(); box.innerHTML = ''; markDirty(); });
+      box.firstChild.appendChild(b);
+    }
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(function () { box.innerHTML = ''; }, ms || 4000);
+  }
+
+  /* ---------- Init ---------- */
+  var TODAY = iso(new Date());
+  state.lines = [newLine()];
+  $('issue').value = TODAY;
+  $('due').value = addDays(TODAY, 30);
+  renderLines();
+  renderCustomer();
+  setTimeout(function () {
+    $('skeleton').classList.add('hidden');
+    $('form').classList.remove('hidden');
+    $('skeleton').removeAttribute('aria-busy');
+  }, 450);
+})();
+</script>
+</body>
+</html>

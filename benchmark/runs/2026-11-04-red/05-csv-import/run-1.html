@@ -1,0 +1,412 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Import products - Stockroom</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+  body { font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  .tnum { font-variant-numeric: tabular-nums; }
+  :focus-visible { outline: 2px solid #4338ca; outline-offset: 2px; }
+  td input.cell { width: 100%; background: transparent; border: 1px solid transparent; border-radius: 4px; padding: 2px 6px; font: inherit; }
+  td input.cell:hover { border-color: #cbd5e1; }
+  td input.cell:focus { border-color: #4338ca; background: #fff; }
+  td input.cell.bad { border-color: #dc2626; background: #fef2f2; }
+</style>
+</head>
+<body class="bg-slate-50 text-slate-800 min-h-screen">
+
+<header class="bg-white border-b border-slate-200">
+  <div class="max-w-6xl mx-auto px-4 sm:px-6 h-14 flex items-center justify-between">
+    <div class="flex items-center gap-3">
+      <span class="w-7 h-7 rounded bg-indigo-700 text-white grid place-items-center text-sm font-semibold" aria-hidden="true">S</span>
+      <nav aria-label="Breadcrumb" class="text-sm text-slate-500">
+        <span>Inventory</span> <span aria-hidden="true">/</span> <span>Products</span> <span aria-hidden="true">/</span>
+        <span class="text-slate-900 font-medium">Import</span>
+      </nav>
+    </div>
+    <span class="text-sm text-slate-500 hidden sm:block">Warehouse: Main DC - Reno</span>
+  </div>
+</header>
+
+<main class="max-w-6xl mx-auto px-4 sm:px-6 py-8">
+  <h1 class="text-2xl font-semibold text-slate-900">Import products from CSV</h1>
+  <p class="text-sm text-slate-600 mt-1">Existing SKUs are updated; new SKUs are created. Nothing changes until you confirm on the last step.</p>
+
+  <ol id="stepper" class="mt-6 grid grid-cols-4 gap-2 text-sm" aria-label="Import progress"></ol>
+
+  <section id="panel" class="mt-6 bg-white border border-slate-200 rounded-lg" aria-live="polite"></section>
+</main>
+
+<script>
+/* ---------- Config ---------- */
+const FIELDS = [
+  { key: 'sku',      label: 'SKU',            required: true,  hint: 'Unique, e.g. TL-0142',        alias: ['sku','item code','product code','code','part number','part no'] },
+  { key: 'name',     label: 'Product name',   required: true,  hint: 'Up to 80 characters',         alias: ['name','product name','title','description','item'] },
+  { key: 'category', label: 'Category',       required: true,  hint: 'Must match an existing category', alias: ['category','cat','department','type'] },
+  { key: 'price',    label: 'Unit price (USD)', required: true, hint: 'Number, 0 or more',          alias: ['price','unit price','cost','retail','msrp'] },
+  { key: 'qty',      label: 'Quantity on hand', required: true, hint: 'Whole number, 0 or more',    alias: ['qty','quantity','stock','on hand','units'] },
+  { key: 'reorder',  label: 'Reorder point',  required: false, hint: 'Whole number',                alias: ['reorder','reorder point','min','min qty','threshold'] },
+  { key: 'barcode',  label: 'Barcode (EAN/UPC)', required: false, hint: '12 or 13 digits',          alias: ['barcode','ean','upc','gtin'] },
+  { key: 'supplier', label: 'Supplier',       required: false, hint: 'Free text',                   alias: ['supplier','vendor','manufacturer'] },
+];
+const CATEGORIES = ['Hand Tools','Power Tools','Fasteners','Electrical','Plumbing','Safety','Paint & Supplies'];
+const EXISTING_SKUS = new Set(['TL-0101','TL-0102','FS-2210','EL-3305','SF-4001']);
+
+const SAMPLE_CSV = `Item Code,Product Name,Department,Unit Price,Stock,Min Qty,EAN,Vendor
+TL-0101,"Claw Hammer, 16 oz",Hand Tools,18.99,142,40,012345678905,Stanley Supply
+TL-0102,Adjustable Wrench 10in,Hand Tools,14.50,88,25,012345678912,Stanley Supply
+TL-0143,Torpedo Level 9in,Hand Tools,9.25,64,20,012345678929,Johnson Level
+PT-1001,Cordless Drill 20V,Power Tools,129.00,36,10,0885911234567,Dewalt Direct
+PT-1002,Orbital Sander 5in,Power Tools,64.95,22,8,0885911234574,Dewalt Direct
+FS-2210,"Deck Screws #8 x 2.5in (box of 100)",Fasteners,7.80,410,150,012345678936,Hillman
+FS-2211,Hex Bolts M8 x 40 (25 pk),Fasteners,11.40,275,100,,Hillman
+FS-2211,Hex Bolts M8 x 50 (25 pk),Fasteners,12.10,190,100,012345678950,Hillman
+EL-3305,Wire Nuts Assorted (200 pk),Electrical,13.25,95,30,012345678967,Ideal Industries
+EL-3310,12 AWG Romex Cable 250ft,Electrical,-89.00,12,5,012345678974,Southwire
+EL-3311,GFCI Outlet 15A White,Electrical,16.75,48.5,15,012345678981,Leviton
+PL-4100,PVC Cement 8 oz,Plumbing,6.95,130,40,01234567,Oatey
+PL-4101,Teflon Tape 3/4in,Plumbing,1.99,520,200,012345678998,Oatey
+SF-4001,Safety Glasses Clear,Safety,4.25,300,100,012345679001,3M Industrial
+SF-4002,Nitrile Gloves L (100 ct),Safety,18.00,75,30,012345679018,3M Industrial
+,Hard Hat Yellow,Safety,22.40,40,15,012345679025,3M Industrial
+SF-4004,Ear Muffs NRR 25,Safety,12.99,58,20,012345679032,3M Industrial
+PS-5001,Interior Latex Paint 1 gal,Paint and Supplies,28.50,84,30,012345679049,Behr
+PS-5002,Painters Tape 1.5in,Paint & Supplies,5.49,260,80,012345679056,ScotchBlue
+PS-5003,Roller Cover 9in 3/8 nap,Paint & Supplies,4.99,3x,60,012345679063,Wooster
+`;
+
+/* ---------- State ---------- */
+const S = {
+  step: 1, fileName: '', fileSize: 0, headers: [], rows: [], mapping: {},
+  data: [],        // mapped records [{sku,...}]
+  filter: 'all', skipInvalid: true, dupMode: 'update',
+  progress: 0, result: null, error: ''
+};
+
+/* ---------- CSV parser (RFC4180-ish) ---------- */
+function parseCSV(text) {
+  text = text.replace(/^﻿/, '');
+  const out = []; let row = [], cur = '', q = false;
+  for (let i = 0; i < text.length; i++) {
+    const c = text[i];
+    if (q) {
+      if (c === '"') { if (text[i+1] === '"') { cur += '"'; i++; } else q = false; }
+      else cur += c;
+    } else if (c === '"') q = true;
+    else if (c === ',') { row.push(cur); cur = ''; }
+    else if (c === '\n' || c === '\r') {
+      if (c === '\r' && text[i+1] === '\n') i++;
+      row.push(cur); cur = ''; out.push(row); row = [];
+    } else cur += c;
+  }
+  if (cur !== '' || row.length) { row.push(cur); out.push(row); }
+  return out.filter(r => r.some(v => v.trim() !== ''));
+}
+
+/* ---------- Mapping / validation ---------- */
+const norm = s => s.toLowerCase().replace(/[^a-z0-9 ]/g, ' ').replace(/\s+/g, ' ').trim();
+function autoMap() {
+  S.mapping = {};
+  const used = new Set();
+  FIELDS.forEach(f => {
+    const idx = S.headers.findIndex((h, i) => !used.has(i) && f.alias.includes(norm(h)));
+    if (idx >= 0) { S.mapping[f.key] = idx; used.add(idx); } else S.mapping[f.key] = -1;
+  });
+}
+function buildData() {
+  S.data = S.rows.map((r, i) => {
+    const rec = { _line: i + 2 };
+    FIELDS.forEach(f => { const ix = S.mapping[f.key]; rec[f.key] = ix >= 0 ? (r[ix] ?? '').trim() : ''; });
+    return rec;
+  });
+}
+function validateAll() {
+  const seen = {};
+  S.data.forEach(r => { const k = r.sku.toUpperCase(); if (k) (seen[k] = seen[k] || []).push(r); });
+  S.data.forEach(r => {
+    const e = {};
+    if (!r.sku) e.sku = 'SKU is required';
+    else if (!/^[A-Za-z]{2}-\d{4}$/.test(r.sku)) e.sku = 'Use format AA-0000';
+    else if (seen[r.sku.toUpperCase()].length > 1) e.sku = 'Duplicate SKU in file (line ' + seen[r.sku.toUpperCase()].filter(x => x !== r).map(x => x._line).join(', ') + ')';
+    if (!r.name) e.name = 'Name is required';
+    else if (r.name.length > 80) e.name = 'Max 80 characters';
+    if (!r.category) e.category = 'Category is required';
+    else if (!CATEGORIES.includes(r.category)) e.category = 'Unknown category';
+    if (r.price === '') e.price = 'Price is required';
+    else if (isNaN(+r.price)) e.price = 'Not a number';
+    else if (+r.price < 0) e.price = 'Cannot be negative';
+    if (r.qty === '') e.qty = 'Quantity is required';
+    else if (!/^\d+$/.test(r.qty)) e.qty = 'Must be a whole number';
+    if (r.reorder !== '' && !/^\d+$/.test(r.reorder)) e.reorder = 'Must be a whole number';
+    if (r.barcode !== '' && !/^\d{12,13}$/.test(r.barcode)) e.barcode = 'Must be 12 or 13 digits';
+    r._err = e;
+    r._exists = EXISTING_SKUS.has(r.sku.toUpperCase());
+  });
+}
+const rowOk = r => Object.keys(r._err).length === 0;
+const stats = () => {
+  const bad = S.data.filter(r => !rowOk(r)).length;
+  const upd = S.data.filter(r => rowOk(r) && r._exists).length;
+  return { total: S.data.length, bad, ok: S.data.length - bad, upd, add: S.data.length - bad - upd };
+};
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const fmtSize = n => n < 1024 ? n + ' B' : (n / 1024).toFixed(1) + ' KB';
+
+/* ---------- Rendering ---------- */
+const $panel = document.getElementById('panel');
+const STEPS = ['Upload', 'Map columns', 'Review', 'Import'];
+
+function renderStepper() {
+  document.getElementById('stepper').innerHTML = STEPS.map((t, i) => {
+    const n = i + 1, done = n < S.step, cur = n === S.step;
+    const dot = done ? 'bg-indigo-700 text-white' : cur ? 'bg-white text-indigo-700 border-2 border-indigo-700' : 'bg-white text-slate-500 border border-slate-300';
+    return `<li class="flex items-center gap-2 border-t-4 pt-2 ${done || cur ? 'border-indigo-700' : 'border-slate-200'}" ${cur ? 'aria-current="step"' : ''}>
+      <span class="w-6 h-6 rounded-full grid place-items-center text-xs font-semibold shrink-0 ${dot}">${done ? '&#10003;' : n}</span>
+      <span class="${cur ? 'font-semibold text-slate-900' : 'text-slate-600'} truncate">${t}<span class="sr-only">${done ? ' (completed)' : ''}</span></span></li>`;
+  }).join('');
+}
+
+function render() {
+  renderStepper();
+  ({1: renderUpload, 2: renderMap, 3: renderReview, 4: renderImport})[S.step]();
+  window.scrollTo({ top: 0 });
+}
+
+function renderUpload() {
+  $panel.innerHTML = `
+  <div class="p-6 sm:p-8">
+    <h2 class="text-lg font-semibold">Upload your file</h2>
+    <p class="text-sm text-slate-600 mt-1">CSV with a header row, comma separated, UTF-8. Up to 5,000 rows or 5 MB.</p>
+    ${S.error ? `<div role="alert" class="mt-4 rounded border border-red-300 bg-red-50 text-red-800 text-sm p-3">${esc(S.error)}</div>` : ''}
+    <label id="drop" for="file" class="mt-5 block cursor-pointer rounded-lg border-2 border-dashed border-slate-300 hover:border-indigo-500 hover:bg-indigo-50/40 transition-colors text-center px-6 py-12">
+      <span class="block text-base font-medium text-slate-800">Drag a CSV here, or <span class="text-indigo-700 underline">browse files</span></span>
+      <span class="block text-sm text-slate-500 mt-1">.csv only</span>
+      <input id="file" type="file" accept=".csv,text/csv" class="sr-only">
+    </label>
+    <div class="mt-6 grid sm:grid-cols-2 gap-4 text-sm">
+      <div class="rounded border border-slate-200 p-4">
+        <h3 class="font-medium">No file handy?</h3>
+        <p class="text-slate-600 mt-1">Load a 20-row sample with a few deliberate mistakes to see how validation works.</p>
+        <button id="sample" class="mt-3 px-3 py-1.5 rounded border border-slate-300 bg-white hover:bg-slate-50 font-medium">Use sample file</button>
+      </div>
+      <div class="rounded border border-slate-200 p-4">
+        <h3 class="font-medium">Expected columns</h3>
+        <p class="text-slate-600 mt-1">Required: ${FIELDS.filter(f=>f.required).map(f=>f.label).join(', ')}.<br>Optional: ${FIELDS.filter(f=>!f.required).map(f=>f.label).join(', ')}.</p>
+        <button id="tpl" class="mt-3 text-indigo-700 underline font-medium">Download template</button>
+      </div>
+    </div>
+  </div>`;
+  const drop = document.getElementById('drop');
+  document.getElementById('file').onchange = e => e.target.files[0] && readFile(e.target.files[0]);
+  ['dragenter','dragover'].forEach(ev => drop.addEventListener(ev, e => { e.preventDefault(); drop.classList.add('border-indigo-500','bg-indigo-50/40'); }));
+  ['dragleave','drop'].forEach(ev => drop.addEventListener(ev, e => { e.preventDefault(); drop.classList.remove('border-indigo-500','bg-indigo-50/40'); }));
+  drop.addEventListener('drop', e => e.dataTransfer.files[0] && readFile(e.dataTransfer.files[0]));
+  document.getElementById('sample').onclick = () => load(SAMPLE_CSV, 'inventory-export-nov.csv', SAMPLE_CSV.length);
+  document.getElementById('tpl').onclick = () => {
+    const csv = FIELDS.map(f => f.label).join(',') + '\nTL-0200,Sample item,Hand Tools,9.99,10,5,012345678905,Acme\n';
+    const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([csv], {type:'text/csv'})); a.download = 'product-import-template.csv'; a.click();
+  };
+}
+
+function readFile(f) {
+  if (!/\.csv$/i.test(f.name)) { S.error = 'That file is not a .csv. Export your spreadsheet as CSV and try again.'; return render(); }
+  if (f.size > 5 * 1024 * 1024) { S.error = 'File is larger than 5 MB. Split it into smaller files.'; return render(); }
+  const rd = new FileReader();
+  rd.onload = () => load(rd.result, f.name, f.size);
+  rd.readAsText(f);
+}
+function load(text, name, size) {
+  const rows = parseCSV(text);
+  if (rows.length < 2) { S.error = 'The file has no data rows. It needs a header row and at least one product.'; return render(); }
+  if (rows.length > 5001) { S.error = 'The file has more than 5,000 rows. Split it into smaller files.'; return render(); }
+  S.error = ''; S.fileName = name; S.fileSize = size; S.headers = rows[0].map(h => h.trim()); S.rows = rows.slice(1);
+  autoMap(); S.step = 2; render();
+}
+
+function renderMap() {
+  const missing = FIELDS.filter(f => f.required && S.mapping[f.key] < 0);
+  const usedCount = {};
+  Object.values(S.mapping).forEach(v => { if (v >= 0) usedCount[v] = (usedCount[v] || 0) + 1; });
+  const unmapped = S.headers.filter((h, i) => !usedCount[i]);
+  $panel.innerHTML = `
+  <div class="p-6 sm:p-8">
+    <div class="flex flex-wrap items-start justify-between gap-3">
+      <div>
+        <h2 class="text-lg font-semibold">Map columns</h2>
+        <p class="text-sm text-slate-600 mt-1">We matched ${FIELDS.filter(f => S.mapping[f.key] >= 0).length} of ${FIELDS.length} fields by header name. Check each match against the sample values.</p>
+      </div>
+      <div class="text-sm text-slate-600 rounded border border-slate-200 bg-slate-50 px-3 py-2"><span class="font-medium text-slate-800">${esc(S.fileName)}</span> &middot; ${S.rows.length} rows &middot; ${fmtSize(S.fileSize)}</div>
+    </div>
+    ${missing.length ? `<div role="alert" class="mt-4 rounded border border-amber-300 bg-amber-50 text-amber-900 text-sm p-3">Required field${missing.length > 1 ? 's' : ''} not mapped: <strong>${missing.map(f => f.label).join(', ')}</strong>. Choose a column to continue.</div>` : ''}
+    <div class="mt-5 overflow-x-auto">
+    <table class="w-full text-sm">
+      <thead><tr class="text-left text-xs uppercase tracking-wide text-slate-500 border-b border-slate-200">
+        <th scope="col" class="py-2 pr-4 font-medium">Product field</th>
+        <th scope="col" class="py-2 pr-4 font-medium">Column in your file</th>
+        <th scope="col" class="py-2 font-medium">Sample values</th></tr></thead>
+      <tbody>
+      ${FIELDS.map(f => {
+        const ix = S.mapping[f.key];
+        const dup = ix >= 0 && usedCount[ix] > 1;
+        const samples = ix >= 0 ? S.rows.slice(0, 3).map(r => r[ix]).filter(v => v) : [];
+        return `<tr class="border-b border-slate-100 align-top">
+          <td class="py-3 pr-4 w-64"><label for="m-${f.key}" class="font-medium text-slate-900">${f.label}${f.required ? '<span class="text-red-600" aria-hidden="true"> *</span><span class="sr-only"> (required)</span>' : ''}</label>
+            <div class="text-xs text-slate-500">${f.hint}</div></td>
+          <td class="py-3 pr-4 w-72">
+            <select id="m-${f.key}" data-f="${f.key}" class="w-full rounded border ${dup ? 'border-red-500' : 'border-slate-300'} bg-white px-2 py-1.5">
+              <option value="-1">${f.required ? 'Select a column...' : 'Do not import'}</option>
+              ${S.headers.map((h, i) => `<option value="${i}" ${ix === i ? 'selected' : ''}>${esc(h || '(column ' + (i + 1) + ')')}</option>`).join('')}
+            </select>
+            ${dup ? '<div class="text-xs text-red-700 mt-1">This column is also used by another field.</div>' : ''}
+          </td>
+          <td class="py-3 text-slate-600 tnum">${samples.length ? samples.map(v => `<span class="inline-block bg-slate-100 rounded px-1.5 py-0.5 mr-1 mb-1 max-w-[16rem] truncate align-bottom">${esc(v)}</span>`).join('') : '<span class="text-slate-400">&mdash;</span>'}</td>
+        </tr>`; }).join('')}
+      </tbody>
+    </table></div>
+    ${unmapped.length ? `<p class="mt-4 text-sm text-slate-600">Columns that will be ignored: ${unmapped.map(h => `<span class="bg-slate-100 rounded px-1.5 py-0.5">${esc(h)}</span>`).join(' ')}</p>` : ''}
+    <div class="mt-6 flex justify-between">
+      <button id="back" class="px-4 py-2 rounded border border-slate-300 bg-white hover:bg-slate-50 font-medium">Choose another file</button>
+      <button id="next" class="px-4 py-2 rounded bg-indigo-700 text-white font-medium hover:bg-indigo-800 disabled:bg-slate-300 disabled:cursor-not-allowed" ${missing.length ? 'disabled' : ''}>Validate and preview</button>
+    </div>
+  </div>`;
+  $panel.querySelectorAll('select[data-f]').forEach(sel => sel.onchange = () => { S.mapping[sel.dataset.f] = +sel.value; renderMap(); $panel.querySelector(`#m-${sel.dataset.f}`).focus(); });
+  document.getElementById('back').onclick = () => { S.step = 1; render(); };
+  document.getElementById('next').onclick = () => { buildData(); validateAll(); S.filter = stats().bad ? 'errors' : 'all'; S.step = 3; render(); };
+}
+
+function renderReview() {
+  const st = stats();
+  const rows = S.data.filter(r => S.filter === 'all' ? true : S.filter === 'errors' ? !rowOk(r) : rowOk(r));
+  const importable = S.skipInvalid ? st.ok : (st.bad ? 0 : st.total);
+  const cols = FIELDS.filter(f => S.mapping[f.key] >= 0);
+  const tab = (k, label, n) => `<button data-filter="${k}" role="tab" aria-selected="${S.filter === k}" class="px-3 py-1.5 text-sm rounded-md ${S.filter === k ? 'bg-slate-900 text-white' : 'bg-white border border-slate-300 hover:bg-slate-50'}">${label} <span class="tnum opacity-80">${n}</span></button>`;
+  $panel.innerHTML = `
+  <div class="p-6 sm:p-8">
+    <h2 class="text-lg font-semibold">Review and fix</h2>
+    <p class="text-sm text-slate-600 mt-1">Edit any cell to correct it; validation re-runs as you type.</p>
+    <dl class="mt-4 grid grid-cols-2 sm:grid-cols-4 gap-3 text-sm">
+      <div class="rounded border border-slate-200 p-3"><dt class="text-slate-500">Rows in file</dt><dd class="text-2xl font-semibold tnum">${st.total}</dd></div>
+      <div class="rounded border border-slate-200 p-3"><dt class="text-slate-500">New products</dt><dd class="text-2xl font-semibold tnum">${st.add}</dd></div>
+      <div class="rounded border border-slate-200 p-3"><dt class="text-slate-500">Will update existing</dt><dd class="text-2xl font-semibold tnum">${st.upd}</dd></div>
+      <div class="rounded border ${st.bad ? 'border-red-300 bg-red-50' : 'border-emerald-300 bg-emerald-50'} p-3"><dt class="${st.bad ? 'text-red-800' : 'text-emerald-800'}">Rows with errors</dt><dd class="text-2xl font-semibold tnum ${st.bad ? 'text-red-800' : 'text-emerald-800'}">${st.bad}</dd></div>
+    </dl>
+    <div class="mt-5 flex flex-wrap items-center justify-between gap-3">
+      <div role="tablist" aria-label="Filter rows" class="flex gap-2">${tab('all','All',st.total)}${tab('errors','Errors',st.bad)}${tab('valid','Valid',st.ok)}</div>
+      <label class="flex items-center gap-2 text-sm"><input id="skip" type="checkbox" class="h-4 w-4 accent-indigo-700" ${S.skipInvalid ? 'checked' : ''}> Skip rows with errors and import the rest</label>
+    </div>
+    <div class="mt-3 border border-slate-200 rounded-lg overflow-auto max-h-[28rem]">
+      <table class="w-full text-sm min-w-[56rem]">
+        <thead class="sticky top-0 bg-slate-100 text-left text-xs uppercase tracking-wide text-slate-600"><tr>
+          <th scope="col" class="px-3 py-2 font-medium w-16">Line</th>
+          <th scope="col" class="px-3 py-2 font-medium w-24">Status</th>
+          ${cols.map(f => `<th scope="col" class="px-3 py-2 font-medium ${f.key === 'price' || f.key === 'qty' || f.key === 'reorder' ? 'text-right' : ''}">${f.label.replace(/ \(.*\)/, '')}</th>`).join('')}
+        </tr></thead>
+        <tbody class="divide-y divide-slate-100">
+        ${rows.length ? rows.map(r => rowHTML(r, cols)).join('') : `<tr><td colspan="${cols.length + 2}" class="px-3 py-10 text-center text-slate-500">${S.filter === 'errors' ? 'No errors. Every row passed validation.' : 'No rows to show.'}</td></tr>`}
+        </tbody>
+      </table>
+    </div>
+    ${st.bad ? `<ul class="mt-3 text-sm text-red-800 space-y-0.5" aria-label="Error summary">${errSummary()}</ul>` : ''}
+    <div class="mt-6 flex flex-wrap justify-between gap-3">
+      <button id="back" class="px-4 py-2 rounded border border-slate-300 bg-white hover:bg-slate-50 font-medium">Back to mapping</button>
+      <button id="go" class="px-4 py-2 rounded bg-indigo-700 text-white font-medium hover:bg-indigo-800 disabled:bg-slate-300 disabled:cursor-not-allowed" ${importable ? '' : 'disabled'}>Import ${importable} product${importable === 1 ? '' : 's'}</button>
+    </div>
+    ${!S.skipInvalid && st.bad ? '<p class="mt-2 text-sm text-right text-slate-600">Fix every error, or tick &ldquo;Skip rows with errors&rdquo;, to enable import.</p>' : ''}
+  </div>`;
+  bindReview();
+}
+function rowHTML(r, cols) {
+  const ok = rowOk(r);
+  return `<tr data-line="${r._line}" class="${ok ? '' : 'bg-red-50/40'}">
+    <td class="px-3 py-1.5 text-slate-500 tnum">${r._line}</td>
+    <td class="px-3 py-1.5">${ok ? (r._exists ? '<span class="text-xs font-medium text-sky-800 bg-sky-100 rounded px-2 py-0.5">Update</span>' : '<span class="text-xs font-medium text-emerald-800 bg-emerald-100 rounded px-2 py-0.5">New</span>') : '<span class="text-xs font-medium text-red-800 bg-red-100 rounded px-2 py-0.5">Error</span>'}</td>
+    ${cols.map(f => {
+      const err = r._err[f.key], num = ['price','qty','reorder'].includes(f.key);
+      return `<td class="px-1.5 py-1 align-top ${f.key === 'name' ? 'min-w-[14rem]' : ''}">
+        <input class="cell tnum ${err ? 'bad' : ''} ${num ? 'text-right' : ''}" data-line="${r._line}" data-k="${f.key}" value="${esc(r[f.key])}" aria-label="${f.label}, line ${r._line}" ${err ? `aria-invalid="true" aria-describedby="e-${r._line}-${f.key}"` : ''}>
+        ${err ? `<div id="e-${r._line}-${f.key}" class="text-xs text-red-700 px-1.5 pt-0.5">${esc(err)}</div>` : ''}</td>`; }).join('')}
+  </tr>`;
+}
+function errSummary() {
+  const c = {};
+  S.data.forEach(r => Object.entries(r._err).forEach(([k, m]) => { const key = FIELDS.find(f => f.key === k).label + ': ' + m.replace(/ \(line.*\)/, ''); c[key] = (c[key] || 0) + 1; }));
+  return Object.entries(c).map(([m, n]) => `<li><span class="tnum font-medium">${n}</span> &times; ${esc(m)}</li>`).join('');
+}
+function bindReview() {
+  $panel.querySelectorAll('[data-filter]').forEach(b => b.onclick = () => { S.filter = b.dataset.filter; renderReview(); });
+  document.getElementById('skip').onchange = e => { S.skipInvalid = e.target.checked; renderReview(); };
+  document.getElementById('back').onclick = () => { S.step = 2; render(); };
+  document.getElementById('go').onclick = startImport;
+  $panel.querySelectorAll('input.cell').forEach(inp => {
+    inp.onchange = () => {
+      const r = S.data.find(x => x._line === +inp.dataset.line);
+      r[inp.dataset.k] = inp.value.trim();
+      validateAll();
+      // keep position: re-render and refocus the next cell
+      const sy = $panel.querySelector('.overflow-auto').scrollTop;
+      renderReview();
+      $panel.querySelector('.overflow-auto').scrollTop = sy;
+    };
+  });
+}
+
+/* ---------- Import ---------- */
+function startImport() {
+  const list = S.data.filter(rowOk);
+  S.step = 4; S.progress = 0; S.result = null; render();
+  let done = 0;
+  const t = setInterval(() => {
+    done = Math.min(list.length, done + Math.max(1, Math.ceil(list.length / 8)));
+    S.progress = done / list.length;
+    updateProgress(done, list.length);
+    if (done >= list.length) {
+      clearInterval(t);
+      S.result = { created: list.filter(r => !r._exists).length, updated: list.filter(r => r._exists).length, skipped: S.data.length - list.length };
+      setTimeout(renderImport, 250);
+    }
+  }, 220);
+}
+function updateProgress(d, n) {
+  const bar = document.getElementById('bar'), txt = document.getElementById('ptxt');
+  if (bar) { bar.style.width = (d / n * 100) + '%'; bar.parentElement.setAttribute('aria-valuenow', Math.round(d / n * 100)); }
+  if (txt) txt.textContent = `${d} of ${n} products`;
+}
+function renderImport() {
+  if (!S.result) {
+    $panel.innerHTML = `<div class="p-8 sm:p-12 max-w-xl mx-auto text-center">
+      <h2 class="text-lg font-semibold">Importing products...</h2>
+      <p class="text-sm text-slate-600 mt-1">Keep this tab open until the import finishes.</p>
+      <div class="mt-6 h-3 rounded-full bg-slate-200 overflow-hidden" role="progressbar" aria-label="Import progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><div id="bar" class="h-full bg-indigo-700 transition-all duration-200" style="width:0%"></div></div>
+      <p id="ptxt" class="mt-2 text-sm text-slate-600 tnum">Starting...</p></div>`;
+    return;
+  }
+  const r = S.result;
+  $panel.innerHTML = `<div class="p-8 sm:p-12 max-w-xl mx-auto">
+    <div class="w-12 h-12 rounded-full bg-emerald-100 text-emerald-700 grid place-items-center text-2xl" aria-hidden="true">&#10003;</div>
+    <h2 class="text-xl font-semibold mt-4">Import complete</h2>
+    <p class="text-sm text-slate-600 mt-1">${esc(S.fileName)} was processed at ${new Date().toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}.</p>
+    <dl class="mt-5 grid grid-cols-3 gap-3 text-sm">
+      <div class="rounded border border-slate-200 p-3"><dt class="text-slate-500">Created</dt><dd class="text-2xl font-semibold tnum">${r.created}</dd></div>
+      <div class="rounded border border-slate-200 p-3"><dt class="text-slate-500">Updated</dt><dd class="text-2xl font-semibold tnum">${r.updated}</dd></div>
+      <div class="rounded border border-slate-200 p-3"><dt class="text-slate-500">Skipped</dt><dd class="text-2xl font-semibold tnum">${r.skipped}</dd></div>
+    </dl>
+    ${r.skipped ? '<button id="dl" class="mt-4 text-sm text-indigo-700 underline font-medium">Download skipped rows with reasons (CSV)</button>' : ''}
+    <div class="mt-8 flex gap-3">
+      <button id="again" class="px-4 py-2 rounded border border-slate-300 bg-white hover:bg-slate-50 font-medium">Import another file</button>
+      <button class="px-4 py-2 rounded bg-indigo-700 text-white font-medium hover:bg-indigo-800">View products</button>
+    </div></div>`;
+  document.getElementById('again').onclick = () => { Object.assign(S, { step: 1, data: [], rows: [], headers: [], result: null, error: '' }); render(); };
+  const dl = document.getElementById('dl');
+  if (dl) dl.onclick = () => {
+    const q = v => '"' + String(v).replace(/"/g, '""') + '"';
+    const lines = ['Line,SKU,Name,Reason'].concat(S.data.filter(x => !rowOk(x)).map(x => [x._line, q(x.sku), q(x.name), q(Object.entries(x._err).map(([k, m]) => k + ': ' + m).join('; '))].join(',')));
+    const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([lines.join('\n')], {type: 'text/csv'})); a.download = 'skipped-rows.csv'; a.click();
+  };
+}
+
+render();
+</script>
+</body>
+</html>

@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Hợp đồng HD-2026-0142 | Hệ thống mua hàng</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script>tailwind.config={theme:{extend:{fontFamily:{sans:['Inter','Segoe UI','system-ui','sans-serif']}}}}</script>
+</head>
+<body class="bg-slate-50 text-slate-800 font-sans text-sm">
+<div class="flex min-h-screen">
+  <aside class="hidden lg:flex w-56 flex-col bg-slate-900 text-slate-300 shrink-0">
+    <div class="h-14 flex items-center px-5 font-semibold text-white border-b border-slate-800">ProcureHub</div>
+    <nav class="p-3 space-y-1">
+      <a class="block px-3 py-2 rounded hover:bg-slate-800" href="#">Tổng quan</a>
+      <a class="block px-3 py-2 rounded hover:bg-slate-800" href="#">Yêu cầu mua hàng</a>
+      <a class="block px-3 py-2 rounded hover:bg-slate-800" href="#">Đơn đặt hàng</a>
+      <a class="block px-3 py-2 rounded bg-slate-800 text-white" href="#">Hợp đồng</a>
+      <a class="block px-3 py-2 rounded hover:bg-slate-800" href="#">Nhà cung cấp</a>
+      <a class="block px-3 py-2 rounded hover:bg-slate-800" href="#">Thanh toán</a>
+    </nav>
+  </aside>
+
+  <main class="flex-1 min-w-0">
+    <header class="bg-white border-b border-slate-200 px-6 py-4">
+      <nav class="text-xs text-slate-500 mb-2">Hợp đồng / <span class="text-slate-700">HD-2026-0142</span></nav>
+      <div class="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <div class="flex items-center gap-3">
+            <h1 class="text-xl font-semibold">Hợp đồng cung cấp thép cuộn cán nguội</h1>
+            <span class="px-2 py-0.5 rounded-full text-xs font-medium bg-emerald-100 text-emerald-700">Đang hiệu lực</span>
+          </div>
+          <p class="text-slate-500 mt-1">HD-2026-0142 · Công ty CP Thép Hòa Bình · Ký ngày 15/01/2026</p>
+        </div>
+        <div class="flex gap-2">
+          <button onclick="window.print()" class="px-3 py-2 border border-slate-300 rounded bg-white hover:bg-slate-50">In / Xuất PDF</button>
+          <button onclick="openModal('renewModal')" class="px-3 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">Gia hạn hợp đồng</button>
+        </div>
+      </div>
+      <div id="alert" class="mt-4 flex items-start gap-3 rounded border border-amber-300 bg-amber-50 px-4 py-3 text-amber-900">
+        <span class="font-semibold">Sắp hết hạn:</span>
+        <span id="alertText"></span>
+      </div>
+    </header>
+
+    <section class="px-6 py-5 grid grid-cols-2 md:grid-cols-4 gap-4">
+      <div class="bg-white border border-slate-200 rounded p-4"><div class="text-xs text-slate-500">Giá trị hợp đồng</div><div class="text-lg font-semibold mt-1" id="kTotal"></div></div>
+      <div class="bg-white border border-slate-200 rounded p-4"><div class="text-xs text-slate-500">Đã thanh toán</div><div class="text-lg font-semibold mt-1" id="kPaid"></div><div class="h-1.5 bg-slate-100 rounded mt-2"><div id="kBar" class="h-1.5 bg-blue-600 rounded"></div></div></div>
+      <div class="bg-white border border-slate-200 rounded p-4"><div class="text-xs text-slate-500">Hiệu lực</div><div class="text-lg font-semibold mt-1">15/01/2026 – 14/01/2027</div></div>
+      <div class="bg-white border border-slate-200 rounded p-4"><div class="text-xs text-slate-500">Còn lại</div><div class="text-lg font-semibold mt-1" id="kDays"></div></div>
+    </section>
+
+    <div class="px-6">
+      <div class="border-b border-slate-200 flex gap-1 overflow-x-auto" id="tabs"></div>
+    </div>
+
+    <div class="px-6 py-5 space-y-5">
+      <!-- Terms -->
+      <section data-panel="terms">
+        <div class="grid lg:grid-cols-3 gap-5">
+          <div class="lg:col-span-2 bg-white border border-slate-200 rounded">
+            <div class="px-4 py-3 border-b border-slate-200 flex items-center justify-between gap-3">
+              <h2 class="font-semibold">Điều khoản hợp đồng</h2>
+              <input id="termSearch" placeholder="Tìm điều khoản..." class="border border-slate-300 rounded px-3 py-1.5 w-56 text-sm">
+            </div>
+            <div id="termList" class="divide-y divide-slate-100"></div>
+          </div>
+          <div class="bg-white border border-slate-200 rounded h-fit">
+            <div class="px-4 py-3 border-b border-slate-200 font-semibold">Thông tin chung</div>
+            <dl id="info" class="p-4 space-y-3"></dl>
+          </div>
+        </div>
+      </section>
+
+      <!-- Contacts -->
+      <section data-panel="contacts" class="hidden">
+        <div class="bg-white border border-slate-200 rounded">
+          <div class="px-4 py-3 border-b border-slate-200 font-semibold">Người liên hệ của nhà cung cấp</div>
+          <div id="contactList" class="grid md:grid-cols-2 xl:grid-cols-3 gap-4 p-4"></div>
+        </div>
+      </section>
+
+      <!-- Payments -->
+      <section data-panel="payments" class="hidden">
+        <div class="bg-white border border-slate-200 rounded">
+          <div class="px-4 py-3 border-b border-slate-200 flex flex-wrap items-center justify-between gap-2">
+            <h2 class="font-semibold">Các mốc thanh toán</h2>
+            <select id="payFilter" class="border border-slate-300 rounded px-2 py-1.5 text-sm">
+              <option value="">Tất cả trạng thái</option><option>Đã thanh toán</option><option>Chờ thanh toán</option><option>Quá hạn</option><option>Chưa đến hạn</option>
+            </select>
+          </div>
+          <div class="overflow-x-auto">
+            <table class="w-full text-left">
+              <thead class="bg-slate-50 text-xs text-slate-500 uppercase"><tr>
+                <th class="px-4 py-2.5">Mốc</th><th class="px-4 py-2.5">Điều kiện</th><th class="px-4 py-2.5">Hạn</th><th class="px-4 py-2.5 text-right">Tỷ lệ</th><th class="px-4 py-2.5 text-right">Số tiền (VND)</th><th class="px-4 py-2.5">Trạng thái</th>
+              </tr></thead>
+              <tbody id="payBody" class="divide-y divide-slate-100"></tbody>
+              <tfoot id="payFoot" class="bg-slate-50 font-semibold"></tfoot>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- Appendices -->
+      <section data-panel="appendix" class="hidden">
+        <div class="bg-white border border-slate-200 rounded">
+          <div class="px-4 py-3 border-b border-slate-200 font-semibold">Phụ lục hợp đồng</div>
+          <ul id="appList" class="divide-y divide-slate-100"></ul>
+        </div>
+      </section>
+
+      <!-- Renewal -->
+      <section data-panel="renewal" class="hidden">
+        <div class="grid lg:grid-cols-3 gap-5">
+          <div class="lg:col-span-2 bg-white border border-slate-200 rounded">
+            <div class="px-4 py-3 border-b border-slate-200 font-semibold">Lịch sử gia hạn &amp; điều chỉnh</div>
+            <ol id="renewList" class="p-5 space-y-5"></ol>
+          </div>
+          <div class="bg-white border border-slate-200 rounded h-fit">
+            <div class="px-4 py-3 border-b border-slate-200 font-semibold">Chính sách gia hạn</div>
+            <div class="p-4 space-y-3 text-slate-600">
+              <p>Tự động gia hạn 12 tháng nếu không bên nào thông báo chấm dứt trước <b>60 ngày</b>.</p>
+              <p>Giá gia hạn điều chỉnh theo chỉ số giá thép HRC, tối đa <b>+5%</b>/năm.</p>
+              <p>Hạn chót thông báo: <b id="noticeDate"></b></p>
+              <button onclick="openModal('renewModal')" class="w-full px-3 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">Tạo yêu cầu gia hạn</button>
+            </div>
+          </div>
+        </div>
+      </section>
+    </div>
+  </main>
+</div>
+
+<!-- Modal: renew -->
+<div id="renewModal" class="hidden fixed inset-0 z-50 bg-slate-900/50 items-center justify-center p-4">
+  <div class="bg-white rounded-lg w-full max-w-md shadow-xl">
+    <div class="px-5 py-4 border-b border-slate-200 font-semibold">Yêu cầu gia hạn hợp đồng</div>
+    <form id="renewForm" class="p-5 space-y-4">
+      <label class="block"><span class="text-xs text-slate-500">Thời gian gia hạn</span>
+        <select name="term" class="mt-1 w-full border border-slate-300 rounded px-3 py-2"><option>6 tháng</option><option selected>12 tháng</option><option>24 tháng</option></select></label>
+      <label class="block"><span class="text-xs text-slate-500">Điều chỉnh giá đề xuất (%)</span>
+        <input name="adj" type="number" min="-20" max="5" step="0.5" value="0" class="mt-1 w-full border border-slate-300 rounded px-3 py-2"></label>
+      <label class="block"><span class="text-xs text-slate-500">Ghi chú</span>
+        <textarea name="note" rows="3" class="mt-1 w-full border border-slate-300 rounded px-3 py-2"></textarea></label>
+      <div class="flex justify-end gap-2">
+        <button type="button" onclick="closeModal('renewModal')" class="px-3 py-2 border border-slate-300 rounded">Hủy</button>
+        <button class="px-3 py-2 bg-blue-600 text-white rounded">Gửi phê duyệt</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<div id="toast" class="hidden fixed bottom-5 right-5 bg-slate-900 text-white px-4 py-3 rounded shadow-lg"></div>
+
+<script>
+const C = {
+  total: 8640000000, start:'2026-01-15', end:'2027-01-14', today:'2026-11-05',
+  info:[['Nhà cung cấp','Công ty CP Thép Hòa Bình'],['Mã số thuế','0301234567'],['Loại hợp đồng','Hợp đồng nguyên tắc có số lượng'],['Bộ phận mua','Phòng Thu mua – Nguyên vật liệu'],['Người phụ trách','Nguyễn Thị Lan'],['Đồng tiền','VND (đã gồm VAT 8%)'],['Luật áp dụng','Pháp luật Việt Nam']],
+  terms:[
+    ['1','Phạm vi và hàng hóa','Nhà cung cấp cung cấp thép cuộn cán nguội theo đặc tả kỹ thuật tại Phụ lục 01, sản lượng dự kiến 480 tấn/tháng.'],
+    ['2','Giá và điều chỉnh giá','Đơn giá cố định theo Phụ lục 02. Được điều chỉnh theo quý khi chỉ số HRC biến động quá ±3%.'],
+    ['3','Giao hàng','Giao tại kho Bình Dương trong 7 ngày kể từ ngày xác nhận đơn hàng. Chậm giao bị phạt 0,5%/ngày, tối đa 8% giá trị đơn.'],
+    ['4','Kiểm tra và nghiệm thu','Kiểm tra chất lượng trong 5 ngày làm việc. Lô không đạt được đổi trả miễn phí trong 10 ngày.'],
+    ['5','Điều kiện thanh toán','Thanh toán theo các mốc tại mục Thanh toán, trong 30 ngày kể từ ngày nhận hóa đơn hợp lệ.'],
+    ['6','Bảo hành','Bảo hành chất lượng 12 tháng kể từ ngày giao. Chi phí xử lý lỗi do nhà cung cấp chịu.'],
+    ['7','Bảo mật','Hai bên giữ bí mật thông tin trong thời hạn hợp đồng và 3 năm sau khi chấm dứt.'],
+    ['8','Chấm dứt hợp đồng','Mỗi bên được chấm dứt khi bên kia vi phạm nghiêm trọng và không khắc phục trong 15 ngày sau thông báo.'],
+    ['9','Giải quyết tranh chấp','Ưu tiên thương lượng; nếu không đạt, đưa ra Tòa án nhân dân có thẩm quyền tại TP. Hồ Chí Minh.']
+  ],
+  contacts:[
+    ['Trần Quốc Bảo','Giám đốc kinh doanh','Đầu mối chính','bao.tran@thephoabinh.vn','0903 112 456'],
+    ['Lê Minh Châu','Quản lý đơn hàng','Đơn hàng &amp; giao nhận','chau.le@thephoabinh.vn','0912 884 330'],
+    ['Phạm Thu Hà','Kế toán trưởng','Hóa đơn &amp; thanh toán','ha.pham@thephoabinh.vn','0938 227 109'],
+    ['Võ Đình Khoa','Trưởng phòng QC','Chất lượng &amp; bảo hành','khoa.vo@thephoabinh.vn','0977 501 842'],
+    ['Đặng Hồng Phúc','Pháp chế','Pháp lý &amp; gia hạn','phuc.dang@thephoabinh.vn','0286 270 1188']
+  ],
+  pays:[
+    ['M1','Tạm ứng khi ký hợp đồng','2026-01-30',20,'Đã thanh toán'],
+    ['M2','Giao đợt 1 (Q1)','2026-04-20',20,'Đã thanh toán'],
+    ['M3','Giao đợt 2 (Q2)','2026-07-20',20,'Đã thanh toán'],
+    ['M4','Giao đợt 3 (Q3)','2026-10-20',20,'Quá hạn'],
+    ['M5','Giao đợt 4 (Q4)','2027-01-20',15,'Chưa đến hạn'],
+    ['M6','Giữ lại bảo hành (12 tháng)','2027-12-20',5,'Chưa đến hạn']
+  ],
+  apps:[
+    ['PL-01','Đặc tả kỹ thuật hàng hóa','15/01/2026','Bản gốc','1,2 MB','PDF'],
+    ['PL-02','Bảng giá chi tiết theo mã hàng','15/01/2026','Bản gốc','340 KB','XLSX'],
+    ['PL-03','Điều chỉnh đơn giá quý 3/2026','01/07/2026','Sửa đổi','210 KB','PDF'],
+    ['PL-04','Bổ sung điểm giao hàng – Kho Long An','18/08/2026','Sửa đổi','180 KB','PDF']
+  ],
+  renewals:[
+    ['Hợp đồng ban đầu','15/01/2026','Ký hợp đồng 12 tháng, giá trị 8,64 tỷ VND.','Hoàn tất'],
+    ['Phụ lục PL-03','01/07/2026','Điều chỉnh đơn giá thép tấm +2,8% theo chỉ số HRC quý 3.','Hoàn tất'],
+    ['Phụ lục PL-04','18/08/2026','Bổ sung điểm giao hàng tại kho Long An.','Hoàn tất'],
+    ['Gia hạn lần 1 (đề xuất)','15/01/2027','Chưa gửi. Cần phê duyệt trước 15/11/2026.','Chờ xử lý']
+  ]
+};
+const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
+const money=n=>n.toLocaleString('vi-VN');
+const fmt=d=>d.split('-').reverse().join('/');
+const today=new Date(C.today), endD=new Date(C.end);
+const daysLeft=Math.ceil((endD-today)/864e5);
+const badge={'Đã thanh toán':'bg-emerald-100 text-emerald-700','Chờ thanh toán':'bg-blue-100 text-blue-700','Quá hạn':'bg-red-100 text-red-700','Chưa đến hạn':'bg-slate-100 text-slate-600','Hoàn tất':'bg-emerald-100 text-emerald-700','Chờ xử lý':'bg-amber-100 text-amber-800'};
+
+// KPIs
+const paid=C.pays.filter(p=>p[4]==='Đã thanh toán').reduce((a,p)=>a+C.total*p[3]/100,0);
+$('#kTotal').textContent=money(C.total)+' ₫';
+$('#kPaid').textContent=money(paid)+' ₫';
+$('#kBar').style.width=(paid/C.total*100)+'%';
+$('#kDays').textContent=daysLeft+' ngày';
+const notice=new Date(endD); notice.setDate(notice.getDate()-60);
+$('#noticeDate').textContent=notice.toLocaleDateString('vi-VN');
+$('#alertText').textContent=`Hợp đồng hết hạn sau ${daysLeft} ngày (14/01/2027). Mốc thanh toán M4 đã quá hạn, cần xử lý và quyết định gia hạn.`;
+
+// Tabs
+const tabs=[['terms','Điều khoản'],['contacts','Người liên hệ'],['payments','Thanh toán'],['appendix','Phụ lục'],['renewal','Gia hạn']];
+$('#tabs').innerHTML=tabs.map(([k,l])=>`<button data-tab="${k}" class="tab px-4 py-2.5 text-sm font-medium border-b-2 whitespace-nowrap">${l}</button>`).join('');
+function showTab(k){
+  $$('[data-panel]').forEach(p=>p.classList.toggle('hidden',p.dataset.panel!==k));
+  $$('.tab').forEach(b=>{const a=b.dataset.tab===k;b.className='tab px-4 py-2.5 text-sm font-medium border-b-2 whitespace-nowrap '+(a?'border-blue-600 text-blue-700':'border-transparent text-slate-500 hover:text-slate-800');});
+  location.hash=k;
+}
+$$('.tab').forEach(b=>b.onclick=()=>showTab(b.dataset.tab));
+
+// Info
+$('#info').innerHTML=C.info.map(([k,v])=>`<div><dt class="text-xs text-slate-500">${k}</dt><dd class="font-medium">${v}</dd></div>`).join('');
+
+// Terms
+function renderTerms(){
+  const q=$('#termSearch').value.toLowerCase();
+  const rows=C.terms.filter(t=>(t[1]+t[2]).toLowerCase().includes(q));
+  $('#termList').innerHTML=rows.length?rows.map(t=>`<details class="group" ${q?'open':''}><summary class="cursor-pointer list-none px-4 py-3 flex items-center gap-3 hover:bg-slate-50"><span class="w-7 h-7 rounded bg-slate-100 text-slate-600 text-xs font-semibold flex items-center justify-center">${t[0]}</span><span class="font-medium flex-1">Điều ${t[0]}. ${t[1]}</span><span class="text-slate-400 group-open:rotate-90 transition">›</span></summary><p class="px-4 pb-4 pl-14 text-slate-600 leading-relaxed">${t[2]}</p></details>`).join(''):'<p class="p-6 text-center text-slate-500">Không tìm thấy điều khoản phù hợp.</p>';
+}
+$('#termSearch').oninput=renderTerms; renderTerms();
+
+// Contacts
+$('#contactList').innerHTML=C.contacts.map(c=>{
+  const ini=c[0].split(' ').slice(-2).map(w=>w[0]).join('');
+  return `<div class="border border-slate-200 rounded p-4"><div class="flex items-center gap-3"><div class="w-10 h-10 rounded-full bg-blue-100 text-blue-700 font-semibold flex items-center justify-center">${ini}</div><div><div class="font-medium">${c[0]}</div><div class="text-xs text-slate-500">${c[1]}</div></div></div><div class="mt-3 text-xs inline-block px-2 py-0.5 bg-slate-100 rounded text-slate-600">${c[2]}</div><div class="mt-3 space-y-1"><a class="block text-blue-600 hover:underline" href="mailto:${c[3]}">${c[3]}</a><a class="block text-slate-700 hover:underline" href="tel:${c[4].replace(/\s/g,'')}">${c[4]}</a></div></div>`;
+}).join('');
+
+// Payments
+function renderPay(){
+  const f=$('#payFilter').value;
+  const rows=C.pays.filter(p=>!f||p[4]===f);
+  $('#payBody').innerHTML=rows.length?rows.map(p=>`<tr class="hover:bg-slate-50"><td class="px-4 py-3 font-medium">${p[0]}</td><td class="px-4 py-3">${p[1]}</td><td class="px-4 py-3">${fmt(p[2])}</td><td class="px-4 py-3 text-right">${p[3]}%</td><td class="px-4 py-3 text-right tabular-nums">${money(C.total*p[3]/100)}</td><td class="px-4 py-3"><span class="px-2 py-0.5 rounded-full text-xs font-medium ${badge[p[4]]}">${p[4]}</span></td></tr>`).join(''):'<tr><td colspan="6" class="p-6 text-center text-slate-500">Không có mốc nào.</td></tr>';
+  const pct=rows.reduce((a,p)=>a+p[3],0);
+  $('#payFoot').innerHTML=`<tr><td class="px-4 py-3" colspan="3">Tổng (${rows.length} mốc)</td><td class="px-4 py-3 text-right">${pct}%</td><td class="px-4 py-3 text-right tabular-nums">${money(C.total*pct/100)}</td><td></td></tr>`;
+}
+$('#payFilter').onchange=renderPay; renderPay();
+
+// Appendices
+$('#appList').innerHTML=C.apps.map(a=>`<li class="px-4 py-3 flex flex-wrap items-center gap-4 hover:bg-slate-50"><span class="w-10 h-10 rounded bg-slate-100 text-xs font-semibold text-slate-600 flex items-center justify-center">${a[5]}</span><div class="flex-1 min-w-48"><div class="font-medium">${a[0]} · ${a[1]}</div><div class="text-xs text-slate-500">${a[2]} · ${a[4]}</div></div><span class="px-2 py-0.5 rounded-full text-xs ${a[3]==='Sửa đổi'?'bg-amber-100 text-amber-800':'bg-slate-100 text-slate-600'}">${a[3]}</span><button onclick="toast('Đang tải ${a[0]}...')" class="px-3 py-1.5 border border-slate-300 rounded hover:bg-white">Tải xuống</button></li>`).join('');
+
+// Renewals
+$('#renewList').innerHTML=C.renewals.map((r,i)=>`<li class="flex gap-4"><div class="flex flex-col items-center"><span class="w-3 h-3 rounded-full mt-1.5 ${r[3]==='Hoàn tất'?'bg-emerald-500':'bg-amber-500'}"></span>${i<C.renewals.length-1?'<span class="flex-1 w-px bg-slate-200 mt-1"></span>':''}</div><div class="pb-1"><div class="flex flex-wrap items-center gap-2"><span class="font-medium">${r[0]}</span><span class="text-xs text-slate-500">${r[1]}</span><span class="px-2 py-0.5 rounded-full text-xs ${badge[r[3]]}">${r[3]}</span></div><p class="text-slate-600 mt-1">${r[2]}</p></div></li>`).join('');
+
+// Modal / toast
+function openModal(id){const m=$('#'+id);m.classList.remove('hidden');m.classList.add('flex');}
+function closeModal(id){const m=$('#'+id);m.classList.add('hidden');m.classList.remove('flex');}
+function toast(t){const e=$('#toast');e.textContent=t;e.classList.remove('hidden');clearTimeout(window._t);window._t=setTimeout(()=>e.classList.add('hidden'),2500);}
+$('#renewModal').onclick=e=>{if(e.target.id==='renewModal')closeModal('renewModal');};
+document.addEventListener('keydown',e=>{if(e.key==='Escape')closeModal('renewModal');});
+$('#renewForm').onsubmit=e=>{e.preventDefault();closeModal('renewModal');toast('Đã gửi yêu cầu gia hạn để phê duyệt.');};
+
+showTab(tabs.some(t=>t[0]===location.hash.slice(1))?location.hash.slice(1):'terms');
+</script>
+</body>
+</html>

@@ -1,0 +1,800 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Công ty TNHH Thép Việt Phát · Suppliers · Purchasing</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+  :focus-visible { outline: 2px solid #1d4ed8; outline-offset: 2px; }
+  dialog::backdrop { background: rgba(15, 23, 42, .4); }
+  html { scroll-padding-bottom: 72px; }
+  @media (prefers-reduced-motion: reduce) { .animate-pulse, .animate-spin { animation: none !important; } }
+</style>
+</head>
+<body class="bg-white text-sm text-slate-900 antialiased">
+<a href="#main" class="sr-only focus:not-sr-only focus:absolute focus:left-2 focus:top-2 focus:z-50 focus:rounded focus:bg-white focus:px-3 focus:py-1.5">Skip to content</a>
+
+<div class="flex min-h-screen">
+  <aside id="sidebar" class="sticky top-0 h-screen shrink-0 border-r border-slate-200 bg-slate-50" aria-label="Sidebar">
+    <div class="flex h-12 items-center border-b border-slate-200 px-4"><span id="brand" class="font-semibold">Sao Mai Procure</span></div>
+    <nav id="nav" aria-label="Main" class="flex flex-col gap-4 p-2"></nav>
+  </aside>
+
+  <div class="flex min-w-0 flex-1 flex-col">
+    <header class="flex h-12 items-center justify-between border-b border-slate-200 bg-white px-4">
+      <button id="collapse" data-act="toggle-sidebar" class="inline-flex h-8 w-8 items-center justify-center rounded text-slate-700 hover:bg-slate-100" aria-label="Collapse sidebar" aria-expanded="true"></button>
+      <div class="flex items-center gap-1">
+        <button class="relative inline-flex h-8 w-8 items-center justify-center rounded text-slate-700 hover:bg-slate-100" aria-label="Notifications, 3 unread" data-act="notif" id="bell"></button>
+        <button id="acct" data-act="acct" aria-haspopup="menu" aria-expanded="false" aria-label="Account menu" class="ml-1 inline-flex h-8 w-8 items-center justify-center rounded-full bg-slate-200 text-xs font-semibold text-slate-800 hover:bg-slate-300">PB</button>
+      </div>
+    </header>
+
+    <main id="main" class="min-w-0 flex-1 p-6">
+      <!-- Record view -->
+      <div id="view-record" class="mx-auto max-w-[1440px]">
+        <div id="rec-head"></div>
+        <div id="tabs" role="tablist" aria-label="Supplier sections" class="mt-6 flex gap-1 overflow-x-auto border-b border-slate-200"></div>
+        <div id="panel" role="tabpanel" tabindex="0" class="pt-6"></div>
+      </div>
+      <!-- Edit view -->
+      <div id="view-edit" class="mx-auto hidden max-w-[1440px]"></div>
+    </main>
+  </div>
+</div>
+
+<div id="menu" role="menu" class="fixed z-40 hidden w-56 rounded-md border border-slate-200 bg-white py-1 shadow-lg"></div>
+<div id="toasts" role="status" aria-live="polite" class="fixed right-4 top-14 z-50 flex w-80 flex-col gap-2"></div>
+<dialog id="dlg" class="rounded-lg border border-slate-200 p-0 shadow-xl" aria-labelledby="dlg-title"></dialog>
+
+<script>
+/* ---------- helpers ---------- */
+const $ = (s, r = document) => r.querySelector(s);
+const $$ = (s, r = document) => [...r.querySelectorAll(s)];
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const nf = new Intl.NumberFormat('vi-VN');
+const nf1 = new Intl.NumberFormat('vi-VN', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
+const vnd = new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' });
+const pct = v => nf1.format(v) + '%';
+const signed = (v, f = nf1) => (v > 0 ? '+' : '') + f.format(v);
+const fmtD = s => s ? s.slice(8, 10) + '/' + s.slice(5, 7) + '/' + s.slice(0, 4) : '—';
+const fmtDT = s => fmtD(s) + ' ' + s.slice(11, 16);
+const dayNum = s => Date.UTC(+s.slice(0, 4), +s.slice(5, 7) - 1, +s.slice(8, 10)) / 864e5;
+const TODAY = '2026-11-04';
+const BASE = new Date(2026, 10, 4, 8, 30).getTime(), LOADED = Date.now();
+const nowISO = () => { const d = new Date(BASE + Date.now() - LOADED), p = n => String(n).padStart(2, '0'); return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}`; };
+const fmtSize = b => b < 1048576 ? nf.format(Math.max(1, Math.round(b / 1024))) + ' KB' : nf1.format(b / 1048576) + ' MB';
+const initials = n => { const w = n.trim().split(/\s+/); return (w[0][0] + (w.length > 1 ? w[w.length - 1][0] : '')).toUpperCase(); };
+const mean = a => a.reduce((x, y) => x + y, 0) / a.length;
+
+const ICON = {
+  search: '<circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/>',
+  x: '<path d="M18 6 6 18M6 6l12 12"/>',
+  plus: '<path d="M5 12h14M12 5v14"/>',
+  more: '<circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/>',
+  download: '<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m7 10 5 5 5-5"/><path d="M12 15V3"/>',
+  eye: '<path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/>',
+  panel: '<rect width="18" height="18" x="3" y="3" rx="2"/><path d="M9 3v18"/>',
+  bell: '<path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/>',
+  cart: '<circle cx="8" cy="21" r="1"/><circle cx="19" cy="21" r="1"/><path d="M2.05 2.05h2l2.66 12.42a2 2 0 0 0 2 1.58h9.78a2 2 0 0 0 1.95-1.57l1.65-7.43H5.12"/>',
+  building: '<rect width="16" height="20" x="4" y="2" rx="2"/><path d="M9 22v-4h6v4"/><path d="M8 6h.01M16 6h.01M12 6h.01M12 10h.01M12 14h.01M16 10h.01M16 14h.01M8 10h.01M8 14h.01"/>',
+  file: '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/>',
+  pkg: '<path d="m7.5 4.27 9 5.15"/><path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/><path d="m3.3 7 8.7 5 8.7-5"/><path d="M12 22V12"/>',
+  money: '<rect width="20" height="12" x="2" y="6" rx="2"/><circle cx="12" cy="12" r="2"/>',
+  house: '<path d="M22 8.35V20a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V8.35A2 2 0 0 1 3.17 6.5l8-3.64a2 2 0 0 1 1.66 0l8 3.64A2 2 0 0 1 22 8.35Z"/><path d="M6 18h12M6 14h12"/>',
+  clip: '<rect width="8" height="4" x="8" y="2" rx="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/>',
+  truck: '<path d="M14 18V6a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v11a1 1 0 0 0 1 1h2"/><path d="M15 18H9"/><path d="M19 18h2a1 1 0 0 0 1-1v-3.65a1 1 0 0 0-.22-.624l-3.48-4.35A1 1 0 0 0 17.52 8H14"/><circle cx="17" cy="18" r="2"/><circle cx="7" cy="18" r="2"/>',
+  alert: '<path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"/><path d="M12 9v4M12 17h.01"/>',
+  loader: '<path d="M21 12a9 9 0 1 1-6.219-8.56"/>',
+  pencil: '<path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/>',
+  up: '<path d="m18 15-6-6-6 6"/>', down: '<path d="m6 9 6 6 6-6"/>'
+};
+const icon = (n, c = '') => `<svg class="h-4 w-4 shrink-0 ${c}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICON[n]}</svg>`;
+
+const BTN = 'inline-flex h-8 items-center justify-center gap-1.5 rounded px-3 text-sm font-medium whitespace-nowrap disabled:cursor-not-allowed disabled:opacity-60';
+const B_PRIMARY = BTN + ' bg-blue-700 text-white hover:bg-blue-800';
+const B_OUT = BTN + ' border border-slate-300 bg-white text-slate-900 hover:bg-slate-50';
+const B_GHOST = BTN + ' text-slate-700 hover:bg-slate-100';
+const B_DANGER = BTN + ' bg-red-700 text-white hover:bg-red-800';
+const B_ICON = 'inline-flex h-8 w-8 items-center justify-center rounded text-slate-700 hover:bg-slate-100';
+const LINK = 'font-medium text-blue-700 hover:underline';
+const INPUT = 'h-8 w-full rounded border border-slate-300 bg-white px-2 text-sm text-slate-900 placeholder:text-slate-500';
+
+const TONE = { neutral: 'bg-slate-100 text-slate-700', info: 'bg-blue-50 text-blue-800', success: 'bg-green-50 text-green-800', warning: 'bg-amber-50 text-amber-900', danger: 'bg-red-50 text-red-800' };
+const STATUS_TONE = { 'Active': 'success', 'Inactive': 'neutral', 'Draft': 'neutral', 'Pending approval': 'info', 'Approved': 'info', 'In transit': 'info', 'Overdue': 'danger', 'Partially received': 'warning', 'Received': 'success', 'Cancelled': 'neutral', 'Valid': 'success', 'Expiring soon': 'warning', 'Expired': 'danger', 'Primary': 'neutral' };
+const badge = s => `<span class="inline-flex h-6 items-center whitespace-nowrap rounded-full px-2 text-xs font-medium ${TONE[STATUS_TONE[s]]}">${esc(s)}</span>`;
+
+const TH = (t, r) => `<th scope="col" class="h-10 whitespace-nowrap px-3 text-xs font-medium text-slate-600 ${r ? 'text-right' : 'text-left'}">${t}</th>`;
+const TDc = (c, cls = '') => `<td class="h-10 whitespace-nowrap px-3 ${cls}">${c}</td>`;
+const NUM = 'text-right tabular-nums';
+const TR = 'h-10 hover:bg-slate-50';
+const wrapT = (heads, body, cap, min = 720) => `<div class="overflow-x-auto rounded-md border border-slate-200"><table class="w-full border-collapse text-sm" style="min-width:${min}px"><caption class="sr-only">${cap}</caption><thead class="border-b border-slate-200 bg-slate-50"><tr>${heads}</tr></thead><tbody class="divide-y divide-slate-200">${body}</tbody></table></div>`;
+const ACT_TH = '<th scope="col" class="h-10 px-3 text-right"><span class="sr-only">Actions</span></th>';
+const rowBtn = (act, id, label, txt) => `<button class="${B_GHOST} px-2" data-act="${act}" data-id="${id}" aria-label="${esc(label)}">${txt}</button>`;
+const moreBtn = (act, id, label) => `<button class="${B_ICON}" data-act="${act}" data-id="${id}" aria-label="${esc(label)}" aria-haspopup="menu" aria-expanded="false">${icon('more')}</button>`;
+const sk = (w = 'w-full') => `<div class="h-4 ${w} animate-pulse rounded bg-slate-200"></div>`;
+
+/* ---------- mock data ---------- */
+const USER = 'Phạm Quốc Bảo';
+const BUYERS = ['Phạm Quốc Bảo', 'Nguyễn Thị Lan', 'Võ Minh Khoa'];
+const S = {
+  supplier: {
+    id: 'SUP-0142', legalName: 'Công ty TNHH Thép Việt Phát', tradeName: 'Việt Phát Steel', taxCode: '0312458796',
+    category: 'Steel and metals', website: 'vietphatsteel.vn', status: 'Active', established: '2009', approved: '2021-03-14',
+    address: 'Lô C12, KCN Biên Hòa 2, Phường An Bình', city: 'Biên Hòa, Đồng Nai', country: 'Vietnam',
+    phone: '0251 3892 114', email: 'sales@vietphatsteel.vn',
+    paymentTerms: 'Net 45', creditLimit: 2000000000, incoterm: 'DAP', buyer: 'Phạm Quốc Bảo',
+    bank: 'Vietcombank, Đồng Nai branch · account ending 4821',
+    notes: 'Delivers to Gate 2 only, Mon–Sat 07:30–16:30. Send mill test certificates with every batch.'
+  },
+  lastChanged: { by: 'Lê Thu Hà', at: '2026-10-28T09:42' },
+  contacts: [
+    { id: 'k1', name: 'Nguyễn Văn Hải', role: 'Sales director', email: 'hai.nguyen@vietphatsteel.vn', phone: '0903 218 466', primary: true },
+    { id: 'k2', name: 'Trần Thị Mai', role: 'Account manager', email: 'mai.tran@vietphatsteel.vn', phone: '0251 3892 117', primary: false },
+    { id: 'k3', name: 'Lê Hoàng Phúc', role: 'Logistics coordinator', email: 'phuc.le@vietphatsteel.vn', phone: '0918 774 302', primary: false },
+    { id: 'k4', name: 'Đặng Thu Trang', role: 'Accounts receivable', email: 'trang.dang@vietphatsteel.vn', phone: '0251 3892 121', primary: false }
+  ],
+  pos: [
+    { id: 'p14', no: 'PO-2026-0433', date: '2026-11-04', expected: '2026-12-02', status: 'Draft', items: 3, amount: 84200000, approval: 'Not submitted' },
+    { id: 'p13', no: 'PO-2026-0431', date: '2026-11-03', expected: '2026-11-24', status: 'Pending approval', items: 6, amount: 412800000, approval: 'Waiting for Trần Minh Quân (Finance manager)' },
+    { id: 'p12', no: 'PO-2026-0426', date: '2026-10-30', expected: '2026-11-18', status: 'Approved', items: 4, amount: 186500000, approval: 'Approved by Trần Minh Quân' },
+    { id: 'p11', no: 'PO-2026-0419', date: '2026-10-27', expected: '2026-11-08', status: 'In transit', items: 8, amount: 538200000, approval: 'Approved by Trần Minh Quân' },
+    { id: 'p10', no: 'PO-2026-0412', date: '2026-10-21', expected: '2026-10-31', status: 'Overdue', items: 5, amount: 274900000, approval: 'Approved by Trần Minh Quân' },
+    { id: 'p9', no: 'PO-2026-0405', date: '2026-10-14', expected: '2026-11-06', status: 'Partially received', items: 7, amount: 361000000, approval: 'Approved by Trần Minh Quân' },
+    { id: 'p8', no: 'PO-2026-0397', date: '2026-10-07', expected: '2026-10-26', status: 'Received', items: 3, amount: 129400000, approval: 'Approved by Trần Minh Quân' },
+    { id: 'p7', no: 'PO-2026-0388', date: '2026-09-29', expected: '2026-10-20', status: 'Received', items: 9, amount: 702600000, approval: 'Approved by Trần Minh Quân' },
+    { id: 'p6', no: 'PO-2026-0376', date: '2026-09-18', expected: '2026-10-08', status: 'Received', items: 5, amount: 318750000, approval: 'Approved by Trần Minh Quân' },
+    { id: 'p5', no: 'PO-2026-0364', date: '2026-09-05', expected: '2026-09-25', status: 'Received', items: 4, amount: 247300000, approval: 'Approved by Trần Minh Quân' },
+    { id: 'p4', no: 'PO-2026-0351', date: '2026-08-26', expected: '2026-09-15', status: 'Received', items: 6, amount: 455900000, approval: 'Approved by Trần Minh Quân' },
+    { id: 'p3', no: 'PO-2026-0339', date: '2026-08-12', expected: '2026-09-02', status: 'Cancelled', items: 2, amount: 96000000, approval: '—' },
+    { id: 'p2', no: 'PO-2026-0322', date: '2026-07-30', expected: '2026-08-19', status: 'Received', items: 8, amount: 612400000, approval: 'Approved by Trần Minh Quân' },
+    { id: 'p1', no: 'PO-2026-0301', date: '2026-07-09', expected: '2026-07-30', status: 'Received', items: 5, amount: 389000000, approval: 'Approved by Trần Minh Quân' }
+  ],
+  certs: [
+    { id: 'c1', name: 'ISO 9001:2015 Quality management', no: 'VN-QMS-20418', issuer: 'Bureau Veritas Certification', issued: '2024-06-13', expires: '2027-06-12', size: 842000 },
+    { id: 'c2', name: 'ISO 14001:2015 Environmental management', no: 'VN-EMS-11873', issuer: 'Bureau Veritas Certification', issued: '2023-12-04', expires: '2026-12-03', size: 796000 },
+    { id: 'c3', name: 'ISO 45001:2018 Occupational health and safety', no: 'VN-OHS-30952', issuer: 'TÜV SÜD Vietnam', issued: '2025-02-18', expires: '2028-02-17', size: 911000 },
+    { id: 'c4', name: 'Mill test certificate JIS G3101, batch HR-2509', no: 'MTC-HR-2509', issuer: 'Việt Phát QA laboratory', issued: '2025-09-20', expires: '2026-09-19', size: 356000 },
+    { id: 'c5', name: 'Business registration certificate', no: '0312458796', issuer: 'Đồng Nai Department of Planning and Investment', issued: '2009-04-02', expires: null, size: 428000 }
+  ],
+  docs: [
+    { id: 'd1', name: 'Supply agreement 2026-2027.pdf', type: 'Contract', size: 1248000, by: 'Phạm Quốc Bảo', at: '2026-01-12' },
+    { id: 'd2', name: 'Mutual NDA.pdf', type: 'Contract', size: 214000, by: 'Lê Thu Hà', at: '2021-03-15' },
+    { id: 'd3', name: 'Price list Q4 2026.xlsx', type: 'Price list', size: 96500, by: 'Nguyễn Thị Lan', at: '2026-10-02' },
+    { id: 'd4', name: 'Bank confirmation letter - Vietcombank.pdf', type: 'Bank details', size: 182000, by: 'Lê Thu Hà', at: '2025-11-20' },
+    { id: 'd5', name: 'Supplier audit report 2025.pdf', type: 'Audit report', size: 3480000, by: 'Võ Minh Khoa', at: '2025-12-08' },
+    { id: 'd6', name: 'Quality agreement.docx', type: 'Contract', size: 78000, by: 'Võ Minh Khoa', at: '2024-04-22' }
+  ],
+  perf: {
+    months: ['Dec 25', 'Jan 26', 'Feb 26', 'Mar 26', 'Apr 26', 'May 26', 'Jun 26', 'Jul 26', 'Aug 26', 'Sep 26', 'Oct 26', 'Nov 26'],
+    labels: ['12/2025', '01/2026', '02/2026', '03/2026', '04/2026', '05/2026', '06/2026', '07/2026', '08/2026', '09/2026', '10/2026', '11/2026 (to date)'],
+    deliveries: [3, 2, 3, 2, 3, 4, 3, 3, 4, 3, 4, 1],
+    onTime: [93.1, 94.4, 91.8, 92.6, 95.2, 96.0, 94.1, 90.3, 89.5, 93.8, 95.6, 96.2],
+    quality: [98.4, 98.9, 99.1, 98.2, 98.8, 99.0, 98.6, 97.9, 98.1, 98.7, 98.9, 98.4],
+    lead: [12.4, 11.8, 12.9, 12.1, 11.5, 10.9, 11.2, 12.6, 13.1, 11.4, 10.8, 10.5],
+    spend: [610, 540, 720, 480, 690, 820, 640, 760, 900, 700, 580, 380].map(v => v * 1e6),
+    prevSpend: 7170000000
+  },
+  activity: [
+    { at: '2026-10-28T09:42', by: 'Lê Thu Hà', text: 'Updated supplier terms', changes: [{ field: 'Payment terms', old: 'Net 30', nu: 'Net 45' }, { field: 'Credit limit (VND)', old: '1.500.000.000', nu: '2.000.000.000' }] },
+    { at: '2026-10-21T14:05', by: 'Phạm Quốc Bảo', text: 'Created purchase order PO-2026-0412', changes: [] },
+    { at: '2026-10-02T10:18', by: 'Nguyễn Thị Lan', text: 'Uploaded document Price list Q4 2026.xlsx', changes: [] },
+    { at: '2026-09-20T00:05', by: 'System', text: 'Certificate MTC-HR-2509 passed its expiry date', changes: [{ field: 'Certificate status', old: 'Expiring soon', nu: 'Expired' }] },
+    { at: '2026-06-10T11:12', by: 'Lê Thu Hà', text: 'Changed the primary contact', changes: [{ field: 'Primary contact', old: 'Trần Thị Mai', nu: 'Nguyễn Văn Hải' }] },
+    { at: '2021-03-14T09:00', by: 'Trần Minh Quân', text: 'Approved the supplier (Finance manager)', changes: [{ field: 'Status', old: 'Pending approval', nu: 'Active' }] }
+  ],
+  tab: 'overview', tabState: {}, docsFailedOnce: false,
+  cq: '', po: { q: '', status: '', page: 1, size: 10, sort: { key: 'date', dir: 'desc' } },
+  months: 12, editing: false, dirty: false, sidebarCollapsed: false
+};
+
+const TABS = [['overview', 'Overview'], ['contacts', 'Contacts'], ['orders', 'Purchase orders'], ['documents', 'Documents and certificates'], ['performance', 'Performance'], ['activity', 'Activity']];
+const OPEN_PO = ['Pending approval', 'Approved', 'In transit', 'Overdue', 'Partially received'];
+const certStatus = c => { if (!c.expires) return 'Valid'; const d = dayNum(c.expires) - dayNum(TODAY); return d < 0 ? 'Expired' : d <= 60 ? 'Expiring soon' : 'Valid'; };
+const spend12 = () => S.perf.spend.reduce((a, b) => a + b, 0);
+
+/* ---------- toast, dialog, menu ---------- */
+function toast(msg) {
+  const t = document.createElement('div');
+  t.className = 'flex items-start gap-3 rounded-md border border-slate-200 bg-white px-3 py-2 shadow-md';
+  t.innerHTML = `<span class="flex-1 text-sm">${esc(msg)}</span><button class="${B_ICON} -mr-1 -mt-0.5 h-6 w-6" aria-label="Dismiss notification">${icon('x')}</button>`;
+  $('#toasts').appendChild(t);
+  let timer; const start = () => { timer = setTimeout(() => t.remove(), 5000); };
+  start();
+  t.addEventListener('mouseenter', () => clearTimeout(timer)); t.addEventListener('mouseleave', start);
+  t.addEventListener('focusin', () => clearTimeout(timer)); t.addEventListener('focusout', start);
+  t.querySelector('button').addEventListener('click', () => { clearTimeout(timer); t.remove(); });
+}
+
+const dlg = $('#dlg'); let dlgOk = null, lastFocus = null;
+function openDialog(html, width = 'w-[28rem]') {
+  lastFocus = document.activeElement;
+  dlg.innerHTML = `<div class="${width} max-w-[92vw]">${html}</div>`;
+  dlg.showModal();
+}
+dlg.addEventListener('close', () => {
+  dlgOk = null;
+  if (lastFocus && document.contains(lastFocus)) lastFocus.focus(); else { const h = $('h1:not(.hidden)'); if (h) h.focus(); }
+});
+function confirmDlg({ title, body, ok, cancel = 'Cancel', danger = false, run }) {
+  dlgOk = run;
+  openDialog(`<div class="px-5 pt-5"><h2 id="dlg-title" class="text-base font-semibold">${title}</h2><p class="mt-2 text-sm text-slate-700">${body}</p></div>
+  <div class="flex justify-end gap-2 px-5 py-4"><button autofocus class="${B_OUT}" data-act="dlg-cancel">${cancel}</button><button class="${danger ? B_DANGER : B_PRIMARY}" data-act="dlg-ok">${ok}</button></div>`);
+}
+
+let menuItems = [], menuBtn = null;
+function openMenu(btn, items, label) {
+  closeMenu();
+  menuItems = items; menuBtn = btn;
+  const m = $('#menu');
+  m.setAttribute('aria-label', label || btn.getAttribute('aria-label') || 'Actions');
+  m.innerHTML = items.map((it, i) => `${it.sep ? '<div class="my-1 border-t border-slate-200" role="separator"></div>' : ''}<button role="menuitem" data-mi="${i}" ${it.disabled ? 'aria-disabled="true"' : ''} class="flex min-h-8 w-full flex-col items-start justify-center px-3 py-1.5 text-left text-sm ${it.disabled ? 'cursor-not-allowed text-slate-500' : it.danger ? 'text-red-700 hover:bg-red-50' : 'text-slate-900 hover:bg-slate-50'}">${esc(it.label)}${it.reason ? `<span class="text-xs font-normal text-slate-600">${esc(it.reason)}</span>` : ''}</button>`).join('');
+  m.classList.remove('hidden');
+  const r = btn.getBoundingClientRect(), h = m.offsetHeight;
+  m.style.left = Math.max(8, Math.min(r.right - 224, innerWidth - 232)) + 'px';
+  m.style.top = (r.bottom + 4 + h > innerHeight ? Math.max(8, r.top - h - 4) : r.bottom + 4) + 'px';
+  btn.setAttribute('aria-expanded', 'true');
+  const first = $('[data-mi]:not([aria-disabled])', m) || $('[data-mi]', m); first && first.focus();
+}
+function closeMenu(restore) {
+  const m = $('#menu'); if (m.classList.contains('hidden')) return;
+  m.classList.add('hidden');
+  if (menuBtn) { menuBtn.setAttribute('aria-expanded', 'false'); if (restore && document.contains(menuBtn)) menuBtn.focus(); }
+  menuBtn = null;
+}
+
+/* ---------- shell ---------- */
+const NAV = [
+  { label: 'Purchasing', items: [['Purchase requests', 'clip'], ['Purchase orders', 'cart'], ['Suppliers', 'building', true], ['Goods receipts', 'truck']] },
+  { label: 'Inventory', items: [['Items', 'pkg'], ['Warehouses', 'house']] },
+  { label: 'Finance', items: [['Supplier bills', 'file'], ['Payments', 'money']] }
+];
+function renderNav() {
+  const c = S.sidebarCollapsed;
+  $('#sidebar').style.width = c ? '56px' : '240px';
+  $('#brand').classList.toggle('hidden', c);
+  $('#nav').innerHTML = NAV.map(g => `<div class="flex flex-col gap-0.5">${c ? '' : `<p class="px-2 py-1 text-xs font-medium text-slate-600">${g.label}</p>`}${g.items.map(([l, ic, act]) => `<a href="#" data-nav ${c ? `aria-label="${l}" title="${l}"` : ''} ${act ? 'aria-current="page"' : ''} class="flex h-8 items-center gap-2 rounded px-2 text-slate-800 hover:bg-slate-100 ${act ? 'bg-slate-200 font-medium text-slate-900' : ''} ${c ? 'justify-center' : ''}">${icon(ic)}${c ? '' : `<span class="truncate">${l}</span>`}</a>`).join('')}</div>`).join('');
+  $('#collapse').innerHTML = icon('panel');
+  $('#collapse').setAttribute('aria-expanded', String(!c));
+}
+$('#bell').innerHTML = icon('bell') + '<span class="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-blue-700 px-1 text-[10px] font-semibold text-white" aria-hidden="true">3</span>';
+
+/* ---------- record header ---------- */
+function renderHeader() {
+  const s = S.supplier, inactive = s.status === 'Inactive';
+  const open = S.pos.filter(p => OPEN_PO.includes(p.status));
+  document.title = `${s.legalName} · Suppliers · Purchasing`;
+  const kf = (l, v) => `<div class="min-w-0"><dt class="text-xs font-medium text-slate-600">${l}</dt><dd class="mt-0.5 truncate font-medium" title="${esc(v)}">${esc(v)}</dd></div>`;
+  $('#rec-head').innerHTML = `
+  <nav aria-label="Breadcrumb"><ol class="flex flex-wrap items-center gap-1 text-sm text-slate-600">
+    <li><a href="#" data-nav class="inline-flex min-h-6 items-center hover:text-slate-900 hover:underline">Purchasing</a></li><li aria-hidden="true">/</li>
+    <li><a href="#" data-nav class="inline-flex min-h-6 items-center hover:text-slate-900 hover:underline">Suppliers</a></li><li aria-hidden="true">/</li>
+    <li><span aria-current="page" title="${esc(s.legalName)}" class="inline-block max-w-[28ch] truncate align-bottom text-slate-900">${esc(s.legalName)}</span></li>
+  </ol></nav>
+  <div class="mt-2 flex flex-wrap items-center justify-between gap-2">
+    <h1 tabindex="-1" class="text-xl font-semibold">${esc(s.legalName)}</h1>
+    <div class="flex items-center gap-2">
+      <button class="${B_OUT} w-8 px-0" data-act="rec-menu" aria-label="More actions for ${esc(s.legalName)}" aria-haspopup="menu" aria-expanded="false">${icon('more')}</button>
+      <button class="${B_PRIMARY}" data-act="edit">${icon('pencil')}Edit supplier</button>
+    </div>
+  </div>
+  <div class="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-slate-700">
+    <span class="font-medium tabular-nums">${s.id}</span>${badge(s.status)}
+    <span class="text-slate-600">Last changed by ${esc(S.lastChanged.by)} on ${fmtDT(S.lastChanged.at)} · <button class="${LINK}" data-act="goto-tab" data-tab="activity">View history</button></span>
+  </div>
+  <dl class="mt-4 grid grid-cols-2 gap-4 border-y border-slate-200 py-3 lg:grid-cols-4">
+    ${kf('Category', s.category)}${kf('Payment terms', s.paymentTerms)}${kf('Buyer', s.buyer)}${kf('Spend, last 12 months', vnd.format(spend12()))}
+  </dl>
+  ${inactive ? `<p class="mt-3 flex items-center gap-2 rounded-md bg-amber-50 px-3 py-2 text-amber-900" role="status">${icon('alert')}This supplier is inactive. ${open.length} open purchase order${open.length === 1 ? '' : 's'} remain open, but new orders can't be created.</p>` : ''}`;
+}
+
+/* ---------- tabs ---------- */
+function renderTabs() {
+  const counts = { contacts: S.contacts.length, orders: S.pos.length, documents: S.certs.length + S.docs.length };
+  $('#tabs').innerHTML = TABS.map(([k, l]) => `<button role="tab" id="tab-${k}" data-tab="${k}" aria-selected="${S.tab === k}" aria-controls="panel" tabindex="${S.tab === k ? 0 : -1}" class="-mb-px h-10 whitespace-nowrap border-b-2 px-3 text-sm font-medium ${S.tab === k ? 'border-blue-700 text-blue-700' : 'border-transparent text-slate-700 hover:text-slate-900'}">${l}${counts[k] !== undefined ? `<span class="ml-1.5 rounded-full bg-slate-100 px-1.5 py-0.5 text-xs font-medium text-slate-700">${counts[k]}</span>` : ''}</button>`).join('');
+  $('#panel').setAttribute('aria-labelledby', 'tab-' + S.tab);
+}
+function selectTab(t, focus) {
+  if (S.tab !== t) { S.tab = t; }
+  history.replaceState(null, '', '#tab=' + t);
+  renderTabs(); ensureLoaded(t);
+  if (focus) $('#tab-' + t).focus();
+}
+function ensureLoaded(t) {
+  const st = S.tabState[t];
+  if (st === 'ready' || st === 'loading') { renderPanel(); return; }
+  S.tabState[t] = 'loading'; renderPanel();
+  setTimeout(() => {
+    if (t === 'documents' && !S.docsFailedOnce) { S.docsFailedOnce = true; S.tabState[t] = 'error'; } else S.tabState[t] = 'ready';
+    if (S.tab === t) renderPanel();
+  }, 450);
+}
+
+const SKEL_HEADS = {
+  contacts: [['Name'], ['Role'], ['Email'], ['Phone'], ['Primary']],
+  orders: [['PO number'], ['Status'], ['Order date'], ['Expected delivery'], ['Items', 1], ['Amount (VND)', 1], ['Approval']],
+  documents: [['Certificate'], ['Number'], ['Issuer'], ['Expires'], ['Status']],
+  activity: [['Date'], ['Who'], ['What changed']],
+  performance: [['Month'], ['Deliveries', 1], ['On-time (%)', 1], ['Quality accepted (%)', 1], ['Avg lead time (days)', 1]]
+};
+function skelTable(t) {
+  const heads = SKEL_HEADS[t].map(([l, r]) => TH(l, r)).join('');
+  const rows = Array.from({ length: 8 }, () => `<tr class="h-10" aria-hidden="true">${SKEL_HEADS[t].map(() => `<td class="px-3">${sk()}</td>`).join('')}</tr>`).join('');
+  return wrapT(heads, rows, 'Loading');
+}
+function skeleton(t) {
+  if (t === 'overview') return `<div class="grid gap-8 lg:grid-cols-3"><div class="space-y-8 lg:col-span-2">${[0, 1, 2].map(() => `<div class="space-y-3 border-t border-slate-200 pt-4">${sk('w-40')}${sk()}${sk('w-3/4')}${sk('w-1/2')}</div>`).join('')}</div><div class="space-y-3 rounded-md border border-slate-200 p-4">${sk('w-32')}${sk()}${sk()}${sk()}</div></div>`;
+  if (t === 'performance') return `<div class="mb-6 grid grid-cols-2 gap-4 lg:grid-cols-4">${[0, 1, 2, 3].map(() => `<div class="space-y-3 rounded-md border border-slate-200 p-4">${sk('w-24')}${sk('w-20')}${sk('w-32')}</div>`).join('')}</div>${skelTable(t)}`;
+  return skelTable(t);
+}
+const errorBox = what => `<div class="flex flex-col items-center gap-3 rounded-md border border-slate-200 px-6 py-12 text-center"><p class="text-base font-medium">Couldn't load ${what}</p><p class="max-w-sm text-sm text-slate-600">Check your connection and try again. Nothing was changed.</p><button class="${B_OUT}" data-act="retry">Retry</button></div>`;
+const WHAT = { overview: 'supplier details', contacts: 'contacts', orders: 'purchase orders', documents: 'documents and certificates', performance: 'performance data', activity: 'activity' };
+
+function renderPanel() {
+  const t = S.tab, st = S.tabState[t], p = $('#panel');
+  p.setAttribute('aria-busy', String(st === 'loading'));
+  if (st === 'loading') p.innerHTML = skeleton(t);
+  else if (st === 'error') p.innerHTML = errorBox(WHAT[t]);
+  else p.innerHTML = ({ overview: panelOverview, contacts: panelContacts, orders: panelOrders, documents: panelDocuments, performance: panelPerformance, activity: panelActivity })[t]();
+}
+const emptyBox = (title, text, btn) => `<div class="flex flex-col items-center gap-2 px-6 py-10 text-center"><p class="text-base font-medium">${title}</p>${text ? `<p class="max-w-sm text-sm text-slate-600">${text}</p>` : ''}${btn || ''}</div>`;
+const emptyRow = (cols, inner) => `<tr><td colspan="${cols}">${inner}</td></tr>`;
+const searchBox = (id, ctl, val, ph) => `<div class="relative w-72 max-w-full"><span class="pointer-events-none absolute left-2 top-2 text-slate-500">${icon('search')}</span><input id="${id}" data-ctl="${ctl}" type="search" value="${esc(val)}" placeholder="${ph}" aria-label="${ph}" class="${INPUT} pl-8"></div>`;
+
+/* ---------- Overview ---------- */
+function panelOverview() {
+  const s = S.supplier, dl = (l, v) => `<div><dt class="text-xs font-medium text-slate-600">${l}</dt><dd class="mt-0.5">${v || '—'}</dd></div>`;
+  const sec = (id, title, rows) => `<section aria-labelledby="${id}" class="border-t border-slate-200 pt-4"><h2 id="${id}" class="mb-3 text-base font-semibold">${title}</h2><dl class="grid grid-cols-1 gap-x-8 gap-y-3 sm:grid-cols-2">${rows}</dl></section>`;
+  const pc = S.contacts.find(c => c.primary);
+  const expiring = S.certs.filter(c => certStatus(c) === 'Expiring soon').length, expired = S.certs.filter(c => certStatus(c) === 'Expired').length;
+  const overdue = S.pos.filter(p => p.status === 'Overdue').length, waiting = S.pos.filter(p => p.status === 'Pending approval').length;
+  const att = (n, txt, tab, status) => n ? `<li class="flex items-center justify-between gap-3 border-t border-slate-200 py-2 first:border-t-0"><a href="#" class="${LINK}" data-act="goto-tab" data-tab="${tab}" ${status ? `data-status="${status}"` : ''}>${n} ${txt}</a></li>` : '';
+  const items = [att(overdue, overdue === 1 ? 'overdue purchase order' : 'overdue purchase orders', 'orders', 'Overdue'), att(waiting, waiting === 1 ? 'order waiting for approval' : 'orders waiting for approval', 'orders', 'Pending approval'), att(expired, expired === 1 ? 'expired certificate' : 'expired certificates', 'documents'), att(expiring, expiring === 1 ? 'certificate expiring within 60 days' : 'certificates expiring within 60 days', 'documents')].join('');
+  return `<div class="grid gap-8 lg:grid-cols-3">
+  <div class="space-y-8 lg:col-span-2">
+    ${sec('h-co', 'Company information', dl('Legal name', esc(s.legalName)) + dl('Trading name', esc(s.tradeName)) + dl('Tax code', `<span class="tabular-nums">${esc(s.taxCode)}</span>`) + dl('Category', esc(s.category)) + dl('Website', s.website ? `<a class="${LINK}" href="https://${esc(s.website)}" target="_blank" rel="noopener">${esc(s.website)}</a>` : '') + dl('Established', esc(s.established)) + dl('Approved supplier since', fmtD(s.approved)))}
+    ${sec('h-ad', 'Address and contact', dl('Address', esc(s.address)) + dl('City, province', esc(s.city)) + dl('Country', esc(s.country)) + dl('Main phone', `<span class="tabular-nums">${esc(s.phone)}</span>`) + dl('Main email', esc(s.email)) + dl('Primary contact', pc ? `<button class="${LINK}" data-act="goto-tab" data-tab="contacts">${esc(pc.name)}</button>, ${esc(pc.role)}` : 'No primary contact set'))}
+    ${sec('h-cm', 'Commercial terms', dl('Payment terms', esc(s.paymentTerms)) + dl('Credit limit', vnd.format(s.creditLimit)) + dl('Incoterm', esc(s.incoterm)) + dl('Buyer', esc(s.buyer)) + dl('Bank account', esc(s.bank)) + dl('Internal notes', esc(s.notes)))}
+  </div>
+  <aside aria-labelledby="h-att" class="self-start rounded-md border border-slate-200 p-4"><h2 id="h-att" class="mb-2 text-base font-semibold">Needs attention</h2>
+    ${items ? `<ul>${items}</ul>` : `<p class="rounded bg-green-50 px-3 py-2 text-green-800">Nothing needs attention right now.</p>`}
+  </aside></div>`;
+}
+
+/* ---------- Contacts ---------- */
+const contactSpecs = [
+  { name: 'name', label: 'Full name', required: true, w: 'max-w-sm' },
+  { name: 'role', label: 'Job title', required: true, w: 'max-w-sm' },
+  { name: 'email', label: 'Email', type: 'email', required: true, w: 'max-w-sm' },
+  { name: 'phone', label: 'Phone', type: 'tel', pattern: /^[0-9+\s().-]{8,16}$/, msg: 'Enter a phone number with 8 to 16 digits, like 0903 218 466.', w: 'max-w-[14rem]' }
+];
+function panelContacts() {
+  const q = S.cq.trim().toLowerCase();
+  const rows = S.contacts.filter(c => !q || [c.name, c.role, c.email, c.phone].join(' ').toLowerCase().includes(q));
+  const toolbar = `<div class="mb-3 flex flex-wrap items-center justify-between gap-3">${S.contacts.length ? searchBox('c-q', 'c-q', S.cq, 'Search contacts') : '<span></span>'}<button class="${B_PRIMARY}" data-act="c-add">${icon('plus')}Add contact</button></div>`;
+  let body;
+  if (!S.contacts.length) body = emptyRow(6, emptyBox('No contacts yet', 'Add the people you order from, receive invoices from and call about deliveries.', `<button class="${B_PRIMARY} mt-1" data-act="c-add">Add contact</button>`));
+  else if (!rows.length) body = emptyRow(6, emptyBox(`No contacts match "${esc(S.cq)}"`, '', `<button class="${B_OUT} mt-1" data-act="c-clear">Clear search</button>`));
+  else body = rows.map(c => `<tr class="${TR}">${TDc(`<span class="inline-flex items-center gap-2"><span class="inline-flex h-6 w-6 items-center justify-center rounded-full bg-slate-100 text-xs font-medium text-slate-700" aria-hidden="true">${esc(initials(c.name))}</span><span class="font-medium">${esc(c.name)}</span></span>`)}${TDc(esc(c.role))}${TDc(esc(c.email))}${TDc(`<span class="tabular-nums">${esc(c.phone)}</span>`)}${TDc(c.primary ? badge('Primary') : '')}<td class="h-10 px-3"><div class="flex items-center justify-end gap-1">${rowBtn('c-edit', c.id, 'Edit contact ' + c.name, 'Edit')}${moreBtn('c-menu', c.id, 'Actions for contact ' + c.name)}</div></td></tr>`).join('');
+  return toolbar + wrapT(TH('Name') + TH('Role') + TH('Email') + TH('Phone') + TH('Primary') + ACT_TH, body, 'Supplier contacts', 760);
+}
+
+/* ---------- Purchase orders ---------- */
+function filteredPOs() {
+  const { q, status, sort } = S.po;
+  const r = S.pos.filter(p => (!status || p.status === status) && (!q || p.no.toLowerCase().includes(q.trim().toLowerCase())));
+  const key = { no: 'no', date: 'date', amount: 'amount' }[sort.key], m = sort.dir === 'asc' ? 1 : -1;
+  return r.sort((a, b) => (a[key] > b[key] ? 1 : a[key] < b[key] ? -1 : 0) * m);
+}
+function sortTH(label, key, right) {
+  const cur = S.po.sort.key === key, dir = cur ? S.po.sort.dir : null;
+  return `<th scope="col" ${dir ? `aria-sort="${dir === 'asc' ? 'ascending' : 'descending'}"` : ''} class="h-10 whitespace-nowrap px-3 text-xs font-medium text-slate-600 ${right ? 'text-right' : 'text-left'}"><button data-act="po-sort" data-id="${key}" class="inline-flex items-center gap-1 rounded font-medium hover:text-slate-900">${label}${dir ? icon(dir === 'asc' ? 'up' : 'down') : ''}</button></th>`;
+}
+function panelOrders() {
+  const P = S.po, all = filteredPOs(), n = all.length, sum = all.reduce((a, p) => a + p.amount, 0);
+  const pages = Math.max(1, Math.ceil(n / P.size)); P.page = Math.min(P.page, pages);
+  const from = n ? (P.page - 1) * P.size : 0, rows = all.slice(from, from + P.size);
+  const filtered = P.q || P.status;
+  const chip = (txt, act) => `<span class="inline-flex h-6 items-center gap-1 rounded-full bg-slate-100 pl-2 pr-1 text-xs font-medium text-slate-800">${txt}<button class="inline-flex h-5 w-5 items-center justify-center rounded-full hover:bg-slate-200" data-act="${act}" aria-label="Remove filter ${esc(txt)}">${icon('x', 'h-3 w-3')}</button></span>`;
+  const statuses = ['Draft', 'Pending approval', 'Approved', 'In transit', 'Overdue', 'Partially received', 'Received', 'Cancelled'];
+  const toolbar = `<div class="mb-3 flex flex-wrap items-center gap-2">
+    ${S.pos.length ? `${searchBox('po-q', 'po-q', P.q, 'Search PO number')}<label class="sr-only" for="po-status">Status</label><select id="po-status" data-ctl="po-status" class="${INPUT} w-44"><option value="">All statuses</option>${statuses.map(s => `<option ${P.status === s ? 'selected' : ''}>${s}</option>`).join('')}</select>` : ''}
+    <button class="${B_PRIMARY} ml-auto" data-act="po-new" ${S.supplier.status === 'Inactive' ? 'disabled title="Inactive suppliers can\'t receive new orders"' : ''}>${icon('plus')}New purchase order</button></div>
+    ${filtered ? `<div class="mb-3 flex flex-wrap items-center gap-2">${P.status ? chip('Status: ' + esc(P.status), 'po-clear-status') : ''}${P.q ? chip('PO number: ' + esc(P.q), 'po-clear-q') : ''}<button class="${LINK} px-1 text-sm" data-act="po-clear-all">Clear all</button></div>` : ''}
+    <p class="mb-2 text-sm text-slate-700" role="status">${n} purchase order${n === 1 ? '' : 's'}${n ? ` · ${vnd.format(sum)}` : ''}</p>`;
+  let body;
+  if (!S.pos.length) body = emptyRow(8, emptyBox('No purchase orders yet', 'Orders placed with this supplier appear here.', `<button class="${B_PRIMARY} mt-1" data-act="po-new">New purchase order</button>`));
+  else if (!n) body = emptyRow(8, emptyBox('No purchase orders match these filters', '', `<button class="${B_OUT} mt-1" data-act="po-clear-all">Clear filters</button>`));
+  else body = rows.map(p => `<tr class="${TR}">${TDc(`<button class="${LINK}" data-act="po-open" data-id="${p.id}">${p.no}</button>`)}${TDc(badge(p.status))}${TDc(`<span class="tabular-nums">${fmtD(p.date)}</span>`)}${TDc(`<span class="tabular-nums">${fmtD(p.expected)}</span>`)}${TDc(p.items, NUM)}${TDc(nf.format(p.amount), NUM)}${TDc(esc(p.approval), 'text-slate-700')}<td class="h-10 px-3"><div class="flex items-center justify-end gap-1">${rowBtn('po-dup', p.id, 'Duplicate order ' + p.no, 'Duplicate')}${moreBtn('po-menu', p.id, 'Actions for order ' + p.no)}</div></td></tr>`).join('');
+  const heads = sortTH('PO number', 'no') + TH('Status') + sortTH('Order date', 'date') + TH('Expected delivery') + TH('Items', 1) + sortTH('Amount (VND)', 'amount', 1) + TH('Approval') + ACT_TH;
+  const pager = n ? `<div class="mt-3 flex flex-wrap items-center justify-between gap-3 text-sm"><span class="tabular-nums text-slate-700">${from + 1}–${from + rows.length} of ${n}</span><div class="flex items-center gap-2"><label for="po-size" class="text-slate-700">Rows per page</label><select id="po-size" data-ctl="po-size" class="${INPUT} w-20">${[10, 25].map(s => `<option ${P.size === s ? 'selected' : ''}>${s}</option>`).join('')}</select><button class="${B_OUT}" data-act="po-prev" ${P.page <= 1 ? 'disabled' : ''}>Previous</button><span class="tabular-nums text-slate-700">Page ${P.page} of ${pages}</span><button class="${B_OUT}" data-act="po-next" ${P.page >= pages ? 'disabled' : ''}>Next</button></div></div>` : '';
+  return toolbar + wrapT(heads, body, 'Purchase orders for this supplier', 980) + pager;
+}
+
+/* ---------- Documents and certificates ---------- */
+function panelDocuments() {
+  const certRows = S.certs.map(c => {
+    const st = certStatus(c), d = c.expires ? dayNum(c.expires) - dayNum(TODAY) : 0;
+    const exp = c.expires ? `<span class="tabular-nums">${fmtD(c.expires)}</span>${st === 'Expiring soon' ? ` <span class="text-slate-600">(in ${d} days)</span>` : st === 'Expired' ? ` <span class="text-slate-600">(${-d} days ago)</span>` : ''}` : '—';
+    return `<tr class="${TR}">${TDc(`<span class="font-medium">${esc(c.name)}</span>`)}${TDc(`<span class="tabular-nums">${esc(c.no)}</span>`)}${TDc(esc(c.issuer))}${TDc(`<span class="tabular-nums">${fmtD(c.issued)}</span>`)}${TDc(exp)}${TDc(badge(st))}<td class="h-10 px-3"><div class="flex items-center justify-end gap-1">${rowBtn('preview', 'cert:' + c.id, 'Preview ' + c.name, 'Preview')}${rowBtn('download', 'cert:' + c.id, 'Download ' + c.name, 'Download')}${moreBtn('cert-menu', c.id, 'Actions for certificate ' + c.name)}</div></td></tr>`;
+  }).join('');
+  const certBody = S.certs.length ? certRows : emptyRow(7, emptyBox('No certificates yet', 'Add ISO, safety and test certificates so Purchasing gets expiry reminders.', `<button class="${B_PRIMARY} mt-1" data-act="cert-add">Add certificate</button>`));
+  const docRows = S.docs.map(d => `<tr class="${TR}">${TDc(`<span class="font-medium">${esc(d.name)}</span>`)}${TDc(esc(d.type))}${TDc(fmtSize(d.size), NUM)}${TDc(esc(d.by))}${TDc(`<span class="tabular-nums">${fmtD(d.at)}</span>`)}<td class="h-10 px-3"><div class="flex items-center justify-end gap-1">${rowBtn('preview', 'doc:' + d.id, 'Preview ' + d.name, 'Preview')}${rowBtn('download', 'doc:' + d.id, 'Download ' + d.name, 'Download')}${moreBtn('doc-menu', d.id, 'Actions for document ' + d.name)}</div></td></tr>`).join('');
+  const docBody = S.docs.length ? docRows : emptyRow(6, emptyBox('No documents yet', 'Upload contracts, price lists and bank letters for this supplier.', `<button class="${B_PRIMARY} mt-1" data-act="doc-add">Upload document</button>`));
+  const head = (id, t, btn) => `<div class="mb-3 flex items-center justify-between gap-3"><h2 id="${id}" class="text-base font-semibold">${t}</h2>${btn}</div>`;
+  return `<div class="space-y-8">
+  <section aria-labelledby="h-certs">${head('h-certs', `Certificates <span class="font-normal text-slate-600">(${S.certs.length})</span>`, `<button class="${B_OUT}" data-act="cert-add">${icon('plus')}Add certificate</button>`)}
+    ${wrapT(TH('Certificate') + TH('Number') + TH('Issuer') + TH('Issued') + TH('Expires') + TH('Status') + ACT_TH, certBody, 'Certificates', 1180)}</section>
+  <section aria-labelledby="h-docs">${head('h-docs', `Documents <span class="font-normal text-slate-600">(${S.docs.length})</span>`, `<button class="${B_OUT}" data-act="doc-add">${icon('plus')}Upload document</button>`)}
+    ${wrapT(TH('Name') + TH('Type') + TH('Size', 1) + TH('Uploaded by') + TH('Uploaded') + ACT_TH, docBody, 'Documents', 940)}</section></div>`;
+}
+
+/* ---------- Performance ---------- */
+function chartSVG(idx) {
+  const P = S.perf, W = 820, H = 280, L = 48, R = 130, T = 14, B = 36, n = idx.length;
+  const x = i => L + (n === 1 ? 0 : i * (W - L - R) / (n - 1)), y = v => T + (100 - Math.max(80, v)) / 20 * (H - T - B);
+  const on = idx.map(i => P.onTime[i]), q = idx.map(i => P.quality[i]);
+  const line = (a, color, dash) => `<polyline fill="none" stroke="${color}" stroke-width="2" ${dash ? `stroke-dasharray="${dash}"` : ''} points="${a.map((v, i) => x(i) + ',' + y(v)).join(' ')}"/>${a.map((v, i) => `<circle cx="${x(i)}" cy="${y(v)}" r="3" fill="#fff" stroke="${color}" stroke-width="2"/>`).join('')}`;
+  const grid = [80, 85, 90, 95, 100].map(v => `<line x1="${L}" x2="${W - R}" y1="${y(v)}" y2="${y(v)}" stroke="#e2e8f0"/><text x="${L - 8}" y="${y(v) + 4}" text-anchor="end" font-size="12" fill="#475569">${v}</text>`).join('');
+  const xl = idx.map((i, k) => `<text x="${x(k)}" y="${H - 14}" text-anchor="middle" font-size="12" fill="#475569">${P.months[i]}</text>`).join('');
+  const lo = n - 1;
+  return `<svg viewBox="0 0 ${W} ${H}" class="w-full" role="img" aria-label="Line chart of on-time delivery and quality acceptance rate by month. Exact values are in the monthly scorecard below.">
+  ${grid}<text transform="translate(12 ${(T + H - B) / 2}) rotate(-90)" text-anchor="middle" font-size="12" fill="#475569">Rate (%)</text>
+  <line x1="${L}" x2="${W - R}" y1="${y(95)}" y2="${y(95)}" stroke="#64748b" stroke-dasharray="1 4" stroke-width="1.5"/><text x="${W - R + 8}" y="${y(95) + 4}" font-size="12" fill="#475569">Target 95%</text>
+  ${xl}${line(q, '#475569', '6 4')}${line(on, '#1d4ed8')}
+  <text x="${x(lo) + 8}" y="${y(q[lo]) + 4}" font-size="12" fill="#334155">Quality ${pct(q[lo])}</text>
+  <text x="${x(lo) + 8}" y="${y(on[lo]) + 16}" font-size="12" font-weight="600" fill="#1d4ed8">On-time ${pct(on[lo])}</text></svg>`;
+}
+function panelPerformance() {
+  const P = S.perf, last = a => mean(a.slice(-3)), prev = a => mean(a.slice(-6, -3));
+  const dOn = last(P.onTime) - prev(P.onTime), dQ = last(P.quality) - prev(P.quality), dL = last(P.lead) - prev(P.lead), dS = (spend12() / P.prevSpend - 1) * 100;
+  const good = 'text-green-700', bad = 'text-red-700', flat = 'text-slate-600';
+  const tile = (l, v, d, tone) => `<div class="rounded-md border border-slate-200 p-4"><p class="text-xs font-medium text-slate-600">${l}</p><p class="mt-1 text-2xl font-semibold tabular-nums">${v}</p><p class="mt-1 text-xs ${tone}">${d}</p></div>`;
+  const idx = P.months.map((_, i) => i).slice(-S.months);
+  const rows = idx.slice().reverse().map(i => `<tr class="${TR}">${TDc(P.labels[i])}${TDc(P.deliveries[i], NUM)}${TDc(nf1.format(P.onTime[i]), NUM)}${TDc(nf1.format(P.quality[i]), NUM)}${TDc(nf1.format(P.lead[i]), NUM)}${TDc(nf.format(P.spend[i]), NUM)}</tr>`).join('');
+  return `<div class="mb-4 flex flex-wrap items-center justify-between gap-3"><h2 class="text-base font-semibold">Supplier scorecard</h2>
+    <div class="flex items-center gap-3"><span class="text-sm text-slate-600">Updated 04/11/2026 08:30</span><label class="sr-only" for="perf-range">Date range</label><select id="perf-range" data-ctl="perf-range" class="${INPUT} w-40"><option value="6" ${S.months === 6 ? 'selected' : ''}>Last 6 months</option><option value="12" ${S.months === 12 ? 'selected' : ''}>Last 12 months</option></select></div></div>
+  <div class="grid grid-cols-2 gap-4 lg:grid-cols-4">
+    ${tile('On-time delivery, last 3 months', pct(last(P.onTime)), `${signed(dOn)} pts vs previous 3 months`, dOn >= 0 ? good : bad)}
+    ${tile('Quality acceptance, last 3 months', pct(last(P.quality)), `${signed(dQ)} pts vs previous 3 months`, dQ >= 0 ? good : bad)}
+    ${tile('Average lead time, last 3 months', nf1.format(last(P.lead)) + ' days', `${signed(dL)} days vs previous 3 months`, dL <= 0 ? good : bad)}
+    ${tile('Spend, last 12 months', vnd.format(spend12()), `${signed(dS)}% vs previous 12 months`, flat)}
+  </div>
+  <section class="mt-8" aria-labelledby="h-trend"><div class="mb-2 flex flex-wrap items-center justify-between gap-3"><h2 id="h-trend" class="text-base font-semibold">On-time delivery and quality acceptance by month</h2>
+    <div class="flex items-center gap-4 text-xs text-slate-700"><span class="inline-flex items-center gap-1.5"><svg width="22" height="8" aria-hidden="true"><line x1="0" x2="22" y1="4" y2="4" stroke="#1d4ed8" stroke-width="2"/></svg>On-time delivery</span><span class="inline-flex items-center gap-1.5"><svg width="22" height="8" aria-hidden="true"><line x1="0" x2="22" y1="4" y2="4" stroke="#475569" stroke-width="2" stroke-dasharray="6 4"/></svg>Quality acceptance</span></div></div>
+    <div class="rounded-md border border-slate-200 p-3">${chartSVG(idx)}</div></section>
+  <section class="mt-8" aria-labelledby="h-sc"><h2 id="h-sc" class="mb-2 text-base font-semibold">Monthly scorecard</h2>
+    ${wrapT(TH('Month') + TH('Deliveries', 1) + TH('On-time (%)', 1) + TH('Quality accepted (%)', 1) + TH('Avg lead time (days)', 1) + TH('Spend (VND)', 1), rows, 'Monthly supplier scorecard, newest first', 760)}</section>`;
+}
+
+/* ---------- Activity ---------- */
+function panelActivity() {
+  return `<h2 class="mb-3 text-base font-semibold">History</h2><ol class="divide-y divide-slate-200 rounded-md border border-slate-200">${S.activity.map(a => `<li class="px-4 py-3"><div class="flex flex-wrap items-baseline gap-x-3"><span class="tabular-nums text-slate-700">${fmtDT(a.at)}</span><span><span class="font-medium">${esc(a.by)}</span> · ${esc(a.text)}</span></div>${a.changes.length ? `<ul class="mt-1.5 space-y-0.5 text-slate-700">${a.changes.map(c => `<li><span class="text-slate-600">${esc(c.field)}:</span> ${esc(c.old)} → <span class="font-medium text-slate-900">${esc(c.nu)}</span></li>`).join('')}</ul>` : ''}</li>`).join('')}</ol>`;
+}
+function logActivity(text, changes = []) {
+  const at = nowISO();
+  S.activity.unshift({ at, by: USER, text, changes });
+  S.lastChanged = { by: USER, at };
+}
+
+/* ---------- generic forms ---------- */
+function fieldHTML(sp, val, pair) {
+  const id = 'f-' + sp.name, hint = sp.hint ? `<p id="hint-${sp.name}" class="mt-1 text-xs text-slate-600">${sp.hint}</p>` : '';
+  const desc = `err-${sp.name}${sp.hint ? ' hint-' + sp.name : ''}`;
+  let ctl;
+  const common = `id="${id}" name="${sp.name}" ${sp.required ? 'aria-required="true"' : ''} aria-describedby="${desc}"`;
+  if (sp.type === 'select') ctl = `<select ${common} class="${INPUT}">${sp.options.map(o => `<option ${o === val ? 'selected' : ''}>${esc(o)}</option>`).join('')}</select>`;
+  else if (sp.type === 'textarea') ctl = `<textarea ${common} rows="3" class="w-full rounded border border-slate-300 bg-white px-2 py-1.5 text-sm">${esc(val)}</textarea>`;
+  else if (sp.type === 'file') ctl = `<input ${common} type="file" class="block w-full text-sm file:mr-3 file:h-8 file:cursor-pointer file:rounded file:border file:border-slate-300 file:bg-white file:px-3 file:text-sm file:font-medium">`;
+  else ctl = `<input ${common} type="${sp.type === 'number' ? 'text' : sp.type || 'text'}" ${sp.type === 'number' ? 'inputmode="numeric"' : ''} value="${esc(val)}" ${sp.placeholder ? `placeholder="${esc(sp.placeholder)}"` : ''} class="${INPUT}">`;
+  return `<div class="${pair ? '' : sp.w || 'max-w-sm'}"><label for="${id}" class="mb-1 block text-sm font-medium">${sp.label}${sp.required ? '<span class="text-red-700" aria-hidden="true"> *</span>' : ''}</label>${ctl}${hint}<p id="err-${sp.name}" class="mt-1 hidden text-xs text-red-700"></p></div>`;
+}
+function validateSpec(sp, val) {
+  if (sp.type === 'file') return !val ? 'Choose a file to upload.' : '';
+  val = String(val ?? '').trim();
+  if (sp.required && !val) return `${sp.label} is required.`;
+  if (!val) return '';
+  if (sp.type === 'email' && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(val)) return 'Enter an email address like name@company.vn.';
+  if (sp.pattern && !sp.pattern.test(val)) return sp.msg;
+  if (sp.type === 'number' && (isNaN(+val.replace(/\./g, '')) || +val.replace(/\./g, '') < 0)) return `${sp.label} must be a number, 0 or more.`;
+  return '';
+}
+function readVals(root, specs) {
+  const v = {};
+  specs.forEach(sp => { const el = $('#f-' + sp.name, root); v[sp.name] = sp.type === 'file' ? (el.files[0] ? { name: el.files[0].name, size: el.files[0].size } : null) : el.value; });
+  return v;
+}
+function setErr(root, sp, msg) {
+  const el = $('#f-' + sp.name, root), p = $('#err-' + sp.name, root); if (!el || !p) return;
+  p.textContent = msg; p.classList.toggle('hidden', !msg);
+  el.setAttribute('aria-invalid', msg ? 'true' : 'false');
+  el.classList.toggle('border-red-600', !!msg); el.classList.toggle('border-slate-300', !msg);
+}
+function showSummary(root, errs) {
+  const box = $('.err-summary', root); if (!box) return;
+  if (errs.length >= 3) {
+    box.innerHTML = `<p class="font-medium">${errs.length} fields need attention</p><ul class="mt-1 list-disc pl-5">${errs.map(e => `<li><a href="#f-${e.sp.name}" data-focus="f-${e.sp.name}" class="underline">${esc(e.sp.label)}</a>: ${esc(e.msg)}</li>`).join('')}</ul>`;
+    box.classList.remove('hidden');
+  } else { box.classList.add('hidden'); box.innerHTML = ''; }
+}
+function runValidation(root, specs) {
+  const vals = readVals(root, specs), errs = [];
+  specs.forEach(sp => { const m = validateSpec(sp, vals[sp.name]); setErr(root, sp, m); if (m) errs.push({ sp, msg: m }); });
+  showSummary(root, errs);
+  if (errs.length) $('#f-' + errs[0].sp.name, root).focus();
+  return { vals, errs };
+}
+const SUMMARY = '<div class="err-summary mb-4 hidden rounded-md border border-red-300 bg-red-50 p-3 text-red-800" role="alert"></div>';
+function setBusy(btn, on, label) { btn.disabled = on; btn.innerHTML = (on ? icon('loader', 'animate-spin') : '') + label; }
+
+function openForm({ title, specs, values = {}, submit = 'Save', onSave }) {
+  openDialog(`<form id="dlg-form" novalidate>
+    <div class="border-b border-slate-200 px-5 py-3"><h2 id="dlg-title" class="text-base font-semibold">${title}</h2></div>
+    <div class="max-h-[70vh] space-y-4 overflow-y-auto px-5 py-4">${SUMMARY}${specs.map(sp => fieldHTML(sp, values[sp.name] ?? '', false)).join('')}</div>
+    <div class="flex justify-end gap-2 border-t border-slate-200 px-5 py-3"><button type="button" class="${B_OUT}" data-act="dlg-cancel">Cancel</button><button type="submit" id="dlg-save" class="${B_PRIMARY}">${submit}</button></div></form>`, 'w-[30rem]');
+  const f = $('#dlg-form');
+  f.addEventListener('focusout', e => { const sp = specs.find(s => 'f-' + s.name === e.target.id); if (sp) setErr(f, sp, validateSpec(sp, readVals(f, [sp])[sp.name])); });
+  f.addEventListener('submit', e => {
+    e.preventDefault();
+    const { vals, errs } = runValidation(f, specs); if (errs.length) return;
+    const btn = $('#dlg-save'); setBusy(btn, true, submit);
+    setTimeout(() => {
+      const srv = onSave(vals);
+      if (srv) { setBusy(btn, false, submit); const sp = specs.find(s => s.name === srv.field); setErr(f, sp, srv.msg); $('#f-' + srv.field, f).focus(); return; }
+      dlg.close(); renderAll();
+    }, 600);
+  });
+  const first = $('input,select,textarea', f); first && first.focus();
+}
+
+/* ---------- edit supplier page ---------- */
+const EDIT_SECTIONS = [
+  ['Company', 'Legal identity as it appears on invoices.', [
+    [{ name: 'legalName', label: 'Legal name', required: true, w: 'max-w-lg' }],
+    [{ name: 'tradeName', label: 'Trading name', w: 'max-w-sm' }],
+    [{ name: 'taxCode', label: 'Tax code', required: true, w: 'max-w-[14rem]', pattern: /^\d{10}(-\d{3})?$/, msg: 'Enter a 10-digit tax code, or 13 digits like 0312458796-001.', hint: '10 digits, or 13 with a branch suffix.' }],
+    [{ name: 'category', label: 'Category', type: 'select', options: ['Steel and metals', 'Packaging', 'Electronics', 'Chemicals', 'Logistics services'], w: 'max-w-xs' }],
+    [{ name: 'website', label: 'Website', w: 'max-w-sm', placeholder: 'example.vn' }]]],
+  ['Address and contact', 'Where orders are shipped from and where documents are sent.', [
+    [{ name: 'address', label: 'Address', required: true, w: 'max-w-lg' }],
+    [{ name: 'city', label: 'City, province', required: true }, { name: 'country', label: 'Country', type: 'select', options: ['Vietnam', 'China', 'Japan', 'South Korea', 'Thailand'] }],
+    [{ name: 'phone', label: 'Main phone', type: 'tel', pattern: /^[0-9+\s().-]{8,16}$/, msg: 'Enter a phone number with 8 to 16 digits, like 0251 3892 114.' }, { name: 'email', label: 'Main email', type: 'email', required: true }]]],
+  ['Commercial terms', 'Used as defaults on new purchase orders.', [
+    [{ name: 'paymentTerms', label: 'Payment terms', type: 'select', options: ['Prepaid', 'Net 15', 'Net 30', 'Net 45', 'Net 60'], w: 'max-w-xs' }],
+    [{ name: 'creditLimit', label: 'Credit limit (VND)', type: 'number', required: true, w: 'max-w-xs', hint: 'Digits only, for example 2000000000.' }],
+    [{ name: 'incoterm', label: 'Incoterm', type: 'select', options: ['EXW', 'FCA', 'DAP', 'DDP'], w: 'max-w-xs' }],
+    [{ name: 'buyer', label: 'Buyer', type: 'select', options: BUYERS, w: 'max-w-xs' }]]],
+  ['Notes', 'Visible to the purchasing team only.', [
+    [{ name: 'notes', label: 'Internal notes', type: 'textarea', w: 'max-w-lg' }]]]
+];
+const EDIT_SPECS = EDIT_SECTIONS.flatMap(s => s[2].flat());
+
+function renderEdit() {
+  const s = S.supplier, v = $('#view-edit');
+  const rowH = r => r.length === 1 ? fieldHTML(r[0], s[r[0].name], false) : `<div class="grid max-w-2xl gap-4 sm:grid-cols-2">${r.map(sp => fieldHTML(sp, s[sp.name], true)).join('')}</div>`;
+  v.innerHTML = `<form id="edit-form" novalidate>
+  <nav aria-label="Breadcrumb"><ol class="flex flex-wrap items-center gap-1 text-sm text-slate-600">
+    <li><a href="#" data-nav class="inline-flex min-h-6 items-center hover:underline">Purchasing</a></li><li aria-hidden="true">/</li>
+    <li><a href="#" data-nav class="inline-flex min-h-6 items-center hover:underline">Suppliers</a></li><li aria-hidden="true">/</li>
+    <li><a href="#" data-act="cancel-edit" class="inline-block max-w-[28ch] truncate align-bottom hover:underline">${esc(s.legalName)}</a></li><li aria-hidden="true">/</li>
+    <li><span aria-current="page" class="text-slate-900">Edit</span></li></ol></nav>
+  <h1 tabindex="-1" class="mt-2 text-xl font-semibold">Edit supplier</h1>
+  <p class="mt-1 text-slate-600"><span class="tabular-nums">${s.id}</span> · Fields marked <span class="text-red-700">*</span> are required.</p>
+  <div class="mt-4 max-w-3xl">${SUMMARY}${EDIT_SECTIONS.map(([t, d, rows]) => `<section class="border-t border-slate-200 py-6"><h2 class="text-base font-semibold">${t}</h2><p class="mb-4 mt-0.5 text-slate-600">${d}</p><div class="space-y-4">${rows.map(rowH).join('')}</div></section>`).join('')}</div>
+  <div class="sticky bottom-0 -mx-6 -mb-6 mt-4 flex items-center justify-end gap-3 border-t border-slate-200 bg-white px-6 py-3">
+    <span id="dirty" role="status" class="mr-auto font-medium text-amber-900"></span>
+    <button type="button" class="${B_OUT}" data-act="cancel-edit">Cancel</button>
+    <button type="submit" id="save-btn" class="${B_PRIMARY}">Save changes</button></div></form>`;
+  const f = $('#edit-form');
+  f.addEventListener('input', () => { S.dirty = true; $('#dirty').textContent = 'Unsaved changes'; });
+  f.addEventListener('focusout', e => { const sp = EDIT_SPECS.find(x => 'f-' + x.name === e.target.id); if (sp) setErr(f, sp, validateSpec(sp, e.target.value)); });
+  f.addEventListener('submit', e => { e.preventDefault(); saveEdit(); });
+}
+function saveEdit() {
+  const f = $('#edit-form'), { vals, errs } = runValidation(f, EDIT_SPECS); if (errs.length) return;
+  const btn = $('#save-btn'); setBusy(btn, true, 'Save changes');
+  setTimeout(() => {
+    if (vals.taxCode.trim() === '0100109106') {
+      setBusy(btn, false, 'Save changes');
+      const sp = EDIT_SPECS.find(x => x.name === 'taxCode');
+      setErr(f, sp, 'Tax code 0100109106 already belongs to supplier SUP-0007 (Công ty CP Cơ khí Đại Nam).'); $('#f-taxCode').focus(); return;
+    }
+    const s = S.supplier, changes = [], shown = (n, x) => x === '' || x == null ? '—' : n === 'creditLimit' ? nf.format(+String(x).replace(/\./g, '')) : String(x);
+    EDIT_SPECS.forEach(sp => {
+      const nv = vals[sp.name].trim(), ov = String(s[sp.name] ?? '');
+      const cmp = sp.name === 'creditLimit' ? String(+nv.replace(/\./g, '')) : nv;
+      if (cmp !== ov) { changes.push({ field: sp.label, old: shown(sp.name, ov), nu: shown(sp.name, nv) }); s[sp.name] = sp.name === 'creditLimit' ? +nv.replace(/\./g, '') : nv; }
+    });
+    if (changes.length) logActivity('Updated supplier details', changes);
+    S.dirty = false; closeEdit();
+    toast(changes.length ? `Supplier ${s.id} saved` : 'No changes to save');
+  }, 800);
+}
+function openEdit() { S.editing = true; S.dirty = false; $('#view-record').classList.add('hidden'); $('#view-edit').classList.remove('hidden'); renderEdit(); $('#view-edit h1').focus(); scrollTo(0, 0); }
+function closeEdit() {
+  S.editing = false; $('#view-edit').classList.add('hidden'); $('#view-record').classList.remove('hidden'); $('#view-edit').innerHTML = '';
+  renderAll(); $('#view-record h1').focus(); scrollTo(0, 0);
+}
+function leaveGuard(go) {
+  if (!S.dirty) { go(); return; }
+  confirmDlg({ title: 'Discard unsaved changes?', body: `Your edits to ${esc(S.supplier.legalName)} haven't been saved and will be lost.`, ok: 'Discard changes', cancel: 'Keep editing', danger: true, run: () => { S.dirty = false; go(); } });
+}
+addEventListener('beforeunload', e => { if (S.dirty) { e.preventDefault(); e.returnValue = ''; } });
+
+/* ---------- domain actions ---------- */
+function renderAll() { renderHeader(); renderTabs(); renderPanel(); }
+
+function contactForm(c) {
+  openForm({
+    title: c ? 'Edit contact' : 'Add contact', specs: contactSpecs, values: c || {}, submit: c ? 'Save contact' : 'Add contact',
+    onSave: v => {
+      if (S.contacts.some(x => x.id !== (c && c.id) && x.email.toLowerCase() === v.email.trim().toLowerCase())) return { field: 'email', msg: 'A contact with this email already exists for this supplier.' };
+      const rec = { name: v.name.trim(), role: v.role.trim(), email: v.email.trim(), phone: v.phone.trim() };
+      if (c) { Object.assign(c, rec); logActivity('Updated contact ' + rec.name); toast(`Contact ${rec.name} saved`); }
+      else { S.contacts.push({ id: 'k' + Date.now(), ...rec, primary: !S.contacts.length }); logActivity('Added contact ' + rec.name); toast(`Contact ${rec.name} added`); }
+    }
+  });
+}
+const certSpecs = [
+  { name: 'name', label: 'Certificate name', required: true, w: 'max-w-lg' },
+  { name: 'no', label: 'Certificate number', required: true, w: 'max-w-xs' },
+  { name: 'issuer', label: 'Issued by', required: true, w: 'max-w-sm' },
+  { name: 'issued', label: 'Issue date', type: 'date', required: true, w: 'max-w-[12rem]' },
+  { name: 'expires', label: 'Expiry date', type: 'date', w: 'max-w-[12rem]', hint: 'Leave empty if the certificate does not expire.' }
+];
+function certForm(c) {
+  openForm({
+    title: c ? 'Edit certificate' : 'Add certificate', specs: certSpecs, values: c ? { ...c, expires: c.expires || '' } : {}, submit: c ? 'Save certificate' : 'Add certificate',
+    onSave: v => {
+      const rec = { name: v.name.trim(), no: v.no.trim(), issuer: v.issuer.trim(), issued: v.issued, expires: v.expires || null };
+      if (c) { Object.assign(c, rec); logActivity('Updated certificate ' + rec.name); toast(`Certificate ${rec.name} saved`); }
+      else { S.certs.push({ id: 'c' + Date.now(), ...rec, size: 512000 }); logActivity('Added certificate ' + rec.name); toast(`Certificate ${rec.name} added`); }
+    }
+  });
+}
+function docForm() {
+  openForm({
+    title: 'Upload document', submit: 'Upload',
+    specs: [{ name: 'file', label: 'File', type: 'file', required: true, w: 'max-w-md' }, { name: 'type', label: 'Document type', type: 'select', options: ['Contract', 'Price list', 'Bank details', 'Audit report', 'Other'], w: 'max-w-xs' }],
+    onSave: v => { S.docs.unshift({ id: 'd' + Date.now(), name: v.file.name, type: v.type, size: v.file.size, by: USER, at: nowISO().slice(0, 10) }); logActivity('Uploaded document ' + v.file.name); toast(`Document ${v.file.name} uploaded`); }
+  });
+}
+function findAtt(ref) { const [k, id] = ref.split(':'); return { kind: k, rec: (k === 'cert' ? S.certs : S.docs).find(x => x.id === id) }; }
+function previewAtt(ref) {
+  const { kind, rec } = findAtt(ref), type = kind === 'cert' ? 'Certificate' : rec.type;
+  openDialog(`<div class="border-b border-slate-200 px-5 py-3"><h2 id="dlg-title" class="break-words text-base font-semibold">${esc(rec.name)}</h2></div>
+  <div class="space-y-3 px-5 py-4"><dl class="grid grid-cols-3 gap-3"><div><dt class="text-xs font-medium text-slate-600">Type</dt><dd>${esc(type)}</dd></div><div><dt class="text-xs font-medium text-slate-600">Size</dt><dd class="tabular-nums">${fmtSize(rec.size)}</dd></div><div><dt class="text-xs font-medium text-slate-600">${kind === 'cert' ? 'Issued' : 'Uploaded'}</dt><dd class="tabular-nums">${fmtD(kind === 'cert' ? rec.issued : rec.at)}</dd></div></dl>
+  <div class="flex h-40 items-center justify-center rounded-md border border-dashed border-slate-300 bg-slate-50 px-4 text-center text-slate-700">A preview can't be shown here. Download the file to open it.</div></div>
+  <div class="flex justify-end gap-2 border-t border-slate-200 px-5 py-3"><button autofocus class="${B_OUT}" data-act="dlg-cancel">Close</button><button class="${B_PRIMARY}" data-act="download" data-id="${ref}">${icon('download')}Download</button></div>`, 'w-[32rem]');
+}
+function poDialog(p) {
+  const r = (l, v) => `<div><dt class="text-xs font-medium text-slate-600">${l}</dt><dd class="mt-0.5">${v}</dd></div>`;
+  openDialog(`<div class="border-b border-slate-200 px-5 py-3"><h2 id="dlg-title" class="text-base font-semibold">${p.no}</h2></div>
+  <dl class="grid grid-cols-2 gap-3 px-5 py-4">${r('Status', badge(p.status))}${r('Amount', vnd.format(p.amount))}${r('Order date', fmtD(p.date))}${r('Expected delivery', fmtD(p.expected))}${r('Items', p.items)}${r('Approval', esc(p.approval))}</dl>
+  <div class="flex justify-end border-t border-slate-200 px-5 py-3"><button autofocus class="${B_OUT}" data-act="dlg-cancel">Close</button></div>`);
+}
+function cancelPO(p) {
+  confirmDlg({
+    title: `Cancel ${p.no}?`, body: `The ${vnd.format(p.amount)} order will be marked Cancelled and Việt Phát Steel will be notified by email. This can't be undone.`, ok: 'Cancel order', cancel: 'Keep order', danger: true,
+    run: () => { p.status = 'Cancelled'; p.approval = '—'; logActivity('Cancelled purchase order ' + p.no, [{ field: 'Status', old: 'Open', nu: 'Cancelled' }]); renderAll(); toast(`Purchase order ${p.no} cancelled`); }
+  });
+}
+function dupPO(p, silent) {
+  const next = 'PO-2026-' + String(Math.max(...S.pos.map(x => +x.no.slice(-4))) + 1).padStart(4, '0');
+  S.pos.unshift({ id: 'p' + Date.now(), no: next, date: nowISO().slice(0, 10), expected: p.expected, status: 'Draft', items: p.items, amount: p.amount, approval: 'Not submitted' });
+  S.po.page = 1; logActivity('Created purchase order ' + next); renderAll(); toast(`Draft ${next} created${silent ? '' : ' from ' + p.no}`);
+}
+
+/* ---------- events ---------- */
+document.addEventListener('click', e => {
+  const t = e.target;
+  const mi = t.closest('[data-mi]');
+  if (mi) { const it = menuItems[+mi.dataset.mi]; if (it.disabled) return; closeMenu(); it.run(); return; }
+  const trig = t.closest('[aria-haspopup="menu"]');
+  if (menuBtn && trig === menuBtn) { closeMenu(true); return; }
+  if (!t.closest('#menu')) closeMenu();
+
+  const fa = t.closest('[data-focus]');
+  if (fa) { e.preventDefault(); const el = $('#' + fa.dataset.focus); el && el.focus(); return; }
+  const nav = t.closest('[data-nav]');
+  if (nav) { e.preventDefault(); leaveGuard(() => toast('This prototype only includes the supplier detail page')); return; }
+  const tab = t.closest('[role="tab"]');
+  if (tab) { selectTab(tab.dataset.tab); return; }
+
+  const el = t.closest('[data-act]'); if (!el) return;
+  const act = el.dataset.act, id = el.dataset.id, s = S.supplier;
+  switch (act) {
+    case 'toggle-sidebar': S.sidebarCollapsed = !S.sidebarCollapsed; renderNav(); break;
+    case 'notif': toast('You have 3 unread notifications'); break;
+    case 'acct': openMenu(el, [{ label: 'Profile', run: () => toast('Signed in as ' + USER) }, { label: 'Preferences', run: () => toast('Preferences are not part of this prototype') }, { label: 'Sign out', sep: true, run: () => toast('Signing out is disabled in this prototype') }]); break;
+    case 'dlg-cancel': dlg.close(); break;
+    case 'dlg-ok': { const f = dlgOk; dlgOk = null; dlg.close(); f && f(); break; }
+    case 'retry': S.tabState[S.tab] = null; ensureLoaded(S.tab); break;
+    case 'goto-tab':
+      if (el.dataset.status) { S.po.status = el.dataset.status; S.po.q = ''; S.po.page = 1; }
+      selectTab(el.dataset.tab, true); break;
+    case 'edit': openEdit(); break;
+    case 'cancel-edit': e.preventDefault(); leaveGuard(() => { S.dirty = false; closeEdit(); }); break;
+    case 'rec-menu': openMenu(el, [
+      { label: 'Export supplier profile (PDF)', run: () => toast('Supplier profile for ' + s.id + ' is being prepared') },
+      s.status === 'Active'
+        ? { label: 'Deactivate supplier', danger: true, sep: true, run: () => confirmDlg({ title: `Deactivate ${esc(s.legalName)}?`, body: `${S.pos.filter(p => OPEN_PO.includes(p.status)).length} open purchase orders worth ${vnd.format(S.pos.filter(p => OPEN_PO.includes(p.status)).reduce((a, p) => a + p.amount, 0))} stay open, but no new orders can be created until the supplier is reactivated.`, ok: 'Deactivate supplier', cancel: 'Keep active', danger: true, run: () => { s.status = 'Inactive'; logActivity('Deactivated the supplier', [{ field: 'Status', old: 'Active', nu: 'Inactive' }]); renderAll(); toast(`Supplier ${s.id} deactivated`); } }) }
+        : { label: 'Reactivate supplier', sep: true, run: () => { s.status = 'Active'; logActivity('Reactivated the supplier', [{ field: 'Status', old: 'Inactive', nu: 'Active' }]); renderAll(); toast(`Supplier ${s.id} reactivated`); } }
+    ]); break;
+    /* contacts */
+    case 'c-add': contactForm(); break;
+    case 'c-edit': contactForm(S.contacts.find(c => c.id === id)); break;
+    case 'c-clear': S.cq = ''; renderPanel(); $('#c-q') && $('#c-q').focus(); break;
+    case 'c-menu': { const c = S.contacts.find(x => x.id === id); openMenu(el, [
+      { label: 'Set as primary contact', disabled: c.primary, reason: c.primary ? 'Already the primary contact' : '', run: () => { const old = S.contacts.find(x => x.primary); S.contacts.forEach(x => x.primary = false); c.primary = true; logActivity('Changed the primary contact', [{ field: 'Primary contact', old: old ? old.name : '—', nu: c.name }]); renderAll(); toast(`${c.name} is now the primary contact`); } },
+      { label: 'Delete contact', danger: true, sep: true, run: () => confirmDlg({ title: `Delete contact ${esc(c.name)}?`, body: c.primary ? `${esc(c.name)} is the primary contact. Order emails will have no recipient until you set another primary contact.` : `${esc(c.name)} will no longer receive purchase order emails for this supplier.`, ok: 'Delete contact', cancel: 'Keep contact', danger: true, run: () => { S.contacts = S.contacts.filter(x => x !== c); logActivity('Deleted contact ' + c.name); renderAll(); toast(`Contact ${c.name} deleted`); } }) }
+    ]); break; }
+    /* purchase orders */
+    case 'po-new': { const base = S.pos[0]; dupPO({ no: '', expected: '2026-12-02', items: 0, amount: 0 }, true); break; }
+    case 'po-open': poDialog(S.pos.find(p => p.id === id)); break;
+    case 'po-dup': { const p = S.pos.find(x => x.id === id); dupPO(p); break; }
+    case 'po-menu': { const p = S.pos.find(x => x.id === id), can = ['Draft', 'Pending approval', 'Approved'].includes(p.status);
+      openMenu(el, [{ label: 'Print purchase order', run: () => toast(p.no + ' sent to the printer') }, { label: 'Cancel order', danger: true, sep: true, disabled: !can, reason: can ? '' : p.status === 'Cancelled' ? 'Already cancelled' : 'Shipment already started or completed', run: () => cancelPO(p) }]); break; }
+    case 'po-sort': { const so = S.po.sort; so.dir = so.key === id ? (so.dir === 'asc' ? 'desc' : 'asc') : (id === 'no' ? 'asc' : 'desc'); so.key = id; S.po.page = 1; renderPanel(); $(`[data-act="po-sort"][data-id="${id}"]`).focus(); break; }
+    case 'po-clear-status': S.po.status = ''; S.po.page = 1; renderPanel(); break;
+    case 'po-clear-q': S.po.q = ''; S.po.page = 1; renderPanel(); break;
+    case 'po-clear-all': S.po.q = ''; S.po.status = ''; S.po.page = 1; renderPanel(); break;
+    case 'po-prev': S.po.page--; renderPanel(); break;
+    case 'po-next': S.po.page++; renderPanel(); break;
+    /* documents */
+    case 'cert-add': certForm(); break;
+    case 'doc-add': docForm(); break;
+    case 'preview': previewAtt(id); break;
+    case 'download': { const { rec } = findAtt(id); toast(`Downloading ${rec.name} (${fmtSize(rec.size)})`); break; }
+    case 'cert-menu': { const c = S.certs.find(x => x.id === id), st = certStatus(c); openMenu(el, [
+      { label: 'Edit details', run: () => certForm(c) },
+      { label: 'Request renewal', disabled: st === 'Valid', reason: st === 'Valid' ? 'Only for expiring or expired certificates' : '', run: () => { logActivity('Requested renewal of ' + c.name); toast('Renewal request emailed to ' + (S.contacts.find(x => x.primary) || { name: 'the supplier' }).name); renderPanel(); } },
+      { label: 'Delete certificate', danger: true, sep: true, run: () => confirmDlg({ title: `Delete certificate ${esc(c.name)}?`, body: `Purchasing will stop tracking its expiry${c.expires ? ' (' + fmtD(c.expires) + ')' : ''} and the file ${fmtSize(c.size)} is removed from this supplier.`, ok: 'Delete certificate', cancel: 'Keep certificate', danger: true, run: () => { S.certs = S.certs.filter(x => x !== c); logActivity('Deleted certificate ' + c.name); renderAll(); toast(`Certificate ${c.name} deleted`); } }) }
+    ]); break; }
+    case 'doc-menu': { const d = S.docs.find(x => x.id === id); openMenu(el, [
+      { label: 'Delete document', danger: true, run: () => confirmDlg({ title: `Delete document ${esc(d.name)}?`, body: `The file (${fmtSize(d.size)}) uploaded by ${esc(d.by)} on ${fmtD(d.at)} is removed from this supplier.`, ok: 'Delete document', cancel: 'Keep document', danger: true, run: () => { S.docs = S.docs.filter(x => x !== d); logActivity('Deleted document ' + d.name); renderAll(); toast(`Document ${d.name} deleted`); } }) }
+    ]); break; }
+  }
+});
+
+document.addEventListener('input', e => {
+  const c = e.target.dataset.ctl; if (!c) return;
+  const keep = () => { const id = e.target.id, pos = e.target.selectionStart; renderPanel(); const n = $('#' + id); n.focus(); try { n.setSelectionRange(pos, pos); } catch (_) {} };
+  if (c === 'c-q') { S.cq = e.target.value; keep(); }
+  if (c === 'po-q') { S.po.q = e.target.value; S.po.page = 1; keep(); }
+});
+document.addEventListener('change', e => {
+  const c = e.target.dataset.ctl; if (!c) return;
+  const id = e.target.id;
+  if (c === 'po-status') { S.po.status = e.target.value; S.po.page = 1; }
+  if (c === 'po-size') { S.po.size = +e.target.value; S.po.page = 1; }
+  if (c === 'perf-range') S.months = +e.target.value;
+  if (c.startsWith('po-') || c === 'perf-range') { renderPanel(); $('#' + id).focus(); }
+});
+document.addEventListener('keydown', e => {
+  const m = $('#menu');
+  if (!m.classList.contains('hidden')) {
+    const items = $$('[data-mi]:not([aria-disabled])', m), i = items.indexOf(document.activeElement);
+    if (e.key === 'Escape') { e.preventDefault(); closeMenu(true); }
+    else if (e.key === 'ArrowDown') { e.preventDefault(); items[(i + 1) % items.length].focus(); }
+    else if (e.key === 'ArrowUp') { e.preventDefault(); items[(i - 1 + items.length) % items.length].focus(); }
+    else if (e.key === 'Tab') closeMenu();
+    return;
+  }
+  const tab = e.target.closest && e.target.closest('[role="tab"]');
+  if (tab && ['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(e.key)) {
+    e.preventDefault(); const ks = TABS.map(x => x[0]); let i = ks.indexOf(tab.dataset.tab);
+    i = e.key === 'Home' ? 0 : e.key === 'End' ? ks.length - 1 : (i + (e.key === 'ArrowRight' ? 1 : -1) + ks.length) % ks.length;
+    selectTab(ks[i], true);
+  }
+});
+addEventListener('resize', () => closeMenu());
+
+/* ---------- init ---------- */
+if (innerWidth < 1024) S.sidebarCollapsed = true;
+const hashTab = (location.hash.match(/tab=(\w+)/) || [])[1];
+if (hashTab && TABS.some(t => t[0] === hashTab)) S.tab = hashTab;
+renderNav(); renderHeader(); renderTabs(); ensureLoaded(S.tab);
+</script>
+</body>
+</html>

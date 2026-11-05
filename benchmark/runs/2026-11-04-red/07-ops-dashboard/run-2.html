@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Vận hành kho - Tổng quan trong ngày</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script>tailwind.config={darkMode:'media'}</script>
+<style>
+  body{font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+  .num{font-variant-numeric:tabular-nums}
+</style>
+</head>
+<body class="bg-slate-50 text-slate-900 dark:bg-slate-950 dark:text-slate-100">
+<div class="max-w-7xl mx-auto px-4 sm:px-6 py-6">
+
+  <header class="flex flex-wrap items-center justify-between gap-3 mb-6">
+    <div>
+      <h1 class="text-xl font-semibold">Vận hành kho: Tổng quan trong ngày</h1>
+      <p class="text-sm text-slate-500 dark:text-slate-400">Kho Bình Dương (KHO-BD01) · Ca sáng · <span id="today"></span></p>
+    </div>
+    <div class="flex items-center gap-2">
+      <label for="wh" class="sr-only">Chọn kho</label>
+      <select id="wh" class="text-sm rounded-md border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 py-2">
+        <option>Kho Bình Dương</option><option>Kho Long An</option><option>Kho Hà Nội</option>
+      </select>
+      <button id="refresh" class="text-sm rounded-md bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-400">Làm mới</button>
+    </div>
+  </header>
+  <p id="updated" class="text-xs text-slate-500 dark:text-slate-400 -mt-4 mb-4" aria-live="polite"></p>
+
+  <section aria-label="Chỉ số chính" id="kpis" class="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-6"></section>
+
+  <div class="grid lg:grid-cols-3 gap-4 mb-6">
+    <section class="lg:col-span-2 rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-4">
+      <div class="flex flex-wrap items-center justify-between gap-2 mb-3">
+        <h2 class="font-semibold">Xu hướng đơn hàng</h2>
+        <div class="inline-flex rounded-md border border-slate-300 dark:border-slate-700 overflow-hidden text-sm" role="group" aria-label="Khoảng thời gian">
+          <button data-range="7" class="rg px-3 py-1.5">7 ngày</button>
+          <button data-range="14" class="rg px-3 py-1.5 border-l border-slate-300 dark:border-slate-700">14 ngày</button>
+          <button data-range="30" class="rg px-3 py-1.5 border-l border-slate-300 dark:border-slate-700">30 ngày</button>
+        </div>
+      </div>
+      <div class="flex gap-4 text-xs text-slate-600 dark:text-slate-300 mb-2">
+        <span class="inline-flex items-center gap-1.5"><span class="w-3 h-0.5 bg-blue-600 inline-block"></span>Đơn nhận</span>
+        <span class="inline-flex items-center gap-1.5"><span class="w-3 h-0.5 bg-teal-600 inline-block" style="border-top:2px dashed"></span>Đơn đã xuất</span>
+      </div>
+      <div class="relative">
+        <svg id="chart" viewBox="0 0 640 220" class="w-full h-auto" role="img" aria-label="Biểu đồ đơn nhận và đơn đã xuất theo ngày"></svg>
+        <div id="tip" class="hidden absolute pointer-events-none text-xs rounded-md bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900 px-2 py-1 shadow"></div>
+      </div>
+    </section>
+
+    <section class="rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-4">
+      <h2 class="font-semibold mb-3">Công suất khu vực</h2>
+      <ul id="zones" class="space-y-3"></ul>
+    </section>
+  </div>
+
+  <section class="rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-4">
+    <div class="flex flex-wrap items-center justify-between gap-2 mb-3">
+      <h2 class="font-semibold">Việc cần xử lý <span id="taskCount" class="ml-1 text-sm font-normal text-slate-500 dark:text-slate-400"></span></h2>
+      <div class="inline-flex rounded-md border border-slate-300 dark:border-slate-700 overflow-hidden text-sm" role="group" aria-label="Lọc việc">
+        <button data-f="all" class="tf px-3 py-1.5">Tất cả</button>
+        <button data-f="high" class="tf px-3 py-1.5 border-l border-slate-300 dark:border-slate-700">Khẩn</button>
+        <button data-f="open" class="tf px-3 py-1.5 border-l border-slate-300 dark:border-slate-700">Chưa xong</button>
+      </div>
+    </div>
+    <div class="overflow-x-auto">
+      <table class="w-full text-sm">
+        <thead>
+          <tr class="text-left text-xs text-slate-500 dark:text-slate-400 border-b border-slate-200 dark:border-slate-800">
+            <th class="py-2 pr-3 font-medium">Mức độ</th>
+            <th class="py-2 pr-3 font-medium">Việc cần xử lý</th>
+            <th class="py-2 pr-3 font-medium">Mã</th>
+            <th class="py-2 pr-3 font-medium">Hạn</th>
+            <th class="py-2 pr-3 font-medium">Phụ trách</th>
+            <th class="py-2 font-medium text-right">Thao tác</th>
+          </tr>
+        </thead>
+        <tbody id="tasks"></tbody>
+      </table>
+    </div>
+    <p id="empty" class="hidden text-sm text-slate-500 dark:text-slate-400 py-6 text-center">Không có việc nào phù hợp bộ lọc.</p>
+  </section>
+</div>
+
+<script>
+const $=s=>document.querySelector(s);
+const fmt=n=>n.toLocaleString('vi-VN');
+$('#today').textContent=new Date().toLocaleDateString('vi-VN',{weekday:'long',day:'2-digit',month:'2-digit',year:'numeric'});
+
+// ---- mock data (seeded for stable output)
+let seed=42;const rnd=()=>(seed=(seed*16807)%2147483647)/2147483647;
+const days=30,series=[];
+for(let i=days-1;i>=0;i--){
+  const d=new Date();d.setDate(d.getDate()-i);
+  const wk=[0,6].includes(d.getDay())?0.7:1;
+  const inb=Math.round((1250+rnd()*260+(days-i)*6)*wk);
+  const out=Math.round(inb*(0.88+rnd()*0.1));
+  series.push({d,inb,out});
+}
+const kpis=[
+  {l:'Đơn chờ xuất',v:'184',sub:'so với hôm qua',delta:'-12',good:true,note:'Giảm 6,1%'},
+  {l:'Đã xuất hôm nay',v:'1.126',sub:'mục tiêu 1.400',delta:'+8,4%',good:true,note:'80% mục tiêu'},
+  {l:'Giao đúng hạn (SLA)',v:'96,2%',sub:'mục tiêu 97%',delta:'-0,8đ',good:false,note:'Dưới mục tiêu'},
+  {l:'Độ chính xác tồn kho',v:'99,3%',sub:'kiểm kê chu kỳ',delta:'+0,2đ',good:true,note:'Đạt mục tiêu'},
+  {l:'Nhận hàng (PO) hôm nay',v:'23 / 31',sub:'xe đã dỡ / dự kiến',delta:'8 xe còn lại',good:null,note:''},
+  {l:'Thời gian lấy hàng TB',v:'11,4 phút',sub:'mỗi đơn',delta:'+1,2 phút',good:false,note:'Chậm hơn hôm qua'},
+  {l:'Hàng dưới mức tồn tối thiểu',v:'37',sub:'trên 2.418 SKU',delta:'+5',good:false,note:'Cần đặt thêm'},
+  {l:'Đơn trả hàng chờ xử lý',v:'14',sub:'giá trị 42,6 triệu ₫',delta:'-3',good:true,note:''}
+];
+const zones=[
+  {n:'Khu A · Hàng nhanh',p:91},{n:'Khu B · Hàng cồng kềnh',p:78},
+  {n:'Khu C · Kho lạnh',p:84},{n:'Khu D · Hàng giá trị cao',p:52},{n:'Khu E · Hàng trả/lỗi',p:33}
+];
+let tasks=[
+  {id:1,pri:'high',t:'Lô sữa tươi HSD còn 5 ngày, cần ưu tiên xuất',ref:'LOT-24118',due:'Hôm nay 12:00',who:'Trần Minh Khoa',done:false},
+  {id:2,pri:'high',t:'12 đơn quá hạn SLA chưa lấy hàng',ref:'WAVE-1104',due:'Quá hạn 2 giờ',who:'Lê Thu Hà',done:false},
+  {id:3,pri:'high',t:'Chênh lệch kiểm kê vị trí B-14-03 (-18 thùng)',ref:'CC-0932',due:'Hôm nay 15:00',who:'Phạm Quốc Việt',done:false},
+  {id:4,pri:'med',t:'Xe container chờ dỡ hàng hơn 90 phút tại cửa 3',ref:'PO-77213',due:'Hôm nay 11:30',who:'Nguyễn Văn Đạt',done:false},
+  {id:5,pri:'med',t:'Duyệt đề xuất bổ sung hàng cho 37 SKU dưới mức tối thiểu',ref:'RPL-0411',due:'Hôm nay 17:00',who:'Đỗ Thị Lan',done:false},
+  {id:6,pri:'med',t:'Xử lý 14 đơn trả hàng, phân loại nhập lại hoặc huỷ',ref:'RMA-2209',due:'Ngày mai',who:'Võ Hoàng Nam',done:false},
+  {id:7,pri:'low',t:'Bảo trì xe nâng số 4 theo lịch định kỳ',ref:'EQ-FL04',due:'05/11',who:'Bùi Anh Tuấn',done:false},
+  {id:8,pri:'low',t:'Cập nhật vị trí lưu trữ cho hàng mới nhập khu D',ref:'PUT-3380',due:'05/11',who:'Lê Thu Hà',done:true}
+];
+let filter='all',range=14;
+const priLabel={high:'Khẩn',med:'Trung bình',low:'Thấp'};
+const priCls={high:'bg-red-100 text-red-800 dark:bg-red-950 dark:text-red-300',med:'bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300',low:'bg-slate-200 text-slate-700 dark:bg-slate-800 dark:text-slate-300'};
+
+function renderKpis(){
+  $('#kpis').innerHTML=kpis.map(k=>{
+    const c=k.good===true?'text-emerald-700 dark:text-emerald-400':k.good===false?'text-red-700 dark:text-red-400':'text-slate-600 dark:text-slate-300';
+    return `<div class="rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-3 sm:p-4">
+      <div class="text-xs text-slate-500 dark:text-slate-400">${k.l}</div>
+      <div class="num text-2xl font-semibold mt-1">${k.v}</div>
+      <div class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">${k.sub}</div>
+      <div class="num text-xs font-medium mt-2 ${c}">${k.delta}${k.note?` · <span class="font-normal">${k.note}</span>`:''}</div>
+    </div>`}).join('');
+}
+function renderZones(){
+  $('#zones').innerHTML=zones.map(z=>{
+    const col=z.p>=90?'bg-red-600':z.p>=80?'bg-amber-500':'bg-blue-600';
+    const st=z.p>=90?'Gần đầy':z.p>=80?'Cao':'Ổn định';
+    return `<li><div class="flex justify-between text-sm mb-1"><span>${z.n}</span><span class="num font-medium">${z.p}% <span class="text-xs font-normal text-slate-500 dark:text-slate-400">· ${st}</span></span></div>
+    <div class="h-2 rounded-full bg-slate-200 dark:bg-slate-800" role="progressbar" aria-valuenow="${z.p}" aria-valuemin="0" aria-valuemax="100" aria-label="${z.n}"><div class="h-2 rounded-full ${col}" style="width:${z.p}%"></div></div></li>`}).join('');
+}
+function renderChart(){
+  const data=series.slice(-range);
+  const W=640,H=220,pl=44,pr=10,pt=10,pb=26;
+  const max=Math.ceil(Math.max(...data.map(x=>x.inb))/200)*200,min=0;
+  const x=i=>pl+i*(W-pl-pr)/(data.length-1);
+  const y=v=>pt+(H-pt-pb)*(1-(v-min)/(max-min));
+  let s='';
+  for(let g=0;g<=4;g++){const v=max*g/4;s+=`<line x1="${pl}" x2="${W-pr}" y1="${y(v)}" y2="${y(v)}" stroke="currentColor" class="text-slate-200 dark:text-slate-800"/><text x="${pl-6}" y="${y(v)+4}" text-anchor="end" font-size="11" fill="currentColor" class="text-slate-500 dark:text-slate-400">${fmt(v)}</text>`}
+  const step=Math.ceil(data.length/7);
+  data.forEach((p,i)=>{if(i%step===0||i===data.length-1)s+=`<text x="${x(i)}" y="${H-8}" text-anchor="middle" font-size="11" fill="currentColor" class="text-slate-500 dark:text-slate-400">${p.d.getDate()}/${p.d.getMonth()+1}</text>`});
+  const path=k=>data.map((p,i)=>(i?'L':'M')+x(i).toFixed(1)+' '+y(p[k]).toFixed(1)).join(' ');
+  s+=`<path d="${path('inb')}" fill="none" stroke="#2563eb" stroke-width="2.5" stroke-linejoin="round"/>`;
+  s+=`<path d="${path('out')}" fill="none" stroke="#0d9488" stroke-width="2.5" stroke-dasharray="6 4" stroke-linejoin="round"/>`;
+  s+=`<line id="cur" x1="0" x2="0" y1="${pt}" y2="${H-pb}" stroke="currentColor" class="text-slate-400" style="display:none"/>`;
+  s+=`<rect id="hit" x="${pl}" y="${pt}" width="${W-pl-pr}" height="${H-pt-pb}" fill="transparent"/>`;
+  const svg=$('#chart');svg.innerHTML=s;
+  const hit=$('#hit'),tip=$('#tip'),cur=$('#cur');
+  hit.addEventListener('mousemove',e=>{
+    const r=svg.getBoundingClientRect(),sx=(e.clientX-r.left)*W/r.width;
+    const i=Math.max(0,Math.min(data.length-1,Math.round((sx-pl)/((W-pl-pr)/(data.length-1)))));
+    const p=data[i];cur.setAttribute('x1',x(i));cur.setAttribute('x2',x(i));cur.style.display='';
+    tip.innerHTML=`<b>${p.d.toLocaleDateString('vi-VN')}</b><br>Nhận: ${fmt(p.inb)}<br>Xuất: ${fmt(p.out)}`;
+    tip.classList.remove('hidden');
+    tip.style.left=Math.min(x(i)/W*r.width+10,r.width-110)+'px';tip.style.top='10px';
+  });
+  hit.addEventListener('mouseleave',()=>{tip.classList.add('hidden');cur.style.display='none'});
+  document.querySelectorAll('.rg').forEach(b=>{
+    const on=+b.dataset.range===range;
+    b.className='rg px-3 py-1.5 '+(b.dataset.range!=='7'?'border-l border-slate-300 dark:border-slate-700 ':'')+(on?'bg-blue-600 text-white':'hover:bg-slate-100 dark:hover:bg-slate-800');
+    b.setAttribute('aria-pressed',on);
+  });
+}
+function renderTasks(){
+  const list=tasks.filter(t=>filter==='all'||(filter==='high'&&t.pri==='high'&&!t.done)||(filter==='open'&&!t.done));
+  $('#tasks').innerHTML=list.map(t=>`<tr class="border-b border-slate-100 dark:border-slate-800 ${t.done?'opacity-60':''}">
+    <td class="py-2.5 pr-3"><span class="inline-block text-xs font-medium rounded px-2 py-0.5 ${priCls[t.pri]}">${priLabel[t.pri]}</span></td>
+    <td class="py-2.5 pr-3 ${t.done?'line-through':''}">${t.t}</td>
+    <td class="py-2.5 pr-3 num text-slate-600 dark:text-slate-300 whitespace-nowrap">${t.ref}</td>
+    <td class="py-2.5 pr-3 whitespace-nowrap ${t.due.startsWith('Quá')?'text-red-700 dark:text-red-400 font-medium':''}">${t.due}</td>
+    <td class="py-2.5 pr-3 whitespace-nowrap">${t.who}</td>
+    <td class="py-2.5 text-right"><button data-id="${t.id}" class="tg text-xs rounded-md border border-slate-300 dark:border-slate-700 px-2.5 py-1 hover:bg-slate-100 dark:hover:bg-slate-800 whitespace-nowrap">${t.done?'Mở lại':'Hoàn tất'}</button></td></tr>`).join('');
+  $('#empty').classList.toggle('hidden',list.length>0);
+  const open=tasks.filter(t=>!t.done);
+  $('#taskCount').textContent=`(${open.length} chưa xong, ${open.filter(t=>t.pri==='high').length} khẩn)`;
+  document.querySelectorAll('.tf').forEach(b=>{
+    const on=b.dataset.f===filter;
+    b.className='tf px-3 py-1.5 '+(b.dataset.f!=='all'?'border-l border-slate-300 dark:border-slate-700 ':'')+(on?'bg-blue-600 text-white':'hover:bg-slate-100 dark:hover:bg-slate-800');
+    b.setAttribute('aria-pressed',on);
+  });
+}
+document.addEventListener('click',e=>{
+  const r=e.target.closest('.rg');if(r){range=+r.dataset.range;renderChart()}
+  const f=e.target.closest('.tf');if(f){filter=f.dataset.f;renderTasks()}
+  const t=e.target.closest('.tg');if(t){const k=tasks.find(x=>x.id==t.dataset.id);k.done=!k.done;renderTasks()}
+});
+function stamp(){$('#updated').textContent='Cập nhật lúc '+new Date().toLocaleTimeString('vi-VN',{hour:'2-digit',minute:'2-digit'})}
+$('#refresh').onclick=stamp;
+$('#wh').onchange=stamp;
+renderKpis();renderZones();renderChart();renderTasks();stamp();
+</script>
+</body>
+</html>

@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Warehouse Operations Dashboard</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script>tailwind.config={darkMode:'media'}</script>
+</head>
+<body class="bg-slate-50 text-slate-900 dark:bg-slate-950 dark:text-slate-100 min-h-screen">
+<header class="border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900">
+  <div class="max-w-7xl mx-auto px-4 sm:px-6 py-4 flex flex-wrap items-center justify-between gap-3">
+    <div>
+      <h1 class="text-xl font-semibold">Operations Overview</h1>
+      <p class="text-sm text-slate-600 dark:text-slate-400">Reno DC-2 &middot; <span id="today"></span> &middot; Updated <span id="upd"></span></p>
+    </div>
+    <div class="flex items-center gap-2">
+      <label for="shift" class="text-sm text-slate-600 dark:text-slate-400">Shift</label>
+      <select id="shift" class="rounded-md border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-1.5 text-sm">
+        <option value="all">All shifts</option><option value="day">Day (06-14)</option><option value="swing">Swing (14-22)</option><option value="night">Night (22-06)</option>
+      </select>
+    </div>
+  </div>
+</header>
+
+<main class="max-w-7xl mx-auto px-4 sm:px-6 py-6 space-y-6">
+  <section aria-label="Key numbers">
+    <h2 class="sr-only">Key numbers today</h2>
+    <div id="kpis" class="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4"></div>
+  </section>
+
+  <section class="grid lg:grid-cols-3 gap-6">
+    <div class="lg:col-span-2 rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-4 sm:p-5">
+      <div class="flex flex-wrap items-center justify-between gap-2 mb-3">
+        <h2 class="font-semibold">Orders shipped, last 14 days</h2>
+        <div class="flex gap-4 text-xs text-slate-600 dark:text-slate-400">
+          <span class="flex items-center gap-1.5"><span class="inline-block w-3 h-0.5 bg-blue-600"></span>Shipped</span>
+          <span class="flex items-center gap-1.5"><span class="inline-block w-3 border-t-2 border-dashed border-slate-400"></span>Target</span>
+        </div>
+      </div>
+      <div class="relative"><svg id="trend" class="w-full h-60" role="img" aria-label="Line chart of orders shipped per day against target"></svg>
+      <div id="tip" class="hidden absolute pointer-events-none text-xs rounded bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900 px-2 py-1 shadow"></div></div>
+    </div>
+
+    <div class="rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-4 sm:p-5">
+      <h2 class="font-semibold mb-3">Dock throughput by hour</h2>
+      <p class="text-xs text-slate-600 dark:text-slate-400 mb-2">Pallets received (blue) vs. shipped (slate), today</p>
+      <svg id="hours" class="w-full h-52" role="img" aria-label="Bar chart of pallets received and shipped by hour"></svg>
+    </div>
+  </section>
+
+  <section class="grid lg:grid-cols-3 gap-6">
+    <div class="lg:col-span-2 rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900">
+      <div class="px-4 sm:px-5 pt-4 flex flex-wrap items-center justify-between gap-2">
+        <h2 class="font-semibold">Needs attention <span id="cnt" class="ml-1 text-sm font-normal text-slate-600 dark:text-slate-400"></span></h2>
+        <div id="filters" class="flex gap-1 text-sm" role="group" aria-label="Filter by severity"></div>
+      </div>
+      <ul id="alerts" class="divide-y divide-slate-200 dark:divide-slate-800 mt-3"></ul>
+    </div>
+
+    <div class="space-y-6">
+      <div class="rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-4 sm:p-5">
+        <h2 class="font-semibold mb-3">Zone capacity</h2>
+        <ul id="zones" class="space-y-3"></ul>
+      </div>
+      <div class="rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-4 sm:p-5">
+        <h2 class="font-semibold mb-3">Order pipeline</h2>
+        <ul id="pipe" class="space-y-2.5"></ul>
+      </div>
+    </div>
+  </section>
+
+  <section class="rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900">
+    <div class="px-4 sm:px-5 pt-4"><h2 class="font-semibold">Inbound appointments, next 4 hours</h2></div>
+    <div class="overflow-x-auto">
+      <table class="w-full text-sm mt-3">
+        <thead class="text-left text-xs uppercase tracking-wide text-slate-600 dark:text-slate-400 border-y border-slate-200 dark:border-slate-800">
+          <tr><th class="px-4 sm:px-5 py-2 font-medium">Time</th><th class="px-3 py-2 font-medium">Carrier</th><th class="px-3 py-2 font-medium">PO</th><th class="px-3 py-2 font-medium text-right">Pallets</th><th class="px-3 py-2 font-medium">Door</th><th class="px-3 py-2 font-medium">Status</th></tr>
+        </thead>
+        <tbody id="inb" class="divide-y divide-slate-200 dark:divide-slate-800"></tbody>
+      </table>
+    </div>
+  </section>
+</main>
+
+<script>
+const $=id=>document.getElementById(id);
+const NS='http://www.w3.org/2000/svg';
+const fmt=n=>n.toLocaleString('en-US');
+const now=new Date();
+$('today').textContent=now.toLocaleDateString('en-US',{weekday:'long',month:'short',day:'numeric',year:'numeric'});
+$('upd').textContent=now.toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'});
+
+// ---- data ----
+const shipped=[4120,4388,4210,3980,2310,1840,4290,4510,4460,4175,4630,2480,1920,4715];
+const target=[4300,4300,4300,4300,2400,2000,4400,4400,4400,4400,4400,2400,2000,4500];
+const days=shipped.map((_,i)=>{const d=new Date(now);d.setDate(d.getDate()-(13-i));return d});
+const rec=[22,31,38,44,41,35,29,33,40,46,38,27,18,12], shp=[14,18,26,35,48,52,44,39,47,55,43,31,22,16];
+const hrs=Array.from({length:14},(_,i)=>(i+6));
+const kpiData={
+ all:[
+  {l:'Orders shipped',v:'4,715',sub:'of 4,500 target',d:'+4.8% vs. last Tue',good:true,spark:shipped.slice(-8)},
+  {l:'On-time dispatch',v:'96.4%',sub:'target 97%',d:'-0.6 pts vs. last Tue',good:false,spark:[97.1,96.8,97.4,96.9,97.0,96.2,96.7,96.4]},
+  {l:'Open backlog',v:'1,284',sub:'orders awaiting pick',d:'+212 vs. 7 AM',good:false,spark:[980,1010,1090,1120,1150,1190,1240,1284]},
+  {l:'Dock-to-stock',v:'3.1 h',sub:'target 4.0 h',d:'-0.4 h vs. last week',good:true,spark:[3.8,3.6,3.7,3.5,3.3,3.4,3.2,3.1]}],
+ day:[
+  {l:'Orders shipped',v:'2,010',sub:'of 1,900 target',d:'+5.8% vs. last Tue',good:true,spark:[210,260,290,310,330,300,310]},
+  {l:'On-time dispatch',v:'97.8%',sub:'target 97%',d:'+0.3 pts vs. last Tue',good:true,spark:[97,97.2,97.5,97.4,97.6,97.7,97.8]},
+  {l:'Open backlog',v:'412',sub:'orders awaiting pick',d:'-38 vs. 7 AM',good:true,spark:[520,500,480,470,450,430,412]},
+  {l:'Dock-to-stock',v:'2.7 h',sub:'target 4.0 h',d:'-0.5 h vs. last week',good:true,spark:[3.2,3.1,3,2.9,2.8,2.8,2.7]}],
+ swing:[
+  {l:'Orders shipped',v:'1,860',sub:'of 1,800 target',d:'+3.3% vs. last Tue',good:true,spark:[200,240,260,280,300,290,290]},
+  {l:'On-time dispatch',v:'95.9%',sub:'target 97%',d:'-1.1 pts vs. last Tue',good:false,spark:[97,96.8,96.5,96.2,96,95.9,95.9]},
+  {l:'Open backlog',v:'566',sub:'orders awaiting pick',d:'+140 vs. 3 PM',good:false,spark:[390,410,450,480,510,540,566]},
+  {l:'Dock-to-stock',v:'3.4 h',sub:'target 4.0 h',d:'-0.2 h vs. last week',good:true,spark:[3.6,3.5,3.5,3.4,3.5,3.4,3.4]}],
+ night:[
+  {l:'Orders shipped',v:'845',sub:'of 800 target',d:'+5.6% vs. last Tue',good:true,spark:[90,110,120,125,130,135,135]},
+  {l:'On-time dispatch',v:'95.2%',sub:'target 97%',d:'-1.4 pts vs. last Tue',good:false,spark:[96.5,96.2,96,95.8,95.5,95.3,95.2]},
+  {l:'Open backlog',v:'306',sub:'orders awaiting pick',d:'+34 vs. 11 PM',good:false,spark:[250,260,270,280,290,300,306]},
+  {l:'Dock-to-stock',v:'3.9 h',sub:'target 4.0 h',d:'+0.3 h vs. last week',good:false,spark:[3.4,3.5,3.6,3.7,3.8,3.8,3.9]}]
+};
+const alerts=[
+ {sev:'critical',t:'Dock door 7 offline',d:'Conveyor jam since 09:42. 3 outbound trailers re-routed to doors 8 and 9.',who:'Maintenance',age:'2h 14m'},
+ {sev:'critical',t:'Cold storage zone C at 94% capacity',d:'Two inbound frozen loads (38 pallets) cannot be put away before 14:00.',who:'Inventory control',age:'48m'},
+ {sev:'warning',t:'142 orders at risk of missing 16:00 carrier cutoff',d:'Mostly UPS Ground; pick waves 14 and 15 are behind by about 35 minutes.',who:'Outbound lead',age:'1h 05m'},
+ {sev:'warning',t:'Cycle count variance on aisle B-12',d:'Net -86 units across 9 SKUs, above the 0.5% tolerance. Recount requested.',who:'Inventory control',age:'3h 20m'},
+ {sev:'warning',t:'Inbound PO 88231 short 6 pallets',d:'Carrier Northline reports the shortage; claim not yet filed.',who:'Receiving',age:'4h 02m'},
+ {sev:'info',t:'Forklift FL-14 due for inspection',d:'Scheduled safety check overdue by 2 days. Unit is still in service.',who:'Safety',age:'2d'},
+ {sev:'info',t:'Label printer P3 low on stock',d:'Approx. 120 labels remaining at current pack-station rate.',who:'Pack stations',age:'35m'}
+];
+const zones=[['Ambient A',78],['Ambient B',86],['Cold C',94],['Bulk D',63],['Returns E',41]];
+const pipe=[['Received',5210,'bg-slate-400'],['Allocated',4980,'bg-blue-400'],['Picking',1284,'bg-blue-500'],['Packed',612,'bg-blue-600'],['Shipped',4715,'bg-blue-800']];
+const inbound=[
+ ['11:30','Northline Freight','PO 88231','24','D2','Unloading'],
+ ['12:00','Pacific Haul','PO 88240','18','D3','On time'],
+ ['12:15','Sierra Logistics','PO 88244','32','D4','Late 25 min'],
+ ['13:00','Northline Freight','PO 88252','20','D2','On time'],
+ ['13:40','Coastline Cold','PO 88259','22','D5','On time'],
+ ['14:15','Pacific Haul','PO 88263','16','D3','Not arrived']
+];
+
+// ---- helpers ----
+function el(tag,attrs={},parent){const e=document.createElementNS(NS,tag);for(const k in attrs)e.setAttribute(k,attrs[k]);parent&&parent.appendChild(e);return e}
+function spark(vals,good){
+  const w=96,h=28,mn=Math.min(...vals),mx=Math.max(...vals),r=(mx-mn)||1;
+  const pts=vals.map((v,i)=>`${(i/(vals.length-1)*w).toFixed(1)},${(h-3-(v-mn)/r*(h-6)).toFixed(1)}`).join(' ');
+  return `<svg viewBox="0 0 ${w} ${h}" class="w-24 h-7 ${good?'text-emerald-600 dark:text-emerald-400':'text-amber-600 dark:text-amber-400'}" aria-hidden="true"><polyline points="${pts}" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/></svg>`;
+}
+function renderKpis(k){
+  $('kpis').innerHTML=kpiData[k].map(x=>`
+   <div class="rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-4">
+     <div class="text-sm text-slate-600 dark:text-slate-400">${x.l}</div>
+     <div class="mt-1 text-3xl font-semibold tabular-nums">${x.v}</div>
+     <div class="text-xs text-slate-600 dark:text-slate-400">${x.sub}</div>
+     <div class="mt-3 flex items-end justify-between gap-2">
+       <span class="text-xs font-medium ${x.good?'text-emerald-700 dark:text-emerald-400':'text-amber-700 dark:text-amber-400'}">${x.good?'&#9650;':'&#9660;'} ${x.d}</span>
+       ${spark(x.spark,x.good)}
+     </div></div>`).join('');
+}
+
+// ---- trend chart ----
+function drawTrend(){
+  const s=$('trend');s.innerHTML='';
+  const W=720,H=240,m={l:44,r:10,t:10,b:26};s.setAttribute('viewBox',`0 0 ${W} ${H}`);
+  const iw=W-m.l-m.r,ih=H-m.t-m.b,max=5000;
+  const x=i=>m.l+i/(shipped.length-1)*iw,y=v=>m.t+ih-v/max*ih;
+  [0,1000,2000,3000,4000,5000].forEach(v=>{
+    el('line',{x1:m.l,x2:W-m.r,y1:y(v),y2:y(v),stroke:'currentColor','stroke-opacity':.12},s);
+    const t=el('text',{x:m.l-6,y:y(v)+4,'text-anchor':'end','font-size':11,fill:'currentColor','fill-opacity':.7},s);t.textContent=v/1000+'k';
+  });
+  days.forEach((d,i)=>{if(i%2===1||i===13){const t=el('text',{x:x(i),y:H-8,'text-anchor':'middle','font-size':11,fill:'currentColor','fill-opacity':.7},s);t.textContent=(d.getMonth()+1)+'/'+d.getDate()}});
+  el('polyline',{points:target.map((v,i)=>x(i)+','+y(v)).join(' '),fill:'none',stroke:'#94a3b8','stroke-width':1.5,'stroke-dasharray':'5 4'},s);
+  el('polyline',{points:shipped.map((v,i)=>x(i)+','+y(v)).join(' '),fill:'none',stroke:'#2563eb','stroke-width':2.5,'stroke-linejoin':'round'},s);
+  const tip=$('tip');
+  shipped.forEach((v,i)=>{
+    const c=el('circle',{cx:x(i),cy:y(v),r:i===13?5:3,fill:'#2563eb',tabindex:0,'aria-label':`${days[i].toDateString()}: ${fmt(v)} shipped, target ${fmt(target[i])}`},s);
+    c.style.cursor='pointer';
+    const show=()=>{tip.classList.remove('hidden');tip.innerHTML=`${days[i].toLocaleDateString('en-US',{month:'short',day:'numeric'})}: <b>${fmt(v)}</b> (target ${fmt(target[i])})`;
+      const p=s.getBoundingClientRect();tip.style.left=Math.min(Math.max(x(i)/W*p.width-60,0),p.width-170)+'px';tip.style.top=Math.max(y(v)/H*p.height-34,0)+'px'};
+    c.addEventListener('mouseenter',show);c.addEventListener('focus',show);
+    c.addEventListener('mouseleave',()=>tip.classList.add('hidden'));c.addEventListener('blur',()=>tip.classList.add('hidden'));
+  });
+}
+function drawHours(){
+  const s=$('hours');s.innerHTML='';
+  const W=360,H=210,m={l:28,r:4,t:8,b:24},iw=W-m.l-m.r,ih=H-m.t-m.b,max=60,bw=iw/hrs.length;
+  [0,20,40,60].forEach(v=>{const yy=m.t+ih-v/max*ih;
+    el('line',{x1:m.l,x2:W-m.r,y1:yy,y2:yy,stroke:'currentColor','stroke-opacity':.12},s);
+    const t=el('text',{x:m.l-5,y:yy+4,'text-anchor':'end','font-size':10,fill:'currentColor','fill-opacity':.7},s);t.textContent=v});
+  hrs.forEach((h,i)=>{
+    const x0=m.l+i*bw+bw*.12,w=bw*.38;
+    [[rec[i],'#2563eb',0],[shp[i],'#94a3b8',1]].forEach(([v,c,k])=>{
+      const r=el('rect',{x:x0+k*w,y:m.t+ih-v/max*ih,width:w-1,height:v/max*ih,fill:c,rx:1},s);
+      const t=el('title',{},r);t.textContent=`${h}:00 ${k?'shipped':'received'} ${v} pallets`});
+    if(i%2===0){const t=el('text',{x:m.l+i*bw+bw/2,y:H-8,'text-anchor':'middle','font-size':10,fill:'currentColor','fill-opacity':.7},s);t.textContent=h}
+  });
+}
+
+// ---- alerts ----
+let sevFilter='all';
+const sevStyle={critical:['bg-red-100 text-red-800 dark:bg-red-950 dark:text-red-300','Critical'],warning:['bg-amber-100 text-amber-900 dark:bg-amber-950 dark:text-amber-300','Warning'],info:['bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300','Info']};
+const acked=new Set();
+function renderAlerts(){
+  const list=alerts.map((a,i)=>({...a,i})).filter(a=>sevFilter==='all'||a.sev===sevFilter);
+  $('cnt').textContent=`(${list.filter(a=>!acked.has(a.i)).length} open)`;
+  $('alerts').innerHTML=list.map(a=>`
+   <li class="px-4 sm:px-5 py-3 flex gap-3 items-start ${acked.has(a.i)?'opacity-50':''}">
+     <span class="mt-0.5 shrink-0 rounded px-2 py-0.5 text-xs font-medium ${sevStyle[a.sev][0]}">${sevStyle[a.sev][1]}</span>
+     <div class="min-w-0 flex-1">
+       <div class="text-sm font-medium">${a.t}</div>
+       <div class="text-sm text-slate-600 dark:text-slate-400">${a.d}</div>
+       <div class="mt-1 text-xs text-slate-600 dark:text-slate-400">${a.who} &middot; open ${a.age}</div>
+     </div>
+     <button data-i="${a.i}" class="ack shrink-0 text-xs rounded-md border border-slate-300 dark:border-slate-700 px-2.5 py-1 hover:bg-slate-100 dark:hover:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500">${acked.has(a.i)?'Undo':'Acknowledge'}</button>
+   </li>`).join('')||'<li class="px-5 py-6 text-sm text-slate-600 dark:text-slate-400">Nothing in this category.</li>';
+  document.querySelectorAll('.ack').forEach(b=>b.onclick=()=>{const i=+b.dataset.i;acked.has(i)?acked.delete(i):acked.add(i);renderAlerts()});
+}
+function renderFilters(){
+  const opts=[['all','All'],['critical','Critical'],['warning','Warning'],['info','Info']];
+  $('filters').innerHTML=opts.map(([k,l])=>`<button data-k="${k}" aria-pressed="${sevFilter===k}" class="px-2.5 py-1 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${sevFilter===k?'bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900':'text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'}">${l}</button>`).join('');
+  $('filters').querySelectorAll('button').forEach(b=>b.onclick=()=>{sevFilter=b.dataset.k;renderFilters();renderAlerts()});
+}
+
+// ---- side panels ----
+$('zones').innerHTML=zones.map(([n,p])=>{
+  const c=p>=90?'bg-red-600':p>=80?'bg-amber-500':'bg-blue-600';
+  return `<li><div class="flex justify-between text-sm"><span>${n}</span><span class="tabular-nums ${p>=90?'font-semibold text-red-700 dark:text-red-400':''}">${p}%</span></div>
+  <div class="mt-1 h-2 rounded-full bg-slate-200 dark:bg-slate-800" role="progressbar" aria-valuenow="${p}" aria-valuemin="0" aria-valuemax="100" aria-label="${n} capacity"><div class="h-2 rounded-full ${c}" style="width:${p}%"></div></div></li>`}).join('');
+const pm=Math.max(...pipe.map(p=>p[1]));
+$('pipe').innerHTML=pipe.map(([n,v,c])=>`<li class="flex items-center gap-3 text-sm"><span class="w-20 shrink-0 text-slate-600 dark:text-slate-400">${n}</span><div class="flex-1 h-5 rounded bg-slate-100 dark:bg-slate-800"><div class="h-5 rounded ${c}" style="width:${v/pm*100}%"></div></div><span class="w-12 text-right tabular-nums">${fmt(v)}</span></li>`).join('');
+const stCls={'Unloading':'bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-300','On time':'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300','Late 25 min':'bg-amber-100 text-amber-900 dark:bg-amber-950 dark:text-amber-300','Not arrived':'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300'};
+$('inb').innerHTML=inbound.map(r=>`<tr><td class="px-4 sm:px-5 py-2.5 tabular-nums">${r[0]}</td><td class="px-3 py-2.5">${r[1]}</td><td class="px-3 py-2.5 tabular-nums">${r[2]}</td><td class="px-3 py-2.5 text-right tabular-nums">${r[3]}</td><td class="px-3 py-2.5">${r[4]}</td><td class="px-3 py-2.5"><span class="rounded px-2 py-0.5 text-xs font-medium ${stCls[r[5]]}">${r[5]}</span></td></tr>`).join('');
+
+$('shift').onchange=e=>renderKpis(e.target.value);
+renderKpis('all');drawTrend();drawHours();renderFilters();renderAlerts();
+</script>
+</body>
+</html>

@@ -1,0 +1,483 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Thiết bị – Hệ thống bảo trì nhà máy</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+  [hidden] { display: none !important; }
+  body { font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; }
+  .skel { background: linear-gradient(90deg,#e2e8f0 25%,#f1f5f9 50%,#e2e8f0 75%); background-size: 200% 100%; animation: sh 1.2s infinite; border-radius: 4px; height: 14px; }
+  @keyframes sh { to { background-position: -200% 0; } }
+  .focus-ring:focus-visible, button:focus-visible, a:focus-visible, select:focus-visible, input:focus-visible { outline: 2px solid #1d4ed8; outline-offset: 1px; }
+  th button svg { opacity: 0; } th button:hover svg, th button:focus-visible svg, th[aria-sort] button svg { opacity: 1; }
+</style>
+</head>
+<body class="bg-slate-50 text-slate-900 text-sm">
+
+<div class="flex min-h-screen">
+  <!-- Sidebar -->
+  <aside class="hidden lg:flex w-56 shrink-0 flex-col border-r border-slate-200 bg-white" aria-label="Điều hướng chính">
+    <div class="h-14 flex items-center px-4 border-b border-slate-200 font-semibold">Bảo trì nhà máy</div>
+    <nav class="p-2 text-sm">
+      <p class="px-3 pt-2 pb-1 text-xs text-slate-600">Vận hành</p>
+      <a href="#" class="block rounded px-3 py-1.5 text-slate-700 hover:bg-slate-100">Tổng quan</a>
+      <a href="#" aria-current="page" class="block rounded px-3 py-1.5 bg-blue-50 text-blue-700 font-medium">Thiết bị</a>
+      <a href="#" class="block rounded px-3 py-1.5 text-slate-700 hover:bg-slate-100">Lệnh bảo trì</a>
+      <a href="#" class="block rounded px-3 py-1.5 text-slate-700 hover:bg-slate-100">Lịch bảo dưỡng</a>
+      <a href="#" class="block rounded px-3 py-1.5 text-slate-700 hover:bg-slate-100">Kiểm định</a>
+      <p class="px-3 pt-4 pb-1 text-xs text-slate-600">Quản lý</p>
+      <a href="#" class="block rounded px-3 py-1.5 text-slate-700 hover:bg-slate-100">Phụ tùng &amp; kho</a>
+      <a href="#" class="block rounded px-3 py-1.5 text-slate-700 hover:bg-slate-100">Báo cáo</a>
+      <a href="#" class="block rounded px-3 py-1.5 text-slate-700 hover:bg-slate-100">Người dùng &amp; phân quyền</a>
+    </nav>
+  </aside>
+
+  <div class="flex-1 min-w-0 flex flex-col">
+    <header class="h-14 bg-white border-b border-slate-200 flex items-center justify-between px-6">
+      <span class="text-slate-600">Nhà máy Biên Hòa 2</span>
+      <span class="text-slate-700">Lê Hoàng Nam · Trưởng ca bảo trì</span>
+    </header>
+
+    <main class="flex-1 px-6 py-5 max-w-[1440px] w-full">
+      <!-- Page header -->
+      <div class="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <nav aria-label="Breadcrumb" class="text-xs text-slate-600 mb-1">Bảo trì / <span>Thiết bị</span></nav>
+          <h1 class="text-2xl font-semibold">Thiết bị</h1>
+        </div>
+        <div class="flex items-center gap-2">
+          <button id="btnExport" class="h-8 px-3 rounded border border-slate-300 bg-white text-slate-700 hover:bg-slate-50">Xuất CSV</button>
+          <button class="h-8 px-3 rounded border border-slate-300 bg-white text-slate-700 hover:bg-slate-50">Nhập từ CSV</button>
+          <button id="btnAdd" class="h-8 px-3 rounded bg-blue-700 text-white font-medium hover:bg-blue-800">Thêm thiết bị</button>
+        </div>
+      </div>
+
+      <!-- Tabs -->
+      <div class="mt-4 border-b border-slate-200" role="tablist" aria-label="Chế độ xem" id="tabs"></div>
+
+      <!-- Filter bar -->
+      <div class="mt-3 flex flex-wrap items-center gap-2" id="filterBar">
+        <div class="relative">
+          <svg class="absolute left-2 top-2 h-4 w-4 text-slate-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
+          <input id="q" type="search" aria-label="Tìm thiết bị" placeholder="Tìm mã, tên máy, vị trí, số seri" class="h-8 w-72 rounded border border-slate-300 bg-white pl-8 pr-2 placeholder:text-slate-500">
+        </div>
+        <select id="area" aria-label="Khu vực" class="h-8 rounded border border-slate-300 bg-white px-2"></select>
+        <select id="status" aria-label="Trạng thái thiết bị" class="h-8 rounded border border-slate-300 bg-white px-2"></select>
+        <div class="relative">
+          <button id="btnMore" aria-expanded="false" aria-controls="morePanel" class="h-8 px-3 rounded border border-slate-300 bg-white text-slate-700 hover:bg-slate-50">Bộ lọc khác</button>
+          <div id="morePanel" hidden class="absolute z-20 left-0 mt-1 w-72 rounded-lg border border-slate-200 bg-white p-4 shadow-lg">
+            <label class="block text-sm font-medium mb-1" for="pType">Loại thiết bị</label>
+            <select id="pType" class="h-8 w-full rounded border border-slate-300 bg-white px-2 mb-3"></select>
+            <label class="block text-sm font-medium mb-1" for="pStale">Bảo dưỡng gần nhất</label>
+            <select id="pStale" class="h-8 w-full rounded border border-slate-300 bg-white px-2">
+              <option value="">Tất cả</option>
+              <option value="60">Quá 60 ngày chưa bảo dưỡng</option>
+              <option value="90">Quá 90 ngày chưa bảo dưỡng</option>
+            </select>
+            <div class="mt-4 flex justify-between">
+              <button id="pReset" class="h-8 px-3 rounded text-blue-700 hover:bg-slate-100">Đặt lại</button>
+              <button id="pApply" class="h-8 px-3 rounded bg-blue-700 text-white font-medium hover:bg-blue-800">Áp dụng</button>
+            </div>
+          </div>
+        </div>
+        <div class="ml-auto flex items-center gap-2">
+          <label class="flex items-center gap-2 text-slate-700"><input type="checkbox" id="compact" class="h-4 w-4"> Gọn</label>
+        </div>
+      </div>
+      <div id="chips" class="flex flex-wrap items-center gap-2 mt-2" hidden></div>
+
+      <p id="summary" class="mt-3 mb-2 text-slate-700" aria-live="polite"></p>
+      <p role="status" id="live" class="sr-only"></p>
+
+      <!-- Bulk bar -->
+      <div id="bulk" hidden class="h-10 flex items-center gap-4 px-3 rounded-t-md border border-b-0 border-blue-200 bg-blue-50">
+        <span id="bulkCount" class="tabular-nums font-medium"></span>
+        <button id="selAll" hidden class="text-blue-700 underline"></button>
+        <button id="bAssign" class="h-8 px-3 rounded border border-slate-300 bg-white hover:bg-slate-50">Tạo lệnh bảo dưỡng</button>
+        <button id="bExport" class="h-8 px-3 rounded border border-slate-300 bg-white hover:bg-slate-50">Xuất đã chọn</button>
+        <button id="bCancel" class="ml-auto h-8 px-3 rounded hover:bg-blue-100">Hủy chọn</button>
+      </div>
+
+      <div id="banner" hidden class="mb-2 rounded border border-emerald-200 bg-emerald-50 px-3 py-2 text-emerald-800"></div>
+
+      <!-- Table -->
+      <div class="rounded-md border border-slate-200 bg-white overflow-x-auto" id="tableWrap">
+        <table class="w-full min-w-[1080px] text-sm" id="tbl" aria-label="Danh sách thiết bị" aria-busy="true">
+          <thead class="bg-slate-50 border-b border-slate-200 text-slate-700">
+            <tr class="h-10">
+              <th class="w-10 px-3"><input type="checkbox" id="hdrCb" class="h-4 w-4 align-middle" aria-label="Chọn tất cả thiết bị trong trang này"></th>
+              <th class="px-3 text-left font-medium" data-k="code"></th>
+              <th class="px-3 text-left font-medium" data-k="name"></th>
+              <th class="px-3 text-left font-medium" data-k="loc"></th>
+              <th class="px-3 text-left font-medium" data-k="status"></th>
+              <th class="px-3 text-left font-medium" data-k="last"></th>
+              <th class="px-3 text-left font-medium" data-k="next"></th>
+              <th class="px-3 w-44"><span class="sr-only">Thao tác</span></th>
+            </tr>
+          </thead>
+          <tbody id="tbody"></tbody>
+        </table>
+      </div>
+
+      <!-- Pagination -->
+      <div id="pager" class="mt-3 flex flex-wrap items-center justify-between gap-3 text-slate-700">
+        <span id="range" class="tabular-nums"></span>
+        <div class="flex items-center gap-3">
+          <label class="flex items-center gap-2">Số dòng
+            <select id="size" class="h-8 rounded border border-slate-300 bg-white px-2"><option>15</option><option>25</option><option>50</option></select>
+          </label>
+          <div class="flex items-center gap-1" id="pages"></div>
+        </div>
+      </div>
+    </main>
+  </div>
+</div>
+
+<div id="toast" hidden role="status" class="fixed bottom-4 right-4 z-50 rounded-lg bg-slate-900 px-4 py-2 text-white shadow-lg"></div>
+
+<script>
+(function () {
+  // ---------- Mock data ----------
+  const TODAY = new Date(2026, 10, 5); // 05/11/2026
+  const DAY = 86400000;
+  const addDays = (n) => new Date(TODAY.getTime() + n * DAY);
+  let seed = 20261105;
+  const rnd = () => (seed = (seed * 1664525 + 1013904223) % 4294967296) / 4294967296;
+  const pick = (a) => a[Math.floor(rnd() * a.length)];
+  const AREAS = ['Xưởng dập', 'Xưởng hàn', 'Xưởng sơn', 'Kho lạnh', 'Phòng nồi hơi', 'Dây chuyền đóng gói'];
+  const SPOTS = { 'Xưởng dập': ['Khu A1', 'Khu A2', 'Khu A3'], 'Xưởng hàn': ['Line H1', 'Line H2', 'Line H3'], 'Xưởng sơn': ['Buồng S1', 'Buồng S2'], 'Kho lạnh': ['Kho 1', 'Kho 2'], 'Phòng nồi hơi': ['Tầng trệt', 'Tầng 1'], 'Dây chuyền đóng gói': ['Line P1', 'Line P2', 'Line P3'] };
+  const TYPES = [
+    ['Máy nén khí', 'MNK', 'Atlas Copco GA55'], ['Nồi hơi', 'NH', 'Miura EX-2000'], ['Cầu trục', 'CT', 'Konecranes 10T'],
+    ['Xe nâng', 'XN', 'Toyota 8FD25'], ['Bình chịu áp lực', 'BA', 'Bình khí nén 2000L'], ['Máy ép thủy lực', 'EP', 'Komatsu 400T'],
+    ['Robot hàn', 'RB', 'Yaskawa MA1440'], ['Băng tải', 'BT', 'Băng tải con lăn'], ['Máy phát điện', 'MP', 'Cummins C500'], ['Hệ thống lạnh', 'HL', 'Bitzer 4PES']
+  ];
+  const STATUSES = ['run', 'run', 'run', 'run', 'run', 'run', 'maint', 'maint', 'fault', 'off'];
+  const EQ = [];
+  for (let i = 0; i < 52; i++) {
+    const t = pick(TYPES), area = pick(AREAS);
+    let nextOff = Math.floor(rnd() * 330) - 45;
+    if (i < 4) nextOff = -Math.floor(rnd() * 20) - 2;
+    EQ.push({
+      id: i,
+      code: t[1] + '-' + String(100 + i * 7 % 900).padStart(3, '0'),
+      name: t[0] + ' ' + t[2].split(' ').slice(-1)[0],
+      model: t[2],
+      type: t[0],
+      area, loc: area + ' – ' + pick(SPOTS[area]),
+      status: STATUSES[Math.floor(rnd() * STATUSES.length)],
+      last: addDays(-Math.floor(rnd() * 140) - 2),
+      next: addDays(nextOff)
+    });
+  }
+  const STATUS_LABEL = { run: 'Đang hoạt động', maint: 'Đang bảo trì', fault: 'Đang lỗi', off: 'Ngừng sử dụng' };
+  const STATUS_TONE = { run: 'success', maint: 'info', fault: 'danger', off: 'neutral' };
+  const TONE = {
+    neutral: 'bg-slate-100 text-slate-700', info: 'bg-blue-50 text-blue-700',
+    success: 'bg-emerald-50 text-emerald-800', warning: 'bg-amber-50 text-amber-800', danger: 'bg-red-50 text-red-700'
+  };
+  const nf = new Intl.NumberFormat('vi-VN');
+  const df = new Intl.DateTimeFormat('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' });
+  const fold = (s) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/đ/g, 'd').replace(/Đ/g, 'D').toLowerCase();
+  const daysTo = (d) => Math.round((d.getTime() - TODAY.getTime()) / DAY);
+  const group = (e) => { const d = daysTo(e.next); return d < 0 ? 0 : d <= 30 ? 1 : 2; };
+
+  // ---------- State ----------
+  const DEFAULT = { q: '', tab: 'all', area: '', status: '', type: '', stale: '', sort: 'urgency', dir: 'asc', page: 1, size: 15 };
+  const params = new URLSearchParams(location.search);
+  const F = Object.assign({}, DEFAULT);
+  ['q', 'tab', 'area', 'status', 'type', 'stale'].forEach(k => { if (params.get(k)) F[k] = params.get(k); });
+  if (params.get('sort')) { const s = params.get('sort'); F.dir = s[0] === '-' ? 'desc' : 'asc'; F.sort = s.replace('-', ''); }
+  if (!['urgency', 'code', 'name', 'loc', 'status', 'last', 'next'].includes(F.sort)) { F.sort = 'urgency'; F.dir = 'asc'; }
+  if (!['all', 'overdue', 'soon', 'fault'].includes(F.tab)) F.tab = 'all';
+  F.page = Math.max(1, parseInt(params.get('page')) || 1);
+  F.size = [15, 25, 50].includes(parseInt(params.get('size'))) ? parseInt(params.get('size')) : 15;
+  const FORCED = params.get('state'); // empty | error | loading
+  let loading = true, errored = FORCED === 'error', data = FORCED === 'empty' ? [] : EQ;
+  let selected = new Set(), allMatching = false, compact = false;
+
+  const $ = (id) => document.getElementById(id);
+  const esc = (s) => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+
+  function syncUrl() {
+    const p = new URLSearchParams(location.search);
+    const state = p.get('state');
+    const n = new URLSearchParams();
+    if (state) n.set('state', state);
+    ['q', 'tab', 'area', 'status', 'type', 'stale'].forEach(k => { if (F[k] && F[k] !== DEFAULT[k]) n.set(k, F[k]); });
+    if (F.sort !== 'urgency') n.set('sort', (F.dir === 'desc' ? '-' : '') + F.sort);
+    if (F.page > 1) n.set('page', F.page);
+    if (F.size !== 15) n.set('size', F.size);
+    const qs = n.toString();
+    history.replaceState(null, '', qs ? '?' + qs : location.pathname);
+  }
+
+  // ---------- Filtering / sorting ----------
+  function base(ignoreTab) {
+    const q = fold(F.q.trim());
+    return data.filter(e =>
+      (!q || fold([e.code, e.name, e.loc, e.model].join(' ')).includes(q)) &&
+      (!F.area || e.area === F.area) &&
+      (!F.status || e.status === F.status) &&
+      (!F.type || e.type === F.type) &&
+      (!F.stale || -daysTo(e.last) > parseInt(F.stale)));
+  }
+  function matchesTab(e, tab) {
+    if (tab === 'overdue') return group(e) === 0;
+    if (tab === 'soon') return group(e) === 1;
+    if (tab === 'fault') return e.status === 'fault' || e.status === 'maint';
+    return true;
+  }
+  function sorted(rows) {
+    const m = F.dir === 'desc' ? -1 : 1;
+    const r = rows.slice();
+    if (F.sort === 'urgency') return r.sort((a, b) => group(a) - group(b) || a.next - b.next || a.code.localeCompare(b.code));
+    const val = { code: e => e.code, name: e => e.name, loc: e => e.loc, status: e => STATUS_LABEL[e.status], last: e => e.last.getTime(), next: e => e.next.getTime() }[F.sort];
+    return r.sort((a, b) => { const x = val(a), y = val(b); return m * (typeof x === 'number' ? x - y : x.localeCompare(y, 'vi')); });
+  }
+  const filtered = () => sorted(base().filter(e => matchesTab(e, F.tab)));
+
+  // ---------- Render ----------
+  const ICON_SORT = '<svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="m7 15 5 5 5-5M7 9l5-5 5 5"/></svg>';
+  const HEADS = { code: 'Mã thiết bị', name: 'Tên thiết bị', loc: 'Vị trí', status: 'Trạng thái', last: 'Bảo dưỡng gần nhất', next: 'Kiểm định tiếp theo' };
+
+  function renderHead() {
+    document.querySelectorAll('th[data-k]').forEach(th => {
+      const k = th.dataset.k;
+      if (F.sort === k) th.setAttribute('aria-sort', F.dir === 'asc' ? 'ascending' : 'descending');
+      else if (F.sort === 'urgency' && k === 'next') th.removeAttribute('aria-sort');
+      else th.removeAttribute('aria-sort');
+      th.innerHTML = '<button type="button" class="inline-flex items-center gap-1 font-medium text-left h-8" data-sort="' + k + '">' + HEADS[k] + ICON_SORT + '</button>';
+    });
+  }
+
+  function renderTabs() {
+    const b = base();
+    const c = { all: b.length, overdue: b.filter(e => matchesTab(e, 'overdue')).length, soon: b.filter(e => matchesTab(e, 'soon')).length, fault: b.filter(e => matchesTab(e, 'fault')).length };
+    const defs = [['all', 'Tất cả'], ['overdue', 'Kiểm định quá hạn'], ['soon', 'Sắp đến hạn (30 ngày)'], ['fault', 'Đang lỗi / bảo trì']];
+    $('tabs').innerHTML = defs.map(([k, l]) =>
+      '<button role="tab" data-tab="' + k + '" aria-selected="' + (F.tab === k) + '" class="h-10 px-3 -mb-px border-b-2 ' +
+      (F.tab === k ? 'border-blue-700 text-blue-700 font-medium' : 'border-transparent text-slate-700 hover:text-slate-900') + '">' +
+      l + (loading || errored ? '' : ' <span class="tabular-nums text-slate-600 font-normal">' + nf.format(c[k]) + '</span>') + '</button>').join('');
+  }
+
+  function renderFilters() {
+    const areas = '<option value="">Khu vực: Tất cả</option>' + AREAS.map(a => '<option ' + (F.area === a ? 'selected' : '') + '>' + a + '</option>').join('');
+    $('area').innerHTML = areas;
+    $('status').innerHTML = '<option value="">Trạng thái: Tất cả</option>' + Object.keys(STATUS_LABEL).map(s => '<option value="' + s + '" ' + (F.status === s ? 'selected' : '') + '>' + STATUS_LABEL[s] + '</option>').join('');
+    $('pType').innerHTML = '<option value="">Tất cả</option>' + TYPES.map(t => '<option ' + (F.type === t[0] ? 'selected' : '') + '>' + t[0] + '</option>').join('');
+    $('pStale').value = F.stale;
+    const n = (F.type ? 1 : 0) + (F.stale ? 1 : 0);
+    $('btnMore').textContent = 'Bộ lọc khác' + (n ? ' (' + n + ')' : '');
+  }
+
+  function chipsList() {
+    const c = [];
+    if (F.q) c.push(['q', 'Tìm: ' + F.q]);
+    if (F.area) c.push(['area', 'Khu vực: ' + F.area]);
+    if (F.status) c.push(['status', 'Trạng thái: ' + STATUS_LABEL[F.status]]);
+    if (F.type) c.push(['type', 'Loại: ' + F.type]);
+    if (F.stale) c.push(['stale', 'Chưa bảo dưỡng quá ' + F.stale + ' ngày']);
+    return c;
+  }
+  function renderChips() {
+    const c = chipsList();
+    $('chips').hidden = !c.length;
+    $('chips').innerHTML = c.map(([k, l]) =>
+      '<span class="inline-flex h-6 items-center gap-1 rounded-full border border-slate-300 bg-white pl-2 pr-1 text-xs font-medium text-slate-700">' + esc(l) +
+      '<button data-chip="' + k + '" aria-label="Bỏ lọc ' + esc(l) + '" class="inline-flex h-6 w-6 items-center justify-center rounded-full hover:bg-slate-100"><svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg></button></span>').join('') +
+      (c.length ? '<button id="clearAll" class="h-6 px-1 text-blue-700 hover:underline">Xóa tất cả</button>' : '');
+  }
+
+  function inspBadge(e) {
+    const d = daysTo(e.next), g = group(e);
+    let text, tone = null;
+    if (g === 0) { text = 'Quá hạn ' + nf.format(-d) + ' ngày'; tone = 'danger'; }
+    else if (g === 1) { text = d === 0 ? 'Đến hạn hôm nay' : 'Còn ' + nf.format(d) + ' ngày'; tone = 'warning'; }
+    else text = 'Còn ' + nf.format(d) + ' ngày';
+    const badge = tone ? '<span class="inline-flex h-6 items-center rounded-full px-2 text-xs leading-5 font-medium ' + TONE[tone] + '">' + text + '</span>'
+      : '<span class="text-xs text-slate-600">' + text + '</span>';
+    return '<span class="tabular-nums mr-2">' + df.format(e.next) + '</span>' + badge;
+  }
+
+  function colSpanMsg(html) { return '<tr><td colspan="8" class="px-3 py-14 text-center">' + html + '</td></tr>'; }
+
+  function render() {
+    renderTabs(); renderChips(); renderHead();
+    const tbody = $('tbody'), tbl = $('tbl');
+    tbl.setAttribute('aria-busy', loading ? 'true' : 'false');
+    const rowH = compact ? 'h-8' : 'h-10';
+    $('bulk').hidden = true; $('pager').hidden = false;
+    if (loading) {
+      tbody.innerHTML = Array.from({ length: 10 }, () => '<tr class="h-10 border-b border-slate-100">' + Array.from({ length: 8 }, (_, i) => '<td class="px-3"><div class="skel" style="width:' + (i === 0 ? 16 : 50 + (i * 13) % 45) + '%"></div></td>').join('') + '</tr>').join('');
+      $('summary').textContent = 'Đang tải danh sách thiết bị…'; $('range').textContent = ''; $('pages').innerHTML = '';
+      $('hdrCb').disabled = true; return;
+    }
+    if (errored) {
+      tbody.innerHTML = colSpanMsg('<p class="font-medium">Không tải được danh sách thiết bị</p><p class="text-slate-600 mt-1">Kết nối tới máy chủ bị gián đoạn. Dữ liệu chưa bị thay đổi.</p><button id="retry" class="mt-3 h-8 px-3 rounded bg-blue-700 text-white font-medium hover:bg-blue-800">Thử lại</button>');
+      $('summary').textContent = ''; $('range').textContent = ''; $('pages').innerHTML = ''; $('hdrCb').disabled = true; return;
+    }
+    $('hdrCb').disabled = false;
+    const rows = filtered();
+    const total = rows.length;
+    const pageCount = Math.max(1, Math.ceil(total / F.size));
+    if (F.page > pageCount) F.page = pageCount;
+    const start = (F.page - 1) * F.size;
+    const pageRows = rows.slice(start, start + F.size);
+
+    $('summary').textContent = nf.format(total) + ' thiết bị' + (total ? ' · ' + nf.format(rows.filter(e => group(e) === 0).length) + ' quá hạn kiểm định · ' + nf.format(rows.filter(e => e.status === 'fault').length) + ' đang lỗi' : '');
+    $('live').textContent = total ? nf.format(total) + ' thiết bị phù hợp' : 'Không có thiết bị phù hợp';
+
+    if (!data.length) {
+      tbody.innerHTML = colSpanMsg('<p class="font-medium">Chưa có thiết bị nào</p><p class="text-slate-600 mt-1">Thêm thiết bị để theo dõi vị trí, lịch bảo dưỡng và hạn kiểm định.</p><button class="mt-3 h-8 px-3 rounded bg-blue-700 text-white font-medium hover:bg-blue-800" data-add>Thêm thiết bị</button>');
+      $('pager').hidden = true; $('hdrCb').disabled = true; $('summary').textContent = ''; return;
+    }
+    if (!total) {
+      const term = F.q ? ' “' + esc(F.q) + '”' : '';
+      tbody.innerHTML = colSpanMsg('<p class="font-medium">Không có thiết bị nào khớp' + term + '</p><p class="text-slate-600 mt-1">Kiểm tra chính tả hoặc nới rộng bộ lọc.</p><button id="clearAll2" class="mt-3 h-8 px-3 rounded border border-slate-300 bg-white hover:bg-slate-50">Xóa bộ lọc</button>');
+      $('range').textContent = '0 thiết bị'; $('pages').innerHTML = ''; return;
+    }
+
+    tbody.innerHTML = pageRows.map(e => {
+      const sel = allMatching || selected.has(e.id);
+      return '<tr class="' + rowH + ' border-b border-slate-100 last:border-0 hover:bg-slate-50 ' + (sel ? 'bg-blue-50' : '') + '">' +
+        '<td class="px-3"><input type="checkbox" class="h-4 w-4 align-middle rowcb" data-id="' + e.id + '" ' + (sel ? 'checked' : '') + ' aria-label="Chọn thiết bị ' + e.code + '"></td>' +
+        '<td class="px-3 whitespace-nowrap"><a href="#" class="text-blue-700 font-medium hover:underline">' + e.code + '</a></td>' +
+        '<td class="px-3 whitespace-nowrap">' + esc(e.name) + '</td>' +
+        '<td class="px-3 whitespace-nowrap">' + esc(e.loc) + '</td>' +
+        '<td class="px-3 whitespace-nowrap"><span class="inline-flex h-6 items-center rounded-full px-2 text-xs leading-5 font-medium ' + TONE[STATUS_TONE[e.status]] + '">' + STATUS_LABEL[e.status] + '</span></td>' +
+        '<td class="px-3 whitespace-nowrap tabular-nums">' + df.format(e.last) + ' <span class="text-xs text-slate-600">(' + nf.format(-daysTo(e.last)) + ' ngày trước)</span></td>' +
+        '<td class="px-3 whitespace-nowrap">' + inspBadge(e) + '</td>' +
+        '<td class="px-3 whitespace-nowrap text-right relative">' +
+          '<button data-log="' + e.id + '" class="h-8 px-2 rounded text-blue-700 hover:bg-slate-100" aria-label="Ghi bảo dưỡng cho ' + e.code + '"' + (e.status === 'off' ? ' disabled title="Thiết bị đã ngừng sử dụng"' : '') + '>Ghi bảo dưỡng</button>' +
+          '<button data-menu="' + e.id + '" aria-haspopup="menu" aria-expanded="false" aria-label="Thao tác khác cho thiết bị ' + e.code + '" class="h-8 w-8 rounded hover:bg-slate-100 align-middle"' + (selected.size || allMatching ? ' disabled' : '') + '>⋯</button>' +
+        '</td></tr>';
+    }).join('');
+
+    // bulk bar
+    const nSel = allMatching ? total : selected.size;
+    const pageIds = pageRows.map(e => e.id);
+    const pageAll = pageIds.every(id => allMatching || selected.has(id));
+    const pageSome = pageIds.some(id => allMatching || selected.has(id));
+    const hc = $('hdrCb'); hc.checked = pageAll; hc.indeterminate = !pageAll && pageSome;
+    $('bulk').hidden = nSel === 0;
+    $('tableWrap').classList.toggle('rounded-t-none', nSel > 0);
+    if (nSel) {
+      $('bulkCount').textContent = allMatching ? 'Đã chọn tất cả ' + nf.format(total) + ' thiết bị khớp' : nf.format(nSel) + ' đã chọn';
+      const sa = $('selAll');
+      sa.hidden = !(pageAll && total > pageRows.length) && !allMatching;
+      sa.textContent = allMatching ? 'Bỏ chọn tất cả' : 'Chọn tất cả ' + nf.format(total) + ' thiết bị khớp';
+    }
+
+    // pager
+    $('range').textContent = (start + 1) + '–' + (start + pageRows.length) + ' / ' + nf.format(total);
+    $('size').value = String(F.size);
+    let ph = '<button data-pg="' + (F.page - 1) + '" ' + (F.page === 1 ? 'disabled' : '') + ' class="h-8 px-3 rounded border border-slate-300 bg-white disabled:text-slate-500 disabled:bg-slate-50">Trước</button>';
+    for (let p = 1; p <= pageCount; p++) {
+      if (pageCount > 7 && p !== 1 && p !== pageCount && Math.abs(p - F.page) > 1) { if (Math.abs(p - F.page) === 2) ph += '<span class="px-1">…</span>'; continue; }
+      ph += '<button data-pg="' + p + '" ' + (p === F.page ? 'aria-current="page"' : '') + ' class="h-8 min-w-8 px-2 rounded border tabular-nums ' + (p === F.page ? 'border-blue-700 bg-blue-700 text-white' : 'border-slate-300 bg-white hover:bg-slate-50') + '">' + p + '</button>';
+    }
+    ph += '<button data-pg="' + (F.page + 1) + '" ' + (F.page === pageCount ? 'disabled' : '') + ' class="h-8 px-3 rounded border border-slate-300 bg-white disabled:text-slate-500 disabled:bg-slate-50">Sau</button>';
+    $('pages').innerHTML = ph;
+  }
+
+  // ---------- Helpers ----------
+  function toast(msg) { const t = $('toast'); t.textContent = msg; t.hidden = false; clearTimeout(toast.t); toast.t = setTimeout(() => t.hidden = true, 3000); }
+  function change(patch, resetPage) {
+    Object.assign(F, patch);
+    if (resetPage !== false) F.page = 1;
+    selected.clear(); allMatching = false;
+    syncUrl(); renderFilters(); render();
+  }
+  function closeMenus() { document.querySelectorAll('.rowmenu').forEach(m => m.remove()); document.querySelectorAll('[data-menu]').forEach(b => b.setAttribute('aria-expanded', 'false')); }
+  function exportCsv(rows) {
+    const head = ['Mã', 'Tên', 'Vị trí', 'Trạng thái', 'Bảo dưỡng gần nhất', 'Kiểm định tiếp theo'];
+    const lines = [head].concat(rows.map(e => [e.code, e.name, e.loc, STATUS_LABEL[e.status], df.format(e.last), df.format(e.next)]));
+    const blob = new Blob(['﻿' + lines.map(r => r.map(c => '"' + String(c).replace(/"/g, '""') + '"').join(',')).join('\n')], { type: 'text/csv' });
+    const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'thiet-bi.csv'; a.click();
+    toast('Đã xuất ' + nf.format(rows.length) + ' thiết bị');
+  }
+
+  // ---------- Events ----------
+  let qTimer;
+  $('q').value = F.q;
+  $('q').addEventListener('input', (e) => { clearTimeout(qTimer); qTimer = setTimeout(() => change({ q: e.target.value }), 300); });
+  $('area').addEventListener('change', e => change({ area: e.target.value }));
+  $('status').addEventListener('change', e => change({ status: e.target.value }));
+  $('size').addEventListener('change', e => change({ size: parseInt(e.target.value) }));
+  $('compact').addEventListener('change', e => { compact = e.target.checked; render(); });
+  $('btnMore').addEventListener('click', () => { const open = $('morePanel').hidden; $('morePanel').hidden = !open; $('btnMore').setAttribute('aria-expanded', open); });
+  $('pApply').addEventListener('click', () => { $('morePanel').hidden = true; $('btnMore').setAttribute('aria-expanded', 'false'); change({ type: $('pType').value, stale: $('pStale').value }); $('btnMore').focus(); });
+  $('pReset').addEventListener('click', () => { $('pType').value = ''; $('pStale').value = ''; });
+  $('btnExport').addEventListener('click', () => exportCsv(filtered()));
+  $('btnAdd').addEventListener('click', () => toast('Mở biểu mẫu thêm thiết bị'));
+  $('bAssign').addEventListener('click', () => toast('Đã tạo lệnh bảo dưỡng cho ' + nf.format(allMatching ? filtered().length : selected.size) + ' thiết bị'));
+  $('bExport').addEventListener('click', () => exportCsv(allMatching ? filtered() : EQ.filter(e => selected.has(e.id))));
+  $('bCancel').addEventListener('click', () => { selected.clear(); allMatching = false; render(); $('hdrCb').focus(); });
+  $('selAll').addEventListener('click', () => {
+    if (allMatching) { allMatching = false; selected.clear(); } else allMatching = true;
+    render();
+  });
+  $('hdrCb').addEventListener('change', (e) => {
+    const rows = filtered().slice((F.page - 1) * F.size, F.page * F.size);
+    if (allMatching && !e.target.checked) { allMatching = false; selected.clear(); }
+    else rows.forEach(r => e.target.checked ? selected.add(r.id) : selected.delete(r.id));
+    render();
+  });
+
+  document.addEventListener('click', (e) => {
+    const t = e.target.closest('button, a');
+    if (!e.target.closest('#morePanel') && !e.target.closest('#btnMore')) { $('morePanel').hidden = true; $('btnMore').setAttribute('aria-expanded', 'false'); }
+    if (!e.target.closest('.rowmenu') && !(t && t.dataset.menu)) closeMenus();
+    if (!t) return;
+    if (t.dataset.tab) return change({ tab: t.dataset.tab });
+    if (t.dataset.sort) {
+      const k = t.dataset.sort;
+      if (F.sort === k && F.dir === 'asc') return change({ dir: 'desc' });
+      if (F.sort === k && F.dir === 'desc') return change({ sort: 'urgency', dir: 'asc' });
+      return change({ sort: k, dir: 'asc' });
+    }
+    if (t.dataset.chip) return change({ [t.dataset.chip]: '' }, true), ($('q').value = F.q);
+    if (t.id === 'clearAll' || t.id === 'clearAll2') { change({ q: '', area: '', status: '', type: '', stale: '', tab: 'all' }); $('q').value = ''; return; }
+    if (t.dataset.pg) return change({ page: parseInt(t.dataset.pg) }, false);
+    if (t.id === 'retry') { history.replaceState(null, '', location.pathname + location.search.replace(/[?&]state=error/, '')); errored = false; loading = true; render(); setTimeout(() => { loading = false; render(); }, 500); return; }
+    if (t.dataset.add !== undefined) return toast('Mở biểu mẫu thêm thiết bị');
+    if (t.dataset.log) { const eq = EQ[t.dataset.log]; return toast('Mở phiếu ghi bảo dưỡng ' + eq.code); }
+    if (t.dataset.menu) {
+      const open = t.getAttribute('aria-expanded') === 'true';
+      closeMenus();
+      if (open) return;
+      const eq = EQ[t.dataset.menu];
+      t.setAttribute('aria-expanded', 'true');
+      const m = document.createElement('div');
+      m.className = 'rowmenu absolute right-3 top-9 z-30 w-52 rounded-lg border border-slate-200 bg-white py-1 text-left shadow-lg';
+      m.setAttribute('role', 'menu');
+      m.innerHTML = ['Xem chi tiết', 'Lên lịch kiểm định', 'Chuyển vị trí', 'Báo sự cố'].map(l => '<button role="menuitem" class="block w-full px-3 py-1.5 text-left hover:bg-slate-100">' + l + '</button>').join('') +
+        '<div class="my-1 border-t border-slate-200"></div><button role="menuitem" class="block w-full px-3 py-1.5 text-left text-red-700 hover:bg-slate-100">Ngừng sử dụng ' + eq.code + '</button>';
+      t.closest('td').appendChild(m);
+      m.querySelector('button').focus();
+    }
+  });
+  document.addEventListener('change', (e) => {
+    if (e.target.classList.contains('rowcb')) {
+      const id = parseInt(e.target.dataset.id);
+      if (allMatching && !e.target.checked) { allMatching = false; selected = new Set(filtered().map(r => r.id)); }
+      e.target.checked ? selected.add(id) : selected.delete(id);
+      render();
+    }
+  });
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') { closeMenus(); $('morePanel').hidden = true; }
+    if (e.key === '/' && !/INPUT|SELECT|TEXTAREA/.test(document.activeElement.tagName)) { e.preventDefault(); $('q').focus(); }
+  });
+  window.addEventListener('beforeunload', () => {});
+
+  // ---------- Init ----------
+  renderFilters(); render();
+  if (FORCED === 'loading') return;
+  setTimeout(() => { loading = false; render(); }, 450);
+})();
+</script>
+</body>
+</html>

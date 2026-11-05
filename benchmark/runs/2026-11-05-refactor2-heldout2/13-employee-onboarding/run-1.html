@@ -1,0 +1,510 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>New employee – HR</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+  [hidden] { display: none !important; }
+  html { scroll-padding-bottom: 6rem; scroll-padding-top: 1rem; }
+  body { font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; color: #0f172a; }
+  .tnum { font-variant-numeric: tabular-nums; }
+  .inp { height: 2rem; width: 100%; border: 1px solid #94a3b8; border-radius: 4px; background: #fff; padding: 0 .5rem; font-size: .875rem; color: #0f172a; }
+  .inp:focus-visible, .btn:focus-visible, a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible { outline: 2px solid #1d4ed8; outline-offset: 2px; }
+  .inp[aria-invalid="true"] { border-color: #b91c1c; }
+  .btn { display: inline-flex; height: 2rem; align-items: center; justify-content: center; gap: .5rem; border-radius: 4px; padding: 0 .75rem; font-size: .875rem; font-weight: 500; white-space: nowrap; }
+  .btn-primary { background: #1d4ed8; color: #fff; }
+  .btn-primary:hover { background: #1e40af; }
+  .btn-secondary { background: #fff; color: #0f172a; border: 1px solid #94a3b8; }
+  .btn-secondary:hover { background: #f1f5f9; }
+  .btn:disabled { opacity: .6; cursor: not-allowed; }
+  .skel { background: #e2e8f0; border-radius: 4px; animation: pulse 1.4s ease-in-out infinite; }
+  @keyframes pulse { 50% { opacity: .5; } }
+  @media (prefers-reduced-motion: reduce) { .skel, .spin { animation: none !important; } }
+  .spin { animation: spin 1s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  dialog::backdrop { background: rgba(15, 23, 42, .4); }
+</style>
+</head>
+<body class="bg-white">
+<div class="flex min-h-screen">
+  <!-- Sidebar -->
+  <aside class="sticky top-0 hidden h-screen w-60 shrink-0 flex-col border-r border-slate-200 bg-slate-50 md:flex">
+    <div class="flex h-12 items-center border-b border-slate-200 px-4 text-sm font-semibold">Minh Phát HR</div>
+    <nav aria-label="Main" class="flex flex-1 flex-col gap-4 overflow-y-auto p-2" id="nav"></nav>
+  </aside>
+
+  <div class="flex min-w-0 flex-1 flex-col">
+    <header class="flex h-12 items-center justify-between border-b border-slate-200 px-4">
+      <button type="button" class="inline-flex h-8 w-72 max-w-full items-center justify-between rounded border border-slate-300 px-2 text-sm text-slate-600" aria-label="Search or run a command">
+        <span>Search or run a command</span><kbd class="rounded border border-slate-300 px-1 text-xs">Ctrl K</kbd>
+      </button>
+      <div class="flex items-center gap-2">
+        <button type="button" class="btn btn-secondary w-8 !px-0" aria-label="3 unread notifications"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg></button>
+        <button type="button" class="inline-flex h-8 w-8 items-center justify-center rounded-full bg-slate-200 text-xs font-medium text-slate-800" aria-label="Account menu">PH</button>
+      </div>
+    </header>
+
+    <main class="min-w-0 flex-1 px-6 pt-6">
+      <div class="mx-auto max-w-[1100px]">
+        <!-- Page header -->
+        <nav aria-label="Breadcrumb">
+          <ol class="flex flex-wrap items-center gap-1 text-sm text-slate-600">
+            <li><a data-nav href="people.html" class="inline-flex min-h-6 items-center hover:text-slate-900 hover:underline">People</a></li>
+            <li aria-hidden="true">/</li>
+            <li><a data-nav href="employees.html" class="inline-flex min-h-6 items-center hover:text-slate-900 hover:underline">Employees</a></li>
+            <li aria-hidden="true">/</li>
+            <li><span aria-current="page" class="text-slate-900">New employee</span></li>
+          </ol>
+        </nav>
+        <div class="mt-2 flex flex-wrap items-center gap-3">
+          <h1 class="text-xl font-semibold">New employee onboarding</h1>
+          <span id="statusBadge" class="inline-flex items-center rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-700">Draft</span>
+        </div>
+        <p class="mt-1 text-sm text-slate-600">Employee ID NV-2026-0143 · Onboarding owner Phạm Thu Hương (HR) · * Required</p>
+
+        <!-- Load error -->
+        <div id="loadError" hidden class="mt-6 max-w-xl rounded-md border border-red-200 bg-red-50 p-4 text-sm text-red-800" role="alert">
+          <p class="font-medium">Couldn't load departments and managers</p>
+          <p class="mt-1">The onboarding form needs the organisation lists. Nothing you entered is lost.</p>
+          <button type="button" id="retry" class="btn btn-secondary mt-3">Retry</button>
+        </div>
+
+        <!-- Skeleton -->
+        <div id="skeleton" hidden class="mt-6 grid gap-8 lg:grid-cols-[180px_minmax(0,1fr)]" aria-busy="true" aria-label="Loading form">
+          <div class="hidden space-y-3 lg:block"><div class="skel h-5 w-32"></div><div class="skel h-5 w-28"></div><div class="skel h-5 w-36"></div><div class="skel h-5 w-24"></div><div class="skel h-5 w-28"></div></div>
+          <div class="max-w-xl space-y-6">
+            <div class="skel h-6 w-48"></div>
+            <div class="space-y-2"><div class="skel h-4 w-24"></div><div class="skel h-8 w-full"></div></div>
+            <div class="space-y-2"><div class="skel h-4 w-24"></div><div class="skel h-8 w-full"></div></div>
+            <div class="space-y-2"><div class="skel h-4 w-24"></div><div class="skel h-8 w-40"></div></div>
+            <div class="space-y-2"><div class="skel h-4 w-24"></div><div class="skel h-8 w-full"></div></div>
+            <div class="space-y-2"><div class="skel h-4 w-24"></div><div class="skel h-8 w-full"></div></div>
+          </div>
+        </div>
+
+        <!-- Form -->
+        <form id="form" novalidate class="mt-6" hidden>
+          <div role="alert" id="banner" class="mb-4"></div>
+          <div role="status" id="summary" class="mb-4"></div>
+          <div class="grid gap-8 lg:grid-cols-[180px_minmax(0,1fr)]">
+            <nav aria-label="Form sections" class="hidden lg:block">
+              <ol id="anchors" class="sticky top-6 space-y-1 text-sm"></ol>
+            </nav>
+            <div id="sections" class="min-w-0 space-y-10 pb-8"></div>
+          </div>
+
+          <!-- Sticky action bar -->
+          <div class="sticky bottom-0 -mx-6 flex flex-wrap items-center justify-end gap-3 border-t border-slate-200 bg-white px-6 py-3">
+            <span role="status" id="dirtyMsg" class="mr-auto text-sm text-slate-600 lg:mr-0"></span>
+            <span role="status" id="draftMsg" class="text-sm text-slate-600"></span>
+            <button type="button" id="cancel" class="btn btn-secondary">Cancel</button>
+            <button type="button" id="saveDraft" class="btn btn-secondary">Save draft</button>
+            <button type="submit" id="save" class="btn btn-primary"><svg id="spinner" hidden class="spin" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M21 12a9 9 0 1 1-6.2-8.6"/></svg><span>Create employee</span></button>
+          </div>
+        </form>
+      </div>
+    </main>
+  </div>
+</div>
+
+<!-- Toast -->
+<div role="status" id="toast" class="pointer-events-none fixed bottom-20 right-6 z-50"></div>
+
+<!-- Leave dialog -->
+<dialog id="leaveDlg" class="w-[420px] max-w-[92vw] rounded-lg border border-slate-200 p-0 shadow-lg" aria-labelledby="leaveTitle">
+  <div class="p-6">
+    <h2 id="leaveTitle" class="text-base font-semibold">You have unsaved changes. Leave without saving?</h2>
+    <p class="mt-2 text-sm text-slate-600">The onboarding details for this new employee have not been saved. Use Save draft to keep them.</p>
+  </div>
+  <div class="flex justify-end gap-3 border-t border-slate-200 px-6 py-3">
+    <button type="button" id="stay" class="btn btn-secondary">Stay</button>
+    <button type="button" id="leave" class="btn bg-red-700 text-white hover:bg-red-800">Leave page</button>
+  </div>
+</dialog>
+
+<!-- Preview dialog -->
+<dialog id="prevDlg" class="w-[480px] max-w-[92vw] rounded-lg border border-slate-200 p-0 shadow-lg" aria-labelledby="prevTitle">
+  <div class="p-6">
+    <h2 id="prevTitle" class="text-base font-semibold">Preview</h2>
+    <p id="prevBody" class="mt-2 text-sm text-slate-600"></p>
+  </div>
+  <div class="flex justify-end gap-3 border-t border-slate-200 px-6 py-3"><button type="button" id="prevClose" class="btn btn-secondary">Close</button></div>
+</dialog>
+
+<script>
+(function () {
+  const $ = (s, r = document) => r.querySelector(s);
+  const qs = new URLSearchParams(location.search);
+  const STATE = qs.get('state');
+
+  /* ---------- Sidebar ---------- */
+  const ic = {
+    users: '<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8M22 21v-2a4 4 0 0 0-3-3.9M16 3.1a4 4 0 0 1 0 7.8"/>',
+    user: '<path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2M12 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8"/>',
+    cal: '<path d="M8 2v4M16 2v4M3 10h18M5 4h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2"/>',
+    wallet: '<path d="M19 7V4a1 1 0 0 0-1-1H5a2 2 0 0 0 0 4h15a1 1 0 0 1 1 1v4h-3a2 2 0 0 0 0 4h3a1 1 0 0 0 1-1v-2a1 1 0 0 0-1-1M3 5v14a2 2 0 0 0 2 2h15a1 1 0 0 0 1-1v-4"/>',
+    brief: '<path d="M16 20V4a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16M4 6h16a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2"/>',
+    gear: '<path d="M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1"/>'
+  };
+  const navGroups = [
+    { label: 'People', items: [['Employees', 'employees.html', 'users', true], ['Onboarding', 'onboarding.html', 'user'], ['Recruitment', 'recruitment.html', 'brief']] },
+    { label: 'Time', items: [['Leave requests', 'leave.html', 'cal'], ['Timesheets', 'timesheets.html', 'cal']] },
+    { label: 'Pay', items: [['Payroll', 'payroll.html', 'wallet'], ['Contracts', 'contracts.html', 'brief']] },
+    { label: 'Admin', items: [['Settings', 'settings.html', 'gear']] }
+  ];
+  $('#nav').innerHTML = navGroups.map(g => `<div class="flex flex-col gap-0.5"><p class="px-2 py-1 text-xs font-medium text-slate-600">${g.label}</p>` +
+    g.items.map(([l, h, i, a]) => `<a data-nav href="${h}" ${a ? 'aria-current="page"' : ''} class="flex h-8 items-center gap-2 rounded px-2 text-sm text-slate-800 hover:bg-slate-100 ${a ? 'bg-slate-200 font-medium' : ''}"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">${ic[i]}</svg>${l}</a>`).join('') + '</div>').join('');
+
+  /* ---------- Mock data ---------- */
+  const opts = {
+    gender: ['Female', 'Male', 'Other'],
+    marital: ['Single', 'Married', 'Divorced', 'Widowed'],
+    nationality: ['Vietnam', 'Japan', 'South Korea', 'United States', 'Other'],
+    dept: ['Finance & Accounting', 'Sales', 'Operations', 'Engineering', 'Human Resources', 'Customer Support'],
+    manager: ['Trần Minh Quân – Finance manager', 'Lê Thu Hà – Sales director', 'Ngô Đức Anh – Head of Engineering', 'Phạm Thu Hương – HR manager'],
+    location: ['Head office – 12 Nguyễn Huệ, District 1, Ho Chi Minh City', 'Hanoi branch – 88 Láng Hạ, Đống Đa', 'Da Nang branch – 25 Bạch Đằng, Hải Châu', 'Remote'],
+    empType: ['Full-time', 'Part-time', 'Intern'],
+    contract: ['Fixed-term (12 months)', 'Fixed-term (36 months)', 'Indefinite term', 'Probation contract'],
+    bank: ['Vietcombank', 'Techcombank', 'BIDV', 'VPBank', 'ACB', 'MB Bank'],
+    relation: ['Spouse', 'Parent', 'Sibling', 'Child', 'Friend', 'Other']
+  };
+  const VND = new Intl.NumberFormat('vi-VN');
+  const fmtDate = d => d ? d.split('-').reverse().join('/') : '';
+  const dupTax = '0312345678';
+
+  /* ---------- Field config ---------- */
+  const req = m => v => (String(v ?? '').trim() ? '' : m);
+  const sections = [
+    { id: 'personal', title: 'Personal details', fields: [
+      { id: 'photoName', pair: 'name', label: 'First name', required: true, w: 'flex-1', ac: 'given-name', ph: 'Hoa', v: req('Enter the first name') },
+      { id: 'lastName', pair: 'name', label: 'Last name', required: true, w: 'flex-1', ac: 'family-name', ph: 'Nguyễn Thị', v: req('Enter the last name') },
+      { id: 'dob', label: 'Date of birth', type: 'date', required: true, w: 'w-40', v: v => !v ? 'Enter the date of birth' : (new Date(v) > new Date('2008-11-05') ? 'Employee must be at least 18 years old' : '') },
+      { id: 'gender', label: 'Gender', type: 'radio', options: opts.gender, required: true, v: req('Select a gender') },
+      { id: 'marital', label: 'Marital status', type: 'select', options: opts.marital, w: 'w-56' },
+      { id: 'nationality', label: 'Nationality', type: 'select', options: opts.nationality, required: true, w: 'w-56', v: req('Select a nationality') },
+      { id: 'idNumber', label: 'Citizen ID number', required: true, w: 'w-56', ph: '079195012345', help: '12 digits, as on the citizen ID card.', inputmode: 'numeric', v: v => /^\d{12}$/.test(v || '') ? '' : 'Enter 12 digits, for example 079195012345' },
+      { id: 'email', label: 'Personal email', type: 'email', required: true, ac: 'email', ph: 'name@gmail.com', help: 'Used to send the offer pack and first-day instructions.', v: v => !v ? 'Enter an email like name@company.com' : (/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v) ? '' : 'Enter an email like name@company.com') },
+      { id: 'phone', label: 'Mobile phone', type: 'tel', required: true, w: 'w-56', ac: 'tel', ph: '0903 123 456', v: v => !v ? 'Enter a mobile number' : (/^(\+84|0)\d{9}$/.test(v.replace(/[\s.-]/g, '')) ? '' : 'Enter 10 digits starting with 0, for example 0903 123 456') },
+      { id: 'address', label: 'Permanent address', required: true, ph: '45 Lê Lợi, Ward Bến Nghé, District 1', ac: 'street-address', v: req('Enter the permanent address') },
+      { id: 'city', pair: 'loc', label: 'City', required: true, w: 'flex-1', ph: 'Ho Chi Minh City', v: req('Enter the city') },
+      { id: 'postal', pair: 'loc', label: 'Postal code', w: 'w-28', ph: '700000', inputmode: 'numeric' }
+    ]},
+    { id: 'job', title: 'Job and contract', fields: [
+      { id: 'workEmail', label: 'Work email', type: 'email', help: 'Created by IT on the start date.', ph: 'hoa.nguyen@minhphat.vn', v: v => !v || /^[^\s@]+@minhphat\.vn$/.test(v) ? '' : 'Enter an address ending in @minhphat.vn' },
+      { id: 'title', label: 'Job title', required: true, ph: 'Senior accountant', v: req('Enter the job title') },
+      { id: 'dept', label: 'Department', type: 'select', options: opts.dept, required: true, v: req('Select a department') },
+      { id: 'manager', label: 'Line manager', type: 'select', options: opts.manager, required: true, v: req('Select a line manager') },
+      { id: 'location', label: 'Work location', type: 'select', options: opts.location, required: true, v: req('Select a work location') },
+      { id: 'empType', label: 'Employment type', type: 'select', options: opts.empType, required: true, w: 'w-56', v: req('Select an employment type') },
+      { id: 'contract', label: 'Contract type', type: 'select', options: opts.contract, required: true, v: req('Select a contract type') },
+      { id: 'start', label: 'Start date', type: 'date', required: true, w: 'w-40', v: v => v ? '' : 'Enter the start date' },
+      { id: 'probEnd', label: 'Probation ends', type: 'date', w: 'w-40', help: 'Up to 60 days for a degree-level role.', showIf: V => V.contract !== 'Indefinite term' || true,
+        v: (v, V) => v && V.start && v <= V.start ? 'Choose a date after the start date' : '' },
+      { id: 'end', label: 'Contract end date', type: 'date', w: 'w-40', showIf: V => /Fixed-term|Probation/.test(V.contract || ''), required: true,
+        v: (v, V) => !v ? 'Enter the contract end date' : (V.start && v <= V.start ? 'Choose a date after the start date' : '') },
+      { id: 'salary', label: 'Base salary (VND per month)', required: true, w: 'w-56', inputmode: 'numeric', num: true, ph: '25.000.000', help: 'Gross, before insurance and tax.', v: v => !v ? 'Enter the monthly base salary' : (Number(String(v).replace(/\D/g, '')) < 5000000 ? 'Salary is below the regional minimum; enter at least 5.000.000' : '') }
+    ]},
+    { id: 'bank', title: 'Bank and tax information', fields: [
+      { id: 'bankName', label: 'Bank', type: 'select', options: opts.bank, required: true, w: 'w-56', v: req('Select the bank') },
+      { id: 'branch', label: 'Branch', ph: 'Ho Chi Minh City branch' },
+      { id: 'holder', label: 'Account holder', required: true, ph: 'NGUYEN THI HOA', help: 'Capital letters without accents, as printed on the card.', v: req('Enter the account holder name') },
+      { id: 'account', label: 'Account number', required: true, w: 'w-56', inputmode: 'numeric', ph: '0071001234567', v: v => /^\d{8,16}$/.test(v || '') ? '' : 'Enter 8 to 16 digits' },
+      { id: 'taxCode', label: 'Personal tax code', required: true, w: 'w-56', inputmode: 'numeric', ph: '0312345678', help: '10 digits, or 13 digits with a branch suffix.', v: v => /^\d{10}(-\d{3})?$/.test(v || '') ? '' : 'Enter 10 or 13 digits, for example 0312345678' },
+      { id: 'si', label: 'Social insurance number', w: 'w-56', inputmode: 'numeric', ph: '7912345678', help: 'Leave empty if the employee has none; HR will register one.', v: v => !v || /^\d{10}$/.test(v) ? '' : 'Enter 10 digits' },
+      { id: 'dependents', label: 'Registered dependents', type: 'number', w: 'w-28', ph: '0', help: 'For the personal income tax deduction.', v: v => v === '' || v == null || (Number(v) >= 0 && Number.isInteger(Number(v))) ? '' : 'Enter a whole number, 0 or more' }
+    ]},
+    { id: 'emergency', title: 'Emergency contact', fields: [
+      { id: 'ecName', label: 'Full name', required: true, ph: 'Nguyễn Văn Bình', v: req('Enter the contact name') },
+      { id: 'ecRel', label: 'Relationship', type: 'select', options: opts.relation, required: true, w: 'w-56', v: req('Select the relationship') },
+      { id: 'ecPhone', label: 'Phone', type: 'tel', required: true, w: 'w-56', ph: '0912 345 678', v: v => !v ? 'Enter a phone number' : (/^(\+84|0)\d{9}$/.test(v.replace(/[\s.-]/g, '')) ? '' : 'Enter 10 digits starting with 0, for example 0912 345 678') },
+      { id: 'ecEmail', label: 'Email', type: 'email', ph: 'name@gmail.com', v: v => !v || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v) ? '' : 'Enter an email like name@company.com' }
+    ]}
+  ];
+  // fix mistaken id for first name
+  sections[0].fields[0].id = 'firstName';
+
+  const docs = [
+    { key: 'cccd', name: 'Citizen ID card (front and back)', type: 'PDF or image', required: true, file: null },
+    { key: 'photo', name: 'Portrait photo 3x4', type: 'Image', required: true, file: { name: 'portrait-hoa.jpg', size: 412000 } },
+    { key: 'degree', name: 'Degree or certificate', type: 'PDF', required: true, file: null },
+    { key: 'health', name: 'Health check certificate', type: 'PDF', required: true, file: null },
+    { key: 'record', name: 'Criminal record extract', type: 'PDF', required: false, file: null }
+  ];
+
+  /* ---------- State ---------- */
+  const V = { empType: 'Full-time', nationality: 'Vietnam', dependents: '0' };
+  const E = {};
+  let dirty = false, submitted = false, saving = false;
+  const fieldList = sections.flatMap(s => s.fields.map(f => ({ ...f, sec: s.id })));
+  const visible = f => !f.showIf || f.showIf(V);
+  const initialV = JSON.stringify(V);
+
+  const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  const alertIcon = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true" class="shrink-0"><circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/></svg>';
+
+  /* ---------- Render ---------- */
+  function fieldHtml(f) {
+    const lab = `<label for="${f.id}" class="text-sm font-medium">${f.label}${f.required ? ' <span aria-hidden="true">*</span>' : ''}</label>`;
+    const desc = [f.help ? f.id + '-help' : '', f.id + '-error'].filter(Boolean).join(' ');
+    const common = `id="${f.id}" name="${f.id}" data-f="${f.id}" aria-describedby="${desc}" ${f.required ? 'aria-required="true"' : ''}`;
+    let ctrl;
+    if (f.type === 'select') {
+      ctrl = `<select ${common} class="inp ${f.w || ''}"><option value="">Select…</option>${f.options.map(o => `<option>${esc(o)}</option>`).join('')}</select>`;
+    } else if (f.type === 'radio') {
+      return `<fieldset data-wrap="${f.id}" class="space-y-1" aria-describedby="${desc}"><legend class="text-sm font-medium">${f.label} ${f.required ? '<span aria-hidden="true">*</span>' : ''}</legend>
+        <div class="flex flex-wrap gap-x-6" id="${f.id}" tabindex="-1">${f.options.map(o => `<label class="inline-flex min-h-8 items-center gap-2 text-sm"><input type="radio" name="${f.id}" value="${o}" data-f="${f.id}" class="h-4 w-4 accent-blue-700"> ${o}</label>`).join('')}</div>
+        <p id="${f.id}-error" class="flex items-center gap-1 text-sm text-red-700" hidden></p></fieldset>`;
+    } else {
+      ctrl = `<input ${common} type="${f.type || 'text'}" ${f.inputmode ? `inputmode="${f.inputmode}"` : ''} ${f.ac ? `autocomplete="${f.ac}"` : ''} ${f.ph ? `placeholder="${esc(f.ph)}"` : ''} class="inp ${f.w || ''}">`;
+    }
+    return `<div data-wrap="${f.id}" class="${f.pair ? (f.w || '') : 'max-w-xl'} space-y-1 ${f.pair && f.w === 'flex-1' ? 'min-w-0' : ''}">${lab}${ctrl}
+      ${f.help ? `<p id="${f.id}-help" class="text-sm text-slate-600">${f.help}</p>` : ''}
+      <p id="${f.id}-error" class="flex items-center gap-1 text-sm text-red-700" hidden></p></div>`;
+  }
+
+  function sectionHtml(s) {
+    let out = '', i = 0;
+    const fs = s.fields;
+    while (i < fs.length) {
+      const f = fs[i];
+      if (f.pair && fs[i + 1] && fs[i + 1].pair === f.pair) {
+        out += `<div class="flex max-w-xl gap-4" data-pair="${f.pair}">${fieldHtml(f)}${fieldHtml(fs[i + 1])}</div>`; i += 2;
+      } else { out += fieldHtml(f); i++; }
+    }
+    return `<section id="${s.id}" aria-labelledby="${s.id}-h" class="scroll-mt-4"><h2 id="${s.id}-h" class="mb-4 border-b border-slate-200 pb-2 text-base font-semibold">${s.title}</h2><div class="space-y-6">${out}</div></section>`;
+  }
+
+  function docsHtml() {
+    return `<section id="documents" aria-labelledby="documents-h" class="scroll-mt-4">
+      <h2 id="documents-h" class="mb-1 border-b border-slate-200 pb-2 text-base font-semibold">Documents</h2>
+      <p class="mb-4 mt-2 text-sm text-slate-600">PDF, JPG or PNG, up to 10 MB each. Documents marked * are required to create the employee.</p>
+      <div class="overflow-x-auto rounded-md border border-slate-200">
+        <table class="w-full min-w-[720px] text-sm">
+          <caption class="sr-only">Onboarding documents</caption>
+          <thead class="border-b border-slate-200 bg-slate-50 text-left text-slate-700"><tr>
+            <th scope="col" class="px-3 py-2.5 font-medium">Document</th>
+            <th scope="col" class="px-3 py-2.5 font-medium">File</th>
+            <th scope="col" class="px-3 py-2.5 text-right font-medium">Size</th>
+            <th scope="col" class="px-3 py-2.5 font-medium">Status</th>
+            <th scope="col" class="px-3 py-2.5 font-medium"><span class="sr-only">Actions</span></th></tr></thead>
+          <tbody id="docRows"></tbody>
+        </table>
+      </div>
+      <div class="mt-6 max-w-xl space-y-1" data-wrap="privacy">
+        <label class="inline-flex min-h-8 items-start gap-2 text-sm"><input type="checkbox" id="privacy" data-f="privacy" aria-describedby="privacy-error" class="mt-0.5 h-4 w-4 accent-blue-700"> <span>The employee has read the personal data privacy notice and agrees to HR processing these documents. <span aria-hidden="true">*</span></span></label>
+        <p id="privacy-error" class="flex items-center gap-1 text-sm text-red-700" hidden></p>
+      </div>
+    </section>`;
+  }
+  fieldList.push({ id: 'privacy', label: 'Privacy notice', v: (v) => v ? '' : 'Confirm the employee has accepted the privacy notice', sec: 'documents' });
+
+  const sizeFmt = b => b >= 1048576 ? new Intl.NumberFormat('vi-VN', { maximumFractionDigits: 1 }).format(b / 1048576) + ' MB' : VND.format(Math.round(b / 1024)) + ' KB';
+  function renderDocs() {
+    $('#docRows').innerHTML = docs.map(d => {
+      const err = E['doc-' + d.key];
+      const status = d.file ? '<span class="inline-flex items-center rounded-full bg-emerald-50 px-2 py-0.5 text-xs font-medium text-emerald-800">Uploaded</span>'
+        : (d.required ? `<span class="inline-flex items-center rounded-full ${err ? 'bg-red-50 text-red-700' : 'bg-blue-50 text-blue-800'} px-2 py-0.5 text-xs font-medium">${err ? 'Missing' : 'Pending'}</span>` : '<span class="inline-flex items-center rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-700">Optional</span>');
+      const file = d.file ? `<span class="inline-block max-w-[180px] truncate align-bottom" title="${esc(d.file.name)}">${esc(d.file.name)}</span>` : '<span class="text-slate-600">No file</span>';
+      const acts = d.file
+        ? `<button type="button" data-doc="preview" data-k="${d.key}" class="btn btn-secondary h-6 !px-2" aria-label="Preview ${esc(d.name)}">Preview</button>
+           <button type="button" data-doc="download" data-k="${d.key}" class="btn btn-secondary h-6 !px-2" aria-label="Download ${esc(d.name)}">Download</button>
+           <button type="button" data-doc="remove" data-k="${d.key}" class="btn btn-secondary h-6 !px-2" aria-label="Remove ${esc(d.name)}">Remove</button>`
+        : `<button type="button" id="doc-${d.key}" data-doc="pick" data-k="${d.key}" class="btn btn-secondary h-6 !px-2" aria-describedby="doc-${d.key}-error">Upload</button><input type="file" id="file-${d.key}" data-k="${d.key}" class="sr-only" tabindex="-1" aria-label="Choose file for ${esc(d.name)}" accept=".pdf,.jpg,.jpeg,.png">`;
+      return `<tr class="h-10 border-b border-slate-200 last:border-0"><th scope="row" class="px-3 py-1.5 text-left font-normal">${d.name}${d.required ? ' <span aria-hidden="true">*</span>' : ''}<div id="doc-${d.key}-error" class="flex items-center gap-1 text-xs text-red-700" ${err ? '' : 'hidden'}>${err ? alertIcon + esc(err) : ''}</div></th>
+        <td class="px-3 py-1.5">${file}</td><td class="tnum px-3 py-1.5 text-right">${d.file ? sizeFmt(d.file.size) : '–'}</td><td class="px-3 py-1.5">${status}</td>
+        <td class="whitespace-nowrap px-3 py-1.5 text-right"><div class="inline-flex gap-2">${acts}</div></td></tr>`;
+    }).join('');
+  }
+
+  function build() {
+    $('#sections').innerHTML = sections.map(sectionHtml).join('') + docsHtml();
+    $('#anchors').innerHTML = [...sections.map(s => [s.id, s.title]), ['documents', 'Documents']].map(([id, t], i) =>
+      `<li><a href="#${id}" class="flex min-h-8 items-center rounded px-2 text-slate-700 hover:bg-slate-100">${i + 1}. ${t}</a></li>`).join('');
+    // fill values
+    fieldList.forEach(f => {
+      const el = $('#' + f.id); if (!el || f.type === 'radio') return;
+      if (V[f.id] != null) el.value = V[f.id];
+    });
+    renderDocs(); syncVisibility();
+  }
+
+  function syncVisibility() {
+    fieldList.forEach(f => { if (f.showIf) { const w = $(`[data-wrap="${f.id}"]`); if (w) w.hidden = !f.showIf(V); } });
+    const endF = fieldList.find(f => f.id === 'end');
+    if (endF) $('#end-required') && 0;
+  }
+
+  /* ---------- Validation ---------- */
+  function setErr(id, msg) {
+    const p = $('#' + id + '-error');
+    if (msg) E[id] = msg; else delete E[id];
+    if (!p) return;
+    p.hidden = !msg; p.innerHTML = msg ? alertIcon + esc(msg) : '';
+    const els = id === 'privacy' || id === 'gender' ? document.querySelectorAll(`[name="${id}"], #${id}`) : [$('#' + id)];
+    els.forEach(el => { if (el && el.tagName !== 'DIV') { el.setAttribute('aria-invalid', msg ? 'true' : 'false'); } });
+  }
+  function validateField(f) {
+    if (!f.v || !visible(f)) { setErr(f.id, ''); return ''; }
+    const msg = f.v(V[f.id], V) || '';
+    setErr(f.id, msg); return msg;
+  }
+  function validateDocs() {
+    docs.forEach(d => { if (d.required && !d.file) E['doc-' + d.key] = 'Upload ' + d.name.toLowerCase().replace(/\s*\(.*\)/, ''); else delete E['doc-' + d.key]; });
+    renderDocs();
+  }
+  function allErrors() {
+    const list = [];
+    fieldList.forEach(f => { const m = validateField(f); if (m) list.push({ id: f.id, label: f.label, msg: m }); });
+    validateDocs();
+    docs.forEach(d => { if (E['doc-' + d.key]) list.push({ id: 'doc-' + d.key, label: 'Documents', msg: E['doc-' + d.key] }); });
+    return list;
+  }
+  function renderSummary(list) {
+    const s = $('#summary');
+    if (list.length < 3) { s.innerHTML = ''; return; }
+    s.innerHTML = `<div class="rounded-md border border-red-200 bg-red-50 p-4 text-sm text-red-800"><p class="font-medium">${list.length} fields need attention</p>
+      <ul class="mt-2 list-disc space-y-0.5 pl-5">${list.map(e => `<li><a href="#${e.id}" data-jump="${e.id}" class="inline-flex min-h-6 items-center underline">${esc(e.label)}: ${esc(e.msg)}</a></li>`).join('')}</ul></div>`;
+  }
+  function focusId(id) {
+    let el = $('#' + id);
+    if (el && el.id === 'gender') el = $('input[name="gender"]');
+    if (el) { el.scrollIntoView({ block: 'center' }); el.focus(); }
+  }
+
+  /* ---------- Dirty / status ---------- */
+  function setDirty(d) {
+    dirty = d;
+    $('#dirtyMsg').innerHTML = d ? '<span aria-hidden="true" class="mr-1.5 inline-block h-1.5 w-1.5 rounded-full bg-amber-500"></span>Unsaved changes' : '';
+  }
+  window.addEventListener('beforeunload', e => { if (dirty) { e.preventDefault(); e.returnValue = ''; } });
+
+  /* ---------- Events ---------- */
+  const form = $('#form');
+  const live = e => {
+    const t = e.target; const id = t.dataset && t.dataset.f; if (!id) return false;
+    V[id] = t.type === 'checkbox' ? t.checked : t.value;
+    return id;
+  };
+  form.addEventListener('input', e => {
+    const id = live(e); if (!id) return;
+    setDirty(true); $('#draftMsg').textContent = '';
+    const f = fieldList.find(x => x.id === id);
+    if (f && E[id]) { validateField(f); }
+  });
+  form.addEventListener('change', e => {
+    const id = live(e); if (!id) return;
+    const f = fieldList.find(x => x.id === id);
+    if (id === 'contract' || id === 'start') { syncVisibility(); ['end', 'probEnd'].forEach(k => { if (E[k]) validateField(fieldList.find(x => x.id === k)); }); }
+    if (f && (f.type === 'radio' || f.type === 'select' || id === 'privacy')) { setDirty(true); validateField(f); }
+    if (id === 'taxCode' && E.taxCode && /server/.test(E.taxCode)) setErr('taxCode', '');
+  });
+  form.addEventListener('focusout', e => {
+    const t = e.target; const id = t.dataset && t.dataset.f; if (!id || t.type === 'radio' || t.type === 'checkbox') return;
+    if (t.dataset.f === 'salary' || id === 'salary') { const n = String(t.value).replace(/\D/g, ''); if (n) { t.value = VND.format(Number(n)); V.salary = t.value; } }
+    const f = fieldList.find(x => x.id === id); if (f) validateField(f);
+  });
+  // radio blur validation (after leaving the group)
+  form.addEventListener('focusout', e => {
+    if (e.target.name === 'gender' && !e.currentTarget.contains(e.relatedTarget)) return;
+    if (e.target.name === 'gender' && e.relatedTarget && e.relatedTarget.name !== 'gender') validateField(fieldList.find(x => x.id === 'gender'));
+  });
+
+  form.addEventListener('click', e => {
+    const j = e.target.closest('[data-jump]');
+    if (j) { e.preventDefault(); focusId(j.dataset.jump); return; }
+    const b = e.target.closest('[data-doc]'); if (!b) return;
+    const d = docs.find(x => x.key === b.dataset.k); const act = b.dataset.doc;
+    if (act === 'pick') $('#file-' + d.key).click();
+    if (act === 'remove') { d.file = null; setDirty(true); if (submitted) validateDocs(); else renderDocs(); toast(`Removed ${d.name.toLowerCase()}`); }
+    if (act === 'download') toast(`Downloading ${d.file.name} (${sizeFmt(d.file.size)})`);
+    if (act === 'preview') { $('#prevTitle').textContent = d.file.name; $('#prevBody').textContent = `${d.name} · ${sizeFmt(d.file.size)}. A preview is not available in this demo; use Download to open the file.`; $('#prevDlg').showModal(); }
+  });
+  form.addEventListener('change', e => {
+    const k = e.target.dataset && e.target.dataset.k; if (!k || e.target.type !== 'file') return;
+    const file = e.target.files[0]; if (!file) return;
+    const d = docs.find(x => x.key === k);
+    if (file.size > 10485760) { E['doc-' + k] = 'File is larger than 10 MB. Choose a smaller file.'; renderDocs(); return; }
+    d.file = { name: file.name, size: file.size }; delete E['doc-' + k]; setDirty(true); renderDocs();
+    const btn = $(`[data-doc="preview"][data-k="${k}"]`); if (btn) btn.focus();
+  });
+  $('#prevClose').onclick = () => $('#prevDlg').close();
+
+  /* ---------- Toast ---------- */
+  let tt;
+  function toast(msg) {
+    const t = $('#toast');
+    t.innerHTML = `<div class="pointer-events-auto rounded-md border border-slate-200 bg-white px-4 py-3 text-sm shadow-lg">${esc(msg)}</div>`;
+    clearTimeout(tt); tt = setTimeout(() => t.innerHTML = '', 4000);
+  }
+
+  /* ---------- Save ---------- */
+  function setSaving(on) {
+    saving = on; $('#save').disabled = on; $('#saveDraft').disabled = on;
+    $('#spinner').hidden = !on;
+  }
+  const two = n => String(n).padStart(2, '0');
+  const nowT = () => { const d = new Date(); return two(d.getHours()) + ':' + two(d.getMinutes()); };
+
+  $('#saveDraft').onclick = () => {
+    setSaving(true);
+    setTimeout(() => {
+      setSaving(false); setDirty(false);
+      $('#draftMsg').textContent = 'Draft saved ' + nowT();
+      toast('Draft saved for new employee ' + ((V.firstName || V.lastName) ? `${V.lastName || ''} ${V.firstName || ''}`.trim() : 'NV-2026-0143'));
+    }, 600);
+  };
+
+  form.addEventListener('submit', e => {
+    e.preventDefault(); if (saving) return;
+    submitted = true;
+    $('#banner').innerHTML = '';
+    const list = allErrors();
+    renderSummary(list);
+    if (list.length) { focusId(list[0].id); return; }
+    setSaving(true);
+    setTimeout(() => {
+      if (V.taxCode === dupTax) {
+        setSaving(false);
+        setErr('taxCode', 'Tax code already used by Nguyễn Văn An (NV-2025-0071)');
+        renderSummary([{ id: 'taxCode', label: 'Personal tax code', msg: E.taxCode }]);
+        $('#banner').innerHTML = '<p class="flex items-center gap-2 rounded-md bg-red-50 p-3 text-sm text-red-800">' + alertIcon + 'Couldn\'t create the employee. Your input is kept; fix the tax code and try again.</p>';
+        focusId('taxCode'); return;
+      }
+      setSaving(false); setDirty(false); $('#draftMsg').textContent = '';
+      const b = $('#statusBadge'); b.textContent = 'Pending start'; b.className = 'inline-flex items-center rounded-full bg-blue-50 px-2 py-0.5 text-xs font-medium text-blue-800';
+      toast(`Employee NV-2026-0143 (${V.lastName} ${V.firstName}) created. Start date ${fmtDate(V.start)}`);
+    }, 900);
+  });
+
+  /* ---------- Leave guard ---------- */
+  let leaveTo = null;
+  const dlg = $('#leaveDlg');
+  function guard(href) { leaveTo = href; dlg.showModal(); $('#stay').focus(); }
+  document.addEventListener('click', e => {
+    const a = e.target.closest('a[data-nav]'); if (!a) return;
+    e.preventDefault();
+    if (dirty) guard(a.getAttribute('href')); else toast('Navigation is disabled in this demo');
+  });
+  $('#cancel').onclick = () => { if (dirty) guard('employees.html'); else toast('Navigation is disabled in this demo'); };
+  $('#stay').onclick = () => dlg.close();
+  $('#leave').onclick = () => { setDirty(false); dlg.close(); toast('Left without saving (demo: staying on this page)'); };
+
+  /* ---------- Initial state ---------- */
+  function showForm() { $('#skeleton').hidden = true; $('#loadError').hidden = true; form.hidden = false; build(); }
+  function start() {
+    $('#loadError').hidden = true; form.hidden = true;
+    if (STATE === 'loading') { $('#skeleton').hidden = false; return; }
+    $('#skeleton').hidden = false;
+    setTimeout(() => {
+      if (STATE === 'error') { $('#skeleton').hidden = true; $('#loadError').hidden = false; $('#retry').focus(); return; }
+      showForm();
+    }, 450);
+  }
+  $('#retry').onclick = () => { history.replaceState(null, '', location.pathname); location.search = ''; };
+  start();
+})();
+</script>
+</body>
+</html>

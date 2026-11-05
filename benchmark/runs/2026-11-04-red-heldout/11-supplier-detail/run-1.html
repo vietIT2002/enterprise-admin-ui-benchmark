@@ -1,0 +1,497 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Northvale Precision Components - Supplier Detail</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+tailwind.config = { theme: { extend: { fontFamily: { sans: ['Inter','ui-sans-serif','system-ui','Segoe UI','sans-serif'] } } } }
+</script>
+<style>
+  .tab-btn[aria-selected="true"]{color:#1d4ed8;border-color:#1d4ed8}
+  .tab-btn[aria-selected="false"]{color:#475569;border-color:transparent}
+  .tab-btn[aria-selected="false"]:hover{color:#0f172a;border-color:#cbd5e1}
+  th.sortable{cursor:pointer;user-select:none}
+  th.sortable:hover{color:#0f172a}
+  @media (prefers-reduced-motion: reduce){*{transition:none!important}}
+</style>
+</head>
+<body class="bg-slate-50 text-slate-800 font-sans antialiased">
+
+<header class="bg-slate-900 text-white">
+  <div class="max-w-7xl mx-auto px-4 sm:px-6 h-14 flex items-center justify-between">
+    <div class="flex items-center gap-3">
+      <div class="h-7 w-7 rounded bg-blue-600 grid place-items-center text-xs font-bold" aria-hidden="true">PX</div>
+      <span class="font-semibold tracking-tight">ProcureX</span>
+      <nav aria-label="Main" class="hidden md:flex items-center gap-1 ml-6 text-sm text-slate-300">
+        <a href="#" class="px-3 py-1.5 rounded hover:bg-slate-800">Requisitions</a>
+        <a href="#" class="px-3 py-1.5 rounded hover:bg-slate-800">Purchase orders</a>
+        <a href="#" class="px-3 py-1.5 rounded bg-slate-800 text-white" aria-current="page">Suppliers</a>
+        <a href="#" class="px-3 py-1.5 rounded hover:bg-slate-800">Receiving</a>
+        <a href="#" class="px-3 py-1.5 rounded hover:bg-slate-800">Reports</a>
+      </nav>
+    </div>
+    <div class="flex items-center gap-3 text-sm text-slate-300">
+      <span class="hidden sm:inline">Dana Whitfield</span>
+      <div class="h-8 w-8 rounded-full bg-slate-700 grid place-items-center text-xs font-semibold text-white" aria-hidden="true">DW</div>
+    </div>
+  </div>
+</header>
+
+<main class="max-w-7xl mx-auto px-4 sm:px-6 py-6">
+  <nav aria-label="Breadcrumb" class="text-sm text-slate-500 mb-4">
+    <a href="#" class="hover:text-slate-800 underline-offset-2 hover:underline">Suppliers</a>
+    <span class="mx-1.5" aria-hidden="true">/</span>
+    <span class="text-slate-800">Northvale Precision Components</span>
+  </nav>
+
+  <!-- Header card -->
+  <section class="bg-white border border-slate-200 rounded-lg p-5">
+    <div class="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4">
+      <div class="flex gap-4 min-w-0">
+        <div class="h-14 w-14 shrink-0 rounded-lg bg-blue-50 text-blue-700 grid place-items-center text-lg font-bold" aria-hidden="true">NP</div>
+        <div class="min-w-0">
+          <div class="flex flex-wrap items-center gap-2">
+            <h1 class="text-xl font-semibold text-slate-900">Northvale Precision Components GmbH</h1>
+            <span class="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 text-emerald-800 text-xs font-medium px-2.5 py-0.5 ring-1 ring-emerald-200"><span class="h-1.5 w-1.5 rounded-full bg-emerald-600"></span>Approved</span>
+            <span class="inline-flex items-center rounded-full bg-amber-50 text-amber-800 text-xs font-medium px-2.5 py-0.5 ring-1 ring-amber-200">Preferred tier B</span>
+          </div>
+          <p class="text-sm text-slate-600 mt-1">Supplier ID <span class="font-mono text-slate-800">SUP-004821</span> &middot; CNC machined parts &amp; assemblies &middot; Stuttgart, Germany</p>
+        </div>
+      </div>
+      <div class="flex flex-wrap gap-2 shrink-0">
+        <button class="px-3 py-2 text-sm rounded-md border border-slate-300 bg-white hover:bg-slate-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-600">Edit supplier</button>
+        <button id="exportBtn" class="px-3 py-2 text-sm rounded-md border border-slate-300 bg-white hover:bg-slate-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-600">Export profile</button>
+        <button id="newPoBtn" class="px-3 py-2 text-sm font-medium rounded-md bg-blue-700 text-white hover:bg-blue-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-blue-600">New purchase order</button>
+      </div>
+    </div>
+
+    <div id="alertBanner" class="mt-4 rounded-md border border-amber-300 bg-amber-50 px-3 py-2.5 text-sm text-amber-900 flex items-start gap-2" role="status"></div>
+
+    <dl class="mt-5 grid grid-cols-2 md:grid-cols-4 gap-4 border-t border-slate-200 pt-4" id="kpis"></dl>
+  </section>
+
+  <!-- Tabs -->
+  <div class="mt-6 border-b border-slate-200 overflow-x-auto">
+    <div role="tablist" aria-label="Supplier sections" class="flex gap-6 min-w-max" id="tablist">
+      <button role="tab" id="tab-overview" aria-controls="panel-overview" aria-selected="true" class="tab-btn -mb-px pb-3 pt-1 text-sm font-medium border-b-2 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 rounded-t">Company info</button>
+      <button role="tab" id="tab-contacts" aria-controls="panel-contacts" aria-selected="false" tabindex="-1" class="tab-btn -mb-px pb-3 pt-1 text-sm font-medium border-b-2 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 rounded-t">Contacts <span class="ml-1 text-xs text-slate-500" id="cnt-contacts"></span></button>
+      <button role="tab" id="tab-pos" aria-controls="panel-pos" aria-selected="false" tabindex="-1" class="tab-btn -mb-px pb-3 pt-1 text-sm font-medium border-b-2 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 rounded-t">Purchase orders <span class="ml-1 text-xs text-slate-500" id="cnt-pos"></span></button>
+      <button role="tab" id="tab-docs" aria-controls="panel-docs" aria-selected="false" tabindex="-1" class="tab-btn -mb-px pb-3 pt-1 text-sm font-medium border-b-2 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 rounded-t">Documents &amp; certificates <span class="ml-1 text-xs text-slate-500" id="cnt-docs"></span></button>
+      <button role="tab" id="tab-perf" aria-controls="panel-perf" aria-selected="false" tabindex="-1" class="tab-btn -mb-px pb-3 pt-1 text-sm font-medium border-b-2 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 rounded-t">Performance</button>
+    </div>
+  </div>
+
+  <!-- Company info -->
+  <section id="panel-overview" role="tabpanel" aria-labelledby="tab-overview" class="mt-5 grid lg:grid-cols-3 gap-5">
+    <div class="lg:col-span-2 space-y-5">
+      <div class="bg-white border border-slate-200 rounded-lg">
+        <h2 class="px-5 py-3 border-b border-slate-200 text-sm font-semibold text-slate-900">Company details</h2>
+        <dl class="p-5 grid sm:grid-cols-2 gap-x-8 gap-y-4 text-sm" id="companyDl"></dl>
+      </div>
+      <div class="bg-white border border-slate-200 rounded-lg">
+        <h2 class="px-5 py-3 border-b border-slate-200 text-sm font-semibold text-slate-900">Addresses</h2>
+        <div class="p-5 grid sm:grid-cols-2 gap-5 text-sm" id="addresses"></div>
+      </div>
+    </div>
+    <div class="space-y-5">
+      <div class="bg-white border border-slate-200 rounded-lg">
+        <h2 class="px-5 py-3 border-b border-slate-200 text-sm font-semibold text-slate-900">Commercial terms</h2>
+        <dl class="p-5 space-y-3 text-sm" id="termsDl"></dl>
+      </div>
+      <div class="bg-white border border-slate-200 rounded-lg">
+        <h2 class="px-5 py-3 border-b border-slate-200 text-sm font-semibold text-slate-900">Banking</h2>
+        <dl class="p-5 space-y-3 text-sm" id="bankDl"></dl>
+      </div>
+      <div class="bg-white border border-slate-200 rounded-lg">
+        <h2 class="px-5 py-3 border-b border-slate-200 text-sm font-semibold text-slate-900">Categories</h2>
+        <div class="p-5 flex flex-wrap gap-2" id="cats"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Contacts -->
+  <section id="panel-contacts" role="tabpanel" aria-labelledby="tab-contacts" hidden class="mt-5">
+    <div class="flex items-center justify-between mb-3">
+      <label class="relative">
+        <span class="sr-only">Search contacts</span>
+        <input id="contactSearch" type="search" placeholder="Search name, role or email" class="w-72 max-w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-600">
+      </label>
+      <button class="px-3 py-2 text-sm rounded-md border border-slate-300 bg-white hover:bg-slate-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-600">Add contact</button>
+    </div>
+    <div class="grid md:grid-cols-2 xl:grid-cols-3 gap-4" id="contactGrid"></div>
+  </section>
+
+  <!-- POs -->
+  <section id="panel-pos" role="tabpanel" aria-labelledby="tab-pos" hidden class="mt-5">
+    <div class="bg-white border border-slate-200 rounded-lg">
+      <div class="p-4 border-b border-slate-200 flex flex-wrap items-center gap-3">
+        <label><span class="sr-only">Search purchase orders</span>
+          <input id="poSearch" type="search" placeholder="Search PO number or buyer" class="w-64 rounded-md border border-slate-300 px-3 py-2 text-sm placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-600"></label>
+        <label><span class="sr-only">Filter by status</span>
+          <select id="poStatus" class="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-600">
+            <option value="">All statuses</option><option>Draft</option><option>Open</option><option>Partially received</option><option>Received</option><option>Closed</option><option>Cancelled</option>
+          </select></label>
+        <p class="ml-auto text-sm text-slate-600" id="poSummary" aria-live="polite"></p>
+      </div>
+      <div class="overflow-x-auto">
+        <table class="w-full text-sm">
+          <caption class="sr-only">Purchase orders for this supplier</caption>
+          <thead class="bg-slate-50 text-xs uppercase tracking-wide text-slate-600">
+            <tr>
+              <th scope="col" class="sortable text-left px-4 py-2.5 font-semibold" data-key="id">PO number <span class="sort-ind"></span></th>
+              <th scope="col" class="sortable text-left px-4 py-2.5 font-semibold" data-key="date">Order date <span class="sort-ind"></span></th>
+              <th scope="col" class="sortable text-left px-4 py-2.5 font-semibold" data-key="due">Promised <span class="sort-ind"></span></th>
+              <th scope="col" class="text-left px-4 py-2.5 font-semibold">Buyer</th>
+              <th scope="col" class="text-left px-4 py-2.5 font-semibold">Status</th>
+              <th scope="col" class="sortable text-right px-4 py-2.5 font-semibold" data-key="total">Total (EUR) <span class="sort-ind"></span></th>
+            </tr>
+          </thead>
+          <tbody id="poBody" class="divide-y divide-slate-100"></tbody>
+        </table>
+      </div>
+      <div id="poEmpty" hidden class="p-10 text-center text-sm text-slate-600">
+        <p class="font-medium text-slate-900">No purchase orders match these filters</p>
+        <button id="poReset" class="mt-2 text-blue-700 hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 rounded">Clear filters</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- Docs -->
+  <section id="panel-docs" role="tabpanel" aria-labelledby="tab-docs" hidden class="mt-5 space-y-5">
+    <div class="bg-white border border-slate-200 rounded-lg">
+      <div class="px-5 py-3 border-b border-slate-200 flex items-center justify-between">
+        <h2 class="text-sm font-semibold text-slate-900">Certificates</h2>
+        <button class="px-3 py-1.5 text-sm rounded-md border border-slate-300 bg-white hover:bg-slate-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-600">Request renewal</button>
+      </div>
+      <div class="overflow-x-auto">
+        <table class="w-full text-sm">
+          <caption class="sr-only">Supplier certificates</caption>
+          <thead class="bg-slate-50 text-xs uppercase tracking-wide text-slate-600"><tr>
+            <th scope="col" class="text-left px-4 py-2.5 font-semibold">Certificate</th>
+            <th scope="col" class="text-left px-4 py-2.5 font-semibold">Issuer</th>
+            <th scope="col" class="text-left px-4 py-2.5 font-semibold">Issued</th>
+            <th scope="col" class="text-left px-4 py-2.5 font-semibold">Expires</th>
+            <th scope="col" class="text-left px-4 py-2.5 font-semibold">Status</th>
+            <th scope="col" class="px-4 py-2.5"><span class="sr-only">Actions</span></th>
+          </tr></thead>
+          <tbody id="certBody" class="divide-y divide-slate-100"></tbody>
+        </table>
+      </div>
+    </div>
+    <div class="bg-white border border-slate-200 rounded-lg">
+      <div class="px-5 py-3 border-b border-slate-200 flex items-center justify-between">
+        <h2 class="text-sm font-semibold text-slate-900">Documents</h2>
+        <button class="px-3 py-1.5 text-sm rounded-md border border-slate-300 bg-white hover:bg-slate-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-600">Upload document</button>
+      </div>
+      <ul id="docList" class="divide-y divide-slate-100"></ul>
+    </div>
+  </section>
+
+  <!-- Performance -->
+  <section id="panel-perf" role="tabpanel" aria-labelledby="tab-perf" hidden class="mt-5 space-y-5">
+    <div class="flex items-center justify-between">
+      <p class="text-sm text-slate-600">Trailing 12 months, Nov 2025 - Oct 2026. Targets set in the Q1 supplier scorecard.</p>
+    </div>
+    <div class="grid sm:grid-cols-2 xl:grid-cols-4 gap-4" id="perfCards"></div>
+    <div class="grid lg:grid-cols-2 gap-5">
+      <div class="bg-white border border-slate-200 rounded-lg p-5">
+        <h2 class="text-sm font-semibold text-slate-900">On-time delivery by month</h2>
+        <p class="text-xs text-slate-600 mt-0.5">Percent of PO lines received by promised date. Dashed line = 95% target.</p>
+        <div id="otdChart" class="mt-3"></div>
+      </div>
+      <div class="bg-white border border-slate-200 rounded-lg p-5">
+        <h2 class="text-sm font-semibold text-slate-900">Quality: defect rate (PPM)</h2>
+        <p class="text-xs text-slate-600 mt-0.5">Parts per million rejected at incoming inspection. Dashed line = 500 PPM limit.</p>
+        <div id="ppmChart" class="mt-3"></div>
+      </div>
+    </div>
+    <div class="bg-white border border-slate-200 rounded-lg">
+      <h2 class="px-5 py-3 border-b border-slate-200 text-sm font-semibold text-slate-900">Recent quality incidents</h2>
+      <div class="overflow-x-auto">
+        <table class="w-full text-sm">
+          <thead class="bg-slate-50 text-xs uppercase tracking-wide text-slate-600"><tr>
+            <th scope="col" class="text-left px-4 py-2.5 font-semibold">Report</th>
+            <th scope="col" class="text-left px-4 py-2.5 font-semibold">Date</th>
+            <th scope="col" class="text-left px-4 py-2.5 font-semibold">PO</th>
+            <th scope="col" class="text-left px-4 py-2.5 font-semibold">Issue</th>
+            <th scope="col" class="text-left px-4 py-2.5 font-semibold">Severity</th>
+            <th scope="col" class="text-left px-4 py-2.5 font-semibold">State</th>
+          </tr></thead>
+          <tbody id="incBody" class="divide-y divide-slate-100"></tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+</main>
+
+<div id="toast" class="fixed bottom-4 right-4 bg-slate-900 text-white text-sm px-4 py-2.5 rounded-md shadow-lg opacity-0 pointer-events-none transition-opacity" role="status" aria-live="polite"></div>
+
+<script>
+const TODAY = new Date('2026-11-04T00:00:00');
+const fmtDate = s => new Date(s+'T00:00:00').toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'});
+const eur = n => new Intl.NumberFormat('en-GB',{style:'currency',currency:'EUR'}).format(n);
+const esc = s => String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const daysTo = s => Math.round((new Date(s+'T00:00:00')-TODAY)/86400000);
+
+const company = [
+  ['Legal name','Northvale Precision Components GmbH'],['Trading as','Northvale Precision'],
+  ['Registration no.','HRB 748213, Amtsgericht Stuttgart'],['VAT ID','DE 311 482 907'],
+  ['Founded','1994'],['Employees','240 (approx.)'],
+  ['Website','www.northvale-precision.example'],['Supplier since','14 Mar 2019'],
+  ['Account owner','Dana Whitfield, Procurement'],['Risk rating','Low (reviewed 12 Aug 2026)']
+];
+const terms = [['Payment terms','Net 45'],['Incoterms','FCA Stuttgart'],['Currency','EUR'],['Lead time (avg.)','21 days'],['Min. order value','EUR 1,500.00'],['Early-pay discount','2% / 10 days']];
+const bank = [['Bank','Landesbank Baden-Wuerttemberg'],['IBAN','DE89 6005 0101 0001 2345 67'],['SWIFT / BIC','SOLADEST600'],['Last verified','02 Jun 2026']];
+const addresses = [
+  {t:'Headquarters & plant',l:['Industriestrasse 48','70565 Stuttgart','Germany']},
+  {t:'Remit-to',l:['Postfach 80 12 44','70512 Stuttgart','Germany']}
+];
+const cats = ['CNC machined parts','Shafts & spindles','Sub-assemblies','Surface treatment','Prototype runs'];
+
+const contacts = [
+  {n:'Katrin Hoffmann',r:'Key account manager',e:'k.hoffmann@northvale-precision.example',p:'+49 711 5550 1142',primary:true,tag:'Commercial'},
+  {n:'Lukas Brandt',r:'Head of quality',e:'l.brandt@northvale-precision.example',p:'+49 711 5550 1180',tag:'Quality'},
+  {n:'Mira Santos',r:'Order desk lead',e:'orders@northvale-precision.example',p:'+49 711 5550 1100',tag:'Orders'},
+  {n:'Jonas Weber',r:'Logistics coordinator',e:'j.weber@northvale-precision.example',p:'+49 711 5550 1165',tag:'Logistics'},
+  {n:'Elena Petrova',r:'Accounts receivable',e:'ar@northvale-precision.example',p:'+49 711 5550 1120',tag:'Finance'},
+  {n:'Tobias Krause',r:'Managing director',e:'t.krause@northvale-precision.example',p:'+49 711 5550 1001',tag:'Executive'}
+];
+
+const buyers = ['Dana Whitfield','Omar Haddad','Priya Nair','Chris Lindqvist'];
+const pos = [
+  {id:'PO-26-01184',date:'2026-10-28',due:'2026-11-25',buyer:buyers[0],status:'Open',total:48250.00},
+  {id:'PO-26-01162',date:'2026-10-21',due:'2026-11-18',buyer:buyers[1],status:'Open',total:12780.40},
+  {id:'PO-26-01097',date:'2026-10-09',due:'2026-10-30',buyer:buyers[0],status:'Partially received',total:63920.00},
+  {id:'PO-26-01031',date:'2026-09-26',due:'2026-10-17',buyer:buyers[2],status:'Received',total:21340.75},
+  {id:'PO-26-00988',date:'2026-09-14',due:'2026-10-05',buyer:buyers[1],status:'Closed',total:35610.00},
+  {id:'PO-26-00921',date:'2026-08-31',due:'2026-09-21',buyer:buyers[3],status:'Closed',total:8975.20},
+  {id:'PO-26-00874',date:'2026-08-18',due:'2026-09-08',buyer:buyers[0],status:'Closed',total:54100.00},
+  {id:'PO-26-00802',date:'2026-08-04',due:'2026-08-25',buyer:buyers[2],status:'Closed',total:17420.60},
+  {id:'PO-26-00755',date:'2026-07-22',due:'2026-08-12',buyer:buyers[1],status:'Cancelled',total:9800.00},
+  {id:'PO-26-00690',date:'2026-07-08',due:'2026-07-29',buyer:buyers[0],status:'Closed',total:41230.90},
+  {id:'PO-26-01190',date:'2026-11-03',due:'2026-12-01',buyer:buyers[3],status:'Draft',total:6240.00}
+];
+
+const certs = [
+  {n:'ISO 9001:2015 Quality management',i:'TUeV Sued',a:'2023-02-10',x:'2026-02-09',f:'ISO9001_Northvale.pdf'},
+  {n:'IATF 16949:2016 Automotive quality',i:'DEKRA Certification',a:'2024-05-21',x:'2027-05-20',f:'IATF16949_Northvale.pdf'},
+  {n:'ISO 14001:2015 Environmental management',i:'TUeV Sued',a:'2023-11-30',x:'2026-11-29',f:'ISO14001_Northvale.pdf'},
+  {n:'ISO 45001:2018 Occupational health & safety',i:'DEKRA Certification',a:'2025-01-15',x:'2028-01-14',f:'ISO45001_Northvale.pdf'},
+  {n:'REACH / RoHS declaration',i:'Self-declared',a:'2026-01-12',x:'2026-12-18',f:'REACH_RoHS_2026.pdf'}
+];
+const docs = [
+  {n:'Master supply agreement',t:'Contract',d:'2024-03-14',s:'1.2 MB',by:'Legal'},
+  {n:'Non-disclosure agreement',t:'Contract',d:'2019-03-02',s:'310 KB',by:'Legal'},
+  {n:'Supplier code of conduct (signed)',t:'Compliance',d:'2025-04-08',s:'540 KB',by:'Dana Whitfield'},
+  {n:'Quality assurance agreement',t:'Quality',d:'2024-06-19',s:'880 KB',by:'Quality'},
+  {n:'W-8/W-9 equivalent: German tax residency cert.',t:'Tax',d:'2026-02-23',s:'190 KB',by:'Finance'},
+  {n:'Insurance certificate - product liability',t:'Insurance',d:'2026-01-05',s:'420 KB',by:'Dana Whitfield'}
+];
+
+const perf = {
+  months:['Nov','Dec','Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct'],
+  otd:[96,94,91,93,95,97,96,92,94,96,97,95],
+  ppm:[310,280,420,560,390,340,300,610,450,330,290,270]
+};
+const perfCards = [
+  {l:'On-time delivery',v:'94.7%',t:'Target 95%',st:'warn',note:'0.3 pts below target'},
+  {l:'Quality (avg. PPM)',v:'379',t:'Limit 500',st:'ok',note:'Within limit; 2 months above'},
+  {l:'Lead time accuracy',v:'+1.8 d',t:'Target within 2 d',st:'ok',note:'Avg. days late vs. promise'},
+  {l:'Price variance',v:'-0.6%',t:'Target within 3%',st:'ok',note:'Invoice vs. PO price'}
+];
+const incidents = [
+  {id:'NCR-2026-0412',d:'2026-10-14',po:'PO-26-00988',iss:'Spindle bore out of tolerance (+0.04 mm)',sev:'Major',state:'Corrective action open'},
+  {id:'NCR-2026-0377',d:'2026-09-02',po:'PO-26-00874',iss:'Surface finish below spec on 12 housings',sev:'Minor',state:'Closed'},
+  {id:'NCR-2026-0291',d:'2026-06-24',po:'PO-26-00566',iss:'Wrong material certificate supplied',sev:'Major',state:'Closed'},
+  {id:'NCR-2026-0188',d:'2026-04-09',po:'PO-26-00431',iss:'Packaging damage in transit',sev:'Minor',state:'Closed'}
+];
+
+/* ---------- Header ---------- */
+function statusOfCert(c){
+  const d = daysTo(c.x);
+  if (d < 0) return {k:'expired',d};
+  if (d <= 60) return {k:'soon',d};
+  return {k:'valid',d};
+}
+const badge = (txt,cls)=>`<span class="inline-flex items-center rounded-full text-xs font-medium px-2.5 py-0.5 ring-1 ${cls}">${txt}</span>`;
+const B = {
+  ok:'bg-emerald-50 text-emerald-800 ring-emerald-200',
+  warn:'bg-amber-50 text-amber-800 ring-amber-200',
+  bad:'bg-red-50 text-red-800 ring-red-200',
+  info:'bg-blue-50 text-blue-800 ring-blue-200',
+  neutral:'bg-slate-100 text-slate-700 ring-slate-200'
+};
+
+function renderHeader(){
+  const open = pos.filter(p=>['Open','Partially received'].includes(p.status));
+  const spend = pos.filter(p=>!['Cancelled','Draft'].includes(p.status) && p.date>='2026-01-01').reduce((a,p)=>a+p.total,0);
+  const kp = [['Open POs',open.length+' ('+eur(open.reduce((a,p)=>a+p.total,0))+')'],['Spend YTD',eur(spend)],['On-time delivery (12 mo)','94.7%'],['Avg. defect rate','379 PPM']];
+  document.getElementById('kpis').innerHTML = kp.map(([l,v])=>`<div><dt class="text-xs text-slate-600">${l}</dt><dd class="mt-0.5 text-lg font-semibold text-slate-900 tabular-nums">${v}</dd></div>`).join('');
+  const exp = certs.filter(c=>statusOfCert(c).k==='expired').length;
+  const soon = certs.filter(c=>statusOfCert(c).k==='soon').length;
+  const el = document.getElementById('alertBanner');
+  if (exp||soon){
+    el.innerHTML = `<svg class="h-4 w-4 mt-0.5 shrink-0" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M8.5 2.9a1.7 1.7 0 013 0l6.3 11.6A1.7 1.7 0 0116.3 17H3.7a1.7 1.7 0 01-1.5-2.5L8.5 2.9zM10 7v4h0V7zm0 6a1 1 0 100 2 1 1 0 000-2z" clip-rule="evenodd"/></svg>
+    <p><strong>${exp?exp+' certificate expired':''}${exp&&soon?' and ':''}${soon?soon+' expiring within 60 days':''}.</strong> New POs above EUR 25,000 require an in-date ISO 9001 certificate. <button class="underline font-medium focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-700 rounded" data-goto="docs">Review certificates</button></p>`;
+  } else el.remove();
+}
+
+/* ---------- Company ---------- */
+function renderCompany(){
+  document.getElementById('companyDl').innerHTML = company.map(([k,v])=>`<div><dt class="text-xs text-slate-600">${k}</dt><dd class="mt-0.5 text-slate-900">${esc(v)}</dd></div>`).join('');
+  const row = ([k,v])=>`<div class="flex justify-between gap-4"><dt class="text-slate-600">${k}</dt><dd class="text-slate-900 text-right ${k==='IBAN'?'font-mono text-xs':''}">${esc(v)}</dd></div>`;
+  document.getElementById('termsDl').innerHTML = terms.map(row).join('');
+  document.getElementById('bankDl').innerHTML = bank.map(row).join('');
+  document.getElementById('addresses').innerHTML = addresses.map(a=>`<div><h3 class="text-xs text-slate-600">${a.t}</h3><address class="not-italic mt-1 text-slate-900 leading-relaxed">${a.l.map(esc).join('<br>')}</address></div>`).join('');
+  document.getElementById('cats').innerHTML = cats.map(c=>badge(c,B.neutral)).join('');
+}
+
+/* ---------- Contacts ---------- */
+function renderContacts(){
+  const q = document.getElementById('contactSearch').value.toLowerCase();
+  const list = contacts.filter(c=>(c.n+c.r+c.e+c.tag).toLowerCase().includes(q));
+  const g = document.getElementById('contactGrid');
+  g.innerHTML = list.length ? list.map(c=>{
+    const ini = c.n.split(' ').map(w=>w[0]).join('');
+    return `<article class="bg-white border border-slate-200 rounded-lg p-4">
+      <div class="flex items-start gap-3">
+        <div class="h-10 w-10 rounded-full bg-slate-100 text-slate-700 grid place-items-center text-sm font-semibold" aria-hidden="true">${ini}</div>
+        <div class="min-w-0 flex-1">
+          <div class="flex flex-wrap items-center gap-2"><h3 class="font-medium text-slate-900">${esc(c.n)}</h3>${c.primary?badge('Primary',B.info):''}</div>
+          <p class="text-sm text-slate-600">${esc(c.r)}</p>
+        </div>
+        ${badge(c.tag,B.neutral)}
+      </div>
+      <dl class="mt-3 space-y-1.5 text-sm">
+        <div class="flex gap-2"><dt class="w-12 text-slate-600">Email</dt><dd class="min-w-0 truncate"><a class="text-blue-700 hover:underline" href="mailto:${esc(c.e)}">${esc(c.e)}</a></dd></div>
+        <div class="flex gap-2"><dt class="w-12 text-slate-600">Phone</dt><dd><a class="text-slate-900 hover:underline" href="tel:${c.p.replace(/\s/g,'')}">${esc(c.p)}</a></dd></div>
+      </dl>
+    </article>`}).join('') : `<p class="col-span-full bg-white border border-slate-200 rounded-lg p-8 text-center text-sm text-slate-600">No contacts match "${esc(q)}".</p>`;
+}
+
+/* ---------- POs ---------- */
+let sortKey='date', sortDir=-1;
+const poBadge = s=>badge(s,{Open:B.info,'Partially received':B.warn,Received:B.ok,Closed:B.neutral,Cancelled:B.bad,Draft:B.neutral}[s]);
+function renderPOs(){
+  const q = document.getElementById('poSearch').value.toLowerCase();
+  const st = document.getElementById('poStatus').value;
+  let list = pos.filter(p=>(!st||p.status===st) && (p.id+p.buyer).toLowerCase().includes(q));
+  list.sort((a,b)=>(a[sortKey]>b[sortKey]?1:a[sortKey]<b[sortKey]?-1:0)*sortDir);
+  document.getElementById('poBody').innerHTML = list.map(p=>{
+    const late = ['Open','Partially received'].includes(p.status) && daysTo(p.due)<0;
+    return `<tr class="hover:bg-slate-50">
+      <td class="px-4 py-3"><a href="#" class="font-mono text-blue-700 hover:underline">${p.id}</a></td>
+      <td class="px-4 py-3 whitespace-nowrap">${fmtDate(p.date)}</td>
+      <td class="px-4 py-3 whitespace-nowrap">${fmtDate(p.due)} ${late?'<span class="ml-1 text-xs font-medium text-red-700">'+Math.abs(daysTo(p.due))+' d late</span>':''}</td>
+      <td class="px-4 py-3">${esc(p.buyer)}</td>
+      <td class="px-4 py-3">${poBadge(p.status)}</td>
+      <td class="px-4 py-3 text-right tabular-nums">${new Intl.NumberFormat('en-GB',{minimumFractionDigits:2}).format(p.total)}</td></tr>`}).join('');
+  document.getElementById('poEmpty').hidden = list.length>0;
+  const sum = list.reduce((a,p)=>a+p.total,0);
+  document.getElementById('poSummary').textContent = `${list.length} of ${pos.length} orders, ${eur(sum)}`;
+  document.querySelectorAll('th.sortable').forEach(th=>{
+    const on = th.dataset.key===sortKey;
+    th.setAttribute('aria-sort', on?(sortDir>0?'ascending':'descending'):'none');
+    th.querySelector('.sort-ind').textContent = on?(sortDir>0?'▲':'▼'):'';
+  });
+}
+
+/* ---------- Docs ---------- */
+const fileIcon = `<svg class="h-5 w-5 text-slate-500" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path d="M4 3a2 2 0 012-2h5l5 5v11a2 2 0 01-2 2H6a2 2 0 01-2-2V3zm7 0v4h4l-4-4z"/></svg>`;
+function renderDocs(){
+  document.getElementById('certBody').innerHTML = certs.map(c=>{
+    const s = statusOfCert(c);
+    const b = s.k==='expired'?badge('Expired '+Math.abs(s.d)+' d ago',B.bad):s.k==='soon'?badge('Expires in '+s.d+' d',B.warn):badge('Valid',B.ok);
+    return `<tr class="hover:bg-slate-50">
+      <td class="px-4 py-3"><div class="font-medium text-slate-900">${esc(c.n)}</div><div class="text-xs text-slate-600">${esc(c.f)}</div></td>
+      <td class="px-4 py-3">${esc(c.i)}</td>
+      <td class="px-4 py-3 whitespace-nowrap">${fmtDate(c.a)}</td>
+      <td class="px-4 py-3 whitespace-nowrap">${fmtDate(c.x)}</td>
+      <td class="px-4 py-3">${b}</td>
+      <td class="px-4 py-3 text-right"><button class="text-blue-700 hover:underline text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 rounded" data-dl="${esc(c.f)}">Download<span class="sr-only"> ${esc(c.n)}</span></button></td></tr>`}).join('');
+  document.getElementById('docList').innerHTML = docs.map(d=>`<li class="px-5 py-3 flex items-center gap-3 hover:bg-slate-50">
+    ${fileIcon}<div class="min-w-0 flex-1"><p class="text-sm font-medium text-slate-900 truncate">${esc(d.n)}</p><p class="text-xs text-slate-600">${fmtDate(d.d)} &middot; ${d.s} &middot; uploaded by ${esc(d.by)}</p></div>
+    ${badge(d.t,B.neutral)}
+    <button class="text-blue-700 hover:underline text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 rounded" data-dl="${esc(d.n)}">Download<span class="sr-only"> ${esc(d.n)}</span></button></li>`).join('');
+}
+
+/* ---------- Performance ---------- */
+function lineChart(el, data, target, opts){
+  const W=520,H=220,L=40,R=12,T=14,B_=28;
+  const min=opts.min,max=opts.max;
+  const x=i=>L+i*(W-L-R)/(data.length-1);
+  const y=v=>T+(1-(v-min)/(max-min))*(H-T-B_);
+  const ticks=opts.ticks;
+  let s=`<svg viewBox="0 0 ${W} ${H}" class="w-full h-auto" role="img" aria-label="${opts.label}">`;
+  ticks.forEach(t=>{s+=`<line x1="${L}" x2="${W-R}" y1="${y(t)}" y2="${y(t)}" stroke="#e2e8f0"/><text x="${L-6}" y="${y(t)+4}" text-anchor="end" font-size="11" fill="#475569">${t}</text>`});
+  perf.months.forEach((m,i)=>{s+=`<text x="${x(i)}" y="${H-8}" text-anchor="middle" font-size="11" fill="#475569">${m}</text>`});
+  s+=`<line x1="${L}" x2="${W-R}" y1="${y(target)}" y2="${y(target)}" stroke="#64748b" stroke-dasharray="5 4"/>`;
+  s+=`<polyline fill="none" stroke="#1d4ed8" stroke-width="2" points="${data.map((v,i)=>x(i)+','+y(v)).join(' ')}"/>`;
+  data.forEach((v,i)=>{const bad=opts.bad(v);
+    s+=`<circle cx="${x(i)}" cy="${y(v)}" r="4" fill="${bad?'#b91c1c':'#1d4ed8'}" stroke="#fff" stroke-width="1.5"><title>${perf.months[i]}: ${v}${opts.unit}</title></circle>`});
+  s+='</svg>';
+  s+=`<p class="mt-2 text-xs text-slate-600"><span class="inline-block h-2 w-2 rounded-full bg-red-700 align-middle"></span> Outside target</p>`;
+  el.innerHTML=s;
+}
+function renderPerf(){
+  document.getElementById('perfCards').innerHTML = perfCards.map(c=>`<div class="bg-white border border-slate-200 rounded-lg p-4">
+    <p class="text-xs text-slate-600">${c.l}</p>
+    <p class="mt-1 text-2xl font-semibold text-slate-900 tabular-nums">${c.v}</p>
+    <div class="mt-2 flex items-center gap-2">${badge(c.st==='ok'?'On track':'Below target',c.st==='ok'?B.ok:B.warn)}<span class="text-xs text-slate-600">${c.t}</span></div>
+    <p class="mt-1.5 text-xs text-slate-600">${c.note}</p></div>`).join('');
+  lineChart(document.getElementById('otdChart'),perf.otd,95,{min:88,max:100,ticks:[88,92,96,100],unit:'%',label:'On-time delivery percent by month',bad:v=>v<95});
+  lineChart(document.getElementById('ppmChart'),perf.ppm,500,{min:200,max:700,ticks:[200,300,400,500,600,700],unit:' PPM',label:'Defect rate in PPM by month',bad:v=>v>500});
+  document.getElementById('incBody').innerHTML = incidents.map(i=>`<tr class="hover:bg-slate-50">
+    <td class="px-4 py-3 font-mono text-blue-700">${i.id}</td><td class="px-4 py-3 whitespace-nowrap">${fmtDate(i.d)}</td>
+    <td class="px-4 py-3 font-mono">${i.po}</td><td class="px-4 py-3">${esc(i.iss)}</td>
+    <td class="px-4 py-3">${badge(i.sev,i.sev==='Major'?B.bad:B.neutral)}</td>
+    <td class="px-4 py-3">${badge(i.state,i.state==='Closed'?B.ok:B.warn)}</td></tr>`).join('');
+}
+
+/* ---------- Tabs & events ---------- */
+const tabs=[...document.querySelectorAll('[role=tab]')];
+function activate(tab){
+  tabs.forEach(t=>{
+    const on=t===tab;
+    t.setAttribute('aria-selected',on); t.tabIndex=on?0:-1;
+    document.getElementById(t.getAttribute('aria-controls')).hidden=!on;
+  });
+  tab.focus();
+}
+tabs.forEach((t,i)=>{
+  t.addEventListener('click',()=>activate(t));
+  t.addEventListener('keydown',e=>{
+    let n=null;
+    if(e.key==='ArrowRight')n=tabs[(i+1)%tabs.length];
+    if(e.key==='ArrowLeft')n=tabs[(i-1+tabs.length)%tabs.length];
+    if(e.key==='Home')n=tabs[0]; if(e.key==='End')n=tabs[tabs.length-1];
+    if(n){e.preventDefault();activate(n);}
+  });
+});
+document.addEventListener('click',e=>{
+  const g=e.target.closest('[data-goto]'); if(g) activate(document.getElementById('tab-'+g.dataset.goto));
+  const d=e.target.closest('[data-dl]'); if(d) toast('Preparing download: '+d.dataset.dl);
+});
+let tt; function toast(m){const t=document.getElementById('toast');t.textContent=m;t.style.opacity=1;clearTimeout(tt);tt=setTimeout(()=>t.style.opacity=0,2400);}
+document.getElementById('exportBtn').onclick=()=>toast('Supplier profile exported');
+document.getElementById('newPoBtn').onclick=()=>toast('Creating a draft PO for SUP-004821');
+document.getElementById('contactSearch').addEventListener('input',renderContacts);
+document.getElementById('poSearch').addEventListener('input',renderPOs);
+document.getElementById('poStatus').addEventListener('change',renderPOs);
+document.getElementById('poReset').onclick=()=>{document.getElementById('poSearch').value='';document.getElementById('poStatus').value='';renderPOs();};
+document.querySelectorAll('th.sortable').forEach(th=>{
+  th.tabIndex=0;
+  const go=()=>{const k=th.dataset.key; if(sortKey===k)sortDir*=-1; else{sortKey=k;sortDir=1;} renderPOs();};
+  th.addEventListener('click',go);
+  th.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();go();}});
+});
+
+renderHeader(); renderCompany(); renderContacts(); renderPOs(); renderDocs(); renderPerf();
+document.getElementById('cnt-contacts').textContent=contacts.length;
+document.getElementById('cnt-pos').textContent=pos.length;
+document.getElementById('cnt-docs').textContent=certs.length+docs.length;
+</script>
+</body>
+</html>

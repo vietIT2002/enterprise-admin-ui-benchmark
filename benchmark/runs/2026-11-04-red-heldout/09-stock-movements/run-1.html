@@ -1,0 +1,375 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Stock Movements - Warehouse Management</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+tailwind.config = { theme: { extend: { fontFamily: { sans: ['Inter','system-ui','Segoe UI','sans-serif'] } } } }
+</script>
+<style>
+  body { font-feature-settings: "tnum"; }
+  .num { font-variant-numeric: tabular-nums; }
+  th button:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible, tr:focus-visible { outline: 2px solid #4f46e5; outline-offset: 2px; }
+  #drawer { transition: transform .2s ease; }
+</style>
+</head>
+<body class="bg-slate-50 text-slate-800 font-sans antialiased">
+
+<div class="flex min-h-screen">
+  <aside class="hidden lg:flex w-56 flex-col bg-slate-900 text-slate-300 shrink-0">
+    <div class="h-14 flex items-center px-5 text-white font-semibold border-b border-slate-800">Northgate WMS</div>
+    <nav class="flex-1 p-3 space-y-1 text-sm" aria-label="Main">
+      <a href="#" class="block px-3 py-2 rounded hover:bg-slate-800">Dashboard</a>
+      <a href="#" class="block px-3 py-2 rounded hover:bg-slate-800">Inventory</a>
+      <a href="#" class="block px-3 py-2 rounded bg-slate-800 text-white" aria-current="page">Stock movements</a>
+      <a href="#" class="block px-3 py-2 rounded hover:bg-slate-800">Purchase orders</a>
+      <a href="#" class="block px-3 py-2 rounded hover:bg-slate-800">Transfers</a>
+      <a href="#" class="block px-3 py-2 rounded hover:bg-slate-800">Warehouses</a>
+      <a href="#" class="block px-3 py-2 rounded hover:bg-slate-800">Reports</a>
+    </nav>
+    <div class="p-4 text-xs text-slate-500 border-t border-slate-800">Signed in as M. Okafor<br>Inventory controller</div>
+  </aside>
+
+  <main class="flex-1 min-w-0">
+    <header class="bg-white border-b border-slate-200 px-4 sm:px-6 py-4 flex flex-wrap items-center justify-between gap-3">
+      <div>
+        <nav class="text-xs text-slate-500" aria-label="Breadcrumb">Inventory / <span class="text-slate-700">Stock movements</span></nav>
+        <h1 class="text-xl font-semibold text-slate-900">Stock movements</h1>
+      </div>
+      <div class="flex gap-2">
+        <button id="exportBtn" class="px-3 py-2 text-sm border border-slate-300 rounded-md bg-white hover:bg-slate-50">Export CSV</button>
+        <button id="newAdjBtn" class="px-3 py-2 text-sm rounded-md bg-indigo-600 text-white hover:bg-indigo-700">New adjustment</button>
+      </div>
+    </header>
+
+    <div class="p-4 sm:p-6 space-y-5">
+      <!-- KPIs -->
+      <section aria-label="Summary" class="grid grid-cols-2 xl:grid-cols-4 gap-3" id="kpis"></section>
+
+      <!-- Filters -->
+      <section class="bg-white border border-slate-200 rounded-lg p-4">
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-3 items-end">
+          <div class="lg:col-span-2">
+            <label for="q" class="block text-xs font-medium text-slate-600 mb-1">Search</label>
+            <input id="q" type="search" placeholder="SKU, product, reference or user" class="w-full border border-slate-300 rounded-md px-3 py-2 text-sm">
+          </div>
+          <div>
+            <label for="fType" class="block text-xs font-medium text-slate-600 mb-1">Movement type</label>
+            <select id="fType" class="w-full border border-slate-300 rounded-md px-3 py-2 text-sm bg-white">
+              <option value="">All types</option><option>Receipt</option><option>Issue</option><option>Transfer</option><option>Adjustment</option>
+            </select>
+          </div>
+          <div>
+            <label for="fWh" class="block text-xs font-medium text-slate-600 mb-1">Warehouse</label>
+            <select id="fWh" class="w-full border border-slate-300 rounded-md px-3 py-2 text-sm bg-white"><option value="">All warehouses</option></select>
+          </div>
+          <div>
+            <label for="fFrom" class="block text-xs font-medium text-slate-600 mb-1">From</label>
+            <input id="fFrom" type="date" class="w-full border border-slate-300 rounded-md px-3 py-2 text-sm">
+          </div>
+          <div>
+            <label for="fTo" class="block text-xs font-medium text-slate-600 mb-1">To</label>
+            <input id="fTo" type="date" class="w-full border border-slate-300 rounded-md px-3 py-2 text-sm">
+          </div>
+        </div>
+        <div class="mt-3 flex items-center justify-between text-sm">
+          <p id="count" class="text-slate-500" aria-live="polite"></p>
+          <button id="reset" class="text-indigo-600 hover:underline">Reset filters</button>
+        </div>
+      </section>
+
+      <!-- Table -->
+      <section class="bg-white border border-slate-200 rounded-lg overflow-hidden">
+        <div class="overflow-x-auto">
+          <table class="min-w-full text-sm">
+            <thead class="bg-slate-50 text-xs uppercase tracking-wide text-slate-500 border-b border-slate-200">
+              <tr id="thead"></tr>
+            </thead>
+            <tbody id="tbody" class="divide-y divide-slate-100"></tbody>
+          </table>
+        </div>
+        <div id="empty" class="hidden p-10 text-center">
+          <p class="font-medium text-slate-700">No movements match these filters</p>
+          <p class="text-sm text-slate-500 mt-1">Try widening the date range or clearing the search.</p>
+          <button id="emptyReset" class="mt-3 px-3 py-2 text-sm border border-slate-300 rounded-md hover:bg-slate-50">Reset filters</button>
+        </div>
+        <div class="flex flex-wrap items-center justify-between gap-3 px-4 py-3 border-t border-slate-200 text-sm">
+          <div class="flex items-center gap-2 text-slate-600">
+            <label for="pageSize">Rows per page</label>
+            <select id="pageSize" class="border border-slate-300 rounded-md px-2 py-1 bg-white"><option>10</option><option selected>15</option><option>25</option><option>50</option></select>
+          </div>
+          <div class="flex items-center gap-2">
+            <span id="pageInfo" class="text-slate-600"></span>
+            <button id="prev" class="px-3 py-1.5 border border-slate-300 rounded-md hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed">Previous</button>
+            <button id="next" class="px-3 py-1.5 border border-slate-300 rounded-md hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed">Next</button>
+          </div>
+        </div>
+      </section>
+    </div>
+  </main>
+</div>
+
+<!-- Detail drawer -->
+<div id="overlay" class="fixed inset-0 bg-slate-900/40 hidden z-20"></div>
+<aside id="drawer" class="fixed top-0 right-0 h-full w-full max-w-md bg-white shadow-xl z-30 translate-x-full flex flex-col" role="dialog" aria-modal="true" aria-labelledby="dTitle" aria-hidden="true">
+  <div class="px-5 py-4 border-b border-slate-200 flex items-start justify-between">
+    <div><p class="text-xs text-slate-500">Movement</p><h2 id="dTitle" class="text-lg font-semibold"></h2></div>
+    <button id="dClose" class="p-1 text-slate-500 hover:text-slate-800" aria-label="Close details">&#10005;</button>
+  </div>
+  <div id="dBody" class="p-5 overflow-y-auto text-sm space-y-4"></div>
+</aside>
+
+<div id="toast" class="fixed bottom-5 left-1/2 -translate-x-1/2 bg-slate-900 text-white text-sm px-4 py-2 rounded-md shadow-lg hidden z-40" role="status"></div>
+
+<script>
+(function () {
+  const WH = [
+    { code: 'DC-ATL', name: 'Atlanta Distribution Center' },
+    { code: 'DC-DAL', name: 'Dallas Fulfilment Hub' },
+    { code: 'DC-CHI', name: 'Chicago Central Warehouse' },
+    { code: 'DC-RNO', name: 'Reno West Warehouse' }
+  ];
+  const PRODUCTS = [
+    ['HW-10442','Hex bolt M8 x 40, zinc (box of 200)','box',18.4],
+    ['HW-10517','Washer M8 flat, stainless (box of 500)','box',12.9],
+    ['EL-22031','Cable 3-core 1.5 mm2, 100 m reel','reel',96.0],
+    ['EL-22190','LED panel light 600x600, 40 W','pc',27.5],
+    ['PK-30012','Corrugated carton 400x300x250','pc',1.35],
+    ['PK-30088','Stretch film 500 mm x 300 m','roll',9.2],
+    ['SF-41005','Safety gloves nitrile, size L (pack of 12)','pack',14.75],
+    ['SF-41210','Hi-vis vest class 2, yellow','pc',6.8],
+    ['TL-50077','Cordless drill 18 V, 2 batteries','pc',129.0],
+    ['TL-50301','Torque wrench 1/2" 40-200 Nm','pc',84.5],
+    ['PL-60120','Pallet, EUR 1200x800, heat treated','pc',11.0],
+    ['CH-70233','Industrial degreaser 20 L drum','drum',58.0]
+  ];
+  const USERS = ['M. Okafor','L. Brandt','S. Iyer','D. Alvarez','J. Whitfield','R. Tanaka'];
+  const ADJ_REASONS = ['Cycle count variance','Damaged in storage','Expired / obsolete','Found stock','Supplier short-shipment correction'];
+  const ISSUE_REASONS = ['Sales order','Production order','Internal use','Customer return to vendor'];
+
+  // deterministic PRNG
+  let seed = 20261104;
+  const rnd = () => (seed = (seed * 1664525 + 1013904223) % 4294967296) / 4294967296;
+  const pick = a => a[Math.floor(rnd() * a.length)];
+
+  const today = new Date(2026, 10, 4);
+  const rows = [];
+  for (let i = 0; i < 148; i++) {
+    const r = rnd();
+    const type = r < 0.34 ? 'Receipt' : r < 0.68 ? 'Issue' : r < 0.84 ? 'Transfer' : 'Adjustment';
+    const p = pick(PRODUCTS);
+    const w = pick(WH);
+    let w2 = null;
+    if (type === 'Transfer') { do { w2 = pick(WH); } while (w2.code === w.code); }
+    let qty = Math.max(1, Math.round(rnd() * (p[2] === 'pc' ? 240 : 60)));
+    let signed = qty, ref, reason = '';
+    if (type === 'Receipt') { ref = 'PO-' + (48200 + Math.floor(rnd() * 400)); reason = 'Purchase order receipt'; }
+    else if (type === 'Issue') { signed = -qty; ref = (rnd() < .7 ? 'SO-' : 'WO-') + (91000 + Math.floor(rnd() * 900)); reason = pick(ISSUE_REASONS); }
+    else if (type === 'Transfer') { ref = 'TR-' + (7700 + Math.floor(rnd() * 300)); reason = 'Inter-warehouse rebalancing'; signed = -qty; }
+    else { qty = Math.max(1, Math.round(qty / 8)); signed = rnd() < .6 ? -qty : qty; ref = 'ADJ-' + (3100 + Math.floor(rnd() * 200)); reason = pick(ADJ_REASONS); }
+    const d = new Date(today); d.setDate(d.getDate() - Math.floor(rnd() * 60));
+    d.setHours(6 + Math.floor(rnd() * 12), Math.floor(rnd() * 60));
+    const status = type === 'Transfer' ? (rnd() < .3 ? 'In transit' : 'Completed') : (type === 'Adjustment' && rnd() < .2 ? 'Pending approval' : 'Completed');
+    rows.push({
+      id: 'MV-' + (200000 + i), date: d, type, sku: p[0], product: p[1], uom: p[2], cost: p[3],
+      wh: w.code, whName: w.name, to: w2 ? w2.code : null, toName: w2 ? w2.name : null,
+      qty: signed, ref, reason, status, user: pick(USERS),
+      balance: Math.round(200 + rnd() * 2400)
+    });
+  }
+  rows.sort((a, b) => b.date - a.date);
+
+  const $ = id => document.getElementById(id);
+  const fmtDate = d => d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+  const fmtTime = d => d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+  const fmtN = n => n.toLocaleString('en-US');
+  const money = n => n.toLocaleString('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 });
+  const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  const toISO = d => d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+
+  const TYPE_STYLE = {
+    Receipt: 'bg-emerald-50 text-emerald-700 ring-emerald-600/20',
+    Issue: 'bg-amber-50 text-amber-800 ring-amber-600/20',
+    Transfer: 'bg-sky-50 text-sky-700 ring-sky-600/20',
+    Adjustment: 'bg-violet-50 text-violet-700 ring-violet-600/20'
+  };
+  const STATUS_STYLE = {
+    'Completed': 'text-slate-600',
+    'In transit': 'text-sky-700',
+    'Pending approval': 'text-amber-700'
+  };
+  const badge = t => `<span class="inline-flex items-center rounded px-2 py-0.5 text-xs font-medium ring-1 ring-inset ${TYPE_STYLE[t]}">${t}</span>`;
+
+  const COLS = [
+    { k: 'date', label: 'Date / time' },
+    { k: 'id', label: 'Movement' },
+    { k: 'type', label: 'Type' },
+    { k: 'sku', label: 'Item' },
+    { k: 'wh', label: 'Warehouse' },
+    { k: 'qty', label: 'Quantity', right: true },
+    { k: 'ref', label: 'Reference' },
+    { k: 'status', label: 'Status' }
+  ];
+
+  const state = { sort: 'date', dir: -1, page: 1 };
+
+  WH.forEach(w => $('fWh').insertAdjacentHTML('beforeend', `<option value="${w.code}">${w.name}</option>`));
+
+  function filtered() {
+    const q = $('q').value.trim().toLowerCase();
+    const t = $('fType').value, w = $('fWh').value, f = $('fFrom').value, to = $('fTo').value;
+    return rows.filter(r => {
+      if (t && r.type !== t) return false;
+      if (w && r.wh !== w && r.to !== w) return false;
+      if (f && toISO(r.date) < f) return false;
+      if (to && toISO(r.date) > to) return false;
+      if (q && !(r.sku + ' ' + r.product + ' ' + r.ref + ' ' + r.user + ' ' + r.id).toLowerCase().includes(q)) return false;
+      return true;
+    });
+  }
+
+  function renderKpis(list) {
+    const sum = (type, sign) => list.filter(r => r.type === type).reduce((a, r) => a + Math.abs(r.qty) * r.cost, 0);
+    const cnt = t => list.filter(r => r.type === t).length;
+    const pend = list.filter(r => r.status !== 'Completed').length;
+    const cards = [
+      ['Receipts', cnt('Receipt'), money(sum('Receipt')) + ' inbound value', 'text-emerald-700'],
+      ['Issues', cnt('Issue'), money(sum('Issue')) + ' outbound value', 'text-amber-700'],
+      ['Transfers', cnt('Transfer'), pend ? '' : '', 'text-sky-700'],
+      ['Adjustments', cnt('Adjustment'), money(sum('Adjustment')) + ' absolute value', 'text-violet-700']
+    ];
+    cards[2][2] = list.filter(r => r.type === 'Transfer' && r.status === 'In transit').length + ' currently in transit';
+    $('kpis').innerHTML = cards.map(c => `
+      <div class="bg-white border border-slate-200 rounded-lg p-4">
+        <p class="text-xs font-medium text-slate-500">${c[0]}</p>
+        <p class="text-2xl font-semibold mt-1 num text-slate-900">${fmtN(c[1])}</p>
+        <p class="text-xs mt-1 ${c[3]}">${c[2]}</p>
+      </div>`).join('');
+  }
+
+  function render() {
+    const list = filtered();
+    renderKpis(list);
+    const k = state.sort;
+    list.sort((a, b) => {
+      const x = a[k], y = b[k];
+      return (x > y ? 1 : x < y ? -1 : 0) * state.dir;
+    });
+    const size = +$('pageSize').value;
+    const pages = Math.max(1, Math.ceil(list.length / size));
+    if (state.page > pages) state.page = pages;
+    const start = (state.page - 1) * size;
+    const slice = list.slice(start, start + size);
+
+    $('thead').innerHTML = COLS.map(c => {
+      const active = state.sort === c.k;
+      const aria = active ? (state.dir === 1 ? 'ascending' : 'descending') : 'none';
+      return `<th scope="col" aria-sort="${aria}" class="px-4 py-3 font-medium ${c.right ? 'text-right' : 'text-left'} whitespace-nowrap">
+        <button data-sort="${c.k}" class="inline-flex items-center gap-1 uppercase tracking-wide hover:text-slate-800 ${active ? 'text-slate-900' : ''}">${c.label}<span aria-hidden="true">${active ? (state.dir === 1 ? '&#9650;' : '&#9660;') : ''}</span></button></th>`;
+    }).join('');
+
+    $('tbody').innerHTML = slice.map(r => {
+      const whCell = r.type === 'Transfer'
+        ? `${r.wh} <span class="text-slate-400" aria-label="to">&rarr;</span> ${r.to}`
+        : r.wh;
+      const qtyColor = r.qty > 0 ? 'text-emerald-700' : 'text-slate-800';
+      return `<tr tabindex="0" data-id="${r.id}" class="hover:bg-slate-50 cursor-pointer">
+        <td class="px-4 py-3 whitespace-nowrap"><div class="text-slate-800">${fmtDate(r.date)}</div><div class="text-xs text-slate-500">${fmtTime(r.date)}</div></td>
+        <td class="px-4 py-3 whitespace-nowrap font-mono text-xs text-slate-600">${r.id}</td>
+        <td class="px-4 py-3">${badge(r.type)}</td>
+        <td class="px-4 py-3 min-w-[220px]"><div class="font-medium text-slate-800">${esc(r.sku)}</div><div class="text-xs text-slate-500 truncate max-w-[280px]">${esc(r.product)}</div></td>
+        <td class="px-4 py-3 whitespace-nowrap text-slate-700">${whCell}</td>
+        <td class="px-4 py-3 text-right whitespace-nowrap num ${qtyColor}">${r.qty > 0 ? '+' : '&minus;'}${fmtN(Math.abs(r.qty))} <span class="text-xs text-slate-400">${r.uom}</span></td>
+        <td class="px-4 py-3 whitespace-nowrap font-mono text-xs text-slate-600">${r.ref}</td>
+        <td class="px-4 py-3 whitespace-nowrap text-xs font-medium ${STATUS_STYLE[r.status]}">${r.status}</td>
+      </tr>`;
+    }).join('');
+
+    $('empty').classList.toggle('hidden', list.length > 0);
+    $('count').textContent = list.length === rows.length
+      ? `${fmtN(list.length)} movements`
+      : `${fmtN(list.length)} of ${fmtN(rows.length)} movements`;
+    $('pageInfo').textContent = list.length ? `${start + 1}–${start + slice.length} of ${fmtN(list.length)}` : '0 results';
+    $('prev').disabled = state.page <= 1;
+    $('next').disabled = state.page >= pages;
+    render.list = list;
+  }
+
+  function toast(msg) {
+    const t = $('toast'); t.textContent = msg; t.classList.remove('hidden');
+    clearTimeout(toast.h); toast.h = setTimeout(() => t.classList.add('hidden'), 2600);
+  }
+
+  // drawer
+  let lastFocus = null;
+  function openDrawer(id) {
+    const r = rows.find(x => x.id === id); if (!r) return;
+    lastFocus = document.activeElement;
+    $('dTitle').textContent = r.id;
+    const line = (a, b) => `<div class="flex justify-between gap-4 py-2 border-b border-slate-100"><dt class="text-slate-500">${a}</dt><dd class="text-right text-slate-800">${b}</dd></div>`;
+    $('dBody').innerHTML = `
+      <div class="flex items-center gap-2">${badge(r.type)}<span class="text-xs font-medium ${STATUS_STYLE[r.status]}">${r.status}</span></div>
+      <dl>
+        ${line('Date', fmtDate(r.date) + ', ' + fmtTime(r.date))}
+        ${line('Item', esc(r.sku) + '<br><span class="text-xs text-slate-500">' + esc(r.product) + '</span>')}
+        ${line(r.type === 'Transfer' ? 'From warehouse' : 'Warehouse', esc(r.whName))}
+        ${r.to ? line('To warehouse', esc(r.toName)) : ''}
+        ${line('Quantity', '<span class="num">' + (r.qty > 0 ? '+' : '−') + fmtN(Math.abs(r.qty)) + ' ' + r.uom + '</span>')}
+        ${line('Value', '<span class="num">' + money(Math.abs(r.qty) * r.cost) + '</span>')}
+        ${line('Balance after', '<span class="num">' + fmtN(r.balance) + ' ' + r.uom + '</span>')}
+        ${line('Reference', '<span class="font-mono text-xs">' + r.ref + '</span>')}
+        ${line('Reason', esc(r.reason))}
+        ${line('Recorded by', esc(r.user))}
+      </dl>`;
+    $('overlay').classList.remove('hidden');
+    $('drawer').classList.remove('translate-x-full');
+    $('drawer').setAttribute('aria-hidden', 'false');
+    $('dClose').focus();
+  }
+  function closeDrawer() {
+    $('drawer').classList.add('translate-x-full');
+    $('drawer').setAttribute('aria-hidden', 'true');
+    $('overlay').classList.add('hidden');
+    if (lastFocus) lastFocus.focus();
+  }
+
+  // events
+  ['q', 'fType', 'fWh', 'fFrom', 'fTo', 'pageSize'].forEach(id => $(id).addEventListener('input', () => { state.page = 1; render(); }));
+  const reset = () => { ['q', 'fType', 'fWh', 'fFrom', 'fTo'].forEach(id => $(id).value = ''); state.page = 1; render(); };
+  $('reset').onclick = reset; $('emptyReset').onclick = reset;
+  $('prev').onclick = () => { state.page--; render(); };
+  $('next').onclick = () => { state.page++; render(); };
+  $('thead').addEventListener('click', e => {
+    const b = e.target.closest('[data-sort]'); if (!b) return;
+    const k = b.dataset.sort;
+    if (state.sort === k) state.dir *= -1; else { state.sort = k; state.dir = k === 'date' ? -1 : 1; }
+    render();
+    document.querySelector(`[data-sort="${k}"]`).focus();
+  });
+  $('tbody').addEventListener('click', e => { const tr = e.target.closest('tr'); if (tr) openDrawer(tr.dataset.id); });
+  $('tbody').addEventListener('keydown', e => {
+    if ((e.key === 'Enter' || e.key === ' ') && e.target.matches('tr')) { e.preventDefault(); openDrawer(e.target.dataset.id); }
+  });
+  $('dClose').onclick = closeDrawer; $('overlay').onclick = closeDrawer;
+  document.addEventListener('keydown', e => { if (e.key === 'Escape' && $('drawer').getAttribute('aria-hidden') === 'false') closeDrawer(); });
+
+  $('exportBtn').onclick = () => {
+    const list = render.list || [];
+    const head = ['Movement','Date','Type','SKU','Product','Warehouse','To warehouse','Quantity','UoM','Reference','Reason','Status','User'];
+    const q = v => '"' + String(v ?? '').replace(/"/g, '""') + '"';
+    const csv = [head.map(q).join(',')].concat(list.map(r =>
+      [r.id, r.date.toISOString(), r.type, r.sku, r.product, r.wh, r.to, r.qty, r.uom, r.ref, r.reason, r.status, r.user].map(q).join(','))).join('\n');
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv' }));
+    a.download = 'stock-movements.csv'; a.click();
+    toast(`Exported ${fmtN(list.length)} movements`);
+  };
+  $('newAdjBtn').onclick = () => toast('Adjustment form is not part of this prototype');
+
+  render();
+})();
+</script>
+</body>
+</html>

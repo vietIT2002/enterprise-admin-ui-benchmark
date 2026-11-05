@@ -1,0 +1,446 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Operations dashboard · Northgate WMS</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+  body { font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; font-size: 14px; color: #0f172a; }
+  :focus-visible { outline: 2px solid #1d4ed8; outline-offset: 2px; }
+  .sr-only { position:absolute; width:1px; height:1px; overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; }
+</style>
+</head>
+<body class="bg-slate-50">
+<a href="#main" class="sr-only focus:not-sr-only focus:absolute focus:z-50 focus:bg-white focus:p-2">Skip to content</a>
+
+<div class="flex min-h-screen">
+  <!-- Sidebar -->
+  <aside class="hidden w-60 shrink-0 border-r border-slate-200 bg-white lg:block">
+    <div class="flex h-12 items-center border-b border-slate-200 px-4 text-sm font-semibold">Northgate WMS</div>
+    <div class="border-b border-slate-200 p-2">
+      <button class="flex h-10 w-full items-center justify-between rounded px-2 text-left text-sm hover:bg-slate-100" aria-label="Switch warehouse, current Hải Phòng DC 02">
+        <span><span class="block font-medium leading-4">Hải Phòng DC 02</span><span class="block text-xs text-slate-600">Warehouse manager</span></span>
+        <span aria-hidden="true" class="text-slate-600">▾</span>
+      </button>
+    </div>
+    <nav aria-label="Main" class="flex flex-col gap-4 p-2">
+      <div class="flex flex-col gap-0.5">
+        <p class="px-2 py-1 text-xs font-medium text-slate-600">Operations</p>
+        <a href="#" aria-current="page" class="flex h-8 items-center rounded bg-slate-100 px-2 text-sm font-medium text-slate-900">Dashboard</a>
+        <a href="orders.html" class="flex h-8 items-center rounded px-2 text-sm hover:bg-slate-100">Orders</a>
+        <a href="shipments.html" class="flex h-8 items-center rounded px-2 text-sm hover:bg-slate-100">Shipments</a>
+        <a href="pick-tasks.html" class="flex h-8 items-center rounded px-2 text-sm hover:bg-slate-100">Pick tasks</a>
+      </div>
+      <div class="flex flex-col gap-0.5">
+        <p class="px-2 py-1 text-xs font-medium text-slate-600">Inventory</p>
+        <a href="stock.html" class="flex h-8 items-center rounded px-2 text-sm hover:bg-slate-100">Stock</a>
+        <a href="receiving.html" class="flex h-8 items-center rounded px-2 text-sm hover:bg-slate-100">Receiving</a>
+        <a href="cycle-counts.html" class="flex h-8 items-center rounded px-2 text-sm hover:bg-slate-100">Cycle counts</a>
+      </div>
+      <div class="flex flex-col gap-0.5">
+        <p class="px-2 py-1 text-xs font-medium text-slate-600">Administration</p>
+        <a href="users.html" class="flex h-8 items-center rounded px-2 text-sm hover:bg-slate-100">Users &amp; roles</a>
+        <a href="settings.html" class="flex h-8 items-center rounded px-2 text-sm hover:bg-slate-100">Settings</a>
+      </div>
+    </nav>
+  </aside>
+
+  <div class="flex min-w-0 flex-1 flex-col">
+    <!-- App header -->
+    <header class="flex h-12 items-center justify-between gap-3 border-b border-slate-200 bg-white px-4">
+      <span class="text-sm font-semibold lg:hidden">Northgate WMS</span>
+      <button class="ml-auto hidden h-8 w-72 items-center justify-between rounded border border-slate-300 bg-white px-3 text-sm text-slate-600 hover:bg-slate-50 sm:flex" aria-label="Search or run a command, shortcut Control K">
+        <span>Search or run a command</span><kbd class="rounded border border-slate-300 px-1 text-xs">Ctrl K</kbd>
+      </button>
+      <button class="h-8 rounded px-2 text-sm hover:bg-slate-100" aria-label="3 unread notifications">Alerts <span class="ml-1 rounded-full bg-slate-100 px-1.5 text-xs font-medium text-slate-700">3</span></button>
+      <button class="flex h-8 w-8 items-center justify-center rounded-full bg-slate-200 text-xs font-medium text-slate-800" aria-label="Account menu">LH</button>
+    </header>
+
+    <main id="main" class="min-w-0 flex-1 p-6">
+      <div class="mx-auto max-w-[1440px]">
+        <!-- Page header -->
+        <div class="mb-4 flex flex-wrap items-center gap-x-4 gap-y-2">
+          <h1 class="text-xl font-semibold">Operations dashboard</h1>
+          <div class="flex items-center gap-2">
+            <label for="range" class="sr-only">Date range</label>
+            <select id="range" class="h-8 rounded border border-slate-300 bg-white px-2 text-sm">
+              <option value="today">Today</option>
+              <option value="yesterday">Yesterday</option>
+              <option value="7d">Last 7 days</option>
+            </select>
+            <span id="range-dates" class="text-sm tabular-nums text-slate-600"></span>
+          </div>
+          <div class="ml-auto flex items-center gap-2 text-sm">
+            <span id="updated" class="tabular-nums text-slate-600"></span>
+            <span id="refresh-fail" class="hidden text-red-700">Refresh failed</span>
+            <button id="refresh" class="h-8 rounded border border-slate-300 bg-white px-3 text-sm font-medium hover:bg-slate-50">Refresh</button>
+          </div>
+        </div>
+        <p id="live" role="status" class="sr-only"></p>
+
+        <!-- Needs attention -->
+        <section id="w-attn" aria-labelledby="attn-h" class="mb-4 rounded-md border border-slate-200 bg-white">
+          <div class="flex h-12 items-center justify-between border-b border-slate-200 px-4">
+            <h2 id="attn-h" class="text-base font-semibold">Needs attention</h2>
+            <span id="attn-meta" class="text-xs text-slate-600"></span>
+          </div>
+          <div id="attn-body"></div>
+        </section>
+
+        <!-- KPI tiles -->
+        <section aria-label="Key numbers" id="kpis" class="mb-4 grid grid-cols-2 gap-4 md:grid-cols-3 xl:grid-cols-6"></section>
+
+        <!-- Charts -->
+        <div class="mb-4 grid grid-cols-1 gap-4 xl:grid-cols-5">
+          <section id="w-trend" aria-labelledby="trend-h" class="rounded-md border border-slate-200 bg-white xl:col-span-3">
+            <div class="flex h-12 items-center justify-between border-b border-slate-200 px-4">
+              <h2 id="trend-h" class="text-base font-semibold">Units picked per hour</h2>
+              <button id="trend-toggle" class="h-8 rounded px-2 text-sm text-blue-700 hover:bg-slate-100" aria-pressed="false">View as table</button>
+            </div>
+            <div id="trend-body" class="h-[300px] p-4"></div>
+          </section>
+          <section id="w-zones" aria-labelledby="zones-h" class="rounded-md border border-slate-200 bg-white xl:col-span-2">
+            <div class="flex h-12 items-center border-b border-slate-200 px-4">
+              <h2 id="zones-h" class="text-base font-semibold">Open pick tasks by zone</h2>
+            </div>
+            <div id="zones-body" class="h-[300px] p-4"></div>
+          </section>
+        </div>
+
+        <!-- Late shipments table -->
+        <section id="w-late" aria-labelledby="late-h" class="rounded-md border border-slate-200 bg-white">
+          <div class="flex h-12 items-center justify-between border-b border-slate-200 px-4">
+            <h2 id="late-h" class="text-base font-semibold">Late shipments</h2>
+            <a id="late-all" href="shipments.html?status=late" class="text-sm text-blue-700 hover:underline">View all 17 late shipments</a>
+          </div>
+          <div id="late-body"></div>
+        </section>
+
+        <!-- Demo state control -->
+        <div class="mt-6 flex flex-wrap items-center gap-2 border-t border-slate-200 pt-4 text-sm text-slate-600">
+          <label for="demo">Mock data state</label>
+          <select id="demo" class="h-8 rounded border border-slate-300 bg-white px-2 text-sm text-slate-900">
+            <option value="normal">Normal</option>
+            <option value="empty">No data in range</option>
+            <option value="error">Two widgets fail</option>
+          </select>
+          <span>Switches every widget so loading, empty and error states can be reviewed.</span>
+        </div>
+      </div>
+    </main>
+  </div>
+</div>
+
+<script>
+(function () {
+  var LOCALE = 'en-GB';
+  var nf = new Intl.NumberFormat(LOCALE);
+  var nf1 = new Intl.NumberFormat(LOCALE, { maximumFractionDigits: 1, minimumFractionDigits: 1 });
+  var signed = new Intl.NumberFormat(LOCALE, { signDisplay: 'exceptZero', maximumFractionDigits: 1 });
+  var pct0 = new Intl.NumberFormat(LOCALE, { style: 'percent', signDisplay: 'exceptZero', maximumFractionDigits: 0 });
+  var compact = new Intl.NumberFormat(LOCALE, { notation: 'compact' });
+  var NOW = new Date(2026, 10, 4, 15, 58);
+  function d2(n) { return String(n).padStart(2, '0'); }
+  function fmtDate(d) { return d2(d.getDate()) + '/' + d2(d.getMonth() + 1) + '/' + d.getFullYear(); }
+  function fmtTime(d) { return d2(d.getHours()) + ':' + d2(d.getMinutes()); }
+  function esc(s) { return String(s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
+  function addDays(d, n) { var x = new Date(d); x.setDate(x.getDate() + n); return x; }
+
+  /* ---------- Mock data ---------- */
+  var RANGES = {
+    today: {
+      dates: fmtDate(NOW), vs: 'vs yesterday',
+      kpi: [
+        { id: 'shipped', label: 'Orders shipped', value: 1284, fmt: 'n', delta: 0.08, deltaType: 'pct', href: 'orders.html?status=shipped&date=today' },
+        { id: 'pick', label: 'Orders awaiting pick', value: 342, fmt: 'n', delta: -0.05, deltaType: 'pct', href: 'orders.html?status=awaiting-pick' },
+        { id: 'late', label: 'Late shipments', value: 17, fmt: 'n', delta: 4, deltaType: 'abs', unit: '', href: 'shipments.html?status=late' },
+        { id: 'acc', label: 'Pick accuracy', value: 99.4, fmt: 'pct', delta: 0.2, deltaType: 'abs', unit: ' pts', href: 'pick-tasks.html?view=errors' },
+        { id: 'dts', label: 'Dock-to-stock time', value: 3.2, fmt: 'h', delta: -0.4, deltaType: 'abs', unit: ' h', href: 'receiving.html?view=dock-to-stock' },
+        { id: 'inb', label: 'Pallets waiting at dock', value: 58, fmt: 'n', delta: 11, deltaType: 'abs', unit: '', href: 'receiving.html?status=waiting' }
+      ],
+      trendLabel: 'Hour of day', trendCats: ['06', '07', '08', '09', '10', '11', '12', '13', '14', '15'],
+      cur: [420, 980, 1460, 1710, 1840, 1795, 1210, 1650, 1880, 1520], curName: 'Today', prevName: 'Yesterday',
+      prev: [390, 930, 1380, 1620, 1700, 1740, 1180, 1500, 1690, 1760],
+      trendNote: 'Units picked per hour, 06:00 to 15:59',
+      dayHours: true
+    },
+    yesterday: {
+      dates: fmtDate(addDays(NOW, -1)), vs: 'vs day before',
+      kpi: [
+        { id: 'shipped', label: 'Orders shipped', value: 1189, fmt: 'n', delta: 0.03, deltaType: 'pct', href: 'orders.html?status=shipped&date=yesterday' },
+        { id: 'pick', label: 'Orders awaiting pick', value: 360, fmt: 'n', delta: 0.02, deltaType: 'pct', href: 'orders.html?status=awaiting-pick' },
+        { id: 'late', label: 'Late shipments', value: 13, fmt: 'n', delta: -2, deltaType: 'abs', unit: '', href: 'shipments.html?status=late' },
+        { id: 'acc', label: 'Pick accuracy', value: 99.2, fmt: 'pct', delta: -0.1, deltaType: 'abs', unit: ' pts', href: 'pick-tasks.html?view=errors' },
+        { id: 'dts', label: 'Dock-to-stock time', value: 3.6, fmt: 'h', delta: 0.1, deltaType: 'abs', unit: ' h', href: 'receiving.html?view=dock-to-stock' },
+        { id: 'inb', label: 'Pallets waiting at dock', value: 47, fmt: 'n', delta: -6, deltaType: 'abs', unit: '', href: 'receiving.html?status=waiting' }
+      ],
+      trendLabel: 'Hour of day', trendCats: ['06', '07', '08', '09', '10', '11', '12', '13', '14', '15', '16', '17', '18', '19', '20', '21'],
+      cur: [390, 930, 1380, 1620, 1700, 1740, 1180, 1500, 1690, 1760, 1650, 1510, 1320, 980, 610, 260], curName: 'Yesterday', prevName: 'Day before',
+      prev: [370, 900, 1350, 1580, 1690, 1700, 1150, 1470, 1640, 1700, 1600, 1480, 1290, 940, 590, 240],
+      trendNote: 'Units picked per hour, 06:00 to 21:59'
+    },
+    '7d': {
+      dates: fmtDate(addDays(NOW, -6)) + ' – ' + fmtDate(NOW), vs: 'vs previous 7 days',
+      kpi: [
+        { id: 'shipped', label: 'Orders shipped', value: 8420, fmt: 'n', delta: 0.06, deltaType: 'pct', href: 'orders.html?status=shipped&date=7d' },
+        { id: 'pick', label: 'Orders awaiting pick', value: 342, fmt: 'n', delta: -0.09, deltaType: 'pct', href: 'orders.html?status=awaiting-pick' },
+        { id: 'late', label: 'Late shipments', value: 61, fmt: 'n', delta: -8, deltaType: 'abs', unit: '', href: 'shipments.html?status=late&date=7d' },
+        { id: 'acc', label: 'Pick accuracy', value: 99.3, fmt: 'pct', delta: 0.1, deltaType: 'abs', unit: ' pts', href: 'pick-tasks.html?view=errors&date=7d' },
+        { id: 'dts', label: 'Dock-to-stock time', value: 3.4, fmt: 'h', delta: -0.2, deltaType: 'abs', unit: ' h', href: 'receiving.html?view=dock-to-stock&date=7d' },
+        { id: 'inb', label: 'Pallets waiting at dock', value: 58, fmt: 'n', delta: 3, deltaType: 'abs', unit: '', href: 'receiving.html?status=waiting' }
+      ],
+      trendLabel: 'Day', trendCats: [], cur: [10820, 11240, 10960, 11510, 11380, 7940, 11590], curName: 'This week', prevName: 'Previous week',
+      prev: [10410, 10870, 10650, 11020, 10940, 7610, 10980],
+      trendNote: 'Units picked per day, last 7 days'
+    }
+  };
+  (function () { // daily category labels for 7 days
+    var cats = [];
+    for (var i = 6; i >= 0; i--) { var d = addDays(NOW, -i); cats.push(d2(d.getDate()) + '/' + d2(d.getMonth() + 1)); }
+    RANGES['7d'].trendCats = cats;
+  })();
+
+  var ZONES = [
+    { zone: 'A – Fast movers', n: 118 }, { zone: 'C – Cold storage', n: 74 }, { zone: 'B – Bulk', n: 52 },
+    { zone: 'D – Small parts', n: 48 }, { zone: 'F – Fragile', n: 31 }, { zone: 'E – Returns', n: 19 }
+  ];
+
+  var ATTN = [
+    { count: 17, label: 'late shipments', href: 'shipments.html?status=late', tone: 'danger', badge: 'Overdue' },
+    { count: 9, label: 'inbound trucks waiting more than 2 hours at the dock', href: 'receiving.html?status=waiting&wait=gt2h', tone: 'danger', badge: 'Overdue' },
+    { count: 23, label: 'pick tasks unassigned in zone A', href: 'pick-tasks.html?zone=A&assignee=none', tone: 'warning', badge: 'Needs attention' },
+    { count: 6, label: 'locations with a stock count mismatch', href: 'cycle-counts.html?status=mismatch', tone: 'warning', badge: 'Needs attention' },
+    { count: 4, label: 'SKUs below reorder point', href: 'stock.html?filter=below-reorder', tone: 'warning', badge: 'Due soon' }
+  ];
+
+  var LATE = [
+    { id: 'SH-48213', customer: 'Minh Phát Trading', carrier: 'Viettel Post', due: '04/11/2026 12:00', lines: 14, units: 220, hours: 3.9, status: 'Overdue' },
+    { id: 'SH-48207', customer: 'An Khang Pharmacy', carrier: 'GHN Express', due: '04/11/2026 13:30', lines: 6, units: 96, hours: 2.5, status: 'Overdue' },
+    { id: 'SH-48231', customer: 'Sao Mai Supermarkets', carrier: 'Own fleet', due: '04/11/2026 14:00', lines: 38, units: 1240, hours: 1.9, status: 'Overdue' },
+    { id: 'SH-48244', customer: 'Hoàng Gia Electronics', carrier: 'J&T Express', due: '04/11/2026 14:30', lines: 9, units: 58, hours: 1.4, status: 'Overdue' },
+    { id: 'SH-48259', customer: 'Lam Sơn Foods', carrier: 'Own fleet', due: '04/11/2026 15:30', lines: 21, units: 640, hours: 0.5, status: 'Due soon' }
+  ];
+
+  /* ---------- Widget state ---------- */
+  var state = { range: 'today', demo: 'normal' };
+  var params = new URLSearchParams(location.search);
+  if (RANGES[params.get('range')]) state.range = params.get('range');
+  var tableView = false;
+  var lastUpdated = NOW;
+
+  var WIDGETS = ['attn', 'kpis', 'trend', 'zones', 'late'];
+  var failing = { trend: true, late: true };
+
+  function wstate(id) {
+    if (state.demo === 'error' && failing[id]) return 'error';
+    if (state.demo === 'empty' && id !== 'attn') return 'empty';
+    if (state.demo === 'empty' && id === 'attn') return 'empty';
+    return 'ready';
+  }
+
+  var skel = function (cls) { return '<div class="animate-pulse rounded bg-slate-200 ' + cls + '"></div>'; };
+
+  function errorBox(id, what) {
+    return '<div class="flex h-full flex-col items-start justify-center gap-2 p-4 text-sm"><p>Could not load ' + what + '. Other widgets are unaffected.</p>' +
+      '<button data-retry="' + id + '" class="h-8 rounded border border-slate-300 bg-white px-3 font-medium hover:bg-slate-50">Retry</button></div>';
+  }
+  function emptyBox(msg, action) {
+    return '<div class="flex h-full flex-col items-start justify-center gap-2 p-4 text-sm"><p>' + msg + '</p>' + (action || '') + '</div>';
+  }
+  var changeRange = '<button data-action="change-range" class="h-8 rounded border border-slate-300 bg-white px-3 font-medium hover:bg-slate-50">Change date range</button>';
+
+  /* ---------- Renderers ---------- */
+  function renderAttn(mode) {
+    var body = document.getElementById('attn-body'), meta = document.getElementById('attn-meta');
+    if (mode === 'loading') { body.innerHTML = '<div class="space-y-2 p-4">' + skel('h-6 w-full') + skel('h-6 w-full') + skel('h-6 w-full') + '</div>'; meta.textContent = ''; return; }
+    if (mode === 'error') { body.innerHTML = errorBox('attn', 'this list'); meta.textContent = ''; return; }
+    if (mode === 'empty') { body.innerHTML = '<p class="p-4 text-sm text-slate-600">Nothing needs attention. Checked at ' + fmtTime(lastUpdated) + '.</p>'; meta.textContent = ''; return; }
+    var tones = { danger: 'bg-red-50 text-red-800', warning: 'bg-amber-50 text-amber-800' };
+    body.innerHTML = '<ul>' + ATTN.map(function (i) {
+      return '<li class="border-b border-slate-200 last:border-0"><a href="' + i.href + '" class="flex h-10 items-center gap-3 px-4 text-sm hover:bg-slate-50">' +
+        '<span class="w-10 text-right font-semibold tabular-nums">' + nf.format(i.count) + '</span>' +
+        '<span class="flex-1">' + esc(i.label) + '</span>' +
+        '<span class="rounded-full px-2 py-0.5 text-xs font-medium ' + tones[i.tone] + '">' + i.badge + '</span></a></li>';
+    }).join('') + '</ul>';
+    meta.textContent = 'Ordered by urgency';
+    document.getElementById('live').textContent = ATTN.length + ' items need attention';
+  }
+
+  function fmtVal(k) {
+    if (k.fmt === 'pct') return nf1.format(k.value) + '%';
+    if (k.fmt === 'h') return nf1.format(k.value) + ' h';
+    return nf.format(k.value);
+  }
+  function fmtDelta(k, vs) {
+    var s = k.deltaType === 'pct' ? pct0.format(k.delta) : signed.format(k.delta) + (k.unit || '');
+    return s.replace('-', '−') + ' ' + vs;
+  }
+  function renderKpis(mode) {
+    var el = document.getElementById('kpis'), r = RANGES[state.range], html = '';
+    if (mode === 'loading') {
+      for (var i = 0; i < 6; i++) html += '<div class="h-24 rounded-md border border-slate-200 bg-white p-4">' + skel('h-3 w-24') + '<div class="mt-3">' + skel('h-6 w-16') + '</div></div>';
+      el.innerHTML = html; return;
+    }
+    if (mode === 'empty') {
+      el.innerHTML = '<div class="col-span-full rounded-md border border-slate-200 bg-white p-4 text-sm">No activity in this range. <button data-action="change-range" class="ml-1 font-medium text-blue-700 hover:underline">Change date range</button></div>'; return;
+    }
+    el.innerHTML = r.kpi.map(function (k) {
+      return '<a href="' + k.href + '" class="block min-h-24 rounded-md border border-slate-200 bg-white p-4 hover:bg-slate-50">' +
+        '<p class="text-xs font-medium text-slate-600">' + k.label + '</p>' +
+        '<p class="mt-1 text-2xl font-semibold tabular-nums">' + fmtVal(k) + '</p>' +
+        '<p class="text-xs text-slate-600 tabular-nums">' + fmtDelta(k, r.vs) + '</p></a>';
+    }).join('');
+  }
+
+  function niceMax(v) { var p = Math.pow(10, Math.floor(Math.log10(v))); var m = Math.ceil(v / p * 2) / 2 * p; return m; }
+
+  function lineChart(r) {
+    var W = 640, H = 252, L = 64, R = 92, T = 12, B = 44, pw = W - L - R, ph = H - T - B;
+    var all = r.cur.concat(r.prev), max = niceMax(Math.max.apply(null, all)), n = r.trendCats.length;
+    var x = function (i) { return L + (n === 1 ? 0 : i * pw / (n - 1)); }, y = function (v) { return T + ph - v / max * ph; };
+    var s = '<svg viewBox="0 0 ' + W + ' ' + H + '" class="h-full w-full" role="img" aria-label="' + esc(r.trendNote + '. ' + r.curName + ' ' + compact.format(r.cur[0]) + ' rising to ' + compact.format(Math.max.apply(null, r.cur)) + ' at peak; ' + r.prevName + ' shown for comparison.') + '">';
+    for (var g = 0; g <= 4; g++) {
+      var gv = max * g / 4, gy = y(gv);
+      s += '<line x1="' + L + '" x2="' + (W - R) + '" y1="' + gy + '" y2="' + gy + '" stroke="#e2e8f0"/>';
+      s += '<text x="' + (L - 8) + '" y="' + (gy + 4) + '" text-anchor="end" font-size="12" fill="#475569">' + compact.format(gv) + '</text>';
+    }
+    var step = n > 10 ? 2 : 1;
+    r.trendCats.forEach(function (c, i) { if (i % step === 0) s += '<text x="' + x(i) + '" y="' + (T + ph + 16) + '" text-anchor="middle" font-size="12" fill="#475569">' + c + '</text>'; });
+    s += '<text x="' + (L + pw / 2) + '" y="' + (H - 6) + '" text-anchor="middle" font-size="12" fill="#475569">' + r.trendLabel + '</text>';
+    s += '<text transform="translate(14 ' + (T + ph / 2) + ') rotate(-90)" text-anchor="middle" font-size="12" fill="#475569">Units picked per ' + (r.dayHours || state.range === 'yesterday' ? 'hour' : 'day') + '</text>';
+    function path(d) { return d.map(function (v, i) { return (i ? 'L' : 'M') + x(i).toFixed(1) + ' ' + y(v).toFixed(1); }).join(' '); }
+    s += '<path d="' + path(r.prev) + '" fill="none" stroke="#94a3b8" stroke-width="2" stroke-dasharray="5 4"/>';
+    s += '<path d="' + path(r.cur) + '" fill="none" stroke="#1d4ed8" stroke-width="2.5"/>';
+    var li = r.cur.length - 1, lp = r.prev.length - 1;
+    var yc = y(r.cur[li]), yp = y(r.prev[lp]);
+    if (Math.abs(yc - yp) < 14) { if (yc <= yp) yc -= 7; else yc += 7; }
+    s += '<text x="' + (x(li) + 8) + '" y="' + (yc + 4) + '" font-size="12" font-weight="600" fill="#1d4ed8">' + r.curName + '</text>';
+    s += '<text x="' + (x(lp) + 8) + '" y="' + (yp + 4 + (Math.abs(yc - yp) < 14 ? (yp > yc ? 6 : -6) : 0)) + '" font-size="12" fill="#475569">' + r.prevName + '</text>';
+    s += '</svg>';
+    return s;
+  }
+  function trendTable(r) {
+    var rows = r.trendCats.map(function (c, i) {
+      return '<tr class="h-10 border-t border-slate-200"><td class="px-2">' + c + '</td><td class="px-2 text-right tabular-nums">' + nf.format(r.cur[i]) + '</td><td class="px-2 text-right tabular-nums">' + nf.format(r.prev[i]) + '</td></tr>';
+    }).join('');
+    return '<div class="h-full overflow-auto"><table class="w-full text-sm"><caption class="sr-only">' + esc(r.trendNote) + '</caption><thead><tr class="h-10 text-left text-xs font-medium text-slate-600"><th scope="col" class="px-2">' + r.trendLabel + '</th><th scope="col" class="px-2 text-right">' + r.curName + '</th><th scope="col" class="px-2 text-right">' + r.prevName + '</th></tr></thead><tbody>' + rows + '</tbody></table></div>';
+  }
+  function renderTrend(mode) {
+    var el = document.getElementById('trend-body'), r = RANGES[state.range];
+    document.getElementById('trend-toggle').disabled = mode !== 'ready';
+    if (mode === 'loading') { el.innerHTML = skel('h-full w-full'); return; }
+    if (mode === 'error') { el.innerHTML = errorBox('trend', 'this chart'); return; }
+    if (mode === 'empty') { el.innerHTML = emptyBox('No picks recorded in this range.', changeRange); return; }
+    el.innerHTML = tableView ? trendTable(r) : lineChart(r);
+  }
+
+  function renderZones(mode) {
+    var el = document.getElementById('zones-body');
+    if (mode === 'loading') { el.innerHTML = skel('h-full w-full'); return; }
+    if (mode === 'error') { el.innerHTML = errorBox('zones', 'this chart'); return; }
+    if (mode === 'empty') { el.innerHTML = emptyBox('No open pick tasks. Every zone is clear.'); return; }
+    var data = ZONES.slice().sort(function (a, b) { return b.n - a.n; });
+    var W = 400, rowH = 34, L = 124, R = 40, T = 6, B = 56, ph = data.length * rowH, H = T + ph + B, pw = W - L - R;
+    var max = niceMax(data[0].n);
+    var s = '<svg viewBox="0 0 ' + W + ' ' + H + '" class="h-full w-full" role="img" aria-label="Open pick tasks by zone. ' + data.map(function (d) { return d.zone + ' ' + d.n; }).join(', ') + '.">';
+    for (var g = 0; g <= 4; g++) {
+      var gx = L + pw * g / 4;
+      s += '<line x1="' + gx + '" x2="' + gx + '" y1="' + T + '" y2="' + (T + ph) + '" stroke="#e2e8f0"/>';
+      s += '<text x="' + gx + '" y="' + (T + ph + 16) + '" text-anchor="middle" font-size="12" fill="#475569">' + nf.format(max * g / 4) + '</text>';
+    }
+    data.forEach(function (d, i) {
+      var yy = T + i * rowH, bw = d.n / max * pw;
+      s += '<text x="' + (L - 8) + '" y="' + (yy + rowH / 2 + 4) + '" text-anchor="end" font-size="12" fill="#0f172a">' + esc(d.zone) + '</text>';
+      s += '<rect x="' + L + '" y="' + (yy + 6) + '" width="' + bw.toFixed(1) + '" height="' + (rowH - 12) + '" rx="2" fill="' + (i === 0 ? '#1d4ed8' : '#94a3b8') + '"/>';
+      s += '<text x="' + (L + bw + 6) + '" y="' + (yy + rowH / 2 + 4) + '" font-size="12" font-weight="600" fill="#0f172a">' + d.n + '</text>';
+    });
+    s += '<text x="' + (L + pw / 2) + '" y="' + (H - 8) + '" text-anchor="middle" font-size="12" fill="#475569">Open pick tasks (count)</text>';
+    s += '</svg>';
+    el.innerHTML = s;
+  }
+
+  function renderLate(mode) {
+    var el = document.getElementById('late-body');
+    if (mode === 'loading') { el.innerHTML = '<div class="space-y-2 p-4">' + skel('h-6 w-full') + skel('h-6 w-full') + skel('h-6 w-full') + '</div>'; return; }
+    if (mode === 'error') { el.innerHTML = errorBox('late', 'late shipments'); return; }
+    if (mode === 'empty') { el.innerHTML = '<p class="p-4 text-sm text-slate-600">No late shipments in this range.</p>'; return; }
+    var tones = { 'Overdue': 'bg-red-50 text-red-800', 'Due soon': 'bg-amber-50 text-amber-800' };
+    var rows = LATE.map(function (s) {
+      return '<tr class="h-10 border-t border-slate-200 hover:bg-slate-50">' +
+        '<td class="px-4 font-medium"><a class="text-blue-700 hover:underline" href="shipments.html?id=' + s.id + '">' + s.id + '</a></td>' +
+        '<td class="px-4">' + esc(s.customer) + '</td><td class="px-4">' + esc(s.carrier) + '</td>' +
+        '<td class="px-4 tabular-nums">' + s.due + '</td>' +
+        '<td class="px-4 text-right tabular-nums">' + nf.format(s.lines) + '</td>' +
+        '<td class="px-4 text-right tabular-nums">' + nf.format(s.units) + '</td>' +
+        '<td class="px-4 text-right tabular-nums">' + nf1.format(s.hours) + '</td>' +
+        '<td class="px-4"><span class="rounded-full px-2 py-0.5 text-xs font-medium ' + tones[s.status] + '">' + s.status + '</span></td>' +
+        '<td class="px-4 text-right"><a class="text-blue-700 hover:underline" href="shipments.html?id=' + s.id + '" aria-label="Open shipment ' + s.id + '">Open</a></td></tr>';
+    }).join('');
+    el.innerHTML = '<div class="overflow-x-auto"><table class="w-full whitespace-nowrap text-sm"><caption class="sr-only">Five most overdue shipments</caption>' +
+      '<thead><tr class="h-10 text-left text-xs font-medium text-slate-600"><th scope="col" class="px-4">Shipment</th><th scope="col" class="px-4">Customer</th><th scope="col" class="px-4">Carrier</th><th scope="col" class="px-4">Cut-off</th><th scope="col" class="px-4 text-right">Lines</th><th scope="col" class="px-4 text-right">Units</th><th scope="col" class="px-4 text-right">Hours late</th><th scope="col" class="px-4">Status</th><th scope="col" class="px-4"><span class="sr-only">Actions</span></th></tr></thead><tbody>' + rows + '</tbody></table></div>' +
+      '<p class="border-t border-slate-200 px-4 py-2 text-xs text-slate-600">Showing 5 of 17, most overdue first</p>';
+  }
+
+  var RENDER = { attn: renderAttn, kpis: renderKpis, trend: renderTrend, zones: renderZones, late: renderLate };
+
+  /* ---------- Load cycle ---------- */
+  var timers = {};
+  function loadWidget(id, delay) {
+    RENDER[id]('loading');
+    clearTimeout(timers[id]);
+    timers[id] = setTimeout(function () { RENDER[id](wstate(id)); }, delay);
+  }
+  function loadAll(isRefresh) {
+    var r = RANGES[state.range];
+    document.getElementById('range-dates').textContent = r.dates;
+    document.getElementById('late-all').textContent = state.demo === 'empty' ? 'View all late shipments' : 'View all 17 late shipments';
+    var fail = document.getElementById('refresh-fail');
+    WIDGETS.forEach(function (id, i) { loadWidget(id, 350 + i * 60); });
+    setTimeout(function () {
+      fail.classList.add('hidden');
+      if (!isRefresh) lastUpdated = NOW; else lastUpdated = new Date(NOW.getTime() + 60000);
+      document.getElementById('updated').textContent = 'Updated ' + fmtTime(lastUpdated);
+    }, 650);
+  }
+
+  /* ---------- Events ---------- */
+  document.getElementById('range').value = state.range;
+  document.getElementById('range').addEventListener('change', function (e) {
+    state.range = e.target.value;
+    var p = new URLSearchParams(location.search); p.set('range', state.range);
+    try { history.replaceState(null, '', '?' + p.toString()); } catch (err) {}
+    loadAll(false);
+  });
+  document.getElementById('demo').addEventListener('change', function (e) { state.demo = e.target.value; loadAll(false); });
+  document.getElementById('refresh').addEventListener('click', function () { loadAll(true); });
+  document.getElementById('trend-toggle').addEventListener('click', function (e) {
+    tableView = !tableView;
+    e.currentTarget.setAttribute('aria-pressed', String(tableView));
+    e.currentTarget.textContent = tableView ? 'View as chart' : 'View as table';
+    renderTrend(wstate('trend'));
+  });
+  document.addEventListener('click', function (e) {
+    var t = e.target.closest('[data-retry],[data-action]');
+    if (!t) return;
+    if (t.dataset.retry) {
+      var id = t.dataset.retry;
+      // a retry succeeds: the mock service recovers
+      delete failing[id];
+      loadWidget(id, 400);
+      document.getElementById('live').textContent = 'Retrying';
+    } else if (t.dataset.action === 'change-range') {
+      var sel = document.getElementById('range');
+      state.demo = 'normal'; document.getElementById('demo').value = 'normal';
+      state.range = '7d'; sel.value = '7d';
+      loadAll(false); sel.focus();
+    }
+  });
+  document.getElementById('demo').addEventListener('change', function () { failing = { trend: true, late: true }; });
+
+  document.getElementById('updated').textContent = 'Updated ' + fmtTime(NOW);
+  loadAll(false);
+})();
+</script>
+</body>
+</html>

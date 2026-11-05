@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Danh sách thiết bị - Hệ thống bảo trì nhà máy</title>
+<script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-slate-100 text-slate-800 antialiased">
+<div class="flex min-h-screen">
+  <aside class="hidden lg:flex w-60 flex-col bg-slate-900 text-slate-300">
+    <div class="h-16 flex items-center px-5 text-white font-semibold border-b border-slate-800">MaintainPro</div>
+    <nav class="p-3 space-y-1 text-sm">
+      <a class="block px-3 py-2 rounded hover:bg-slate-800" href="#">Tổng quan</a>
+      <a class="block px-3 py-2 rounded bg-slate-800 text-white" href="#">Thiết bị</a>
+      <a class="block px-3 py-2 rounded hover:bg-slate-800" href="#">Lệnh bảo trì</a>
+      <a class="block px-3 py-2 rounded hover:bg-slate-800" href="#">Kiểm định</a>
+      <a class="block px-3 py-2 rounded hover:bg-slate-800" href="#">Phụ tùng</a>
+      <a class="block px-3 py-2 rounded hover:bg-slate-800" href="#">Báo cáo</a>
+    </nav>
+  </aside>
+  <main class="flex-1 min-w-0">
+    <header class="h-16 bg-white border-b border-slate-200 flex items-center justify-between px-6">
+      <h1 class="text-lg font-semibold">Danh sách thiết bị</h1>
+      <button class="px-3 py-2 text-sm rounded-md bg-blue-600 text-white hover:bg-blue-700">+ Thêm thiết bị</button>
+    </header>
+    <div class="p-6 space-y-4">
+      <div id="kpis" class="grid grid-cols-2 lg:grid-cols-4 gap-3"></div>
+      <div class="bg-white rounded-lg border border-slate-200">
+        <div class="p-4 flex flex-wrap gap-3 border-b border-slate-200">
+          <input id="q" placeholder="Tìm theo mã, tên thiết bị..." class="flex-1 min-w-[200px] border border-slate-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+          <select id="fstatus" class="border border-slate-300 rounded-md px-3 py-2 text-sm">
+            <option value="">Tất cả trạng thái</option>
+            <option>Đang chạy</option><option>Dừng bảo trì</option><option>Sự cố</option><option>Chờ kiểm định</option>
+          </select>
+          <select id="farea" class="border border-slate-300 rounded-md px-3 py-2 text-sm"><option value="">Tất cả khu vực</option></select>
+        </div>
+        <div class="overflow-x-auto">
+          <table class="w-full text-sm">
+            <thead class="bg-slate-50 text-slate-500 text-xs uppercase">
+              <tr id="head"></tr>
+            </thead>
+            <tbody id="rows" class="divide-y divide-slate-100"></tbody>
+          </table>
+        </div>
+        <div class="p-3 flex items-center justify-between text-sm text-slate-500 border-t border-slate-200">
+          <span id="count"></span>
+          <div class="flex gap-2">
+            <button id="prev" class="px-3 py-1 border rounded disabled:opacity-40">Trước</button>
+            <button id="next" class="px-3 py-1 border rounded disabled:opacity-40">Sau</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+</div>
+<script>
+const TODAY = new Date('2026-11-05');
+const data = [
+ ['EQ-0001','Máy nén khí Atlas GA90','Xưởng A - Khu nén khí','Đang chạy','2026-09-18','2026-11-20'],
+ ['EQ-0002','Lò hơi Miura 5T','Phòng nồi hơi','Chờ kiểm định','2026-08-02','2026-11-02'],
+ ['EQ-0003','Băng tải BT-12','Xưởng B - Dây chuyền 2','Đang chạy','2026-10-15','2027-04-10'],
+ ['EQ-0004','Máy ép nhựa Haitian 380T','Xưởng A - Dây chuyền 1','Sự cố','2026-10-30','2027-01-15'],
+ ['EQ-0005','Cầu trục 10T','Kho thành phẩm','Đang chạy','2026-07-21','2026-11-12'],
+ ['EQ-0006','Máy CNC Mazak VTC-800','Xưởng C - Gia công','Dừng bảo trì','2026-11-04','2027-03-01'],
+ ['EQ-0007','Bình áp lực V-204','Khu hóa chất','Chờ kiểm định','2026-06-10','2026-10-28'],
+ ['EQ-0008','Máy phát điện Cummins 500kVA','Phòng điện','Đang chạy','2026-10-01','2027-02-18'],
+ ['EQ-0009','Xe nâng Toyota 3T','Kho nguyên liệu','Đang chạy','2026-09-05','2026-12-05'],
+ ['EQ-0010','Tháp giải nhiệt CT-02','Sân kỹ thuật','Đang chạy','2026-08-25','2027-05-30'],
+ ['EQ-0011','Máy hàn robot Fanuc R-2000','Xưởng B - Dây chuyền 1','Dừng bảo trì','2026-11-03','2027-01-08'],
+ ['EQ-0012','Bơm ly tâm P-310','Khu hóa chất','Đang chạy','2026-10-08','2027-03-22'],
+ ['EQ-0013','Máy biến áp T1 1600kVA','Phòng điện','Đang chạy','2026-05-14','2026-11-25'],
+ ['EQ-0014','Máy đóng gói Bosch SVE','Xưởng B - Đóng gói','Sự cố','2026-10-22','2027-02-02'],
+];
+const area = [...new Set(data.map(d=>d[2].split(' - ')[0]))];
+const farea = document.getElementById('farea');
+area.forEach(a=>farea.insertAdjacentHTML('beforeend',`<option>${a}</option>`));
+const badge = {
+ 'Đang chạy':'bg-green-100 text-green-800','Dừng bảo trì':'bg-amber-100 text-amber-800',
+ 'Sự cố':'bg-red-100 text-red-800','Chờ kiểm định':'bg-blue-100 text-blue-800'};
+const cols = [['Mã',0],['Thiết bị',1],['Vị trí',2],['Trạng thái',3],['Bảo dưỡng gần nhất',4],['Kiểm định tiếp theo',5]];
+let sortI = 5, sortD = 1, page = 0; const PS = 8;
+const fmt = s => new Date(s).toLocaleDateString('vi-VN');
+const days = s => Math.round((new Date(s)-TODAY)/864e5);
+function dueHtml(s){
+  const d = days(s); let c='text-slate-700', t=`còn ${d} ngày`;
+  if(d<0){c='text-red-700 font-semibold';t=`quá hạn ${-d} ngày`}
+  else if(d<=14){c='text-amber-700 font-semibold'}
+  return `<div class="${c}">${fmt(s)}</div><div class="text-xs ${d<0?'text-red-600':d<=14?'text-amber-600':'text-slate-400'}">${t}</div>`;
+}
+function render(){
+  const q=document.getElementById('q').value.toLowerCase(), st=document.getElementById('fstatus').value, ar=farea.value;
+  let list = data.filter(r=>(!q||(r[0]+r[1]).toLowerCase().includes(q))&&(!st||r[3]===st)&&(!ar||r[2].startsWith(ar)));
+  list.sort((a,b)=>(a[sortI]>b[sortI]?1:a[sortI]<b[sortI]?-1:0)*sortD);
+  const pages = Math.max(1,Math.ceil(list.length/PS)); if(page>=pages) page=pages-1;
+  document.getElementById('head').innerHTML = cols.map(([n,i])=>`<th class="text-left px-4 py-3 font-medium cursor-pointer select-none hover:text-slate-800" data-i="${i}">${n}${sortI===i?(sortD>0?' ▲':' ▼'):''}</th>`).join('');
+  document.querySelectorAll('#head th').forEach(th=>th.onclick=()=>{const i=+th.dataset.i; if(sortI===i) sortD*=-1; else {sortI=i;sortD=1} render();});
+  document.getElementById('rows').innerHTML = list.slice(page*PS,page*PS+PS).map(r=>`
+   <tr class="hover:bg-slate-50">
+    <td class="px-4 py-3 font-mono text-xs text-slate-500">${r[0]}</td>
+    <td class="px-4 py-3 font-medium">${r[1]}</td>
+    <td class="px-4 py-3 text-slate-600">${r[2]}</td>
+    <td class="px-4 py-3"><span class="px-2 py-1 rounded-full text-xs font-medium ${badge[r[3]]}">${r[3]}</span></td>
+    <td class="px-4 py-3 text-slate-600">${fmt(r[4])}</td>
+    <td class="px-4 py-3">${dueHtml(r[5])}</td>
+   </tr>`).join('') || '<tr><td colspan="6" class="px-4 py-10 text-center text-slate-400">Không có thiết bị phù hợp</td></tr>';
+  document.getElementById('count').textContent = `${list.length} thiết bị - Trang ${page+1}/${pages}`;
+  document.getElementById('prev').disabled = page===0;
+  document.getElementById('next').disabled = page>=pages-1;
+}
+function kpis(){
+  const k = [
+   ['Tổng thiết bị', data.length,'text-slate-900'],
+   ['Đang chạy', data.filter(r=>r[3]==='Đang chạy').length,'text-green-700'],
+   ['Sự cố / Dừng bảo trì', data.filter(r=>r[3]==='Sự cố'||r[3]==='Dừng bảo trì').length,'text-red-700'],
+   ['Kiểm định quá hạn / ≤14 ngày', data.filter(r=>days(r[5])<=14).length,'text-amber-700']];
+  document.getElementById('kpis').innerHTML = k.map(([l,v,c])=>`<div class="bg-white border border-slate-200 rounded-lg p-4"><div class="text-xs text-slate-500">${l}</div><div class="text-2xl font-semibold mt-1 ${c}">${v}</div></div>`).join('');
+}
+['q','fstatus','farea'].forEach(id=>document.getElementById(id).addEventListener('input',()=>{page=0;render()}));
+document.getElementById('prev').onclick=()=>{page--;render()};
+document.getElementById('next').onclick=()=>{page++;render()};
+kpis(); render();
+</script>
+</body>
+</html>

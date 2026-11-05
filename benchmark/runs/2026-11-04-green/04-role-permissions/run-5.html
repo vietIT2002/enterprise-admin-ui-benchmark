@@ -1,0 +1,690 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Roles and permissions – Minh Phát ERP</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+  html, body { height: 100%; }
+  body { font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; font-size: 14px; color: #0f172a; }
+  .tnum { font-variant-numeric: tabular-nums; }
+  :focus-visible { outline: 2px solid #1d4ed8; outline-offset: 1px; }
+  input[type=checkbox] { width: 16px; height: 16px; accent-color: #1d4ed8; cursor: pointer; }
+  input[type=checkbox]:disabled { cursor: not-allowed; }
+  .skel { background: linear-gradient(90deg,#e2e8f0,#f1f5f9,#e2e8f0); background-size: 200% 100%; animation: sh 1.2s infinite; border-radius: 4px; }
+  @keyframes sh { 0% { background-position: 200% 0 } 100% { background-position: -200% 0 } }
+  .sticky-col { position: sticky; left: 0; z-index: 1; }
+  thead th { position: sticky; top: 0; z-index: 2; }
+  thead th.sticky-col { z-index: 3; }
+  @media (prefers-reduced-motion: reduce) { .skel { animation: none; } }
+</style>
+</head>
+<body class="bg-slate-50">
+<div class="flex h-screen">
+  <!-- Sidebar -->
+  <aside class="hidden w-60 shrink-0 flex-col border-r border-slate-200 bg-white md:flex">
+    <div class="flex h-12 items-center gap-2 border-b border-slate-200 px-4">
+      <span class="flex h-6 w-6 items-center justify-center rounded bg-blue-700 text-xs font-semibold text-white" aria-hidden="true">M</span>
+      <span class="font-semibold">Minh Phát ERP</span>
+    </div>
+    <nav aria-label="Main" class="flex-1 overflow-y-auto p-2 text-sm">
+      <p class="px-2 py-1 text-xs font-medium text-slate-600">Sales</p>
+      <a href="#" class="flex h-8 items-center gap-2 rounded px-2 text-slate-700 hover:bg-slate-100">Orders</a>
+      <a href="#" class="flex h-8 items-center gap-2 rounded px-2 text-slate-700 hover:bg-slate-100">Customers</a>
+      <p class="mt-4 px-2 py-1 text-xs font-medium text-slate-600">Finance</p>
+      <a href="#" class="flex h-8 items-center gap-2 rounded px-2 text-slate-700 hover:bg-slate-100">Invoices</a>
+      <a href="#" class="flex h-8 items-center gap-2 rounded px-2 text-slate-700 hover:bg-slate-100">Payments</a>
+      <p class="mt-4 px-2 py-1 text-xs font-medium text-slate-600">Administration</p>
+      <a href="#" class="flex h-8 items-center gap-2 rounded px-2 text-slate-700 hover:bg-slate-100">Users</a>
+      <a href="#" aria-current="page" class="flex h-8 items-center gap-2 rounded bg-slate-100 px-2 font-medium text-slate-900">Roles and permissions</a>
+      <a href="#" class="flex h-8 items-center gap-2 rounded px-2 text-slate-700 hover:bg-slate-100">Settings</a>
+    </nav>
+  </aside>
+
+  <div class="flex min-w-0 flex-1 flex-col">
+    <header class="flex h-12 shrink-0 items-center justify-between border-b border-slate-200 bg-white px-4">
+      <span class="text-sm text-slate-600">Minh Phát Trading Co.</span>
+      <button type="button" class="flex h-8 items-center gap-2 rounded px-2 text-sm text-slate-700 hover:bg-slate-100" aria-label="Account menu">
+        <span class="flex h-6 w-6 items-center justify-center rounded-full bg-slate-200 text-xs font-medium text-slate-800" aria-hidden="true">NA</span>
+        <span>Nguyễn An</span>
+      </button>
+    </header>
+
+    <main id="main" class="relative flex-1 overflow-y-auto">
+      <div class="p-6">
+        <!-- Page header -->
+        <nav aria-label="Breadcrumb" class="mb-2">
+          <ol class="flex flex-wrap items-center gap-1 text-sm text-slate-600">
+            <li><a href="#" class="inline-flex min-h-6 items-center hover:text-slate-900 hover:underline">Administration</a></li>
+            <li aria-hidden="true">/</li>
+            <li><span aria-current="page" class="text-slate-900">Roles and permissions</span></li>
+          </ol>
+        </nav>
+        <div class="mb-4 flex flex-wrap items-center justify-between gap-2">
+          <div>
+            <h1 class="text-xl font-semibold">Roles and permissions</h1>
+            <p id="summary" class="mt-1 text-sm text-slate-600"></p>
+          </div>
+          <button id="btn-create" type="button" class="h-8 rounded bg-blue-700 px-3 text-sm font-medium text-white hover:bg-blue-800">Create role</button>
+        </div>
+
+        <div class="grid gap-6 xl:grid-cols-[420px_minmax(0,1fr)]">
+          <!-- Role list -->
+          <section aria-labelledby="roles-h" class="self-start rounded-md border border-slate-200 bg-white">
+            <div class="border-b border-slate-200 p-3">
+              <h2 id="roles-h" class="mb-2 text-sm font-semibold">Roles</h2>
+              <div class="flex gap-2">
+                <label class="sr-only" for="role-search">Search roles</label>
+                <input id="role-search" type="search" placeholder="Search roles" class="h-8 w-full rounded border border-slate-300 px-2 text-sm placeholder:text-slate-500">
+              </div>
+              <div id="chips" class="mt-2 hidden flex-wrap items-center gap-2"></div>
+            </div>
+            <div id="role-list" aria-live="polite"></div>
+          </section>
+
+          <!-- Detail -->
+          <section id="detail" aria-label="Role permissions" class="min-w-0"></section>
+        </div>
+      </div>
+
+      <!-- Sticky action bar -->
+      <div id="actionbar" class="sticky bottom-0 hidden border-t border-slate-200 bg-white px-6 py-3">
+        <div class="flex flex-wrap items-center justify-between gap-3">
+          <p id="bar-status" class="text-sm text-slate-700" aria-live="polite"></p>
+          <div class="flex items-center gap-2">
+            <button id="btn-cancel" type="button" class="h-8 rounded border border-slate-300 bg-white px-3 text-sm font-medium text-slate-800 hover:bg-slate-50">Cancel</button>
+            <button id="btn-save" type="button" class="inline-flex h-8 items-center gap-2 rounded bg-blue-700 px-3 text-sm font-medium text-white hover:bg-blue-800 disabled:cursor-not-allowed disabled:opacity-60">Save</button>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+</div>
+
+<!-- Toast + live regions -->
+<div id="toast" role="status" class="pointer-events-none fixed bottom-20 right-6 z-50 hidden rounded-md border border-slate-200 bg-white px-4 py-3 text-sm shadow-lg"></div>
+<div id="modal-root"></div>
+
+<script>
+(function () {
+  'use strict';
+
+  /* ---------- Data ---------- */
+  var ACTIONS = [
+    { id: 'view', label: 'View' }, { id: 'create', label: 'Create' }, { id: 'edit', label: 'Edit' },
+    { id: 'delete', label: 'Delete' }, { id: 'approve', label: 'Approve' }
+  ];
+  var A_ALL = ['view', 'create', 'edit', 'delete', 'approve'];
+  var A_CRUD = ['view', 'create', 'edit', 'delete'];
+  var GROUPS = [
+    { id: 'sales', label: 'Sales', sensitive: false, modules: [
+      { id: 'quotes', label: 'Quotes', actions: A_ALL },
+      { id: 'orders', label: 'Orders', actions: A_ALL },
+      { id: 'customers', label: 'Customers', actions: A_CRUD } ] },
+    { id: 'inventory', label: 'Inventory', sensitive: false, modules: [
+      { id: 'products', label: 'Products', actions: A_CRUD },
+      { id: 'transfers', label: 'Stock transfers', actions: A_ALL },
+      { id: 'purchase', label: 'Purchase orders', actions: A_ALL } ] },
+    { id: 'finance', label: 'Finance', sensitive: true, modules: [
+      { id: 'invoices', label: 'Invoices', actions: A_ALL },
+      { id: 'payments', label: 'Payments', actions: ['view', 'create', 'edit', 'approve'] },
+      { id: 'journal', label: 'Journal entries', actions: A_ALL },
+      { id: 'reports', label: 'Financial reports', actions: ['view'] } ] },
+    { id: 'people', label: 'People', sensitive: true, modules: [
+      { id: 'employees', label: 'Employees', actions: A_CRUD },
+      { id: 'leave', label: 'Leave requests', actions: A_ALL },
+      { id: 'payroll', label: 'Payroll', actions: ['view', 'edit', 'approve'] } ] },
+    { id: 'admin', label: 'Administration', sensitive: true, modules: [
+      { id: 'users', label: 'Users', actions: A_CRUD },
+      { id: 'roles', label: 'Roles', actions: A_CRUD } ] }
+  ];
+  var MODS = [];
+  GROUPS.forEach(function (g) { g.modules.forEach(function (m) { m.group = g; MODS.push(m); }); });
+  function modById(id) { return MODS.filter(function (m) { return m.id === id; })[0]; }
+
+  // Build a permission set from rules: {modId|'*': [actions]} ; '+group' adds all of a group
+  function build(rule) {
+    var s = new Set();
+    MODS.forEach(function (m) {
+      var acts = rule[m.id] || rule['@' + m.group.id] || rule['*'] || [];
+      acts.forEach(function (a) { if (m.actions.indexOf(a) >= 0) s.add(m.id + ':' + a); });
+    });
+    return s;
+  }
+  var V = ['view'], VCE = ['view', 'create', 'edit'], VCED = A_CRUD;
+
+  var roles = [
+    { id: 'owner', name: 'Owner', desc: 'Account owner with unrestricted access.', system: true, users: 1, by: 'System', at: '2026-01-12T09:00:00Z', perms: build({ '*': A_ALL }), history: [] },
+    { id: 'administrator', name: 'Administrator', desc: 'Manages users, roles and company settings.', system: true, users: 3, by: 'System', at: '2026-01-12T09:00:00Z', perms: build({ '*': A_ALL }), history: [] },
+    { id: 'finance-manager', name: 'Finance manager', desc: 'Approves payments, invoices and journal entries.', system: false, users: 4, by: 'Nguyễn An', at: '2026-10-28T08:41:00Z',
+      perms: build({ '@finance': A_ALL, '@sales': V, '@inventory': V, payroll: ['view'], leave: V }),
+      history: [{ at: '2026-10-28T08:41:00Z', by: 'Nguyễn An', diffs: [['Payments – Approve', 'off', 'on']] }] },
+    { id: 'accountant', name: 'Accountant', desc: 'Records invoices, payments and journal entries.', system: false, users: 9, by: 'Trần Minh Quân', at: '2026-09-17T03:15:00Z',
+      perms: build({ invoices: VCE, payments: VCE, journal: VCE, reports: V, orders: V, customers: V, purchase: V }),
+      history: [{ at: '2026-09-17T03:15:00Z', by: 'Trần Minh Quân', diffs: [['Journal entries – Edit', 'off', 'on'], ['Journal entries – Create', 'off', 'on']] }] },
+    { id: 'sales-manager', name: 'Sales manager', desc: 'Runs the sales team and approves quotes and orders.', system: false, users: 6, by: 'Lê Hoa', at: '2026-10-02T10:20:00Z',
+      perms: build({ '@sales': A_ALL, products: V, invoices: V, reports: V }), history: [] },
+    { id: 'sales-staff', name: 'Sales staff', desc: 'Creates quotes and orders for assigned customers.', system: false, users: 12, by: 'Lê Hoa', at: '2026-11-04T08:58:00Z',
+      perms: build({ quotes: VCE, orders: VCE, customers: VCE, products: V, invoices: V }),
+      history: [
+        { at: '2026-11-04T08:58:00Z', by: 'Lê Hoa', diffs: [['Customers – Edit', 'off', 'on']] },
+        { at: '2026-08-21T07:30:00Z', by: 'Nguyễn An', diffs: [['Quotes – Delete', 'on', 'off'], ['Orders – Delete', 'on', 'off']] } ] },
+    { id: 'warehouse-clerk', name: 'Warehouse clerk', desc: 'Receives goods and moves stock between warehouses.', system: false, users: 8, by: 'Phạm Thu Hà', at: '2026-07-09T02:05:00Z',
+      perms: build({ products: VCE, transfers: VCE, purchase: V, orders: V }), history: [] },
+    { id: 'hr-officer', name: 'HR officer', desc: 'Maintains employee records and leave requests.', system: false, users: 3, by: 'Nguyễn An', at: '2026-06-30T04:12:00Z',
+      perms: build({ employees: VCED, leave: A_ALL, payroll: ['view'] }), history: [] },
+    { id: 'viewer', name: 'Viewer', desc: 'Read-only access to sales, inventory and reports.', system: false, users: 15, by: 'Nguyễn An', at: '2026-05-14T06:50:00Z',
+      perms: build({ '@sales': V, '@inventory': V, reports: V }), history: [] }
+  ];
+
+  /* ---------- State ---------- */
+  var params = new URLSearchParams(location.search);
+  var S = {
+    loading: true,
+    error: params.get('state') === 'error',
+    forceEmpty: params.get('state') === 'empty',
+    query: '',
+    selected: 'sales-staff',
+    matrixLoading: false,
+    draft: null,        // Set of keys for selected role
+    saving: false,
+    note: ''            // dependency message
+  };
+  if (S.forceEmpty) roles = [];
+  var nextId = 1;
+
+  /* ---------- Helpers ---------- */
+  function esc(s) { return String(s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
+  function $(id) { return document.getElementById(id); }
+  var nf = new Intl.NumberFormat('en-US');
+  function stamp(iso) {
+    var d = new Date(iso);
+    var date = new Intl.DateTimeFormat('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric', timeZone: 'Asia/Ho_Chi_Minh' }).format(d);
+    var time = new Intl.DateTimeFormat('en-GB', { hour: '2-digit', minute: '2-digit', hourCycle: 'h23', timeZone: 'Asia/Ho_Chi_Minh' }).format(d);
+    return date + ' ' + time;
+  }
+  function dateOnly(iso) { return stamp(iso).slice(0, 10); }
+  function cur() { return roles.filter(function (r) { return r.id === S.selected; })[0]; }
+  function key(m, a) { return m + ':' + a; }
+  function actLabel(a) { return ACTIONS.filter(function (x) { return x.id === a; })[0].label; }
+  function diffSets(a, b) { // keys that differ
+    var out = [];
+    a.forEach(function (k) { if (!b.has(k)) out.push(k); });
+    b.forEach(function (k) { if (!a.has(k)) out.push(k); });
+    return out;
+  }
+  function changes() { var r = cur(); return (r && S.draft) ? diffSets(r.perms, S.draft) : []; }
+  function dirty() { return changes().length > 0; }
+  function describe(k) { var p = k.split(':'); return modById(p[0]).label + ' – ' + actLabel(p[1]); }
+
+  function toast(msg) {
+    var t = $('toast');
+    t.textContent = msg; t.classList.remove('hidden');
+    clearTimeout(toast.h);
+    toast.h = setTimeout(function () { t.classList.add('hidden'); }, 3500);
+  }
+
+  /* ---------- Role list ---------- */
+  function filteredRoles() {
+    var q = S.query.trim().toLowerCase();
+    return roles.filter(function (r) { return !q || r.name.toLowerCase().indexOf(q) >= 0 || r.desc.toLowerCase().indexOf(q) >= 0; });
+  }
+  function typeBadge(r) {
+    return '<span class="inline-flex h-6 items-center gap-1 rounded-full bg-slate-100 px-2 text-xs font-medium text-slate-700">' +
+      (r.system ? '<svg class="h-4 w-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>' : '<svg class="h-4 w-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="4"/></svg>') +
+      (r.system ? 'System' : 'Custom') + '</span>';
+  }
+  function renderList() {
+    var box = $('role-list'), chips = $('chips');
+    // chips
+    if (S.query.trim()) {
+      chips.classList.remove('hidden'); chips.classList.add('flex');
+      chips.innerHTML = '<span class="inline-flex h-6 items-center gap-1 rounded-full bg-slate-100 pl-2 pr-1 text-xs font-medium text-slate-800">Search: ' + esc(S.query.trim()) +
+        '<button type="button" data-act="clear-search" class="flex h-5 w-5 items-center justify-center rounded-full hover:bg-slate-200" aria-label="Remove filter: search ' + esc(S.query.trim()) + '">×</button></span>' +
+        '<button type="button" data-act="clear-search" class="text-xs font-medium text-blue-700 hover:underline">Clear all</button>';
+    } else { chips.classList.add('hidden'); chips.classList.remove('flex'); chips.innerHTML = ''; }
+
+    if (S.loading) {
+      var sk = '';
+      for (var i = 0; i < 7; i++) sk += '<div class="flex h-10 items-center gap-3 border-b border-slate-100 px-3"><div class="skel h-4 w-32"></div><div class="skel ml-auto h-4 w-8"></div><div class="skel h-4 w-16"></div></div>';
+      box.innerHTML = '<div aria-busy="true" aria-label="Loading roles">' + sk + '</div>';
+      $('summary').textContent = 'Loading roles…';
+      return;
+    }
+    if (S.error) {
+      box.innerHTML = '<div class="p-6 text-center"><p class="font-medium">Could not load roles</p><p class="mt-1 text-sm text-slate-600">The server did not respond. Your changes are not affected.</p>' +
+        '<button type="button" data-act="retry" class="mt-3 h-8 rounded border border-slate-300 bg-white px-3 text-sm font-medium hover:bg-slate-50">Retry</button></div>';
+      $('summary').textContent = 'Roles unavailable';
+      return;
+    }
+    if (!roles.length) {
+      box.innerHTML = '<div class="p-6 text-center"><p class="font-medium">No roles yet</p><p class="mt-1 text-sm text-slate-600">A role groups permissions so you can give the same access to many users.</p>' +
+        '<button type="button" data-act="create" class="mt-3 h-8 rounded bg-blue-700 px-3 text-sm font-medium text-white hover:bg-blue-800">Create role</button></div>';
+      $('summary').textContent = '0 roles';
+      return;
+    }
+    var list = filteredRoles();
+    var totalUsers = roles.reduce(function (n, r) { return n + r.users; }, 0);
+    $('summary').textContent = roles.length + ' roles · ' + nf.format(totalUsers) + ' users assigned';
+    if (!list.length) {
+      box.innerHTML = '<div class="p-6 text-center"><p class="font-medium">No roles match “' + esc(S.query.trim()) + '”</p><p class="mt-1 text-sm text-slate-600">Check the spelling or try a shorter name.</p>' +
+        '<button type="button" data-act="clear-search" class="mt-3 h-8 rounded border border-slate-300 bg-white px-3 text-sm font-medium hover:bg-slate-50">Clear search</button></div>';
+      return;
+    }
+    var rows = list.map(function (r) {
+      var sel = r.id === S.selected;
+      return '<tr class="h-10 border-b border-slate-100 ' + (sel ? 'bg-blue-50' : 'hover:bg-slate-50') + '">' +
+        '<th scope="row" class="px-3 text-left font-normal"><button type="button" data-act="select" data-id="' + r.id + '" ' + (sel ? 'aria-current="true"' : '') +
+        ' class="block max-w-[170px] truncate py-2 text-left ' + (sel ? 'font-semibold text-blue-700' : 'font-medium text-slate-900 hover:underline') + '" title="' + esc(r.name) + '">' + esc(r.name) + '</button></th>' +
+        '<td class="px-3 text-right tnum"><a href="#users-' + r.id + '" class="text-blue-700 hover:underline" aria-label="' + r.users + ' users with role ' + esc(r.name) + '">' + nf.format(r.users) + '</a></td>' +
+        '<td class="px-3">' + typeBadge(r) + '</td>' +
+        '<td class="relative w-10 px-1 text-right"><button type="button" data-act="menu" data-id="' + r.id + '" aria-haspopup="menu" aria-label="Actions for role ' + esc(r.name) + '" class="inline-flex h-8 w-8 items-center justify-center rounded text-slate-700 hover:bg-slate-100">' +
+        '<svg class="h-4 w-4" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="5" cy="12" r="1.8"/><circle cx="12" cy="12" r="1.8"/><circle cx="19" cy="12" r="1.8"/></svg></button></td></tr>';
+    }).join('');
+    box.innerHTML = '<table class="w-full text-sm"><caption class="sr-only">Roles</caption><thead><tr class="h-9 border-b border-slate-200 bg-slate-50 text-xs font-medium text-slate-700">' +
+      '<th scope="col" class="px-3 text-left font-medium">Role</th><th scope="col" class="px-3 text-right font-medium">Users</th><th scope="col" class="px-3 text-left font-medium">Type</th><th scope="col" class="px-1"><span class="sr-only">Actions</span></th></tr></thead><tbody>' + rows + '</tbody></table>' +
+      '<p class="px-3 py-2 text-xs text-slate-600">' + list.length + ' of ' + roles.length + ' roles</p>';
+  }
+
+  /* ---------- Detail / matrix ---------- */
+  function cellsOf(mods) { // available keys
+    var out = [];
+    mods.forEach(function (m) { m.actions.forEach(function (a) { out.push(key(m.id, a)); }); });
+    return out;
+  }
+  function stateOf(keys, set) {
+    var n = 0; keys.forEach(function (k) { if (set.has(k)) n++; });
+    return n === 0 ? 'none' : (n === keys.length ? 'all' : 'mixed');
+  }
+  function toggleBox(id, label, st, locked) {
+    return '<input type="checkbox" data-k="' + id + '" aria-label="' + esc(label) + '" ' + (st === 'all' ? 'checked' : '') + ' data-state="' + st + '" ' + (st === 'mixed' ? 'aria-checked="mixed"' : '') + ' ' + (locked ? 'disabled' : '') + '>';
+  }
+  function renderDetail() {
+    var el = $('detail');
+    if (S.loading || S.error || !roles.length) {
+      if (S.loading) {
+        var sk = '<div class="rounded-md border border-slate-200 bg-white p-4" aria-busy="true" aria-label="Loading permissions"><div class="skel mb-2 h-6 w-48"></div><div class="skel mb-6 h-4 w-80"></div>';
+        for (var i = 0; i < 9; i++) sk += '<div class="skel mb-2 h-8 w-full"></div>';
+        el.innerHTML = sk + '</div>';
+      } else if (S.error) {
+        el.innerHTML = '<div class="rounded-md border border-slate-200 bg-white p-8 text-center"><p class="font-medium">Permissions unavailable</p><p class="mt-1 text-sm text-slate-600">Load the role list first, then pick a role.</p></div>';
+      } else {
+        el.innerHTML = '<div class="rounded-md border border-slate-200 bg-white p-8 text-center"><p class="font-medium">Select or create a role</p><p class="mt-1 text-sm text-slate-600">The permission matrix appears here.</p></div>';
+      }
+      updateBar(); return;
+    }
+    var r = cur();
+    if (!r) { // selected role filtered away or deleted
+      el.innerHTML = '<div class="rounded-md border border-slate-200 bg-white p-8 text-center"><p class="font-medium">No role selected</p><p class="mt-1 text-sm text-slate-600">Pick a role from the list to see its permissions.</p></div>';
+      updateBar(); return;
+    }
+    if (S.matrixLoading) {
+      var sk2 = '<div class="rounded-md border border-slate-200 bg-white p-4" aria-busy="true" aria-label="Loading permissions"><div class="skel mb-2 h-6 w-48"></div><div class="skel mb-6 h-4 w-80"></div>';
+      for (var j = 0; j < 9; j++) sk2 += '<div class="skel mb-2 h-8 w-full"></div>';
+      el.innerHTML = sk2 + '</div>'; updateBar(); return;
+    }
+    var locked = r.system;
+    var set = locked ? new Set(cellsOf(MODS)) : S.draft;
+    var allKeys = cellsOf(MODS);
+
+    var head = '<div class="rounded-md border border-slate-200 bg-white">' +
+      '<div class="border-b border-slate-200 p-4">' +
+      '<div class="flex flex-wrap items-center gap-2"><h2 class="text-lg font-semibold">' + esc(r.name) + '</h2>' + typeBadge(r) + '</div>' +
+      '<p class="mt-1 text-sm text-slate-700">' + esc(r.desc) + ' <a href="#users-' + r.id + '" class="text-blue-700 hover:underline">' + nf.format(r.users) + (r.users === 1 ? ' user' : ' users') + '</a></p>' +
+      '<p class="mt-1 text-sm text-slate-600">Last changed by <a href="#user" class="font-medium text-slate-900 hover:underline">' + esc(r.by) + '</a> on <time datetime="' + r.at + '">' + stamp(r.at) + '</time> · ' +
+      '<button type="button" data-act="history" class="inline-flex min-h-6 items-center text-blue-700 hover:underline">View history</button></p>' +
+      '</div>';
+    if (locked) {
+      head += '<div class="flex flex-wrap items-center justify-between gap-2 border-b border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-800">' +
+        '<p><strong class="font-semibold">' + esc(r.name) + ' is a system role.</strong> Its permissions are fixed so the account always has an administrator.</p>' +
+        '<button type="button" data-act="duplicate" data-id="' + r.id + '" class="h-8 rounded border border-slate-300 bg-white px-3 text-sm font-medium hover:bg-slate-50">Duplicate role</button></div>';
+    }
+
+    // matrix
+    var th = '<th scope="col" class="sticky-col bg-slate-50 px-3 text-left font-medium">Module</th>';
+    ACTIONS.forEach(function (a) {
+      var ks = cellsOf(MODS).filter(function (k) { return k.split(':')[1] === a.id; });
+      th += '<th scope="col" class="bg-slate-50 px-2 text-center font-medium"><label class="flex h-10 cursor-pointer flex-col items-center justify-center gap-0.5 leading-none"><span>' + a.label + '</span>' +
+        toggleBox('k|' + a.id, a.label + ' – all modules', stateOf(ks, set), locked) + '</label></th>';
+    });
+    th += '<th scope="col" class="bg-slate-50 px-2 text-center font-medium"><span class="block py-2">All</span></th>';
+
+    var body = '';
+    GROUPS.forEach(function (g) {
+      var gk = cellsOf(g.modules);
+      body += '<tr class="h-10 border-y border-slate-200 bg-slate-50"><th scope="rowgroup" colspan="1" class="sticky-col bg-slate-50 px-3 text-left font-semibold">' + g.label +
+        (g.sensitive ? ' <span class="ml-1 text-xs font-normal text-slate-600">money or personal data</span>' : '') + '</th>' +
+        '<td colspan="5"></td><td class="text-center"><label class="flex h-10 w-full cursor-pointer items-center justify-center">' + toggleBox('g|' + g.id, g.label + ' – all modules', stateOf(gk, set), locked) + '</label></td></tr>';
+      g.modules.forEach(function (m) {
+        var mk = cellsOf([m]);
+        body += '<tr class="h-10 border-b border-slate-100 hover:bg-slate-50"><th scope="row" class="sticky-col bg-white px-3 text-left font-normal">' + esc(m.label) + '</th>';
+        ACTIONS.forEach(function (a) {
+          if (m.actions.indexOf(a.id) < 0) {
+            body += '<td class="px-2 text-center text-slate-500"><span aria-hidden="true">–</span><span class="sr-only">' + esc(m.label) + ' – ' + a.label + ' not available</span></td>';
+          } else {
+            var k = key(m.id, a.id);
+            body += '<td class="p-0 text-center"><label class="flex h-10 w-full cursor-pointer items-center justify-center">' +
+              '<input type="checkbox" data-k="c|' + k + '" aria-label="' + esc(m.label) + ' – ' + a.label + '" ' + (set.has(k) ? 'checked' : '') + ' ' + (locked ? 'disabled' : '') + '></label></td>';
+          }
+        });
+        body += '<td class="p-0 text-center"><label class="flex h-10 w-full cursor-pointer items-center justify-center">' + toggleBox('r|' + m.id, m.label + ' – all actions', stateOf(mk, set), locked) + '</label></td></tr>';
+      });
+    });
+
+    head += '<div class="flex items-center justify-between gap-2 px-4 pb-2 pt-3"><h3 class="text-sm font-semibold">Permissions</h3>' +
+      '<p id="dep-note" role="status" class="text-sm text-slate-700">' + esc(S.note) + '</p></div>' +
+      '<div class="max-h-[560px] overflow-auto border-t border-slate-200">' +
+      '<table class="w-full min-w-[640px] text-sm"><caption class="sr-only">Permissions for role ' + esc(r.name) + ': modules by action</caption>' +
+      '<thead><tr class="h-14 border-b border-slate-200 text-slate-800">' + th + '</tr></thead><tbody>' + body + '</tbody></table></div>' +
+      '<p class="border-t border-slate-200 px-4 py-2 text-xs text-slate-600">Edit, Create, Delete and Approve need View. “–” means the action does not exist for that module.</p></div>';
+    el.innerHTML = head;
+
+    // indeterminate
+    el.querySelectorAll('input[data-state="mixed"]').forEach(function (i) { i.indeterminate = true; });
+    updateBar();
+  }
+
+  function updateBar() {
+    var bar = $('actionbar'), r = cur();
+    var show = !S.loading && !S.error && r;
+    bar.classList.toggle('hidden', !show);
+    if (!show) return;
+    var st = $('bar-status'), save = $('btn-save'), cancel = $('btn-cancel');
+    if (r.system) {
+      st.textContent = r.name + ' is a system role, so its permissions cannot be changed. Duplicate it to make an editable copy.';
+      save.disabled = true; cancel.disabled = true;
+      cancel.classList.add('opacity-60'); cancel.classList.add('cursor-not-allowed');
+      save.setAttribute('aria-describedby', 'bar-status');
+    } else {
+      cancel.disabled = false; cancel.classList.remove('opacity-60', 'cursor-not-allowed');
+      var n = changes().length;
+      st.innerHTML = n ? '<span class="mr-2 inline-block h-2 w-2 rounded-full bg-amber-500" aria-hidden="true"></span><strong class="font-semibold text-slate-900">Unsaved changes</strong> · ' + n + (n === 1 ? ' change' : ' changes') : 'No unsaved changes';
+      save.disabled = S.saving;
+      save.innerHTML = S.saving ? '<svg class="h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="3" opacity=".3"/><path d="M21 12a9 9 0 0 0-9-9" stroke="currentColor" stroke-width="3"/></svg>Saving…' : 'Save';
+      save.removeAttribute('aria-describedby');
+    }
+  }
+
+  /* ---------- Matrix editing ---------- */
+  function applyToggle(k, on) {
+    var d = S.draft, parts = k.split('|'), t = parts[0], v = parts[1], notes = [];
+    var before = new Set(d);
+    function setKey(key2, val) {
+      if (val) {
+        d.add(key2);
+        var p = key2.split(':');
+        if (p[1] !== 'view' && !d.has(p[0] + ':view')) { d.add(p[0] + ':view'); notes.push(modById(p[0]).label); }
+      } else {
+        d.delete(key2);
+        var q = key2.split(':');
+        if (q[1] === 'view') modById(q[0]).actions.forEach(function (a) { d.delete(q[0] + ':' + a); });
+      }
+    }
+    var targets = [];
+    if (t === 'c') targets = [v];
+    else if (t === 'r') targets = cellsOf([modById(v)]);
+    else if (t === 'k') targets = cellsOf(MODS).filter(function (x) { return x.split(':')[1] === v; });
+    else if (t === 'g') targets = cellsOf(GROUPS.filter(function (g) { return g.id === v; })[0].modules);
+    // apply view first when enabling, view last when disabling
+    targets.sort(function (a, b) { var av = a.split(':')[1] === 'view', bv = b.split(':')[1] === 'view'; return on ? (bv - av) : (av - bv); });
+    targets.forEach(function (x) { setKey(x, on); });
+    var cleared = (!on && targets.some(function (x) { return x.split(':')[1] === 'view' && before.has(x); }) && t === 'c');
+    if (notes.length && t === 'c') S.note = 'Edit needs View, so View is on for ' + notes[0] + '.';
+    else if (notes.length) S.note = 'View was turned on for ' + notes.length + (notes.length === 1 ? ' module' : ' modules') + ' because other actions need it.';
+    else if (cleared) S.note = 'Without View, the other actions for this module were turned off.';
+    else S.note = '';
+  }
+
+  document.addEventListener('change', function (e) {
+    var k = e.target && e.target.getAttribute && e.target.getAttribute('data-k');
+    if (!k || !S.draft) return;
+    var on = e.target.indeterminate ? true : e.target.checked;
+    if (e.target.getAttribute('data-state') === 'mixed') on = true;
+    applyToggle(k, on);
+    rerenderKeepFocus(k);
+  });
+  function rerenderKeepFocus(k) {
+    renderDetail();
+    var el = document.querySelector('[data-k="' + k + '"]');
+    if (el) el.focus();
+  }
+
+  /* ---------- Navigation guard ---------- */
+  window.addEventListener('beforeunload', function (e) { if (dirty()) { e.preventDefault(); e.returnValue = ''; } });
+
+  function guard(proceed) {
+    if (!dirty()) { proceed(); return; }
+    var r = cur();
+    openModal({
+      title: 'Leave ' + r.name + ' with unsaved changes?',
+      body: '<p class="text-sm text-slate-700">You changed ' + changes().length + ' permissions on role ' + esc(r.name) + '. They will be lost if you leave without saving.</p>',
+      buttons: [
+        { label: 'Stay', id: 'stay', focus: true, kind: 'outline' },
+        { label: 'Discard changes', id: 'discard', kind: 'outline', onClick: function () { S.draft = new Set(r.perms); closeModal(); proceed(); } },
+        { label: 'Save and leave', id: 'saveleave', kind: 'primary', onClick: function () { closeModal(); doSave(proceed); } }
+      ]
+    });
+  }
+
+  function selectRole(id) {
+    if (id === S.selected) return;
+    guard(function () {
+      S.selected = id; S.note = '';
+      var r = cur(); S.draft = new Set(r.perms);
+      S.matrixLoading = true; renderList(); renderDetail();
+      setTimeout(function () { S.matrixLoading = false; renderDetail(); }, 300);
+    });
+  }
+
+  /* ---------- Save ---------- */
+  var HIGH = function (k) { var p = k.split(':'); return modById(p[0]).group.sensitive && (p[1] === 'approve' || p[1] === 'delete' || p[1] === 'edit'); };
+  function trySave() {
+    var r = cur(); if (!r || r.system) return;
+    var ch = changes();
+    if (!ch.length) { toast('No changes to save on role ' + r.name); return; }
+    var widening = ch.filter(function (k) { return S.draft.has(k) && HIGH(k); });
+    if (widening.length) {
+      var rows = ch.map(function (k) { var on = S.draft.has(k); return '<li class="flex justify-between gap-3 py-1"><span>' + esc(describe(k)) + '</span><span class="tnum text-slate-700">' + (on ? 'off → on' : 'on → off') + '</span></li>'; }).join('');
+      openModal({
+        title: 'Review changes to ' + r.name,
+        body: '<p class="mb-2 text-sm text-slate-700">This widens access to money or personal data for ' + r.users + (r.users === 1 ? ' user' : ' users') + '.</p><ul class="max-h-60 divide-y divide-slate-100 overflow-auto rounded border border-slate-200 px-3 text-sm">' + rows + '</ul>',
+        buttons: [
+          { label: 'Back to editing', id: 'back', kind: 'outline', focus: true },
+          { label: 'Save ' + ch.length + (ch.length === 1 ? ' change' : ' changes'), id: 'confirm', kind: 'primary', onClick: function () { closeModal(); doSave(); } }
+        ]
+      });
+    } else doSave();
+  }
+  function doSave(after) {
+    var r = cur(); if (!r || S.saving) return;
+    S.saving = true; updateBar();
+    setTimeout(function () {
+      var ch = changes();
+      var diffs = ch.map(function (k) { return [describe(k), S.draft.has(k) ? 'off' : 'on', S.draft.has(k) ? 'on' : 'off']; });
+      r.perms = new Set(S.draft);
+      r.by = 'Nguyễn An'; r.at = new Date().toISOString();
+      if (diffs.length) r.history.unshift({ at: r.at, by: r.by, diffs: diffs });
+      S.saving = false; S.note = '';
+      renderDetail(); toast('Role ' + r.name + ' saved');
+      if (after) after();
+    }, 700);
+  }
+
+  /* ---------- Modal ---------- */
+  var lastFocus = null;
+  function openModal(o) {
+    lastFocus = document.activeElement;
+    var btns = o.buttons.map(function (b) {
+      var cls = b.kind === 'primary' ? 'bg-blue-700 text-white hover:bg-blue-800' : b.kind === 'danger' ? 'bg-red-600 text-white hover:bg-red-700' : 'border border-slate-300 bg-white text-slate-800 hover:bg-slate-50';
+      return '<button type="button" data-mid="' + b.id + '" ' + (b.focus ? 'data-autofocus' : '') + ' class="h-8 rounded px-3 text-sm font-medium ' + cls + '">' + esc(b.label) + '</button>';
+    }).join('');
+    $('modal-root').innerHTML = '<div class="fixed inset-0 z-40 flex items-center justify-center bg-slate-900/40 p-4" data-overlay>' +
+      '<div role="dialog" aria-modal="true" aria-labelledby="dlg-t" class="w-full max-w-md rounded-lg bg-white p-5 shadow-xl">' +
+      '<h2 id="dlg-t" class="mb-3 text-base font-semibold">' + esc(o.title) + '</h2><div id="dlg-b">' + o.body + '</div>' +
+      '<div class="mt-5 flex flex-wrap justify-end gap-2">' + btns + '</div></div></div>';
+    openModal.cfg = o;
+    var f = $('modal-root').querySelector('[data-autofocus]') || $('modal-root').querySelector('input,select,button');
+    if (f) f.focus();
+    if (o.onOpen) o.onOpen();
+  }
+  function closeModal() {
+    $('modal-root').innerHTML = ''; openModal.cfg = null;
+    if (lastFocus && document.contains(lastFocus)) lastFocus.focus();
+  }
+  $('modal-root').addEventListener('click', function (e) {
+    var b = e.target.closest('[data-mid]');
+    if (b) {
+      var cfg = openModal.cfg, id = b.getAttribute('data-mid');
+      var def = cfg.buttons.filter(function (x) { return x.id === id; })[0];
+      if (def && def.onClick) { if (def.onClick(e) === false) return; }
+      else closeModal();
+      return;
+    }
+    if (e.target.hasAttribute('data-overlay')) closeModal();
+  });
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape') { if (openModal.cfg) closeModal(); closeMenu(); }
+    if (e.key === 'Tab' && openModal.cfg) {
+      var f = $('modal-root').querySelectorAll('button,input,select,textarea,a[href]');
+      if (!f.length) return;
+      var first = f[0], last = f[f.length - 1];
+      if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+      else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+    }
+  });
+
+  /* ---------- Row menu ---------- */
+  function closeMenu() { var m = document.getElementById('row-menu'); if (m) m.remove(); }
+  function openMenu(btn, id) {
+    closeMenu();
+    var r = roles.filter(function (x) { return x.id === id; })[0];
+    var m = document.createElement('div');
+    m.id = 'row-menu'; m.setAttribute('role', 'menu');
+    m.className = 'absolute right-2 z-20 mt-1 w-44 rounded-md border border-slate-200 bg-white py-1 text-sm shadow-lg';
+    m.innerHTML = '<button role="menuitem" type="button" data-act="duplicate" data-id="' + id + '" class="block h-8 w-full px-3 text-left hover:bg-slate-100">Duplicate role</button>' +
+      (r.system ? '' : '<button role="menuitem" type="button" data-act="delete" data-id="' + id + '" class="block h-8 w-full px-3 text-left text-red-700 hover:bg-red-50">Delete role</button>');
+    btn.parentElement.appendChild(m);
+    m.querySelector('button').focus();
+  }
+
+  /* ---------- Create / duplicate ---------- */
+  function createDialog(copyFrom) {
+    var src = copyFrom ? roles.filter(function (x) { return x.id === copyFrom; })[0] : null;
+    var opts = '<option value="">Start with no permissions</option>' + roles.map(function (r) { return '<option value="' + r.id + '" ' + (src && src.id === r.id ? 'selected' : '') + '>Copy of ' + esc(r.name) + '</option>'; }).join('');
+    openModal({
+      title: src ? 'Duplicate role ' + src.name : 'Create role',
+      body: '<div class="space-y-3 text-sm">' +
+        '<div id="cr-summary" class="hidden rounded border border-red-200 bg-red-50 p-2 text-red-800" role="alert"></div>' +
+        '<div><label for="cr-name" class="mb-1 block font-medium">Role name <span aria-hidden="true">*</span></label><input id="cr-name" required value="' + (src ? esc(src.name) + ' (copy)' : '') + '" class="h-8 w-full rounded border border-slate-300 px-2" aria-describedby="cr-name-err"><p id="cr-name-err" class="mt-1 hidden text-red-700"></p></div>' +
+        '<div><label for="cr-desc" class="mb-1 block font-medium">Description</label><input id="cr-desc" value="' + (src ? esc(src.desc) : '') + '" class="h-8 w-full rounded border border-slate-300 px-2"></div>' +
+        '<div><label for="cr-from" class="mb-1 block font-medium">Starting permissions</label><select id="cr-from" class="h-8 w-full rounded border border-slate-300 bg-white px-2">' + opts + '</select></div></div>',
+      buttons: [
+        { label: 'Cancel', id: 'cancel', kind: 'outline' },
+        { label: 'Create role', id: 'ok', kind: 'primary', onClick: submitCreate }
+      ],
+      onOpen: function () { $('cr-name').addEventListener('blur', validateName); }
+    });
+  }
+  function validateName() {
+    var v = $('cr-name').value.trim(), err = $('cr-name-err'), msg = '';
+    if (!v) msg = 'Enter a role name.';
+    else if (roles.some(function (r) { return r.name.toLowerCase() === v.toLowerCase(); })) msg = 'A role named “' + v + '” already exists.';
+    err.textContent = msg; err.classList.toggle('hidden', !msg);
+    $('cr-name').classList.toggle('border-red-600', !!msg);
+    $('cr-name').setAttribute('aria-invalid', msg ? 'true' : 'false');
+    return !msg;
+  }
+  function submitCreate() {
+    if (!validateName()) { $('cr-name').focus(); return false; }
+    var from = roles.filter(function (r) { return r.id === $('cr-from').value; })[0];
+    var name = $('cr-name').value.trim();
+    var id = 'custom-' + (nextId++);
+    var role = { id: id, name: name, desc: $('cr-desc').value.trim() || 'No description', system: false, users: 0, by: 'Nguyễn An', at: new Date().toISOString(), perms: new Set(from ? Array.from(from.perms) : []), history: [{ at: new Date().toISOString(), by: 'Nguyễn An', diffs: [] }] };
+    closeModal();
+    guard(function () {
+      roles.push(role); S.selected = id; S.draft = new Set(role.perms); S.query = ''; $('role-search').value = '';
+      renderList(); renderDetail(); toast('Role ' + name + ' created');
+    });
+    return false;
+  }
+
+  /* ---------- Delete ---------- */
+  function deleteDialog(id) {
+    var r = roles.filter(function (x) { return x.id === id; })[0];
+    var others = roles.filter(function (x) { return x.id !== id; });
+    var impact = r.users
+      ? '<p class="text-sm text-slate-700"><strong class="font-semibold">' + nf.format(r.users) + (r.users === 1 ? ' user' : ' users') + '</strong> will lose these permissions. <a href="#users-' + r.id + '" class="text-blue-700 hover:underline">View the ' + nf.format(r.users) + (r.users === 1 ? ' user' : ' users') + '</a></p>' +
+        '<div class="mt-3 text-sm"><label for="del-repl" class="mb-1 block font-medium">Move these users to <span aria-hidden="true">*</span></label><select id="del-repl" class="h-8 w-full rounded border border-slate-300 bg-white px-2"><option value="">Choose a role</option>' +
+        others.map(function (o) { return '<option value="' + o.id + '">' + esc(o.name) + '</option>'; }).join('') + '<option value="__none">No role (they lose access to the modules above)</option></select><p id="del-err" class="mt-1 hidden text-red-700"></p></div>'
+      : '<p class="text-sm text-slate-700">No users have this role, so nobody is affected.</p>';
+    openModal({
+      title: 'Delete role ' + r.name + '?',
+      body: impact,
+      buttons: [
+        { label: 'Keep role', id: 'keep', kind: 'outline', focus: true },
+        { label: 'Delete role', id: 'del', kind: 'danger', onClick: function () {
+          var repl = r.users ? $('del-repl').value : '';
+          if (r.users && !repl) { var er = $('del-err'); er.textContent = 'Choose a replacement role, or confirm that they will have none.'; er.classList.remove('hidden'); $('del-repl').focus(); return false; }
+          var target = roles.filter(function (x) { return x.id === repl; })[0];
+          if (target) target.users += r.users;
+          roles = roles.filter(function (x) { return x.id !== id; });
+          closeModal();
+          if (S.selected === id) { var nxt = roles[0]; S.selected = nxt ? nxt.id : null; S.draft = nxt ? new Set(nxt.perms) : null; }
+          renderList(); renderDetail(); toast('Role ' + r.name + ' deleted');
+        } }
+      ]
+    });
+  }
+
+  /* ---------- History ---------- */
+  function historyDialog() {
+    var r = cur();
+    var items = r.history.concat([{ at: '2026-03-02T02:00:00Z', by: 'Nguyễn An', diffs: null }]);
+    var rows = items.map(function (h) {
+      var d = h.diffs === null ? '<span class="text-slate-700">Created</span>' : (h.diffs.length ? h.diffs.map(function (x) { return '<div>' + esc(x[0]) + ': ' + x[1] + ' → ' + x[2] + '</div>'; }).join('') : '<span class="text-slate-700">Created</span>');
+      return '<tr class="border-b border-slate-100 align-top"><td class="py-2 pr-3 tnum">' + stamp(h.at) + '</td><td class="py-2 pr-3">' + esc(h.by) + '</td><td class="py-2">' + d + '</td></tr>';
+    }).join('');
+    openModal({
+      title: 'History of role ' + r.name,
+      body: '<table class="w-full text-sm"><thead><tr class="border-b border-slate-200 text-left text-xs font-medium text-slate-700"><th scope="col" class="py-1 pr-3 font-medium">When</th><th scope="col" class="py-1 pr-3 font-medium">Who</th><th scope="col" class="py-1 font-medium">What changed</th></tr></thead><tbody>' + rows + '</tbody></table><p class="mt-3 text-xs text-slate-600">History is kept for 7 years.</p>',
+      buttons: [{ label: 'Close', id: 'close', kind: 'outline', focus: true }]
+    });
+  }
+
+  /* ---------- Global click handling ---------- */
+  document.addEventListener('click', function (e) {
+    var t = e.target.closest('[data-act]');
+    if (!t) { if (!e.target.closest('#row-menu')) closeMenu(); return; }
+    var act = t.getAttribute('data-act'), id = t.getAttribute('data-id');
+    if (act !== 'menu') closeMenu();
+    if (act === 'select') selectRole(id);
+    else if (act === 'menu') { var had = document.getElementById('row-menu'); if (had && had.parentElement === t.parentElement) closeMenu(); else openMenu(t, id); }
+    else if (act === 'duplicate') guard(function () { createDialog(id); });
+    else if (act === 'delete') deleteDialog(id);
+    else if (act === 'create') createDialog();
+    else if (act === 'history') historyDialog();
+    else if (act === 'clear-search') { S.query = ''; $('role-search').value = ''; renderList(); }
+    else if (act === 'retry') { S.error = false; S.loading = true; renderList(); renderDetail(); setTimeout(init, 500); }
+  });
+  $('btn-create').addEventListener('click', function () { createDialog(); });
+  $('role-search').addEventListener('input', function (e) { S.query = e.target.value; renderList(); });
+  $('btn-save').addEventListener('click', trySave);
+  $('btn-cancel').addEventListener('click', function () {
+    var r = cur(); if (!r) return;
+    if (!dirty()) { toast('Nothing to cancel'); return; }
+    S.draft = new Set(r.perms); S.note = ''; renderDetail(); toast('Changes discarded');
+  });
+
+  /* ---------- Init ---------- */
+  function init() {
+    S.loading = false;
+    if (roles.length) { var r = cur() || roles[0]; S.selected = r.id; S.draft = new Set(r.perms); } else { S.selected = null; S.draft = null; }
+    renderList(); renderDetail();
+  }
+  renderList(); renderDetail();
+  setTimeout(init, 500);
+})();
+</script>
+</body>
+</html>

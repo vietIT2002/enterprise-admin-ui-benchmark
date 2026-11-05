@@ -1,0 +1,381 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tạo hóa đơn bán hàng</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+tailwind.config = { theme: { extend: { fontFamily: { sans: ['Inter','Segoe UI','system-ui','sans-serif'] } } } };
+</script>
+<style>
+  body { font-feature-settings: "tnum"; }
+  input[type=number]::-webkit-inner-spin-button, input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+  input[type=number] { -moz-appearance: textfield; }
+  .fld { width: 100%; border: 1px solid #cbd5e1; border-radius: 6px; padding: 8px 10px; font-size: 14px; background: #fff; color: #0f172a; }
+  .fld:focus { outline: 2px solid #2563eb; outline-offset: 0; border-color: #2563eb; }
+  .fld.err { border-color: #dc2626; background: #fef2f2; }
+  .num { text-align: right; font-variant-numeric: tabular-nums; }
+</style>
+</head>
+<body class="bg-slate-100 text-slate-800 font-sans antialiased">
+
+<header class="bg-white border-b border-slate-200">
+  <div class="max-w-6xl mx-auto px-4 sm:px-6 py-3 flex items-center justify-between gap-3">
+    <div class="flex items-center gap-3 min-w-0">
+      <div class="w-9 h-9 rounded-lg bg-blue-600 text-white grid place-items-center font-bold shrink-0">K</div>
+      <nav class="text-sm text-slate-500 truncate" aria-label="Breadcrumb">
+        <span>Bán hàng</span> <span class="mx-1">/</span> <span>Hóa đơn</span> <span class="mx-1">/</span> <span class="text-slate-900 font-medium">Tạo mới</span>
+      </nav>
+    </div>
+    <div class="text-sm text-slate-500 hidden sm:block">Công ty TNHH Minh Long · Nguyễn Thị Hạnh (Kế toán)</div>
+  </div>
+</header>
+
+<main class="max-w-6xl mx-auto px-4 sm:px-6 py-6 pb-28">
+  <div class="flex flex-wrap items-center justify-between gap-3 mb-5">
+    <div>
+      <h1 class="text-2xl font-semibold text-slate-900">Tạo hóa đơn bán hàng</h1>
+      <p class="text-sm text-slate-500 mt-1">Nhập thông tin khách hàng, các dòng hàng và kiểm tra tổng cộng trước khi lưu.</p>
+    </div>
+    <span class="inline-flex items-center gap-2 text-sm px-3 py-1 rounded-full bg-amber-50 text-amber-800 border border-amber-200"><span class="w-2 h-2 rounded-full bg-amber-500"></span>Bản nháp</span>
+  </div>
+
+  <form id="form" novalidate class="space-y-5">
+    <!-- General -->
+    <section class="bg-white rounded-xl border border-slate-200 shadow-sm">
+      <div class="px-5 py-3 border-b border-slate-200"><h2 class="font-semibold text-slate-900">Thông tin chung</h2></div>
+      <div class="p-5 grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div class="lg:col-span-2 space-y-4">
+          <div>
+            <label for="customer" class="block text-sm font-medium mb-1">Khách hàng <span class="text-red-600">*</span></label>
+            <select id="customer" class="fld"></select>
+            <p id="customerErr" class="text-xs text-red-600 mt-1 hidden">Vui lòng chọn khách hàng.</p>
+          </div>
+          <div id="customerInfo" class="rounded-lg bg-slate-50 border border-slate-200 p-3 text-sm text-slate-600 grid sm:grid-cols-2 gap-x-6 gap-y-1">
+            <div class="sm:col-span-2 text-slate-400">Chọn khách hàng để xem thông tin.</div>
+          </div>
+        </div>
+        <div class="space-y-4">
+          <div>
+            <label for="invNo" class="block text-sm font-medium mb-1">Số hóa đơn</label>
+            <input id="invNo" class="fld bg-slate-50" value="HD-2026-001248" readonly>
+          </div>
+          <div class="grid grid-cols-2 gap-3">
+            <div>
+              <label for="invDate" class="block text-sm font-medium mb-1">Ngày hóa đơn <span class="text-red-600">*</span></label>
+              <input id="invDate" type="date" class="fld">
+            </div>
+            <div>
+              <label for="dueDate" class="block text-sm font-medium mb-1">Hạn thanh toán <span class="text-red-600">*</span></label>
+              <input id="dueDate" type="date" class="fld">
+            </div>
+          </div>
+          <div>
+            <label for="terms" class="block text-sm font-medium mb-1">Điều khoản thanh toán</label>
+            <select id="terms" class="fld">
+              <option value="0">Thanh toán ngay</option>
+              <option value="15">Net 15 ngày</option>
+              <option value="30" selected>Net 30 ngày</option>
+              <option value="45">Net 45 ngày</option>
+              <option value="60">Net 60 ngày</option>
+            </select>
+          </div>
+          <p id="dateErr" class="text-xs text-red-600 hidden">Hạn thanh toán không được trước ngày hóa đơn.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- Lines -->
+    <section class="bg-white rounded-xl border border-slate-200 shadow-sm">
+      <div class="px-5 py-3 border-b border-slate-200 flex items-center justify-between">
+        <h2 class="font-semibold text-slate-900">Dòng hàng</h2>
+        <span class="text-sm text-slate-500"><span id="lineCount">0</span> dòng</span>
+      </div>
+      <div class="overflow-x-auto">
+        <table class="w-full text-sm min-w-[860px]">
+          <thead class="bg-slate-50 text-slate-600 text-xs uppercase tracking-wide">
+            <tr>
+              <th class="text-left font-semibold px-3 py-2 w-10">#</th>
+              <th class="text-left font-semibold px-3 py-2">Sản phẩm / dịch vụ</th>
+              <th class="text-right font-semibold px-3 py-2 w-24">Số lượng</th>
+              <th class="text-right font-semibold px-3 py-2 w-36">Đơn giá (₫)</th>
+              <th class="text-left font-semibold px-3 py-2 w-28">Thuế GTGT</th>
+              <th class="text-right font-semibold px-3 py-2 w-40">Thành tiền (₫)</th>
+              <th class="px-3 py-2 w-12"><span class="sr-only">Xóa</span></th>
+            </tr>
+          </thead>
+          <tbody id="lines" class="divide-y divide-slate-100"></tbody>
+        </table>
+      </div>
+      <div class="px-5 py-3 border-t border-slate-200 flex items-center justify-between">
+        <button type="button" id="addLine" class="inline-flex items-center gap-2 text-sm font-medium text-blue-700 hover:bg-blue-50 px-3 py-2 rounded-md focus:outline-2 focus:outline-blue-600">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>Thêm dòng hàng
+        </button>
+        <p id="lineErr" class="text-xs text-red-600 hidden">Cần ít nhất một dòng hàng hợp lệ (có sản phẩm và số lượng &gt; 0).</p>
+      </div>
+    </section>
+
+    <!-- Notes + totals -->
+    <div class="grid grid-cols-1 lg:grid-cols-5 gap-5">
+      <section class="lg:col-span-3 bg-white rounded-xl border border-slate-200 shadow-sm p-5">
+        <label for="notes" class="block text-sm font-medium mb-1">Ghi chú trên hóa đơn</label>
+        <textarea id="notes" rows="4" class="fld" placeholder="Ví dụ: Thanh toán chuyển khoản vào TK 0071001234567 – Vietcombank, nội dung ghi số hóa đơn."></textarea>
+      </section>
+      <section class="lg:col-span-2 bg-white rounded-xl border border-slate-200 shadow-sm p-5">
+        <h2 class="font-semibold text-slate-900 mb-3">Tổng cộng</h2>
+        <dl class="text-sm space-y-2">
+          <div class="flex justify-between"><dt class="text-slate-600">Cộng tiền hàng</dt><dd id="tSub" class="num font-medium">0</dd></div>
+          <div class="flex justify-between items-center gap-3">
+            <dt class="text-slate-600">Chiết khấu (%)</dt>
+            <dd class="flex items-center gap-2"><input id="disc" type="number" min="0" max="100" step="0.5" value="0" class="fld num !w-20 !py-1"><span id="tDisc" class="num w-28 text-slate-700">0</span></dd>
+          </div>
+          <div id="taxRows" class="space-y-2"></div>
+          <div class="flex justify-between"><dt class="text-slate-600">Tổng tiền thuế</dt><dd id="tTax" class="num font-medium">0</dd></div>
+        </dl>
+        <div class="mt-4 pt-4 border-t border-slate-200 flex justify-between items-baseline">
+          <span class="font-semibold text-slate-900">Tổng thanh toán</span>
+          <span id="tTotal" class="num text-2xl font-bold text-slate-900">0 ₫</span>
+        </div>
+        <p id="tWords" class="text-xs text-slate-500 mt-2 italic"></p>
+      </section>
+    </div>
+  </form>
+</main>
+
+<div class="fixed bottom-0 inset-x-0 bg-white border-t border-slate-200 z-20">
+  <div class="max-w-6xl mx-auto px-4 sm:px-6 py-3 flex items-center justify-between gap-3">
+    <div class="text-sm"><span class="text-slate-500">Tổng thanh toán:</span> <span id="barTotal" class="font-semibold text-slate-900">0 ₫</span></div>
+    <div class="flex gap-2">
+      <button type="button" id="cancel" class="px-4 py-2 text-sm font-medium rounded-md border border-slate-300 bg-white hover:bg-slate-50">Hủy</button>
+      <button type="button" id="saveDraft" class="px-4 py-2 text-sm font-medium rounded-md border border-slate-300 bg-white hover:bg-slate-50">Lưu nháp</button>
+      <button type="button" id="save" class="px-5 py-2 text-sm font-semibold rounded-md bg-blue-600 text-white hover:bg-blue-700 focus:outline-2 focus:outline-offset-2 focus:outline-blue-600">Lưu hóa đơn</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast" role="status" aria-live="polite" class="fixed top-4 right-4 z-30 hidden max-w-sm rounded-lg shadow-lg px-4 py-3 text-sm"></div>
+
+<script>
+const customers = [
+  { id: 'c1', name: 'Công ty CP Thương mại Phát Đạt', mst: '0312456789', addr: '128 Nguyễn Văn Linh, Q.7, TP.HCM', contact: 'Trần Quốc Bảo', phone: '028 3775 1234', terms: 30 },
+  { id: 'c2', name: 'Công ty TNHH Xây dựng An Khang', mst: '0108765432', addr: '45 Láng Hạ, Đống Đa, Hà Nội', contact: 'Lê Thu Hà', phone: '024 3856 9087', terms: 45 },
+  { id: 'c3', name: 'Siêu thị Hoàng Gia', mst: '0401234567', addr: '12 Bạch Đằng, Hải Châu, Đà Nẵng', contact: 'Phạm Minh Tuấn', phone: '0236 3822 456', terms: 15 },
+  { id: 'c4', name: 'Công ty TNHH Công nghệ Việt Tiến', mst: '0316789012', addr: '86 Cách Mạng Tháng 8, Q.3, TP.HCM', contact: 'Đỗ Ngọc Anh', phone: '0909 123 456', terms: 0 }
+];
+const products = [
+  { id: 'p1', sku: 'LT-DELL-5440', name: 'Laptop Dell Latitude 5440', price: 21500000, tax: 10 },
+  { id: 'p2', sku: 'MN-LG-27', name: 'Màn hình LG 27 inch 4K', price: 6890000, tax: 10 },
+  { id: 'p3', sku: 'PR-HP-M404', name: 'Máy in HP LaserJet M404dn', price: 7450000, tax: 10 },
+  { id: 'p4', sku: 'GR-A4-70', name: 'Giấy in A4 Double A 70gsm (ream)', price: 82000, tax: 8 },
+  { id: 'p5', sku: 'SV-IT-HR', name: 'Dịch vụ bảo trì hệ thống IT (giờ)', price: 450000, tax: 8 },
+  { id: 'p6', sku: 'SV-TRN-01', name: 'Đào tạo sử dụng phần mềm kế toán', price: 3000000, tax: 0 },
+  { id: 'p7', sku: 'SW-LIC-OFF', name: 'Bản quyền Microsoft 365 Business (năm)', price: 3150000, tax: 10 }
+];
+const TAX_RATES = [0, 5, 8, 10];
+const $ = s => document.querySelector(s);
+const fmt = n => Math.round(n).toLocaleString('vi-VN');
+const esc = s => String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const iso = d => { const z = new Date(d.getTime() - d.getTimezoneOffset()*60000); return z.toISOString().slice(0,10); };
+
+let rows = [];
+let rid = 0;
+
+/* Customer */
+$('#customer').innerHTML = '<option value="">— Chọn khách hàng —</option>' +
+  customers.map(c => `<option value="${c.id}">${esc(c.name)} (MST ${c.mst})</option>`).join('');
+
+$('#customer').addEventListener('change', e => {
+  const c = customers.find(x => x.id === e.target.value);
+  $('#customer').classList.remove('err'); $('#customerErr').classList.add('hidden');
+  if (!c) { $('#customerInfo').innerHTML = '<div class="sm:col-span-2 text-slate-400">Chọn khách hàng để xem thông tin.</div>'; return; }
+  $('#customerInfo').innerHTML =
+    `<div><span class="text-slate-400">Mã số thuế:</span> ${c.mst}</div>
+     <div><span class="text-slate-400">Người liên hệ:</span> ${esc(c.contact)}</div>
+     <div class="sm:col-span-2"><span class="text-slate-400">Địa chỉ:</span> ${esc(c.addr)}</div>
+     <div><span class="text-slate-400">Điện thoại:</span> ${c.phone}</div>
+     <div><span class="text-slate-400">Điều khoản mặc định:</span> ${c.terms ? 'Net ' + c.terms + ' ngày' : 'Thanh toán ngay'}</div>`;
+  $('#terms').value = String(c.terms);
+  syncDue();
+});
+
+/* Dates */
+function syncDue() {
+  const d = new Date($('#invDate').value);
+  if (isNaN(d)) return;
+  d.setDate(d.getDate() + parseInt($('#terms').value, 10));
+  $('#dueDate').value = iso(d);
+  checkDates();
+}
+function checkDates() {
+  const bad = $('#dueDate').value && $('#invDate').value && $('#dueDate').value < $('#invDate').value;
+  $('#dateErr').classList.toggle('hidden', !bad);
+  $('#dueDate').classList.toggle('err', !!bad);
+  return !bad;
+}
+$('#invDate').value = iso(new Date());
+$('#invDate').addEventListener('change', syncDue);
+$('#terms').addEventListener('change', syncDue);
+$('#dueDate').addEventListener('change', () => {
+  const diff = Math.round((new Date($('#dueDate').value) - new Date($('#invDate').value)) / 864e5);
+  const opt = [...$('#terms').options].find(o => +o.value === diff);
+  if (opt) $('#terms').value = opt.value;
+  checkDates();
+});
+syncDue();
+
+/* Lines */
+function addRow(data) {
+  rows.push(Object.assign({ id: ++rid, pid: '', qty: 1, price: 0, tax: 10 }, data || {}));
+  renderRows();
+}
+function renderRows() {
+  $('#lines').innerHTML = rows.map((r, i) => `
+    <tr data-id="${r.id}" class="align-top">
+      <td class="px-3 py-3 text-slate-400">${i + 1}</td>
+      <td class="px-3 py-2">
+        <select class="fld" data-f="pid" aria-label="Sản phẩm dòng ${i + 1}">
+          <option value="">— Chọn sản phẩm —</option>
+          ${products.map(p => `<option value="${p.id}" ${p.id === r.pid ? 'selected' : ''}>${esc(p.name)}</option>`).join('')}
+        </select>
+        <div class="text-xs text-slate-400 mt-1">${r.pid ? 'Mã: ' + products.find(p => p.id === r.pid).sku : ''}</div>
+      </td>
+      <td class="px-3 py-2"><input class="fld num" type="number" min="0" step="1" data-f="qty" value="${r.qty}" aria-label="Số lượng dòng ${i + 1}"></td>
+      <td class="px-3 py-2"><input class="fld num" type="number" min="0" step="1000" data-f="price" value="${r.price}" aria-label="Đơn giá dòng ${i + 1}"></td>
+      <td class="px-3 py-2">
+        <select class="fld" data-f="tax" aria-label="Thuế dòng ${i + 1}">
+          ${TAX_RATES.map(t => `<option value="${t}" ${t === r.tax ? 'selected' : ''}>${t}%</option>`).join('')}
+        </select>
+      </td>
+      <td class="px-3 py-3 num font-medium" data-amt>${fmt(r.qty * r.price)}</td>
+      <td class="px-2 py-2 text-center">
+        <button type="button" data-del class="p-2 rounded-md text-slate-400 hover:text-red-600 hover:bg-red-50" aria-label="Xóa dòng ${i + 1}">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14M10 11v6M14 11v6"/></svg>
+        </button>
+      </td>
+    </tr>`).join('');
+  $('#lineCount').textContent = rows.length;
+  recalc();
+}
+$('#lines').addEventListener('input', e => {
+  const tr = e.target.closest('tr'); if (!tr) return;
+  const r = rows.find(x => x.id == tr.dataset.id); const f = e.target.dataset.f;
+  if (f === 'qty' || f === 'price') r[f] = Math.max(0, parseFloat(e.target.value) || 0);
+  tr.querySelector('[data-amt]').textContent = fmt(r.qty * r.price);
+  e.target.classList.remove('err');
+  recalc();
+});
+$('#lines').addEventListener('change', e => {
+  const tr = e.target.closest('tr'); if (!tr) return;
+  const r = rows.find(x => x.id == tr.dataset.id); const f = e.target.dataset.f;
+  if (f === 'pid') {
+    r.pid = e.target.value;
+    const p = products.find(x => x.id === r.pid);
+    if (p) { r.price = p.price; r.tax = p.tax; }
+    renderRows();
+  } else if (f === 'tax') { r.tax = +e.target.value; recalc(); }
+});
+$('#lines').addEventListener('click', e => {
+  const b = e.target.closest('[data-del]'); if (!b) return;
+  const id = b.closest('tr').dataset.id;
+  rows = rows.filter(x => x.id != id);
+  if (!rows.length) addRow(); else renderRows();
+});
+$('#addLine').addEventListener('click', () => {
+  addRow();
+  const sels = $('#lines').querySelectorAll('select[data-f=pid]'); sels[sels.length - 1].focus();
+});
+
+/* Totals */
+function calc() {
+  const k = Math.min(100, Math.max(0, parseFloat($('#disc').value) || 0)) / 100;
+  const sub = rows.reduce((s, r) => s + r.qty * r.price, 0);
+  const byRate = {};
+  rows.forEach(r => { byRate[r.tax] = (byRate[r.tax] || 0) + r.qty * r.price * (1 - k) * r.tax / 100; });
+  const tax = Object.values(byRate).reduce((a, b) => a + b, 0);
+  const disc = sub * k;
+  return { sub, disc, byRate, tax, total: sub - disc + tax };
+}
+function recalc() {
+  const t = calc();
+  $('#tSub').textContent = fmt(t.sub);
+  $('#tDisc').textContent = '-' + fmt(t.disc);
+  $('#tTax').textContent = fmt(t.tax);
+  $('#taxRows').innerHTML = Object.keys(t.byRate).sort((a, b) => a - b).map(rate =>
+    `<div class="flex justify-between text-slate-500"><dt class="pl-3">Thuế GTGT ${rate}%</dt><dd class="num">${fmt(t.byRate[rate])}</dd></div>`).join('');
+  $('#tTotal').textContent = fmt(t.total) + ' ₫';
+  $('#barTotal').textContent = fmt(t.total) + ' ₫';
+  $('#tWords').textContent = t.total > 0 ? 'Bằng chữ: ' + readMoney(Math.round(t.total)) : '';
+}
+$('#disc').addEventListener('input', recalc);
+
+/* Vietnamese number to words */
+function readMoney(n) {
+  const d = ['không','một','hai','ba','bốn','năm','sáu','bảy','tám','chín'];
+  const triple = (x, full) => {
+    const tr = Math.floor(x / 100), ch = Math.floor(x % 100 / 10), dv = x % 10; let s = '';
+    if (tr > 0 || full) s += d[tr] + ' trăm ';
+    if (ch > 1) { s += d[ch] + ' mươi '; if (dv === 1) s += 'mốt '; else if (dv === 5) s += 'lăm '; else if (dv > 0) s += d[dv] + ' '; }
+    else if (ch === 1) { s += 'mười '; if (dv === 5) s += 'lăm '; else if (dv > 0) s += d[dv] + ' '; }
+    else if (dv > 0) { if (tr > 0 || full) s += 'lẻ '; s += d[dv] + ' '; }
+    return s;
+  };
+  const units = ['', 'nghìn', 'triệu', 'tỷ'];
+  const parts = []; let x = n;
+  while (x > 0) { parts.push(x % 1000); x = Math.floor(x / 1000); }
+  let out = '';
+  for (let i = parts.length - 1; i >= 0; i--) {
+    if (parts[i] === 0) continue;
+    const full = i < parts.length - 1;
+    out += triple(parts[i], full) + (units[i] ? units[i] + ' ' : '');
+  }
+  out = out.trim().replace(/\s+/g, ' ');
+  return out.charAt(0).toUpperCase() + out.slice(1) + ' đồng chẵn.';
+}
+
+/* Validate + save */
+function validate() {
+  let ok = true;
+  const c = $('#customer');
+  const cOk = !!c.value; c.classList.toggle('err', !cOk); $('#customerErr').classList.toggle('hidden', cOk); ok = ok && cOk;
+  if (!$('#invDate').value || !$('#dueDate').value) ok = false;
+  ok = checkDates() && ok;
+  let valid = 0;
+  $('#lines').querySelectorAll('tr').forEach(tr => {
+    const r = rows.find(x => x.id == tr.dataset.id);
+    const sel = tr.querySelector('[data-f=pid]'), q = tr.querySelector('[data-f=qty]');
+    const sBad = !r.pid, qBad = !(r.qty > 0);
+    sel.classList.toggle('err', sBad); q.classList.toggle('err', qBad);
+    if (!sBad && !qBad) valid++;
+    if (sBad || qBad) ok = false;
+  });
+  $('#lineErr').classList.toggle('hidden', valid > 0);
+  return ok && valid > 0;
+}
+function toast(msg, good) {
+  const t = $('#toast');
+  t.className = 'fixed top-4 right-4 z-30 max-w-sm rounded-lg shadow-lg px-4 py-3 text-sm ' + (good ? 'bg-emerald-600 text-white' : 'bg-red-600 text-white');
+  t.textContent = msg;
+  clearTimeout(toast.h); toast.h = setTimeout(() => t.classList.add('hidden'), 3500);
+}
+$('#save').addEventListener('click', () => {
+  if (!validate()) { toast('Vui lòng kiểm tra lại các trường được đánh dấu đỏ.', false); return; }
+  const t = calc();
+  const payload = {
+    number: $('#invNo').value, customer: $('#customer').value, date: $('#invDate').value, due: $('#dueDate').value,
+    lines: rows.map(r => ({ product: r.pid, qty: r.qty, price: r.price, taxPct: r.tax, amount: r.qty * r.price })),
+    totals: t, notes: $('#notes').value
+  };
+  console.log('Hóa đơn đã lưu', payload);
+  toast('Đã lưu hóa đơn ' + payload.number + ' – Tổng ' + fmt(t.total) + ' ₫', true);
+});
+$('#saveDraft').addEventListener('click', () => toast('Đã lưu bản nháp.', true));
+$('#cancel').addEventListener('click', () => { if (confirm('Hủy hóa đơn đang nhập? Dữ liệu chưa lưu sẽ mất.')) location.reload(); });
+
+/* Seed realistic sample lines */
+addRow({ pid: 'p1', qty: 5, price: 21500000, tax: 10 });
+addRow({ pid: 'p2', qty: 5, price: 6890000, tax: 10 });
+addRow({ pid: 'p4', qty: 40, price: 82000, tax: 8 });
+</script>
+</body>
+</html>

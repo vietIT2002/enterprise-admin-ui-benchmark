@@ -1,0 +1,612 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Import products</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+  body { font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; font-size: 14px; color: #0f172a; }
+  :focus-visible { outline: 2px solid #1d4ed8; outline-offset: 2px; }
+  @media (prefers-reduced-motion: reduce) { .animate-pulse { animation: none; } }
+</style>
+</head>
+<body class="bg-slate-50">
+<div class="flex min-h-screen">
+
+  <!-- Sidebar -->
+  <aside class="hidden w-56 shrink-0 border-r border-slate-200 bg-white md:block">
+    <div class="flex h-14 items-center border-b border-slate-200 px-4 font-semibold">Kho Tổng Hợp</div>
+    <nav class="p-2 text-sm" aria-label="Main">
+      <a href="#" data-nav class="block rounded px-3 py-2 text-slate-700 hover:bg-slate-100">Dashboard</a>
+      <a href="#" data-nav class="block rounded bg-blue-50 px-3 py-2 font-medium text-blue-700" aria-current="page">Products</a>
+      <a href="#" data-nav class="block rounded px-3 py-2 text-slate-700 hover:bg-slate-100">Stock levels</a>
+      <a href="#" data-nav class="block rounded px-3 py-2 text-slate-700 hover:bg-slate-100">Purchase orders</a>
+      <a href="#" data-nav class="block rounded px-3 py-2 text-slate-700 hover:bg-slate-100">Suppliers</a>
+      <a href="#" data-nav class="block rounded px-3 py-2 text-slate-700 hover:bg-slate-100">Settings</a>
+    </nav>
+  </aside>
+
+  <div class="flex min-w-0 flex-1 flex-col">
+    <!-- Top bar -->
+    <header class="flex h-14 items-center justify-between border-b border-slate-200 bg-white px-6">
+      <span class="text-slate-600">Warehouse: Hồ Chí Minh</span>
+      <div class="flex items-center gap-3">
+        <button id="jobsBtn" type="button" class="hidden h-8 items-center gap-2 rounded border border-slate-300 bg-white px-3 text-sm hover:bg-slate-50"></button>
+        <span class="text-slate-700">Nguyễn Thu Hà</span>
+      </div>
+    </header>
+
+    <main class="flex min-h-0 flex-1 flex-col">
+      <div class="flex-1 px-6 py-5">
+        <div class="mx-auto max-w-6xl">
+          <nav aria-label="Breadcrumb" class="text-sm text-slate-600">
+            <a href="#" data-nav class="hover:underline">Products</a> <span aria-hidden="true">/</span> <span class="text-slate-900">Import</span>
+          </nav>
+          <div class="mt-1 flex items-center justify-between">
+            <h1 class="text-xl font-semibold">Import products</h1>
+            <a href="#" id="tplLink" class="text-sm font-medium text-blue-700 hover:underline">Download CSV template</a>
+          </div>
+
+          <ol id="stepper" class="mt-4 flex flex-wrap items-center gap-2 text-sm" aria-label="Import steps"></ol>
+
+          <div id="banner" class="mt-4" role="status"></div>
+          <div id="content" class="mt-4"></div>
+        </div>
+      </div>
+
+      <!-- sticky action bar -->
+      <div id="actionbar" class="sticky bottom-0 border-t border-slate-200 bg-white px-6 py-3">
+        <div class="mx-auto flex max-w-6xl items-center gap-3" id="actions"></div>
+      </div>
+    </main>
+  </div>
+</div>
+
+<!-- Toast region (always in DOM) -->
+<div id="toasts" class="fixed right-4 top-4 z-50 flex w-80 flex-col gap-2" role="status" aria-live="polite"></div>
+
+<!-- Dialog -->
+<div id="dlg" class="fixed inset-0 z-50 hidden items-center justify-center bg-slate-900/40 p-4">
+  <div role="dialog" aria-modal="true" aria-labelledby="dlgTitle" class="w-full max-w-md rounded-lg border border-slate-200 bg-white p-5 shadow-lg">
+    <h2 id="dlgTitle" class="text-base font-semibold"></h2>
+    <p id="dlgBody" class="mt-2 text-slate-700"></p>
+    <div class="mt-5 flex justify-end gap-2">
+      <button id="dlgCancel" type="button" class="h-8 rounded border border-slate-300 bg-white px-3 hover:bg-slate-50"></button>
+      <button id="dlgOk" type="button" class="h-8 rounded px-3 text-white"></button>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ---------- Config & mock data ---------- */
+const FIELDS = [
+  { key: 'sku',      label: 'SKU',            required: true,  aliases: ['sku','productcode','code','itemcode'] },
+  { key: 'name',     label: 'Product name',   required: true,  aliases: ['name','productname','title'] },
+  { key: 'price',    label: 'Unit price (VND)', required: true, aliases: ['price','pricevnd','unitprice','sellingprice'] },
+  { key: 'qty',      label: 'Stock quantity', required: true,  aliases: ['stockqty','qty','quantity','onhand','stock'] },
+  { key: 'category', label: 'Category',       required: false, aliases: ['category','group'] },
+  { key: 'barcode',  label: 'Barcode',        required: false, aliases: ['barcode','ean','upc'] },
+  { key: 'cost',     label: 'Cost price (VND)', required: false, aliases: ['cost','costvnd','costprice'] },
+  { key: 'reorder',  label: 'Reorder level',  required: false, aliases: ['reorderlevel','reorderpoint','minstock'] },
+  { key: 'supplier', label: 'Supplier',       required: false, aliases: ['supplier','vendor'] },
+];
+const FIELD = Object.fromEntries(FIELDS.map(f => [f.key, f]));
+const CATEGORIES = ['Beverages','Dry goods','Dairy','Household','Personal care','Snacks','Stationery'];
+const EXISTING_SKUS = new Set(['BEV-0101','BEV-0104','DRY-0203','DRY-0210','DAI-0302','HOU-0407','SNK-0509','SNK-0511','STA-0602','PCA-0705']);
+const MAX_BYTES = 5 * 1024 * 1024;
+const PAGE_SIZES = [10, 25, 50];
+const vnd = new Intl.NumberFormat('vi-VN');
+const num = new Intl.NumberFormat('en-US');
+
+function makeSampleCsv() {
+  const head = ['Product code','Product name','Category','Barcode','Cost (VND)','Price (VND)','Stock qty','Reorder level','Supplier'];
+  const items = [
+    ['BEV','Nước suối Aquafina 500ml','Beverages',4500,7000],['BEV','Trà xanh C2 455ml','Beverages',6200,9000],
+    ['BEV','Cà phê G7 3in1 hộp 18 gói','Beverages',38000,52000],['BEV','Sữa đậu nành Fami 200ml','Beverages',4800,7500],
+    ['DRY','Gạo ST25 túi 5kg','Dry goods',98000,125000],['DRY','Mì Hảo Hảo thùng 30 gói','Dry goods',92000,118000],
+    ['DRY','Đường tinh luyện 1kg','Dry goods',19000,24500],['DRY','Dầu ăn Neptune 1L','Dry goods',41000,52000],
+    ['DAI','Sữa tươi Vinamilk 1L','Dairy',27000,34000],['DAI','Sữa chua Vinamilk lốc 4 hộp','Dairy',21000,28000],
+    ['HOU','Nước rửa chén Sunlight 750g','Household',24000,32000],['HOU','Bột giặt Omo 3kg','Household',118000,149000],
+    ['PCA','Dầu gội Clear 630g','Personal care',112000,148000],['PCA','Kem đánh răng PS 180g','Personal care',22000,29500],
+    ['SNK','Snack Oishi tôm cay 42g','Snacks',4200,6500],['SNK','Bánh Chocopie hộp 12 cái','Snacks',31000,42000],
+    ['STA','Bút bi Thiên Long TL-027','Stationery',2800,4500],['STA','Vở Campus 96 trang','Stationery',9500,14000],
+  ];
+  const sup = ['Công ty CP Thực phẩm Sài Gòn','Công ty TNHH Phân phối Minh Phát','Nhà phân phối Hoàng Long','Công ty TNHH Đại Việt'];
+  const rows = [];
+  for (let i = 0; i < 64; i++) {
+    const it = items[i % items.length];
+    const n = 100 + i * 7;
+    const sku = it[0] + '-0' + String(n).padStart(3, '0').slice(-3);
+    const barcode = '893' + String(5000000000 + i * 137).slice(0, 10);
+    rows.push([sku, it[1] + (i >= items.length ? ' (lô ' + Math.floor(i / items.length + 1) + ')' : ''), it[2], barcode,
+      it[3], it[4], 20 + ((i * 13) % 400), 10 + (i % 5) * 5, sup[i % sup.length]]);
+  }
+  // known existing SKUs (will update)
+  const ex = [...EXISTING_SKUS];
+  [3, 9, 15, 21, 27, 33, 39].forEach((idx, k) => { rows[idx][0] = ex[k]; });
+  // deliberate problems
+  rows[5][0] = '';                          // missing SKU
+  rows[11][5] = 'free';                     // non-numeric price
+  rows[17][6] = '-12';                      // negative quantity
+  rows[23][2] = 'Frozen food';              // unknown category
+  rows[29][0] = rows[28][0];                // duplicate SKU in file
+  rows[35][3] = '12AB';                     // bad barcode
+  rows[41][1] = '';                         // missing name
+  rows[47][6] = '12,5';                     // quantity not whole
+  rows[52][5] = '-5000';                    // negative price
+  return [head, ...rows].map(r => r.map(csvCell).join(',')).join('\r\n');
+}
+function csvCell(v) { v = String(v); return /[",\r\n]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v; }
+
+/* ---------- State ---------- */
+const STEPS = ['Upload file', 'Map columns', 'Preview', 'Import'];
+const S = {
+  step: 0, maxStep: 0, loading: false, uploadError: null,
+  file: null, headers: [], rows: [], colMap: [], mode: 'update',
+  results: [], filter: 'all', page: 1, pageSize: 10, mapError: false,
+  job: null, focusId: null
+};
+let timer = null, dragOver = false;
+
+/* ---------- Helpers ---------- */
+const $ = id => document.getElementById(id);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const norm = s => String(s).toLowerCase().replace(/[^a-z0-9]/g, '');
+const fmtSize = b => b < 1024 ? b + ' B' : b < 1048576 ? (b / 1024).toFixed(1) + ' KB' : (b / 1048576).toFixed(1) + ' MB';
+const btnPrimary = 'inline-flex h-8 items-center justify-center gap-2 rounded bg-blue-700 px-3 font-medium text-white hover:bg-blue-800 disabled:cursor-not-allowed disabled:bg-slate-200 disabled:text-slate-600';
+const btnSecondary = 'inline-flex h-8 items-center justify-center gap-2 rounded border border-slate-300 bg-white px-3 font-medium text-slate-800 hover:bg-slate-50';
+const card = 'rounded-md border border-slate-200 bg-white';
+const BADGE = {
+  neutral: 'bg-slate-100 text-slate-700', info: 'bg-blue-50 text-blue-800',
+  success: 'bg-green-50 text-green-800', warning: 'bg-amber-50 text-amber-800', danger: 'bg-red-50 text-red-800'
+};
+const badge = (tone, text) => `<span class="inline-flex h-6 items-center whitespace-nowrap rounded-full px-2 text-xs font-medium ${BADGE[tone]}">${esc(text)}</span>`;
+
+function parseCsv(text) {
+  text = text.replace(/^﻿/, '');
+  const rows = []; let row = [], cur = '', q = false;
+  for (let i = 0; i < text.length; i++) {
+    const c = text[i];
+    if (q) {
+      if (c === '"') { if (text[i + 1] === '"') { cur += '"'; i++; } else q = false; }
+      else cur += c;
+    } else if (c === '"') q = true;
+    else if (c === ',') { row.push(cur); cur = ''; }
+    else if (c === '\n' || c === '\r') {
+      if (c === '\r' && text[i + 1] === '\n') i++;
+      row.push(cur); cur = ''; rows.push(row); row = [];
+    } else cur += c;
+  }
+  if (cur !== '' || row.length) { row.push(cur); rows.push(row); }
+  return rows.filter(r => r.some(v => v.trim() !== ''));
+}
+function parseNumber(s) {
+  s = String(s).trim();
+  if (s === '') return null;
+  if (/^-?\d{1,3}([.,]\d{3})+$/.test(s)) s = s.replace(/[.,]/g, '');
+  else s = s.replace(',', '.');
+  return /^-?\d+(\.\d+)?$/.test(s) ? Number(s) : NaN;
+}
+function download(name, text) {
+  const blob = new Blob(['﻿' + text], { type: 'text/csv;charset=utf-8' });
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name;
+  document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 500);
+}
+function toast(msg, withAction) {
+  const el = document.createElement('div');
+  el.className = 'flex items-start gap-2 rounded-md border border-slate-200 bg-white p-3 text-sm shadow-lg';
+  el.innerHTML = `<span class="flex-1">${esc(msg)}${withAction ? ` <button type="button" class="font-medium text-blue-700 hover:underline" data-act="goto-summary">View results</button>` : ''}</span>
+    <button type="button" aria-label="Dismiss notification" class="h-6 w-6 rounded text-slate-600 hover:bg-slate-100">&times;</button>`;
+  const kill = () => el.remove();
+  let t = setTimeout(kill, withAction ? 10000 : 5000);
+  el.addEventListener('mouseenter', () => clearTimeout(t));
+  el.addEventListener('mouseleave', () => { t = setTimeout(kill, 5000); });
+  el.querySelector('[aria-label]').onclick = kill;
+  const g = el.querySelector('[data-act]'); if (g) g.onclick = () => { S.step = 3; S.maxStep = 3; kill(); render(); };
+  $('toasts').appendChild(el);
+}
+function confirmDialog({ title, body, ok, cancel, danger, onOk }) {
+  $('dlgTitle').textContent = title; $('dlgBody').textContent = body;
+  $('dlgOk').textContent = ok; $('dlgCancel').textContent = cancel;
+  $('dlgOk').className = 'h-8 rounded px-3 font-medium text-white ' + (danger ? 'bg-red-700 hover:bg-red-800' : 'bg-blue-700 hover:bg-blue-800');
+  const d = $('dlg'); d.classList.remove('hidden'); d.classList.add('flex');
+  const prev = document.activeElement;
+  const close = () => { d.classList.add('hidden'); d.classList.remove('flex'); document.removeEventListener('keydown', esck); if (prev && prev.focus) prev.focus(); };
+  const esck = e => { if (e.key === 'Escape') close(); };
+  document.addEventListener('keydown', esck);
+  $('dlgCancel').onclick = close;
+  $('dlgOk').onclick = () => { close(); onOk(); };
+  $('dlgCancel').focus();
+}
+const isDirty = () => !!S.file && !(S.step === 3 && S.job && S.job.state !== 'running');
+window.addEventListener('beforeunload', e => { if (isDirty()) { e.preventDefault(); e.returnValue = ''; } });
+document.querySelectorAll('[data-nav]').forEach(a => a.addEventListener('click', e => {
+  e.preventDefault();
+  if (isDirty()) confirmDialog({ title: 'Leave the import?', body: S.job && S.job.state === 'running' ? 'The import keeps running in the background.' : `The file ${S.file.name} and your column mapping will be discarded.`, ok: 'Leave page', cancel: 'Stay', onOk: () => { if (!(S.job && S.job.state === 'running')) resetAll(); render(); } });
+}));
+
+/* ---------- File handling ---------- */
+function acceptFile(file) {
+  S.uploadError = null;
+  if (!/\.csv$/i.test(file.name)) { S.uploadError = { msg: `Couldn't read ${file.name}. Only .csv files are supported. Export your spreadsheet as CSV (UTF-8) and try again.` }; render(); return; }
+  if (file.size > MAX_BYTES) { S.uploadError = { msg: `${file.name} is ${fmtSize(file.size)}. The limit is 5 MB; split the file and import it in parts.` }; render(); return; }
+  S.loading = true; render();
+  const rd = new FileReader();
+  rd.onload = () => loadText(file.name, file.size, String(rd.result));
+  rd.onerror = () => { S.loading = false; S.uploadError = { msg: `Couldn't read ${file.name}. Check the file and try again.` }; render(); };
+  rd.readAsText(file);
+}
+function loadText(name, size, text) {
+  setTimeout(() => {
+    const all = parseCsv(text);
+    S.loading = false;
+    if (all.length < 2) { S.uploadError = { msg: `${name} has no data rows. The first row must be the column headers, followed by at least one product.` }; render(); return; }
+    S.file = { name, size }; S.headers = all[0].map(h => h.trim()); S.rows = all.slice(1);
+    const used = new Set();
+    S.colMap = S.headers.map(h => {
+      const f = FIELDS.find(f => !used.has(f.key) && f.aliases.includes(norm(h)));
+      if (f) { used.add(f.key); return f.key; } return '';
+    });
+    S.step = 1; S.maxStep = 1; S.results = []; S.filter = 'all'; S.page = 1; S.mapError = false; S.job = null;
+    render();
+  }, 500);
+}
+function useSample() { S.loading = true; S.uploadError = null; render(); const t = makeSampleCsv(); loadText('products-june-2026.csv', t.length, t); }
+function resetAll() { clearInterval(timer); Object.assign(S, { step: 0, maxStep: 0, loading: false, uploadError: null, file: null, headers: [], rows: [], colMap: [], results: [], filter: 'all', page: 1, mapError: false, job: null }); updateJobsBtn(); document.title = 'Import products'; }
+
+/* ---------- Validation ---------- */
+const missingRequired = () => FIELDS.filter(f => f.required && !S.colMap.includes(f.key));
+function validate() {
+  const idx = {}; S.colMap.forEach((k, i) => { if (k) idx[k] = i; });
+  const seen = new Map();
+  S.results = S.rows.map((r, n) => {
+    const g = k => idx[k] === undefined ? '' : String(r[idx[k]] ?? '').trim();
+    const errs = [];
+    const sku = g('sku'), name = g('name');
+    if (!sku) errs.push({ field: 'SKU', msg: 'SKU is required' });
+    else if (!/^[A-Za-z0-9-]{3,20}$/.test(sku)) errs.push({ field: 'SKU', msg: 'SKU must be 3-20 letters, digits or hyphens' });
+    else if (seen.has(sku.toUpperCase())) errs.push({ field: 'SKU', msg: `SKU duplicates row ${seen.get(sku.toUpperCase())}` });
+    else seen.set(sku.toUpperCase(), n + 2);
+    if (!name) errs.push({ field: 'Product name', msg: 'Product name is required' });
+    else if (name.length > 100) errs.push({ field: 'Product name', msg: 'Product name is longer than 100 characters' });
+    const price = parseNumber(g('price'));
+    if (price === null) errs.push({ field: 'Unit price', msg: 'Unit price is required' });
+    else if (Number.isNaN(price)) errs.push({ field: 'Unit price', msg: `Unit price "${g('price')}" is not a number` });
+    else if (price < 0) errs.push({ field: 'Unit price', msg: 'Unit price cannot be negative' });
+    const qty = parseNumber(g('qty'));
+    if (qty === null) errs.push({ field: 'Stock quantity', msg: 'Stock quantity is required' });
+    else if (Number.isNaN(qty)) errs.push({ field: 'Stock quantity', msg: `Stock quantity "${g('qty')}" is not a number` });
+    else if (qty < 0) errs.push({ field: 'Stock quantity', msg: 'Stock quantity cannot be negative' });
+    else if (!Number.isInteger(qty)) errs.push({ field: 'Stock quantity', msg: 'Stock quantity must be a whole number' });
+    const cat = g('category');
+    if (cat && !CATEGORIES.some(c => c.toLowerCase() === cat.toLowerCase())) errs.push({ field: 'Category', msg: `Category "${cat}" does not exist` });
+    const bc = g('barcode');
+    if (bc && !/^\d{8,14}$/.test(bc)) errs.push({ field: 'Barcode', msg: 'Barcode must be 8-14 digits' });
+    const cost = parseNumber(g('cost'));
+    if (cost !== null && (Number.isNaN(cost) || cost < 0)) errs.push({ field: 'Cost price', msg: 'Cost price must be a non-negative number' });
+    const exists = sku && EXISTING_SKUS.has(sku.toUpperCase());
+    let kind = errs.length ? 'error' : exists ? 'update' : 'new';
+    if (!errs.length && exists && S.mode === 'skip') kind = 'skip';
+    return { row: n + 2, raw: r, sku, name, cat, qty, price, errs, kind };
+  });
+}
+const counts = () => {
+  const c = { all: S.results.length, error: 0, new: 0, update: 0, skip: 0 };
+  S.results.forEach(r => c[r.kind]++);
+  c.ready = c.new + c.update; return c;
+};
+
+/* ---------- Import job ---------- */
+function startImport() {
+  validate();
+  const ready = S.results.filter(r => r.kind === 'new' || r.kind === 'update');
+  const preFailed = S.results.filter(r => r.kind === 'error');
+  S.job = { state: 'running', total: ready.length, done: 0, created: 0, updated: 0, failed: [], skipped: counts().skip,
+    queue: ready, bg: false, invalid: preFailed };
+  S.step = 3; S.maxStep = 3; render(); updateJobsBtn();
+  clearInterval(timer);
+  timer = setInterval(tickJob, 250);
+}
+function tickJob() {
+  const j = S.job; if (!j || j.state !== 'running') { clearInterval(timer); return; }
+  for (let k = 0; k < 3 && j.done < j.total; k++) {
+    const r = j.queue[j.done++];
+    if (j.done % 17 === 0) j.failed.push({ row: r.row, sku: r.sku, field: 'Barcode', msg: 'Barcode is already used by another product', raw: r.raw });
+    else if (r.kind === 'update') j.updated++; else j.created++;
+  }
+  if (j.done >= j.total) {
+    j.state = 'done'; clearInterval(timer);
+    document.title = 'Import finished';
+    if (j.bg) toast(`Import finished: ${num.format(j.created)} created, ${num.format(j.updated)} updated, ${num.format(j.failed.length + j.invalid.length)} failed.`, true);
+    else toast(`Import of ${S.file.name} finished`);
+  } else document.title = `Importing ${Math.round(j.done / j.total * 100)}%...`;
+  updateJobsBtn();
+  if (S.step === 3) { renderContent(); renderActions(); }
+}
+function updateJobsBtn() {
+  const b = $('jobsBtn'), j = S.job;
+  if (!j) { b.classList.add('hidden'); b.classList.remove('inline-flex'); return; }
+  b.classList.remove('hidden'); b.classList.add('inline-flex');
+  b.textContent = j.state === 'running' ? `Jobs: importing ${Math.round(j.done / j.total * 100)}%` : j.state === 'cancelled' ? 'Jobs: import stopped' : 'Jobs: import finished';
+  b.onclick = () => { S.step = 3; render(); };
+}
+function failedCsv(rows) {
+  const head = [...S.headers, 'Error'];
+  return [head, ...rows.map(r => [...r.raw, r.msg])].map(l => l.map(csvCell).join(',')).join('\r\n');
+}
+function allFailedRows() {
+  const pre = S.job.invalid.map(r => ({ row: r.row, sku: r.sku, field: r.errs[0].field, msg: r.errs.map(e => e.msg).join('; '), raw: r.raw }));
+  return [...pre, ...S.job.failed].sort((a, b) => a.row - b.row);
+}
+
+/* ---------- Rendering ---------- */
+function render() { renderStepper(); renderBanner(); renderContent(); renderActions(); if (S.focusId) { const e = $(S.focusId); if (e) e.focus(); S.focusId = null; } }
+
+function renderStepper() {
+  $('stepper').innerHTML = STEPS.map((s, i) => {
+    const done = i < S.step, cur = i === S.step, reachable = i <= S.maxStep && !cur && !(S.job && S.job.state === 'running' && i < 3);
+    const dot = `<span class="flex h-5 w-5 items-center justify-center rounded-full text-xs font-medium ${cur ? 'bg-blue-700 text-white' : done ? 'bg-green-700 text-white' : 'bg-slate-200 text-slate-700'}">${done ? '&#10003;' : i + 1}</span>`;
+    const inner = `${dot}<span class="${cur ? 'font-medium text-slate-900' : 'text-slate-700'}">${s}</span>`;
+    const li = reachable
+      ? `<button type="button" data-step="${i}" class="flex items-center gap-2 rounded px-2 py-1 hover:bg-slate-100">${inner}</button>`
+      : `<span class="flex items-center gap-2 px-2 py-1" ${cur ? 'aria-current="step"' : ''}>${inner}</span>`;
+    return `<li class="flex items-center gap-2">${li}${i < STEPS.length - 1 ? '<span class="h-px w-6 bg-slate-300" aria-hidden="true"></span>' : ''}</li>`;
+  }).join('');
+  $('stepper').querySelectorAll('[data-step]').forEach(b => b.onclick = () => goStep(+b.dataset.step));
+}
+function goStep(i) {
+  if (i === 2) { if (missingRequired().length) { S.mapError = true; S.step = 1; render(); return; } validate(); }
+  S.step = i; render();
+}
+
+function renderBanner() {
+  const el = $('banner'); let h = '';
+  const j = S.job;
+  if (j && j.state === 'running' && S.step !== 3) h = bannerHtml('info', `Import running: ${num.format(j.done)} of ${num.format(j.total)} rows.`, `<button type="button" data-act="open-job" class="font-medium text-blue-700 hover:underline">View progress</button>`);
+  el.innerHTML = h;
+  const b = el.querySelector('[data-act="open-job"]'); if (b) b.onclick = () => { S.step = 3; render(); };
+}
+function bannerHtml(tone, text, action) {
+  const t = { info: 'bg-blue-50 text-blue-800 border-blue-200', warning: 'bg-amber-50 text-amber-800 border-amber-200', danger: 'bg-red-50 text-red-800 border-red-200', success: 'bg-green-50 text-green-800 border-green-200' }[tone];
+  const icon = { info: 'Info', warning: 'Warning', danger: 'Error', success: 'Done' }[tone];
+  return `<div class="flex flex-wrap items-center gap-3 rounded-md border px-3 py-2 ${t}"><span class="font-medium">${icon}:</span><span>${text}</span>${action ? `<span class="ml-auto">${action}</span>` : ''}</div>`;
+}
+
+function renderContent() {
+  const c = $('content');
+  if (S.step === 0) c.innerHTML = uploadHtml();
+  else if (S.step === 1) c.innerHTML = mapHtml();
+  else if (S.step === 2) c.innerHTML = previewHtml();
+  else c.innerHTML = importHtml();
+  bindContent();
+}
+
+function uploadHtml() {
+  if (S.loading) return `<div class="${card} p-6" aria-busy="true"><p class="sr-only">Reading file</p>
+    <div class="animate-pulse space-y-3" aria-hidden="true"><div class="h-4 w-1/3 rounded bg-slate-200"></div><div class="h-24 rounded bg-slate-100"></div><div class="h-4 w-2/3 rounded bg-slate-200"></div></div></div>`;
+  const err = S.uploadError ? `<div role="alert" class="mb-4">${bannerHtml('danger', esc(S.uploadError.msg), `<button type="button" data-act="pick" class="font-medium text-blue-700 hover:underline">Retry</button>`)}</div>` : '';
+  return `<div class="grid gap-4 lg:grid-cols-3">
+    <section class="${card} p-5 lg:col-span-2">
+      <h2 class="text-base font-semibold">Upload a CSV file</h2>
+      <p class="mt-1 text-slate-600">One product per row. The first row holds the column headers. UTF-8, up to 5 MB.</p>
+      <div class="mt-4">${err}</div>
+      <div id="drop" class="flex flex-col items-center gap-3 rounded-md border border-dashed border-slate-400 px-6 py-10 text-center ${dragOver ? 'bg-blue-50' : 'bg-slate-50'}">
+        <p class="font-medium">Drag a .csv file here</p>
+        <p class="text-slate-600">or</p>
+        <button type="button" data-act="pick" class="${btnPrimary}">Choose file</button>
+        <input id="fileInput" type="file" accept=".csv,text/csv" class="sr-only" aria-label="Choose CSV file">
+      </div>
+      <p class="mt-4 text-slate-600">No file at hand? <button type="button" data-act="sample" class="font-medium text-blue-700 hover:underline">Use the sample file</button> (64 products, includes a few deliberate errors).</p>
+    </section>
+    <section class="${card} p-5">
+      <h2 class="text-base font-semibold">Before you start</h2>
+      <ul class="mt-2 list-disc space-y-2 pl-5 text-slate-700">
+        <li>Required columns: SKU, product name, unit price, stock quantity.</li>
+        <li>Rows whose SKU already exists update that product.</li>
+        <li>Categories must already exist: ${CATEGORIES.join(', ')}.</li>
+        <li>Prices are in VND, without decimals.</li>
+      </ul>
+      <a href="#" data-act="template" class="mt-3 inline-block font-medium text-blue-700 hover:underline">Download CSV template</a>
+    </section>
+  </div>`;
+}
+
+function mapHtml() {
+  const miss = missingRequired();
+  const sample = i => S.rows.slice(0, 3).map(r => r[i]).filter(v => v !== undefined && v !== '').join(', ');
+  const err = S.mapError && miss.length ? `<div role="alert" class="mb-4">${bannerHtml('danger', `Map the required fields before continuing: ${miss.map(f => esc(f.label)).join(', ')}.`)}</div>` : '';
+  const rows = S.headers.map((h, i) => {
+    const cur = S.colMap[i];
+    const opts = `<option value="">Don't import</option>` + FIELDS.map(f => {
+      const usedBy = S.colMap.findIndex((k, j) => k === f.key && j !== i);
+      return `<option value="${f.key}" ${cur === f.key ? 'selected' : ''}>${esc(f.label)}${f.required ? ' *' : ''}${usedBy >= 0 ? ' (move here)' : ''}</option>`;
+    }).join('');
+    const state = cur ? badge('success', 'Mapped') : badge('neutral', 'Skipped');
+    return `<tr class="h-10 border-t border-slate-200 hover:bg-slate-50">
+      <td class="px-3 font-medium whitespace-nowrap">${esc(h)}</td>
+      <td class="max-w-[320px] truncate px-3 text-slate-600" title="${esc(sample(i))}">${esc(sample(i)) || '&mdash;'}</td>
+      <td class="px-3 py-1"><label class="sr-only" for="map-${i}">Import column ${esc(h)} as</label>
+        <select id="map-${i}" data-col="${i}" class="h-8 w-60 rounded border border-slate-300 bg-white px-2">${opts}</select></td>
+      <td class="px-3">${state}</td></tr>`;
+  }).join('');
+  const reqLine = FIELDS.filter(f => f.required).map(f => {
+    const ok = S.colMap.includes(f.key);
+    return `<li class="flex items-center gap-2">${badge(ok ? 'success' : 'danger', ok ? 'Mapped' : 'Missing')}<span>${esc(f.label)} *</span></li>`;
+  }).join('');
+  return `${err}
+  <div class="grid gap-4 lg:grid-cols-4">
+    <section class="${card} lg:col-span-3 overflow-x-auto">
+      <div class="px-4 py-3"><h2 class="text-base font-semibold">Match your columns to product fields</h2>
+        <p class="text-slate-600">${esc(S.file.name)} &middot; ${num.format(S.rows.length)} rows &middot; ${S.headers.length} columns. We matched what we could; check the rest.</p></div>
+      <table class="w-full text-left text-sm">
+        <thead class="bg-slate-50 text-slate-700"><tr class="h-10"><th class="px-3 font-medium">Column in your file</th><th class="px-3 font-medium">Sample values</th><th class="px-3 font-medium">Import as</th><th class="px-3 font-medium">Status</th></tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+    </section>
+    <aside class="${card} h-fit p-4">
+      <h2 class="text-base font-semibold">Required fields</h2>
+      <ul class="mt-3 space-y-2">${reqLine}</ul>
+      <h2 class="mt-5 text-base font-semibold">Existing SKUs</h2>
+      <fieldset class="mt-2 space-y-2">
+        <legend class="sr-only">When a SKU already exists</legend>
+        <label class="flex items-start gap-2"><input type="radio" name="mode" value="update" class="mt-1" ${S.mode === 'update' ? 'checked' : ''}><span>Update the existing product</span></label>
+        <label class="flex items-start gap-2"><input type="radio" name="mode" value="skip" class="mt-1" ${S.mode === 'skip' ? 'checked' : ''}><span>Skip the row and keep the product unchanged</span></label>
+      </fieldset>
+    </aside>
+  </div>`;
+}
+
+function pagedRows() {
+  const list = S.results.filter(r => S.filter === 'all' ? true : S.filter === 'error' ? r.kind === 'error' : r.kind !== 'error');
+  const pages = Math.max(1, Math.ceil(list.length / S.pageSize));
+  if (S.page > pages) S.page = pages;
+  return { list, pages, slice: list.slice((S.page - 1) * S.pageSize, S.page * S.pageSize) };
+}
+const KIND = { new: ['success', 'New'], update: ['info', 'Will update'], skip: ['neutral', 'Skipped'], error: ['danger', 'Error'] };
+
+function previewHtml() {
+  const c = counts();
+  const { list, pages, slice } = pagedRows();
+  const tab = (k, label, n) => `<button type="button" data-filter="${k}" aria-pressed="${S.filter === k}" class="h-8 rounded px-3 ${S.filter === k ? 'bg-blue-50 font-medium text-blue-700' : 'text-slate-700 hover:bg-slate-100'}">${label} <span class="tabular-nums">${num.format(n)}</span></button>`;
+  const body = slice.length ? slice.map(r => {
+    const [tone, text] = KIND[r.kind];
+    const first = r.errs[0];
+    const issue = first ? `${esc(first.msg)}${r.errs.length > 1 ? ` <span class="text-slate-600">(+${r.errs.length - 1} more)</span>` : ''}` : '<span class="text-slate-600">&mdash;</span>';
+    return `<tr class="h-10 border-t border-slate-200 hover:bg-slate-50 ${r.kind === 'error' ? 'bg-red-50/40' : ''}">
+      <td class="px-3 tabular-nums text-slate-600">${r.row}</td>
+      <td class="px-3">${badge(tone, text)}</td>
+      <td class="px-3 whitespace-nowrap font-medium">${esc(r.sku) || '<span class="text-slate-600">&mdash;</span>'}</td>
+      <td class="max-w-[260px] truncate px-3" title="${esc(r.name)}">${esc(r.name) || '<span class="text-slate-600">&mdash;</span>'}</td>
+      <td class="px-3 whitespace-nowrap">${esc(r.cat) || '<span class="text-slate-600">&mdash;</span>'}</td>
+      <td class="px-3 text-right tabular-nums">${Number.isFinite(r.qty) ? num.format(r.qty) : '&mdash;'}</td>
+      <td class="px-3 text-right tabular-nums">${Number.isFinite(r.price) ? vnd.format(r.price) : '&mdash;'}</td>
+      <td class="max-w-[300px] truncate px-3 ${r.kind === 'error' ? 'text-red-800' : ''}" title="${esc(r.errs.map(e => e.msg).join('; '))}">${issue}</td></tr>`;
+  }).join('') : `<tr><td colspan="8"><div class="px-6 py-10 text-center">${
+      S.filter === 'error' ? `<p class="text-base font-medium">No rows with errors</p><p class="mt-1 text-slate-600">Every row in this file passed validation.</p><button type="button" data-filter="all" class="${btnSecondary} mt-3">Show all rows</button>`
+      : `<p class="text-base font-medium">No rows to show</p><p class="mt-1 text-slate-600">This file has no importable rows.</p>`}</div></td></tr>`;
+  const from = list.length ? (S.page - 1) * S.pageSize + 1 : 0, to = Math.min(S.page * S.pageSize, list.length);
+  const summary = c.error
+    ? bannerHtml('warning', `<strong>${num.format(c.all)} rows &middot; ${num.format(c.error)} with errors.</strong> Rows with errors are skipped. Fix them in your file and re-upload, or import the ${num.format(c.ready)} valid rows now.`, `<button type="button" data-act="dl-errors" class="font-medium text-blue-700 hover:underline">Download failed rows</button>`)
+    : bannerHtml('success', `<strong>${num.format(c.all)} rows, no errors.</strong> ${num.format(c.new)} new, ${num.format(c.update)} to update${c.skip ? `, ${c.skip} skipped` : ''}.`);
+  return `<div class="space-y-4">
+    <div>${summary}</div>
+    <section class="${card}">
+      <div class="flex flex-wrap items-center gap-2 border-b border-slate-200 p-2">
+        ${tab('all', 'All rows', c.all)}${tab('error', 'With errors', c.error)}${tab('ok', 'Valid', c.ready + c.skip)}
+        <span class="ml-auto pr-2 text-slate-600">${num.format(c.new)} new &middot; ${num.format(c.update)} updates${c.skip ? ` &middot; ${c.skip} skipped` : ''}</span>
+      </div>
+      <div class="overflow-x-auto">
+        <table class="w-full text-left text-sm">
+          <thead class="bg-slate-50 text-slate-700"><tr class="h-10">
+            <th class="px-3 font-medium">Row</th><th class="px-3 font-medium">Result</th><th class="px-3 font-medium">SKU</th><th class="px-3 font-medium">Product name</th><th class="px-3 font-medium">Category</th>
+            <th class="px-3 text-right font-medium">Quantity</th><th class="px-3 text-right font-medium">Price (VND)</th><th class="px-3 font-medium">Issue</th></tr></thead>
+          <tbody>${body}</tbody>
+        </table>
+      </div>
+      <div class="flex flex-wrap items-center gap-3 border-t border-slate-200 px-3 py-2">
+        <span class="tabular-nums text-slate-700">${from}&ndash;${to} of ${num.format(list.length)}</span>
+        <div class="ml-auto flex items-center gap-2">
+          <label for="pgsize" class="text-slate-700">Rows per page</label>
+          <select id="pgsize" class="h-8 rounded border border-slate-300 bg-white px-2">${PAGE_SIZES.map(n => `<option ${n === S.pageSize ? 'selected' : ''}>${n}</option>`).join('')}</select>
+          <button type="button" data-page="-1" class="${btnSecondary}" ${S.page <= 1 ? 'disabled' : ''}>Previous</button>
+          <span class="tabular-nums">Page ${S.page} of ${pages}</span>
+          <button type="button" data-page="1" class="${btnSecondary}" ${S.page >= pages ? 'disabled' : ''}>Next</button>
+        </div>
+      </div>
+    </section>
+  </div>`;
+}
+
+function importHtml() {
+  const j = S.job;
+  if (!j) return `<div class="${card} px-6 py-10 text-center"><p class="text-base font-medium">No import has run yet</p><p class="mt-1 text-slate-600">Finish the preview step to start importing.</p></div>`;
+  const pct = j.total ? Math.round(j.done / j.total * 100) : 100;
+  if (j.state === 'running') return `<section class="${card} p-5" aria-busy="true">
+      <h2 class="text-base font-semibold">Importing ${esc(S.file.name)}</h2>
+      <p class="mt-1 text-slate-600">Importing ${num.format(j.done)} of ${num.format(j.total)} rows. You can leave this page; the import keeps running.</p>
+      <div class="mt-4 h-2 w-full rounded-full bg-slate-200" role="progressbar" aria-label="Import progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${pct}"><div class="h-2 rounded-full bg-blue-700" style="width:${pct}%"></div></div>
+      <p class="mt-2 tabular-nums text-slate-700">${pct}% &middot; ${num.format(j.created)} created &middot; ${num.format(j.updated)} updated &middot; ${num.format(j.failed.length)} failed</p>
+    </section>`;
+  const failed = allFailedRows();
+  const stopped = j.state === 'cancelled';
+  const fig = (label, n, tone) => `<div class="${card} p-4"><div class="text-slate-700">${label}</div><div class="mt-1 text-2xl font-semibold tabular-nums">${num.format(n)}</div></div>`;
+  const ftable = failed.length ? `<section class="${card}"><div class="px-4 py-3"><h2 class="text-base font-semibold">Failed rows (${num.format(failed.length)})</h2>
+      <p class="text-slate-600">Download them, fix the errors and import the file again.</p></div>
+      <div class="max-h-96 overflow-auto"><table class="w-full text-left text-sm"><thead class="sticky top-0 bg-slate-50 text-slate-700"><tr class="h-10"><th class="px-3 font-medium">Row</th><th class="px-3 font-medium">SKU</th><th class="px-3 font-medium">Field</th><th class="px-3 font-medium">Reason</th></tr></thead>
+      <tbody>${failed.map(f => `<tr class="h-10 border-t border-slate-200 hover:bg-slate-50"><td class="px-3 tabular-nums">${f.row}</td><td class="px-3 whitespace-nowrap">${esc(f.sku) || '&mdash;'}</td><td class="px-3 whitespace-nowrap">${esc(f.field)}</td><td class="max-w-[420px] truncate px-3" title="${esc(f.msg)}">${esc(f.msg)}</td></tr>`).join('')}</tbody></table></div></section>` : '';
+  const head = stopped ? bannerHtml('warning', `Import stopped. ${num.format(j.created + j.updated)} of ${num.format(j.total)} rows were imported before you stopped it.`)
+    : failed.length ? bannerHtml('warning', `<strong>${num.format(j.created)} created, ${num.format(j.updated)} updated, ${num.format(failed.length)} failed.</strong> Failed rows were not imported.`, `<button type="button" data-act="dl-failed" class="font-medium text-blue-700 hover:underline">Download failed rows</button>`)
+    : bannerHtml('success', `<strong>Import complete.</strong> ${num.format(j.created)} created and ${num.format(j.updated)} updated.`);
+  return `<div class="space-y-4">${head}
+    <div class="grid gap-4 sm:grid-cols-4">${fig('Created', j.created)}${fig('Updated', j.updated)}${fig('Failed', failed.length)}${fig('Skipped (existing SKU)', j.skipped)}</div>
+    ${ftable}</div>`;
+}
+
+function renderActions() {
+  const a = $('actions'); let h = '';
+  const j = S.job, c = S.results.length ? counts() : null;
+  const dirty = S.file && S.step < 3 ? '<span class="text-slate-700">Unsaved import: nothing is changed until you start the import.</span>' : '';
+  if (S.step === 0) h = `<span class="text-slate-600">Step 1 of 4</span>`;
+  else if (S.step === 1) h = `${dirty}<span class="ml-auto"></span><button type="button" data-a="cancel" class="${btnSecondary}">Cancel</button><button type="button" data-a="toPreview" class="${btnPrimary}">Continue to preview</button>`;
+  else if (S.step === 2) {
+    const none = c.ready === 0;
+    h = `${dirty}<span class="ml-auto"></span>${none ? `<span class="text-red-800">No valid rows to import. Fix the file and upload it again.</span>` : ''}
+      <button type="button" data-a="back" class="${btnSecondary}">Back</button><button type="button" data-a="cancel" class="${btnSecondary}">Cancel</button>
+      <button type="button" data-a="start" class="${btnPrimary}" ${none ? 'disabled' : ''}>Import ${num.format(c.ready)} ${c.error ? 'valid ' : ''}rows</button>`;
+  } else if (S.step === 3 && j && j.state === 'running') h = `<span class="ml-auto"></span><button type="button" data-a="stop" class="${btnSecondary}">Stop import</button><button type="button" data-a="bg" class="${btnPrimary}">Run in background</button>`;
+  else if (S.step === 3 && j) h = `<span class="ml-auto"></span><button type="button" data-a="again" class="${btnSecondary}">Import another file</button><button type="button" data-a="products" class="${btnPrimary}">Go to products</button>`;
+  else h = `<span class="ml-auto"></span><button type="button" data-a="cancel" class="${btnSecondary}">Cancel</button>`;
+  a.innerHTML = h;
+  a.querySelectorAll('[data-a]').forEach(b => b.onclick = () => action(b.dataset.a));
+}
+function action(k) {
+  if (k === 'toPreview') goStep(2);
+  else if (k === 'back') { S.step = 1; render(); }
+  else if (k === 'start') startImport();
+  else if (k === 'cancel') confirmDialog({ title: 'Discard this import?', body: `The file ${S.file.name} (${num.format(S.rows.length)} rows) and your column mapping will be discarded. No products have been changed.`, ok: 'Discard import', cancel: 'Keep editing', danger: true, onOk: () => { resetAll(); render(); toast('Import discarded'); } });
+  else if (k === 'stop') confirmDialog({ title: 'Stop the import?', body: `${num.format(S.job.created + S.job.updated)} rows are already imported and will stay in Products.`, ok: 'Stop import', cancel: 'Keep importing', danger: true, onOk: () => { S.job.state = 'cancelled'; clearInterval(timer); document.title = 'Import stopped'; updateJobsBtn(); render(); } });
+  else if (k === 'bg') { S.job.bg = true; S.step = 0; S.maxStep = 0; const keep = S.job; resetUploadOnly(); render(); toast('Import continues in the background.'); }
+  else if (k === 'again') { resetAll(); render(); }
+  else if (k === 'products') { confirmDialog({ title: 'Open Products?', body: 'This demo has no product list page. Stay here to review the results.', ok: 'Stay here', cancel: 'Close', onOk: () => {} }); }
+}
+function resetUploadOnly() { /* keep S.job and S.file so the job continues; show upload screen for a new file */ S.step = 0; S.uploadError = null; }
+
+function bindContent() {
+  const c = $('content');
+  c.querySelectorAll('[data-act="pick"]').forEach(b => b.onclick = () => $('fileInput') && $('fileInput').click());
+  c.querySelectorAll('[data-act="sample"]').forEach(b => b.onclick = useSample);
+  c.querySelectorAll('[data-act="template"]').forEach(b => b.onclick = e => { e.preventDefault(); downloadTemplate(); });
+  c.querySelectorAll('[data-act="dl-errors"]').forEach(b => b.onclick = () => {
+    const rows = S.results.filter(r => r.kind === 'error').map(r => ({ raw: r.raw, msg: r.errs.map(e => e.msg).join('; ') }));
+    download('failed-rows-preview.csv', failedCsv(rows)); toast(`Downloaded ${rows.length} failed rows`);
+  });
+  c.querySelectorAll('[data-act="dl-failed"]').forEach(b => b.onclick = () => { const f = allFailedRows(); download('failed-rows.csv', failedCsv(f)); toast(`Downloaded ${f.length} failed rows`); });
+  const fi = $('fileInput'); if (fi) fi.onchange = () => { if (fi.files[0]) acceptFile(fi.files[0]); };
+  const dz = $('drop');
+  if (dz) {
+    ['dragenter', 'dragover'].forEach(ev => dz.addEventListener(ev, e => { e.preventDefault(); dz.classList.add('bg-blue-50'); dz.classList.remove('bg-slate-50'); }));
+    ['dragleave', 'drop'].forEach(ev => dz.addEventListener(ev, e => { e.preventDefault(); dz.classList.remove('bg-blue-50'); dz.classList.add('bg-slate-50'); }));
+    dz.addEventListener('drop', e => { if (e.dataTransfer.files[0]) acceptFile(e.dataTransfer.files[0]); });
+  }
+  c.querySelectorAll('select[data-col]').forEach(s => s.onchange = () => {
+    const i = +s.dataset.col, v = s.value;
+    if (v) S.colMap = S.colMap.map((k, j) => j !== i && k === v ? '' : k);
+    S.colMap[i] = v; S.mapError = S.mapError && missingRequired().length > 0; S.focusId = 'map-' + i; render();
+  });
+  c.querySelectorAll('input[name="mode"]').forEach(r => r.onchange = () => { S.mode = r.value; });
+  c.querySelectorAll('[data-filter]').forEach(b => b.onclick = () => { S.filter = b.dataset.filter; S.page = 1; render(); });
+  c.querySelectorAll('[data-page]').forEach(b => b.onclick = () => { S.page += +b.dataset.page; render(); });
+  const ps = $('pgsize'); if (ps) ps.onchange = () => { S.pageSize = +ps.value; S.page = 1; S.focusId = 'pgsize'; render(); };
+}
+function downloadTemplate() {
+  const head = ['Product code','Product name','Category','Barcode','Cost (VND)','Price (VND)','Stock qty','Reorder level','Supplier'];
+  const ex = ['BEV-0999','Nước suối Lavie 500ml','Beverages','8935001234567','4200','6500','120','40','Công ty TNHH Đại Việt'];
+  download('products-import-template.csv', [head, ex].map(r => r.map(csvCell).join(',')).join('\r\n'));
+}
+$('tplLink').addEventListener('click', e => { e.preventDefault(); downloadTemplate(); });
+
+render();
+</script>
+</body>
+</html>

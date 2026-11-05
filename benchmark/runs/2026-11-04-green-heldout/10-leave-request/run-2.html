@@ -1,0 +1,428 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tạo đơn nghỉ phép – Nhân sự</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+  body { font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; font-size: 14px; color: #0f172a; }
+  .field { height: 32px; width: 100%; border: 1px solid #94a3b8; border-radius: 4px; padding: 0 10px; background: #fff; }
+  textarea.field { height: auto; padding: 6px 10px; }
+  .field:focus, button:focus-visible, a:focus-visible, [tabindex]:focus-visible { outline: 2px solid #1d4ed8; outline-offset: 1px; }
+  .field[aria-invalid="true"] { border-color: #b91c1c; }
+  .btn { height: 32px; padding: 0 12px; border-radius: 4px; font-weight: 500; display: inline-flex; align-items: center; gap: 6px; }
+  .btn-primary { background: #1d4ed8; color: #fff; } .btn-primary:hover { background: #1e40af; }
+  .btn-primary:disabled { opacity: .7; cursor: not-allowed; }
+  .btn-secondary { background: #fff; border: 1px solid #94a3b8; color: #0f172a; } .btn-secondary:hover { background: #f1f5f9; }
+  .btn-ghost { color: #1d4ed8; } .btn-ghost:hover { background: #eff6ff; }
+  .skel { background: linear-gradient(90deg,#e2e8f0,#f1f5f9,#e2e8f0); background-size: 200% 100%; animation: sk 1.2s linear infinite; border-radius: 4px; }
+  @keyframes sk { to { background-position: -200% 0; } }
+  .err { color: #b91c1c; display: flex; gap: 4px; align-items: center; font-size: 13px; margin-top: 4px; }
+  @media (prefers-reduced-motion: reduce) { .skel, .spin { animation: none; } }
+  .spin { animation: sp .8s linear infinite; } @keyframes sp { to { transform: rotate(360deg); } }
+</style>
+</head>
+<body class="bg-slate-50">
+<div class="flex min-h-screen">
+  <!-- Sidebar -->
+  <aside class="hidden md:flex w-60 shrink-0 flex-col border-r border-slate-200 bg-white" aria-label="Điều hướng chính">
+    <div class="h-14 flex items-center px-4 border-b border-slate-200 font-semibold text-base">HR Portal <span class="ml-2 text-xs font-normal text-slate-600">Công ty Minh Phát</span></div>
+    <nav class="p-2 text-slate-700 space-y-0.5">
+      <a data-nav href="#" class="flex items-center h-8 px-3 rounded hover:bg-slate-100">Tổng quan</a>
+      <p class="px-3 pt-3 pb-1 text-xs font-medium text-slate-600">Cá nhân</p>
+      <a data-nav href="#" class="flex items-center h-8 px-3 rounded hover:bg-slate-100">Hồ sơ của tôi</a>
+      <a data-nav href="#" class="flex items-center h-8 px-3 rounded bg-blue-50 text-blue-700 font-medium" aria-current="page">Nghỉ phép</a>
+      <a data-nav href="#" class="flex items-center h-8 px-3 rounded hover:bg-slate-100">Chấm công</a>
+      <a data-nav href="#" class="flex items-center h-8 px-3 rounded hover:bg-slate-100">Phiếu lương</a>
+      <p class="px-3 pt-3 pb-1 text-xs font-medium text-slate-600">Quản lý</p>
+      <a data-nav href="#" class="flex items-center justify-between h-8 px-3 rounded hover:bg-slate-100">Đơn chờ duyệt <span class="text-xs tabular-nums text-slate-600">4</span></a>
+      <a data-nav href="#" class="flex items-center h-8 px-3 rounded hover:bg-slate-100">Lịch nghỉ của nhóm</a>
+    </nav>
+    <div class="mt-auto p-3 border-t border-slate-200 text-sm">
+      <div class="font-medium">Nguyễn Thu Hà</div>
+      <div class="text-slate-600">Chuyên viên Marketing · NV-0217</div>
+    </div>
+  </aside>
+
+  <div class="flex-1 min-w-0 flex flex-col">
+    <header class="h-14 bg-white border-b border-slate-200 flex items-center justify-between px-6">
+      <span class="text-slate-600">Nhân sự</span>
+      <span class="text-slate-600 text-sm">Cập nhật 04/11/2026 15:58</span>
+    </header>
+
+    <main id="scroller" class="flex-1 px-6 pt-4 scroll-pb-20">
+      <nav aria-label="Breadcrumb" class="text-sm text-slate-600 mb-2">
+        <a data-nav href="#" class="text-blue-700 hover:underline">Nghỉ phép</a> <span aria-hidden="true">/</span> <span>Tạo đơn nghỉ phép</span>
+      </nav>
+      <div class="max-w-5xl">
+        <h1 class="text-2xl font-semibold">Tạo đơn nghỉ phép</h1>
+        <p class="text-slate-600 mt-1">* Bắt buộc</p>
+
+        <div id="banner" role="alert" class="mt-4"></div>
+        <div id="root" class="mt-4"></div>
+      </div>
+    </main>
+  </div>
+</div>
+
+<!-- Leave dialog -->
+<div id="dlg" class="hidden fixed inset-0 z-40 items-center justify-center bg-slate-900/40" role="presentation">
+  <div role="alertdialog" aria-modal="true" aria-labelledby="dlg-t" class="bg-white rounded-lg shadow-xl w-[420px] max-w-[92vw] p-6">
+    <h2 id="dlg-t" class="text-base font-semibold">Bạn có thay đổi chưa lưu. Rời trang mà không lưu?</h2>
+    <p class="text-slate-600 mt-2">Nội dung đơn nghỉ phép đang soạn sẽ bị mất.</p>
+    <div class="mt-6 flex justify-end gap-3">
+      <button id="dlg-leave" class="btn btn-secondary text-red-700">Rời trang</button>
+      <button id="dlg-stay" class="btn btn-primary">Ở lại</button>
+    </div>
+  </div>
+</div>
+<div id="toast" role="status" aria-live="polite" class="fixed bottom-20 right-6 z-50"></div>
+
+<script>
+(function () {
+  /* ---------- Mock data ---------- */
+  const TYPES = [
+    { id: 'annual', name: 'Phép năm', balance: 8.5, note: 'Trừ vào quỹ phép năm 2026', needDoc: false },
+    { id: 'sick', name: 'Nghỉ ốm (BHXH)', balance: null, note: 'Từ 2 ngày trở lên cần giấy khám hoặc ra viện', needDoc: 'sick' },
+    { id: 'unpaid', name: 'Nghỉ không lương', balance: null, note: 'Không hưởng lương trong thời gian nghỉ', needDoc: false },
+    { id: 'wedding', name: 'Nghỉ cưới', balance: 3, note: 'Tối đa 3 ngày, cần giấy đăng ký kết hôn', needDoc: 'always' },
+    { id: 'funeral', name: 'Nghỉ tang', balance: 3, note: 'Tối đa 3 ngày, cần giấy chứng tử hoặc xác nhận', needDoc: 'always' },
+    { id: 'maternity', name: 'Nghỉ thai sản', balance: null, note: 'Cần giấy xác nhận của cơ sở y tế', needDoc: 'always' },
+  ];
+  const APPROVERS = [
+    { id: 1, name: 'Trần Minh Quân', role: 'Trưởng phòng Marketing', manager: true },
+    { id: 2, name: 'Lê Thị Bích Ngọc', role: 'Giám đốc Marketing' },
+    { id: 3, name: 'Phạm Quốc Khánh', role: 'Trưởng nhóm Nội dung' },
+    { id: 4, name: 'Đỗ Hoàng Anh', role: 'Giám đốc Nhân sự' },
+    { id: 5, name: 'Vũ Thanh Hương', role: 'Trưởng phòng Kinh doanh' },
+    { id: 6, name: 'Ngô Đức Thịnh', role: 'Giám đốc Vận hành' },
+    { id: 7, name: 'Bùi Mai Phương', role: 'Trưởng phòng Tài chính' },
+  ];
+  const HOLIDAYS = ['2027-01-01'];
+  const BOOKED = [['2026-11-17', '2026-11-18', 'NP-2026-0121']]; // đơn đã duyệt
+  const RECENT = [
+    { id: 'NP-2026-0121', type: 'Phép năm', range: '17/11/2026 – 18/11/2026', days: 2, status: ['success', 'Đã duyệt'] },
+    { id: 'NP-2026-0098', type: 'Nghỉ ốm (BHXH)', range: '09/09/2026 – 10/09/2026', days: 2, status: ['success', 'Đã duyệt'] },
+    { id: 'NP-2026-0062', type: 'Phép năm', range: '30/04/2026 – 04/05/2026', days: 2, status: ['danger', 'Bị từ chối'] },
+  ];
+  const TONE = { success: 'bg-green-50 text-green-800', danger: 'bg-red-50 text-red-800', info: 'bg-blue-50 text-blue-800', neutral: 'bg-slate-100 text-slate-700', warning: 'bg-amber-50 text-amber-800' };
+  const ALLOWED = ['pdf', 'jpg', 'jpeg', 'png', 'docx'];
+  const MAX = 5 * 1024 * 1024;
+
+  /* ---------- State ---------- */
+  const params = new URLSearchParams(location.search);
+  const S = {
+    loading: true, loadError: false, submitting: false, done: null,
+    v: { type: '', from: '', to: '', part: 'full', approver: 1, reason: '', contact: '' },
+    files: [], touched: {}, errors: {}, submitted: false, comboOpen: false, q: '',
+  };
+  const initial = JSON.stringify(S.v);
+  let seq = 0;
+  const $ = (s, r = document) => r.querySelector(s);
+  const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  const fmtN = n => new Intl.NumberFormat('vi-VN', { maximumFractionDigits: 1 }).format(n);
+  const fmtD = iso => iso ? iso.split('-').reverse().join('/') : '';
+  const fmtSize = b => b < 1048576 ? new Intl.NumberFormat('vi-VN', { maximumFractionDigits: 0 }).format(b / 1024) + ' KB' : new Intl.NumberFormat('vi-VN', { maximumFractionDigits: 1 }).format(b / 1048576) + ' MB';
+  const I = { alert: '<svg class="shrink-0" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/></svg>',
+    spin: '<svg class="spin" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M21 12a9 9 0 1 1-6.2-8.55"/></svg>',
+    clip: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="m21 12-9 9a5 5 0 0 1-7-7l9-9a3.5 3.5 0 0 1 5 5l-9 9a2 2 0 0 1-3-3l8-8"/></svg>' };
+
+  /* ---------- Calculations ---------- */
+  function workingDays() {
+    const { from, to, part } = S.v;
+    if (!from || !to || to < from) return null;
+    let d = new Date(from + 'T00:00:00'), end = new Date(to + 'T00:00:00'), n = 0;
+    while (d <= end) {
+      const iso = d.toISOString().slice(0, 10), w = d.getDay();
+      if (w !== 0 && w !== 6 && !HOLIDAYS.includes(iso)) n++;
+      d.setDate(d.getDate() + 1);
+    }
+    if (from === to && part !== 'full' && n === 1) return 0.5;
+    return n;
+  }
+  const typeOf = () => TYPES.find(t => t.id === S.v.type);
+  const dayName = iso => ['CN', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7'][new Date(iso + 'T00:00:00').getDay()];
+  function needsDoc() {
+    const t = typeOf(), n = workingDays();
+    if (!t || !t.needDoc) return false;
+    return t.needDoc === 'always' || (t.needDoc === 'sick' && n !== null && n >= 2);
+  }
+  const needsSecond = () => (workingDays() || 0) > 3;
+
+  /* ---------- Validation ---------- */
+  const ORDER = ['type', 'from', 'to', 'approver', 'reason', 'files'];
+  const LABEL = { type: 'Loại nghỉ', from: 'Từ ngày', to: 'Đến ngày', approver: 'Người duyệt', reason: 'Lý do', files: 'Giấy tờ đính kèm' };
+  function check(k) {
+    const v = S.v, t = typeOf(), n = workingDays();
+    switch (k) {
+      case 'type': return v.type ? '' : 'Chọn loại nghỉ';
+      case 'from': return v.from ? '' : 'Chọn ngày bắt đầu nghỉ';
+      case 'to':
+        if (!v.to) return 'Chọn ngày nghỉ cuối cùng';
+        if (v.from && v.to < v.from) return 'Chọn ngày bằng hoặc sau ngày bắt đầu (' + fmtD(v.from) + ')';
+        if (n === 0 && v.from !== v.to) return 'Khoảng ngày này chỉ có cuối tuần hoặc ngày lễ, hãy chọn ngày làm việc';
+        if (t && t.balance !== null && n > t.balance) return 'Vượt quá số ngày còn lại (' + fmtN(t.balance) + ' ngày). Rút ngắn thời gian hoặc chọn nghỉ không lương';
+        return S.serverErr && S.serverErr.to ? S.serverErr.to : '';
+      case 'approver': return v.approver ? '' : 'Chọn người duyệt đơn';
+      case 'reason': return v.reason.trim().length >= 10 ? '' : (v.reason.trim() ? 'Nhập ít nhất 10 ký tự để người duyệt nắm được bối cảnh' : 'Nhập lý do nghỉ');
+      case 'files': return needsDoc() && !S.files.length ? 'Đính kèm ' + (t.needDoc === 'sick' ? 'giấy khám hoặc ra viện' : 'giấy tờ xác nhận') + ' (PDF, JPG, PNG hoặc DOCX, tối đa 5 MB)' : '';
+    }
+  }
+  function validate(keys) { keys.forEach(k => { S.errors[k] = check(k); }); }
+
+  /* ---------- Render ---------- */
+  function fieldErr(k) { return S.errors[k] ? `<p id="${k}-err" class="err">${I.alert}<span>${esc(S.errors[k])}</span></p>` : ''; }
+  const inv = k => S.errors[k] ? `aria-invalid="true" aria-describedby="${k}-err"` : '';
+  function label(k, text, req) { return `<label for="${k}" class="block text-sm font-medium mb-1">${text}${req ? ' <span aria-hidden="true">*</span>' : ''}</label>`; }
+
+  function skeleton() {
+    return `<div class="space-y-6" aria-busy="true" aria-label="Đang tải biểu mẫu">${[0, 1, 2].map(() => `<div class="bg-white border border-slate-200 rounded-md p-6 space-y-4"><div class="skel h-5 w-40"></div><div class="skel h-8 max-w-xl"></div><div class="skel h-8 w-56"></div><div class="skel h-8 max-w-xl"></div></div>`).join('')}</div>`;
+  }
+  function loadErrorView() {
+    return `<div class="bg-white border border-slate-200 rounded-md p-8 text-center"><p class="font-medium">Không tải được số ngày phép còn lại</p><p class="text-slate-600 mt-1">Kết nối tới hệ thống nhân sự bị gián đoạn. Dữ liệu của bạn chưa bị mất.</p><button id="retry" class="btn btn-primary mt-4">Thử lại</button></div>`;
+  }
+
+  function doneView() {
+    const a = APPROVERS.find(x => x.id === S.v.approver), d = S.done;
+    return `<div class="bg-white border border-slate-200 rounded-md p-6 max-w-3xl">
+      <div class="flex items-center gap-3"><h2 class="text-lg font-semibold">Đơn ${d.id} đã được gửi</h2><span class="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${TONE.info}">Chờ duyệt</span></div>
+      <dl class="mt-4 grid grid-cols-[160px_1fr] gap-y-2">
+        <dt class="text-slate-600">Loại nghỉ</dt><dd>${esc(typeOf().name)}</dd>
+        <dt class="text-slate-600">Thời gian</dt><dd>${fmtD(S.v.from)} – ${fmtD(S.v.to)} · ${fmtN(workingDays())} ngày</dd>
+        <dt class="text-slate-600">Gửi lúc</dt><dd>${d.at}</dd>
+        <dt class="text-slate-600">Đang chờ</dt><dd>${esc(a.name)} (${esc(a.role)})</dd>
+        ${needsSecond() ? '<dt class="text-slate-600">Cấp tiếp theo</dt><dd>Đỗ Hoàng Anh (Giám đốc Nhân sự), sau khi cấp 1 duyệt</dd>' : ''}
+        <dt class="text-slate-600">Đính kèm</dt><dd>${S.files.length ? S.files.length + ' tệp' : 'Không có'}</dd>
+      </dl>
+      <div class="mt-6 flex gap-3"><button id="again" class="btn btn-secondary">Tạo đơn khác</button><a data-nav href="#" class="btn btn-primary">Xem đơn của tôi</a></div>
+    </div>`;
+  }
+
+  function summary() {
+    const items = ORDER.filter(k => S.errors[k]);
+    if (items.length < 3 || !S.submitted) return '<div role="status"></div>';
+    return `<div role="status"><div class="rounded-md border border-red-200 bg-red-50 p-4 text-red-800 mb-6" id="summary" tabindex="-1">
+      <p class="font-medium">${items.length} trường cần chỉnh sửa</p>
+      <ul class="mt-2 list-disc pl-5">${items.map(k => `<li><a href="#${k}" data-jump="${k}" class="inline-flex min-h-6 items-center underline">${LABEL[k]}: ${esc(S.errors[k])}</a></li>`).join('')}</ul></div></div>`;
+  }
+
+  function combo() {
+    const sel = APPROVERS.find(a => a.id === S.v.approver);
+    const q = S.q.trim().toLowerCase();
+    const list = APPROVERS.filter(a => !q || (a.name + ' ' + a.role).toLowerCase().includes(q));
+    const opt = a => `<li role="option" tabindex="-1" data-pick="${a.id}" aria-selected="${a.id === S.v.approver}" class="px-3 py-1.5 cursor-pointer hover:bg-slate-100 ${a.id === S.v.approver ? 'bg-blue-50' : ''}"><div class="font-medium">${esc(a.name)}${a.manager ? ' <span class="font-normal text-slate-600">· Quản lý trực tiếp</span>' : ''}</div><div class="text-xs text-slate-600">${esc(a.role)}</div></li>`;
+    return `<div class="relative max-w-xl">
+      <div class="flex gap-2">
+        <button type="button" id="approver" role="combobox" aria-expanded="${S.comboOpen}" aria-haspopup="listbox" ${inv('approver')} class="field text-left flex items-center justify-between">
+          <span class="truncate">${sel ? esc(sel.name) + ' <span class="text-slate-600">· ' + esc(sel.role) + '</span>' : '<span class="text-slate-500">Tìm theo tên hoặc chức danh</span>'}</span>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></button>
+        ${sel ? '<button type="button" id="clear-approver" class="btn btn-secondary" aria-label="Xóa người duyệt đã chọn">Xóa</button>' : ''}
+      </div>
+      ${S.comboOpen ? `<div class="absolute z-20 mt-1 w-full bg-white border border-slate-200 rounded-md shadow-lg">
+        <div class="p-2 border-b border-slate-200"><input id="combo-q" class="field" placeholder="Nhập tên người duyệt" aria-label="Tìm người duyệt" value="${esc(S.q)}" autocomplete="off"></div>
+        <ul role="listbox" aria-label="Người duyệt" class="max-h-64 overflow-auto py-1">${list.length ? list.map(opt).join('') : `<li class="px-3 py-3 text-slate-600">Không có người duyệt nào khớp "${esc(S.q)}"</li>`}</ul></div>` : ''}
+    </div>`;
+  }
+
+  function attachments() {
+    const rows = S.files.map((f, i) => `<tr class="border-t border-slate-200 h-10">
+      <td class="px-3 truncate max-w-[260px]" title="${esc(f.name)}">${esc(f.name)}</td>
+      <td class="px-3 text-slate-700">${esc(f.ext.toUpperCase())}</td>
+      <td class="px-3 text-right tabular-nums">${fmtSize(f.size)}</td>
+      <td class="px-3 text-right whitespace-nowrap"><button type="button" class="btn btn-ghost" data-prev="${i}" aria-label="Xem trước ${esc(f.name)}">Xem trước</button><a class="btn btn-ghost" href="${f.url}" download="${esc(f.name)}" aria-label="Tải xuống ${esc(f.name)}">Tải xuống</a><button type="button" class="btn btn-ghost text-red-700" data-rm="${i}" aria-label="Xóa ${esc(f.name)}">Xóa</button></td></tr>`).join('');
+    return `<div class="max-w-3xl">
+      <div id="drop" class="border border-dashed border-slate-400 rounded-md bg-slate-50 px-4 py-4 flex items-center justify-between gap-4">
+        <p class="text-slate-700">Kéo thả tệp vào đây. PDF, JPG, PNG hoặc DOCX, tối đa 5 MB mỗi tệp.</p>
+        <label class="btn btn-secondary cursor-pointer shrink-0">${I.clip} Chọn tệp<input id="files" type="file" class="sr-only" multiple accept=".pdf,.jpg,.jpeg,.png,.docx"></label>
+      </div>
+      <div id="file-msg" role="status" class="text-sm"></div>
+      ${S.files.length ? `<div class="mt-3 border border-slate-200 rounded-md overflow-x-auto"><table class="w-full text-left"><thead class="bg-slate-50 text-slate-700"><tr class="h-10"><th class="px-3 font-medium">Tên tệp</th><th class="px-3 font-medium">Loại</th><th class="px-3 font-medium text-right">Dung lượng</th><th class="px-3 font-medium text-right"><span class="sr-only">Thao tác</span></th></tr></thead><tbody>${rows}</tbody></table></div>`
+        : `<p class="mt-2 text-slate-600">${needsDoc() ? 'Loại nghỉ này cần giấy tờ đính kèm.' : 'Chưa có tệp nào. Đính kèm nếu có giấy tờ liên quan.'}</p>`}
+      ${fieldErr('files')}
+    </div>`;
+  }
+
+  function form() {
+    const t = typeOf(), n = workingDays(), v = S.v;
+    const multi = v.from && v.to && v.from !== v.to;
+    let calc = '<span class="text-slate-600">Chọn ngày để xem số ngày nghỉ</span>';
+    if (n !== null) {
+      calc = `<span class="font-semibold tabular-nums">${fmtN(n)} ngày làm việc</span> <span class="text-slate-600">(${dayName(v.from)} ${fmtD(v.from)} – ${dayName(v.to)} ${fmtD(v.to)}, không tính cuối tuần và ngày lễ)</span>`;
+      if (t && t.balance !== null) calc += `<div class="text-slate-700 mt-1">Còn lại sau khi nghỉ: <span class="tabular-nums font-medium">${fmtN(Math.max(t.balance - n, 0))}</span> / <span class="tabular-nums">${fmtN(t.balance)}</span> ngày</div>`;
+    }
+    const sec = (title, body) => `<section class="bg-white border border-slate-200 rounded-md p-6"><h2 class="text-base font-semibold pb-2 mb-4 border-b border-slate-200">${title}</h2><div class="space-y-6">${body}</div></section>`;
+    const dirty = JSON.stringify(v) !== initial || S.files.length > 0;
+    return `<form id="f" novalidate class="space-y-6 pb-4">
+      ${summary()}
+      ${sec('Thông tin nghỉ phép', `
+        <div class="max-w-xl">${label('type', 'Loại nghỉ', 1)}
+          <select id="type" class="field" aria-required="true" ${inv('type')}>
+            <option value="">Chọn loại nghỉ</option>${TYPES.map(x => `<option value="${x.id}" ${x.id === v.type ? 'selected' : ''}>${x.name}</option>`).join('')}</select>
+          ${t ? `<p class="mt-1 text-sm text-slate-600">${esc(t.note)}${t.balance !== null ? ' · Còn <span class="tabular-nums font-medium text-slate-800">' + fmtN(t.balance) + '</span> ngày' : ''}</p>` : ''}
+          ${fieldErr('type')}</div>
+        <div class="flex flex-wrap gap-6">
+          <div>${label('from', 'Từ ngày', 1)}<input id="from" type="date" class="field w-44" min="2026-11-04" value="${v.from}" aria-required="true" ${inv('from')}>${fieldErr('from')}</div>
+          <div>${label('to', 'Đến ngày', 1)}<input id="to" type="date" class="field w-44" min="${v.from || '2026-11-04'}" value="${v.to}" aria-required="true" ${inv('to')}></div>
+          <div>${label('part', 'Thời lượng')}<select id="part" class="field w-40" ${multi ? 'disabled' : ''} aria-describedby="part-h"><option value="full" ${v.part === 'full' ? 'selected' : ''}>Cả ngày</option><option value="am" ${v.part === 'am' ? 'selected' : ''}>Buổi sáng</option><option value="pm" ${v.part === 'pm' ? 'selected' : ''}>Buổi chiều</option></select></div>
+        </div>
+        <div class="-mt-4">${fieldErr('to')}<p id="part-h" class="text-sm text-slate-600 mt-1">${multi ? 'Nghỉ nửa ngày chỉ áp dụng khi nghỉ trong một ngày.' : 'Chọn nửa ngày nếu chỉ nghỉ một buổi.'}</p></div>
+        <div class="max-w-xl rounded-md bg-slate-50 border border-slate-200 px-4 py-3" role="status" aria-live="polite">${calc}</div>
+        <div class="max-w-xl">${label('reason', 'Lý do', 1)}
+          <textarea id="reason" rows="3" maxlength="300" class="field" aria-required="true" ${inv('reason')} placeholder="Ví dụ: Về quê dự đám cưới em trai, có bàn giao việc cho chị Phương">${esc(v.reason)}</textarea>
+          <div class="flex justify-between"><div>${fieldErr('reason')}</div><span class="text-sm text-slate-600 tabular-nums mt-1">${v.reason.length}/300</span></div></div>
+      `)}
+      ${sec('Người duyệt', `
+        <div><label id="approver-l" class="block text-sm font-medium mb-1">Người duyệt <span aria-hidden="true">*</span></label>${combo()}${fieldErr('approver')}
+          <p class="mt-1 text-sm text-slate-600">Mặc định là quản lý trực tiếp của bạn.</p>
+          ${needsSecond() ? '<p class="mt-2 text-sm text-slate-800 max-w-xl rounded-md bg-amber-50 border border-amber-200 px-3 py-2">Đơn trên 3 ngày cần thêm bước duyệt của Đỗ Hoàng Anh (Giám đốc Nhân sự) sau khi cấp 1 đồng ý.</p>' : ''}</div>
+        <div class="max-w-xl">${label('contact', 'Số điện thoại liên hệ khi nghỉ')}<input id="contact" class="field w-56" inputmode="tel" placeholder="0912 345 678" value="${esc(v.contact)}"><p class="mt-1 text-sm text-slate-600">Không bắt buộc. Chỉ dùng cho việc gấp.</p></div>
+      `)}
+      ${sec('Giấy tờ đính kèm' + (needsDoc() ? ' <span aria-hidden="true">*</span>' : ''), attachments())}
+      <section class="bg-white border border-slate-200 rounded-md p-6"><h2 class="text-base font-semibold pb-2 mb-2 border-b border-slate-200">Đơn nghỉ gần đây</h2>
+        <div class="overflow-x-auto"><table class="w-full text-left"><thead class="text-slate-700"><tr class="h-10"><th class="pr-3 font-medium">Mã đơn</th><th class="pr-3 font-medium">Loại nghỉ</th><th class="pr-3 font-medium">Thời gian</th><th class="pr-3 font-medium text-right">Số ngày</th><th class="font-medium">Trạng thái</th></tr></thead><tbody>
+        ${RECENT.map(r => `<tr class="border-t border-slate-200 h-10"><td class="pr-3 whitespace-nowrap"><a data-nav href="#" class="text-blue-700 hover:underline">${r.id}</a></td><td class="pr-3 whitespace-nowrap">${r.type}</td><td class="pr-3 whitespace-nowrap tabular-nums">${r.range}</td><td class="pr-3 text-right tabular-nums">${r.days}</td><td><span class="inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${TONE[r.status[0]]}">${r.status[1]}</span></td></tr>`).join('')}
+        </tbody></table></div></section>
+      <div class="sticky bottom-0 -mx-6 px-6 py-3 flex items-center justify-end gap-3 border-t border-slate-200 bg-white">
+        <span role="status" class="mr-auto text-sm text-slate-600">${dirty && !S.submitting ? '<span aria-hidden="true" class="mr-1.5 inline-block w-1.5 h-1.5 rounded-full bg-amber-500"></span>Có thay đổi chưa lưu' : ''}</span>
+        <button type="button" id="cancel" class="btn btn-secondary">Hủy</button>
+        <button type="submit" id="submit" class="btn btn-primary" ${S.submitting ? 'disabled' : ''}>${S.submitting ? I.spin : ''}Gửi đơn</button>
+      </div>
+    </form>`;
+  }
+
+  function render(focusId, caret) {
+    const root = $('#root');
+    if (S.loading) root.innerHTML = skeleton();
+    else if (S.loadError) root.innerHTML = loadErrorView();
+    else if (S.done) root.innerHTML = doneView();
+    else {
+      root.innerHTML = form();
+      if (focusId) { const el = document.getElementById(focusId); if (el) { el.focus(); if (caret != null && el.setSelectionRange) try { el.setSelectionRange(caret, caret); } catch (e) {} } }
+    }
+  }
+
+  /* ---------- Helpers ---------- */
+  function toast(msg) {
+    const t = $('#toast'); t.innerHTML = `<div class="bg-slate-900 text-white rounded-md shadow-lg px-4 py-3">${esc(msg)}</div>`;
+    clearTimeout(toast.t); toast.t = setTimeout(() => t.innerHTML = '', 4000);
+  }
+  const dirty = () => !S.done && (JSON.stringify(S.v) !== initial || S.files.length > 0);
+  window.addEventListener('beforeunload', e => { if (dirty()) { e.preventDefault(); e.returnValue = ''; } });
+  let pendingLeave = null;
+  function guard(fn) {
+    if (!dirty()) return fn();
+    pendingLeave = fn; const d = $('#dlg'); d.classList.remove('hidden'); d.classList.add('flex'); $('#dlg-stay').focus();
+  }
+  function closeDlg() { const d = $('#dlg'); d.classList.add('hidden'); d.classList.remove('flex'); }
+  $('#dlg-stay').onclick = () => { closeDlg(); pendingLeave = null; };
+  $('#dlg-leave').onclick = () => { closeDlg(); const f = pendingLeave; pendingLeave = null; if (f) f(); };
+  document.addEventListener('keydown', e => { if (e.key === 'Escape') { if (!$('#dlg').classList.contains('hidden')) $('#dlg-stay').click(); else if (S.comboOpen) { S.comboOpen = false; render('approver'); } } });
+  function resetForm() { S.v = JSON.parse(initial); S.files.forEach(f => URL.revokeObjectURL(f.url)); S.files = []; S.errors = {}; S.touched = {}; S.submitted = false; S.serverErr = null; S.done = null; $('#banner').innerHTML = ''; render(); }
+  document.addEventListener('click', e => {
+    const a = e.target.closest('[data-nav]');
+    if (a) { e.preventDefault(); guard(() => { resetForm(); toast('Đã rời khỏi trang tạo đơn'); }); }
+  });
+
+  function load() {
+    S.loading = true; S.loadError = false; render();
+    setTimeout(() => { S.loading = false; S.loadError = params.get('state') === 'error' && !load.retried; render(); }, 500);
+  }
+
+  /* ---------- Events ---------- */
+  const root = $('#root');
+  root.addEventListener('click', e => {
+    const t = e.target;
+    if (t.closest('#retry')) { load.retried = true; load(); return; }
+    if (t.closest('#again')) { resetForm(); return; }
+    if (t.closest('#cancel')) { guard(() => { resetForm(); toast('Đã hủy soạn đơn'); }); return; }
+    const jump = t.closest('[data-jump]');
+    if (jump) { e.preventDefault(); const el = document.getElementById(jump.dataset.jump) || document.getElementById('files'); el.focus(); el.scrollIntoView({ block: 'center' }); return; }
+    if (t.closest('#approver')) { S.comboOpen = !S.comboOpen; S.q = ''; render(S.comboOpen ? 'combo-q' : 'approver'); return; }
+    if (t.closest('#clear-approver')) { S.v.approver = null; S.touched.approver = true; validate(['approver']); render('approver'); return; }
+    const pick = t.closest('[data-pick]');
+    if (pick) { S.v.approver = +pick.dataset.pick; S.comboOpen = false; S.errors.approver = ''; render('approver'); return; }
+    const rm = t.closest('[data-rm]');
+    if (rm) { const f = S.files.splice(+rm.dataset.rm, 1)[0]; URL.revokeObjectURL(f.url); if (S.touched.files || S.submitted) validate(['files']); render(); toast('Đã xóa ' + f.name); return; }
+    const pv = t.closest('[data-prev]');
+    if (pv) { window.open(S.files[+pv.dataset.prev].url, '_blank', 'noopener'); return; }
+    if (S.comboOpen && !t.closest('#approver') && !t.closest('[role=listbox]') && !t.closest('#combo-q')) { S.comboOpen = false; render(); }
+  });
+  root.addEventListener('input', e => {
+    const el = e.target, id = el.id;
+    if (id === 'combo-q') { S.q = el.value; render('combo-q', el.selectionStart); return; }
+    if (!['type', 'from', 'to', 'part', 'reason', 'contact'].includes(id)) return;
+    S.v[id] = el.value;
+    if (id === 'from' && S.v.to && S.v.to < S.v.from) S.v.to = S.v.from;
+    if (id === 'from' && !S.v.to) S.v.to = S.v.from;
+    if (S.v.from !== S.v.to) S.v.part = 'full';
+    if (id !== 'contact') { S.serverErr = null; }
+    // sau khi một trường đã lỗi: kiểm tra lại mỗi lần gõ; các trường phụ thuộc cũng được kiểm tra lại
+    ['type', 'from', 'to', 'reason', 'files'].forEach(k => { if (S.errors[k]) S.errors[k] = check(k); });
+    if (id === 'type' || id === 'from' || id === 'to') { if (S.touched.to || S.submitted) S.errors.to = check('to'); if (S.touched.files || S.submitted) S.errors.files = check('files'); }
+    render(id === 'type' || id === 'part' ? id : id, el.selectionStart);
+  });
+  root.addEventListener('focusout', e => {
+    const id = e.target.id;
+    if (!['type', 'from', 'to', 'reason'].includes(id)) return;
+    if (S.comboOpen) return;
+    S.touched[id] = true;
+    const before = S.errors[id]; validate([id]);
+    if (before !== S.errors[id]) setTimeout(() => { if (!document.activeElement || document.activeElement === document.body || document.activeElement.id === id) render(); else { const a = document.activeElement.id; render(a); } }, 0);
+  });
+  root.addEventListener('change', e => {
+    if (e.target.id === 'files') addFiles(e.target.files);
+  });
+  root.addEventListener('dragover', e => { if (e.target.closest('#drop')) e.preventDefault(); });
+  root.addEventListener('drop', e => { if (e.target.closest('#drop')) { e.preventDefault(); addFiles(e.dataTransfer.files); } });
+  function addFiles(list) {
+    const bad = [];
+    [...list].forEach(f => {
+      const ext = (f.name.split('.').pop() || '').toLowerCase();
+      if (!ALLOWED.includes(ext)) bad.push(f.name + ': định dạng .' + ext + ' không được hỗ trợ');
+      else if (f.size > MAX) bad.push(f.name + ': vượt quá 5 MB (' + fmtSize(f.size) + ')');
+      else if (S.files.some(x => x.name === f.name && x.size === f.size)) bad.push(f.name + ': tệp đã được đính kèm');
+      else S.files.push({ name: f.name, ext, size: f.size, url: URL.createObjectURL(f) });
+    });
+    S.touched.files = true; validate(['files']); render('files');
+    const m = $('#file-msg'); if (m && bad.length) m.innerHTML = bad.map(b => `<p class="err">${I.alert}<span>${esc(b)}</span></p>`).join('');
+  }
+
+  root.addEventListener('submit', e => {
+    e.preventDefault();
+    if (S.submitting) return;
+    S.submitted = true; S.serverErr = null; $('#banner').innerHTML = '';
+    validate(ORDER);
+    const errs = ORDER.filter(k => S.errors[k]);
+    if (errs.length) {
+      render(errs.length >= 3 ? 'summary' : errs[0] === 'files' ? 'files' : errs[0]);
+      const el = document.getElementById(errs[0]); if (errs.length >= 3) { const s = $('#summary'); if (s) s.focus(); } else if (el) el.focus();
+      return;
+    }
+    S.submitting = true; render();
+    setTimeout(() => {
+      S.submitting = false;
+      const clash = BOOKED.find(b => S.v.from <= b[1] && S.v.to >= b[0]);
+      if (clash) {
+        S.serverErr = { to: 'Trùng với đơn ' + clash[2] + ' đã được duyệt (' + fmtD(clash[0]) + ' – ' + fmtD(clash[1]) + '). Chọn khoảng ngày khác' };
+        S.errors.to = S.serverErr.to; render('to'); return;
+      }
+      if (params.get('state') === 'submit-error' && !submit.retried) {
+        submit.retried = true;
+        $('#banner').innerHTML = `<div class="rounded-md border border-red-200 bg-red-50 text-red-800 px-4 py-3 flex items-center justify-between gap-4"><span><strong>Chưa gửi được đơn.</strong> Máy chủ không phản hồi. Nội dung bạn nhập vẫn được giữ nguyên.</span><button id="banner-retry" class="btn btn-secondary shrink-0">Thử lại</button></div>`;
+        $('#banner-retry').onclick = () => $('#f').requestSubmit();
+        render(); return;
+      }
+      const id = 'NP-2026-0143';
+      S.done = { id, at: '04/11/2026 15:58' };
+      render(); window.scrollTo(0, 0);
+      toast('Đơn nghỉ phép ' + id + ' đã được gửi');
+    }, 800);
+  });
+  const submit = { retried: false };
+
+  load();
+})();
+</script>
+</body>
+</html>

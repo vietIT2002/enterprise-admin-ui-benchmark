@@ -1,0 +1,447 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sales Orders - ERP</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+tailwind.config = {
+  theme: { extend: {
+    fontFamily: { sans: ['Inter','ui-sans-serif','system-ui','Segoe UI','sans-serif'] },
+    colors: { brand: { 50:'#eef4ff',100:'#dbe7ff',500:'#2f5fd0',600:'#264fb3',700:'#1f4094' } }
+  } }
+}
+</script>
+<style>
+  body { font-feature-settings: "tnum" 1, "cv11" 1; }
+  .num { font-variant-numeric: tabular-nums; }
+  th[aria-sort] { cursor: pointer; user-select: none; }
+  .row-sel { background: #f3f7ff; }
+  .toast-in { animation: toast .2s ease-out; }
+  @keyframes toast { from { opacity:0; transform: translateY(8px);} to { opacity:1; transform:none; } }
+  @media (prefers-reduced-motion: reduce) { .toast-in { animation: none; } }
+</style>
+</head>
+<body class="bg-slate-50 text-slate-800 font-sans antialiased">
+
+<div class="flex min-h-screen">
+  <!-- Sidebar -->
+  <aside class="hidden lg:flex w-60 shrink-0 flex-col bg-slate-900 text-slate-300">
+    <div class="h-14 flex items-center gap-2 px-5 border-b border-slate-800">
+      <div class="w-7 h-7 rounded bg-brand-500 text-white grid place-items-center text-sm font-bold">N</div>
+      <span class="text-white font-semibold tracking-tight">Northwind ERP</span>
+    </div>
+    <nav class="flex-1 px-3 py-4 text-sm space-y-6" aria-label="Main">
+      <div>
+        <p class="px-2 mb-2 text-[11px] uppercase tracking-wider text-slate-500">Sales</p>
+        <a href="#" class="flex items-center gap-2 px-2 py-2 rounded bg-slate-800 text-white" aria-current="page">Orders <span class="ml-auto text-xs bg-slate-700 rounded px-1.5 py-0.5 num">248</span></a>
+        <a href="#" class="block px-2 py-2 rounded hover:bg-slate-800">Quotations</a>
+        <a href="#" class="block px-2 py-2 rounded hover:bg-slate-800">Customers</a>
+        <a href="#" class="block px-2 py-2 rounded hover:bg-slate-800">Invoices</a>
+        <a href="#" class="block px-2 py-2 rounded hover:bg-slate-800">Returns</a>
+      </div>
+      <div>
+        <p class="px-2 mb-2 text-[11px] uppercase tracking-wider text-slate-500">Operations</p>
+        <a href="#" class="block px-2 py-2 rounded hover:bg-slate-800">Inventory</a>
+        <a href="#" class="block px-2 py-2 rounded hover:bg-slate-800">Purchasing</a>
+        <a href="#" class="block px-2 py-2 rounded hover:bg-slate-800">Shipping</a>
+      </div>
+      <div>
+        <p class="px-2 mb-2 text-[11px] uppercase tracking-wider text-slate-500">Finance</p>
+        <a href="#" class="block px-2 py-2 rounded hover:bg-slate-800">Payments</a>
+        <a href="#" class="block px-2 py-2 rounded hover:bg-slate-800">Reports</a>
+      </div>
+    </nav>
+    <div class="p-4 border-t border-slate-800 flex items-center gap-3 text-sm">
+      <div class="w-8 h-8 rounded-full bg-slate-700 grid place-items-center text-white text-xs font-semibold">LM</div>
+      <div class="leading-tight"><p class="text-white">Laura Meyer</p><p class="text-xs text-slate-500">Sales Manager</p></div>
+    </div>
+  </aside>
+
+  <!-- Main -->
+  <div class="flex-1 min-w-0 flex flex-col">
+    <header class="h-14 bg-white border-b border-slate-200 flex items-center gap-4 px-4 sm:px-6">
+      <nav aria-label="Breadcrumb" class="text-sm text-slate-500"><span>Sales</span> <span class="mx-1">/</span> <span class="text-slate-900 font-medium">Orders</span></nav>
+      <div class="ml-auto flex items-center gap-3 text-sm text-slate-500">
+        <span class="hidden sm:inline">Warehouse: <strong class="text-slate-700 font-medium">Rotterdam DC</strong></span>
+        <button class="rounded-md border border-slate-300 px-2.5 py-1.5 hover:bg-slate-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500" aria-label="Notifications">Alerts <span class="ml-1 rounded-full bg-rose-600 text-white text-[11px] px-1.5">3</span></button>
+      </div>
+    </header>
+
+    <main class="flex-1 p-4 sm:p-6 max-w-[1500px] w-full mx-auto">
+      <div class="flex flex-wrap items-start justify-between gap-3 mb-5">
+        <div>
+          <h1 class="text-xl font-semibold tracking-tight text-slate-900">Sales orders</h1>
+          <p class="text-sm text-slate-500 mt-0.5">Track, fulfil and invoice customer orders. Data as of <span id="asof"></span>.</p>
+        </div>
+        <div class="flex items-center gap-2">
+          <button id="btnExport" class="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-medium hover:bg-slate-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500">Export CSV</button>
+          <button id="btnNew" class="rounded-md bg-brand-600 px-3.5 py-2 text-sm font-medium text-white hover:bg-brand-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-brand-500">+ New order</button>
+        </div>
+      </div>
+
+      <!-- KPIs -->
+      <section class="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-5" aria-label="Summary" id="kpis"></section>
+
+      <!-- Table card -->
+      <section class="bg-white border border-slate-200 rounded-lg shadow-sm">
+        <!-- Status tabs -->
+        <div class="border-b border-slate-200 px-2 sm:px-4 overflow-x-auto">
+          <div role="tablist" aria-label="Order status" id="tabs" class="flex gap-1 min-w-max"></div>
+        </div>
+
+        <!-- Toolbar -->
+        <div class="p-3 sm:p-4 flex flex-wrap items-center gap-2 border-b border-slate-200">
+          <div class="relative grow sm:grow-0 sm:w-80">
+            <label for="q" class="sr-only">Search orders</label>
+            <svg class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="9" cy="9" r="6"/><path d="m14 14 4 4" stroke-linecap="round"/></svg>
+            <input id="q" type="search" placeholder="Search order no., customer, SKU, PO..." class="w-full rounded-md border border-slate-300 pl-9 pr-3 py-2 text-sm placeholder:text-slate-400 focus:outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-100">
+          </div>
+          <label class="sr-only" for="fPay">Payment</label>
+          <select id="fPay" class="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-100 focus:border-brand-500">
+            <option value="">Payment: all</option><option>Paid</option><option>Partial</option><option>Unpaid</option><option>Overdue</option>
+          </select>
+          <label class="sr-only" for="fChan">Channel</label>
+          <select id="fChan" class="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-100 focus:border-brand-500">
+            <option value="">Channel: all</option><option>Direct</option><option>Web portal</option><option>EDI</option><option>Distributor</option>
+          </select>
+          <label class="sr-only" for="fRep">Sales rep</label>
+          <select id="fRep" class="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-100 focus:border-brand-500">
+            <option value="">Sales rep: all</option>
+          </select>
+          <label class="sr-only" for="fDate">Date range</label>
+          <select id="fDate" class="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-100 focus:border-brand-500">
+            <option value="">Any date</option><option value="7">Last 7 days</option><option value="30">Last 30 days</option><option value="90">Last 90 days</option>
+          </select>
+          <button id="btnReset" class="text-sm text-brand-600 hover:underline px-1 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 rounded">Clear filters</button>
+          <p class="ml-auto text-sm text-slate-500" id="count" aria-live="polite"></p>
+        </div>
+
+        <!-- Bulk bar -->
+        <div id="bulk" class="hidden items-center gap-2 px-4 py-2.5 bg-brand-50 border-b border-brand-100 text-sm flex-wrap" role="region" aria-label="Bulk actions">
+          <span class="font-medium text-brand-700"><span id="selN">0</span> selected</span>
+          <span class="text-slate-400">|</span>
+          <button data-bulk="confirm" class="rounded-md border border-brand-100 bg-white px-2.5 py-1.5 font-medium hover:bg-brand-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500">Confirm</button>
+          <button data-bulk="ship" class="rounded-md border border-brand-100 bg-white px-2.5 py-1.5 font-medium hover:bg-brand-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500">Mark shipped</button>
+          <button data-bulk="invoice" class="rounded-md border border-brand-100 bg-white px-2.5 py-1.5 font-medium hover:bg-brand-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500">Create invoices</button>
+          <button data-bulk="print" class="rounded-md border border-brand-100 bg-white px-2.5 py-1.5 font-medium hover:bg-brand-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500">Print picking lists</button>
+          <button data-bulk="cancel" class="rounded-md border border-rose-200 bg-white px-2.5 py-1.5 font-medium text-rose-700 hover:bg-rose-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-rose-500">Cancel orders</button>
+          <button id="selClear" class="ml-auto text-slate-600 hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 rounded">Deselect all</button>
+        </div>
+
+        <!-- Table -->
+        <div class="overflow-x-auto">
+          <table class="w-full text-sm min-w-[980px]">
+            <thead class="bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
+              <tr class="border-b border-slate-200">
+                <th class="w-10 pl-4 py-3 text-left"><input id="all" type="checkbox" aria-label="Select all orders on this page" class="h-4 w-4 rounded border-slate-300 text-brand-600 focus:ring-brand-500"></th>
+                <th class="px-3 py-3 text-left font-semibold" data-sort="no" aria-sort="none" tabindex="0">Order</th>
+                <th class="px-3 py-3 text-left font-semibold" data-sort="customer" aria-sort="none" tabindex="0">Customer</th>
+                <th class="px-3 py-3 text-left font-semibold" data-sort="date" aria-sort="none" tabindex="0">Date</th>
+                <th class="px-3 py-3 text-left font-semibold" data-sort="status" aria-sort="none" tabindex="0">Status</th>
+                <th class="px-3 py-3 text-left font-semibold" data-sort="pay" aria-sort="none" tabindex="0">Payment</th>
+                <th class="px-3 py-3 text-right font-semibold" data-sort="items" aria-sort="none" tabindex="0">Items</th>
+                <th class="px-3 py-3 text-right font-semibold" data-sort="total" aria-sort="none" tabindex="0">Total</th>
+                <th class="w-12 pr-4 py-3"><span class="sr-only">Actions</span></th>
+              </tr>
+            </thead>
+            <tbody id="rows" class="divide-y divide-slate-100"></tbody>
+          </table>
+        </div>
+
+        <div id="empty" class="hidden py-16 text-center">
+          <p class="text-slate-900 font-medium">No orders match these filters</p>
+          <p class="text-sm text-slate-500 mt-1">Try a different search term or clear the filters.</p>
+          <button id="btnEmptyReset" class="mt-4 rounded-md border border-slate-300 px-3 py-2 text-sm font-medium hover:bg-slate-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500">Clear filters</button>
+        </div>
+
+        <!-- Pagination -->
+        <div class="flex flex-wrap items-center justify-between gap-3 px-4 py-3 border-t border-slate-200 text-sm text-slate-600">
+          <div class="flex items-center gap-2">
+            <label for="pageSize">Rows per page</label>
+            <select id="pageSize" class="rounded-md border border-slate-300 bg-white px-2 py-1 focus:outline-none focus:ring-2 focus:ring-brand-100">
+              <option>10</option><option selected>15</option><option>25</option><option>50</option>
+            </select>
+          </div>
+          <span id="range" class="num"></span>
+          <div class="flex items-center gap-1">
+            <button id="prev" class="rounded-md border border-slate-300 px-3 py-1.5 hover:bg-slate-50 disabled:opacity-40 disabled:hover:bg-white focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500">Previous</button>
+            <span id="pageInfo" class="px-2 num"></span>
+            <button id="next" class="rounded-md border border-slate-300 px-3 py-1.5 hover:bg-slate-50 disabled:opacity-40 disabled:hover:bg-white focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500">Next</button>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+</div>
+
+<!-- Row menu -->
+<div id="menu" class="hidden fixed z-30 w-48 rounded-md border border-slate-200 bg-white py-1 text-sm shadow-lg" role="menu"></div>
+
+<!-- Confirm dialog -->
+<div id="dlg" class="hidden fixed inset-0 z-40 bg-slate-900/40 grid place-items-center p-4" role="dialog" aria-modal="true" aria-labelledby="dlgT">
+  <div class="w-full max-w-md rounded-lg bg-white p-5 shadow-xl">
+    <h2 id="dlgT" class="text-base font-semibold text-slate-900"></h2>
+    <p id="dlgB" class="mt-2 text-sm text-slate-600"></p>
+    <div class="mt-5 flex justify-end gap-2">
+      <button id="dlgNo" class="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium hover:bg-slate-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500">Keep orders</button>
+      <button id="dlgYes" class="rounded-md bg-brand-600 px-3 py-2 text-sm font-medium text-white hover:bg-brand-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-brand-500">Confirm</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast" class="fixed bottom-5 left-1/2 -translate-x-1/2 z-50" role="status" aria-live="polite"></div>
+
+<script>
+(function () {
+  const TODAY = new Date('2026-11-04T12:00:00');
+  const customers = ['Hartmann Maschinenbau GmbH','Brightway Logistics','Oakridge Hospital Supply','Delta Fresh Foods','Nordlicht Retail AG','Pinecrest Hardware','Atlas Marine Services','Verdant Garden Centers','Kessler & Sons','Summit Outdoor Co.','Lumen Electronics BV','Corvo Pharma SpA','Bluepeak Construction','Marlow Office Supplies','Tessera Automotive','Harbor Street Cafe Group'];
+  const reps = ['Laura Meyer','Daniel Okafor','Priya Nair','Tomas Novak'];
+  const channels = ['Direct','Web portal','EDI','Distributor'];
+  const statuses = ['Draft','Confirmed','Processing','Shipped','Delivered','Cancelled'];
+  const skus = ['VLV-2040','PMP-118','BRG-6204','FLT-770','CBL-M12','SNS-PT100','GSK-DN50','MTR-0.75K'];
+
+  // deterministic pseudo-random
+  let seed = 7; const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+  const pick = a => a[Math.floor(rnd() * a.length)];
+
+  const orders = [];
+  for (let i = 0; i < 96; i++) {
+    const age = Math.floor(rnd() * 100);
+    const d = new Date(TODAY); d.setDate(d.getDate() - age);
+    let st = age < 3 ? pick(['Draft','Confirmed','Confirmed','Processing']) : age < 12 ? pick(['Confirmed','Processing','Processing','Shipped','Cancelled']) : pick(['Shipped','Delivered','Delivered','Delivered','Cancelled']);
+    const items = 1 + Math.floor(rnd() * 14);
+    const total = Math.round((items * (80 + rnd() * 900)) * 100) / 100;
+    let pay;
+    if (st === 'Cancelled' || st === 'Draft') pay = 'Unpaid';
+    else if (st === 'Delivered') pay = pick(['Paid','Paid','Paid','Partial','Overdue']);
+    else pay = pick(['Paid','Partial','Unpaid','Unpaid']);
+    if (st === 'Cancelled') pay = 'Unpaid';
+    orders.push({
+      id: i, no: 'SO-' + (24180 - i * 2), po: 'PO-' + (100000 + Math.floor(rnd() * 899999)),
+      customer: pick(customers), rep: pick(reps), channel: pick(channels), date: d, status: st, pay,
+      items, total, sku: pick(skus)
+    });
+  }
+
+  const state = { q:'', tab:'All', pay:'', chan:'', rep:'', days:'', sort:{k:'date',dir:-1}, page:1, size:15, sel:new Set() };
+  const $ = s => document.querySelector(s);
+  const fmt = n => n.toLocaleString('en-US',{style:'currency',currency:'USD'});
+  const fdate = d => d.toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'});
+  const esc = s => String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+
+  const stCls = {
+    Draft:'bg-slate-100 text-slate-700 ring-slate-200', Confirmed:'bg-blue-50 text-blue-800 ring-blue-200',
+    Processing:'bg-amber-50 text-amber-800 ring-amber-200', Shipped:'bg-indigo-50 text-indigo-800 ring-indigo-200',
+    Delivered:'bg-emerald-50 text-emerald-800 ring-emerald-200', Cancelled:'bg-rose-50 text-rose-800 ring-rose-200'
+  };
+  const dot = { Draft:'bg-slate-400', Confirmed:'bg-blue-500', Processing:'bg-amber-500', Shipped:'bg-indigo-500', Delivered:'bg-emerald-500', Cancelled:'bg-rose-500' };
+  const payCls = { Paid:'text-emerald-700', Partial:'text-amber-700', Unpaid:'text-slate-600', Overdue:'text-rose-700 font-semibold' };
+
+  $('#asof').textContent = fdate(TODAY);
+  reps.forEach(r => $('#fRep').insertAdjacentHTML('beforeend', `<option>${r}</option>`));
+
+  function matchBase(o) {
+    if (state.q) {
+      const q = state.q.toLowerCase();
+      if (![o.no,o.customer,o.po,o.sku,o.rep].some(v => v.toLowerCase().includes(q))) return false;
+    }
+    if (state.pay && o.pay !== state.pay) return false;
+    if (state.chan && o.channel !== state.chan) return false;
+    if (state.rep && o.rep !== state.rep) return false;
+    if (state.days && (TODAY - o.date) / 864e5 > +state.days) return false;
+    return true;
+  }
+  const filtered = () => {
+    const k = state.sort.k, dir = state.sort.dir;
+    return orders.filter(o => matchBase(o) && (state.tab === 'All' || o.status === state.tab))
+      .sort((a, b) => {
+        const x = k === 'date' ? a.date : a[k], y = k === 'date' ? b.date : b[k];
+        return (x > y ? 1 : x < y ? -1 : 0) * dir;
+      });
+  };
+
+  function renderKpis() {
+    const base = orders.filter(matchBase);
+    const open = base.filter(o => ['Confirmed','Processing'].includes(o.status));
+    const toShip = base.filter(o => o.status === 'Processing').length;
+    const over = base.filter(o => o.pay === 'Overdue');
+    const rev30 = base.filter(o => o.status !== 'Cancelled' && o.status !== 'Draft' && (TODAY - o.date)/864e5 <= 30).reduce((s,o)=>s+o.total,0);
+    const cards = [
+      ['Revenue, last 30 days', fmt(rev30), 'Excludes drafts and cancelled'],
+      ['Open orders', open.length, fmt(open.reduce((s,o)=>s+o.total,0)) + ' pending value'],
+      ['Awaiting shipment', toShip, 'In processing at warehouse'],
+      ['Overdue payments', over.length, fmt(over.reduce((s,o)=>s+o.total,0)) + ' outstanding']
+    ];
+    $('#kpis').innerHTML = cards.map((c,i) => `
+      <div class="bg-white border border-slate-200 rounded-lg px-4 py-3 shadow-sm">
+        <p class="text-xs text-slate-500">${c[0]}</p>
+        <p class="mt-1 text-2xl font-semibold tracking-tight num ${i===3 && over.length ? 'text-rose-700':'text-slate-900'}">${c[1]}</p>
+        <p class="mt-0.5 text-xs text-slate-500 num">${c[2]}</p>
+      </div>`).join('');
+  }
+
+  function renderTabs() {
+    const base = orders.filter(matchBase);
+    const tabs = ['All', ...statuses];
+    $('#tabs').innerHTML = tabs.map(t => {
+      const n = t === 'All' ? base.length : base.filter(o => o.status === t).length;
+      const on = state.tab === t;
+      return `<button role="tab" aria-selected="${on}" data-tab="${t}" class="relative px-3 py-3 text-sm whitespace-nowrap focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand-500 ${on ? 'text-brand-700 font-semibold' : 'text-slate-600 hover:text-slate-900'}">
+        ${t} <span class="ml-1 rounded-full px-1.5 py-0.5 text-xs num ${on ? 'bg-brand-50 text-brand-700' : 'bg-slate-100 text-slate-600'}">${n}</span>
+        ${on ? '<span class="absolute inset-x-2 -bottom-px h-0.5 bg-brand-600"></span>' : ''}</button>`;
+    }).join('');
+  }
+
+  function render() {
+    const list = filtered();
+    const pages = Math.max(1, Math.ceil(list.length / state.size));
+    if (state.page > pages) state.page = pages;
+    const start = (state.page - 1) * state.size;
+    const pageRows = list.slice(start, start + state.size);
+
+    $('#rows').innerHTML = pageRows.map(o => `
+      <tr class="${state.sel.has(o.id) ? 'row-sel' : 'hover:bg-slate-50'}">
+        <td class="pl-4 py-3"><input type="checkbox" data-id="${o.id}" ${state.sel.has(o.id)?'checked':''} aria-label="Select ${o.no}" class="h-4 w-4 rounded border-slate-300 text-brand-600 focus:ring-brand-500"></td>
+        <td class="px-3 py-3"><a href="#" class="font-medium text-brand-700 hover:underline num">${o.no}</a><div class="text-xs text-slate-500 num">${o.po}</div></td>
+        <td class="px-3 py-3"><div class="text-slate-900">${esc(o.customer)}</div><div class="text-xs text-slate-500">${o.rep} &middot; ${o.channel}</div></td>
+        <td class="px-3 py-3 whitespace-nowrap text-slate-700 num">${fdate(o.date)}</td>
+        <td class="px-3 py-3"><span class="inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-xs font-medium ring-1 ring-inset ${stCls[o.status]}"><span class="h-1.5 w-1.5 rounded-full ${dot[o.status]}"></span>${o.status}</span></td>
+        <td class="px-3 py-3 ${payCls[o.pay]}">${o.pay}</td>
+        <td class="px-3 py-3 text-right num text-slate-700">${o.items}</td>
+        <td class="px-3 py-3 text-right num font-medium text-slate-900 whitespace-nowrap">${fmt(o.total)}</td>
+        <td class="pr-4 py-3 text-right"><button data-menu="${o.id}" aria-haspopup="menu" aria-label="Actions for ${o.no}" class="rounded p-1 text-slate-500 hover:bg-slate-100 hover:text-slate-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500">
+          <svg class="w-5 h-5" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><circle cx="10" cy="4" r="1.6"/><circle cx="10" cy="10" r="1.6"/><circle cx="10" cy="16" r="1.6"/></svg></button></td>
+      </tr>`).join('');
+
+    $('#empty').classList.toggle('hidden', list.length > 0);
+    $('#count').textContent = list.length + (list.length === 1 ? ' order' : ' orders');
+    $('#range').textContent = list.length ? `${start + 1}-${start + pageRows.length} of ${list.length}` : '0 results';
+    $('#pageInfo').textContent = `Page ${state.page} / ${pages}`;
+    $('#prev').disabled = state.page <= 1; $('#next').disabled = state.page >= pages;
+
+    const allOn = pageRows.length && pageRows.every(o => state.sel.has(o.id));
+    const some = pageRows.some(o => state.sel.has(o.id));
+    $('#all').checked = !!allOn; $('#all').indeterminate = !allOn && some;
+    $('#selN').textContent = state.sel.size;
+    const bulk = $('#bulk'); bulk.classList.toggle('hidden', !state.sel.size); bulk.classList.toggle('flex', !!state.sel.size);
+
+    document.querySelectorAll('th[data-sort]').forEach(th => {
+      const on = th.dataset.sort === state.sort.k;
+      th.setAttribute('aria-sort', on ? (state.sort.dir === 1 ? 'ascending' : 'descending') : 'none');
+      th.querySelector('i')?.remove();
+      if (on) th.insertAdjacentHTML('beforeend', `<i class="not-italic ml-1 text-brand-600">${state.sort.dir === 1 ? '&uarr;' : '&darr;'}</i>`);
+    });
+    renderTabs(); renderKpis();
+  }
+
+  function toast(msg) {
+    const t = $('#toast');
+    t.innerHTML = `<div class="toast-in rounded-md bg-slate-900 text-white text-sm px-4 py-2.5 shadow-lg">${esc(msg)}</div>`;
+    clearTimeout(toast.t); toast.t = setTimeout(() => t.innerHTML = '', 3200);
+  }
+
+  // Events
+  let dbt;
+  $('#q').addEventListener('input', e => { clearTimeout(dbt); dbt = setTimeout(() => { state.q = e.target.value.trim(); state.page = 1; render(); }, 150); });
+  [['#fPay','pay'],['#fChan','chan'],['#fRep','rep'],['#fDate','days']].forEach(([s,k]) =>
+    $(s).addEventListener('change', e => { state[k] = e.target.value; state.page = 1; render(); }));
+  function reset() {
+    Object.assign(state, {q:'',tab:'All',pay:'',chan:'',rep:'',days:'',page:1});
+    $('#q').value=''; ['#fPay','#fChan','#fRep','#fDate'].forEach(s => $(s).value=''); render();
+  }
+  $('#btnReset').onclick = reset; $('#btnEmptyReset').onclick = reset;
+  $('#tabs').addEventListener('click', e => { const b = e.target.closest('[data-tab]'); if (b) { state.tab = b.dataset.tab; state.page = 1; render(); } });
+  $('#pageSize').onchange = e => { state.size = +e.target.value; state.page = 1; render(); };
+  $('#prev').onclick = () => { state.page--; render(); };
+  $('#next').onclick = () => { state.page++; render(); };
+
+  document.querySelectorAll('th[data-sort]').forEach(th => {
+    const go = () => { const k = th.dataset.sort; state.sort = state.sort.k === k ? {k, dir: -state.sort.dir} : {k, dir: 1}; render(); };
+    th.addEventListener('click', go);
+    th.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); go(); } });
+  });
+
+  $('#rows').addEventListener('change', e => {
+    if (e.target.dataset.id === undefined) return;
+    const id = +e.target.dataset.id; e.target.checked ? state.sel.add(id) : state.sel.delete(id); render();
+  });
+  $('#all').addEventListener('change', e => {
+    const list = filtered(); const s = (state.page-1)*state.size;
+    list.slice(s, s+state.size).forEach(o => e.target.checked ? state.sel.add(o.id) : state.sel.delete(o.id)); render();
+  });
+  $('#selClear').onclick = () => { state.sel.clear(); render(); };
+
+  // Dialog
+  let onYes = null, lastFocus = null;
+  function ask(title, body, yesLabel, danger, cb) {
+    lastFocus = document.activeElement;
+    $('#dlgT').textContent = title; $('#dlgB').textContent = body; $('#dlgYes').textContent = yesLabel;
+    $('#dlgYes').className = 'rounded-md px-3 py-2 text-sm font-medium text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 ' + (danger ? 'bg-rose-600 hover:bg-rose-700 focus-visible:ring-rose-500' : 'bg-brand-600 hover:bg-brand-700 focus-visible:ring-brand-500');
+    onYes = cb; $('#dlg').classList.remove('hidden'); $('#dlgNo').focus();
+  }
+  const closeDlg = () => { $('#dlg').classList.add('hidden'); onYes = null; lastFocus && lastFocus.focus(); };
+  $('#dlgNo').onclick = closeDlg;
+  $('#dlgYes').onclick = () => { const f = onYes; closeDlg(); f && f(); };
+
+  const verbs = { confirm:['Confirmed','confirmed'], ship:['Shipped','marked as shipped'], invoice:[null,'invoiced'], print:[null,'sent to print'], cancel:['Cancelled','cancelled'] };
+  function apply(action, ids) {
+    const [newSt, word] = verbs[action];
+    let n = 0, skipped = 0;
+    ids.forEach(id => {
+      const o = orders[id];
+      const ok = action === 'confirm' ? o.status === 'Draft'
+        : action === 'ship' ? ['Confirmed','Processing'].includes(o.status)
+        : action === 'cancel' ? ['Draft','Confirmed','Processing'].includes(o.status)
+        : action === 'invoice' ? ['Shipped','Delivered'].includes(o.status)
+        : o.status !== 'Cancelled';
+      if (!ok) { skipped++; return; }
+      if (newSt) o.status = newSt;
+      n++;
+    });
+    state.sel.clear(); render();
+    toast(`${n} order${n===1?'':'s'} ${word}` + (skipped ? `, ${skipped} skipped (not eligible)` : ''));
+  }
+  function run(action, ids) {
+    if (action === 'cancel') {
+      ask(`Cancel ${ids.length} order${ids.length===1?'':'s'}?`, 'Stock reservations will be released. Shipped and delivered orders are not affected.', 'Cancel orders', true, () => apply(action, ids));
+    } else apply(action, ids);
+  }
+  $('#bulk').addEventListener('click', e => { const b = e.target.closest('[data-bulk]'); if (b) run(b.dataset.bulk, [...state.sel]); });
+
+  // Row menu
+  const menu = $('#menu');
+  const closeMenu = () => menu.classList.add('hidden');
+  $('#rows').addEventListener('click', e => {
+    const b = e.target.closest('[data-menu]'); if (!b) return;
+    e.stopPropagation();
+    const id = +b.dataset.menu;
+    const items = [['View details','view'],['Duplicate','dup'],['Confirm','confirm'],['Mark shipped','ship'],['Create invoice','invoice'],['Cancel order','cancel']];
+    menu.innerHTML = items.map(([l,a]) => `<button role="menuitem" data-act="${a}" data-oid="${id}" class="block w-full text-left px-3 py-2 hover:bg-slate-50 focus:bg-slate-50 focus:outline-none ${a==='cancel'?'text-rose-700 border-t border-slate-100 mt-1':''}">${l}</button>`).join('');
+    const r = b.getBoundingClientRect();
+    menu.style.top = Math.min(r.bottom + 4, window.innerHeight - 250) + 'px';
+    menu.style.left = Math.max(8, r.right - 192) + 'px';
+    menu.classList.remove('hidden'); menu.querySelector('button').focus();
+  });
+  menu.addEventListener('click', e => {
+    const b = e.target.closest('[data-act]'); if (!b) return;
+    const id = +b.dataset.oid, a = b.dataset.act; closeMenu();
+    if (a === 'view') toast('Opening ' + orders[id].no);
+    else if (a === 'dup') toast('Draft created from ' + orders[id].no);
+    else run(a, [id]);
+  });
+  document.addEventListener('click', e => { if (!menu.contains(e.target)) closeMenu(); });
+  document.addEventListener('keydown', e => { if (e.key === 'Escape') { closeMenu(); if (!$('#dlg').classList.contains('hidden')) closeDlg(); } });
+
+  $('#btnExport').onclick = () => {
+    const rows = state.sel.size ? orders.filter(o => state.sel.has(o.id)) : filtered();
+    toast(`Exporting ${rows.length} order${rows.length===1?'':'s'} to CSV`);
+  };
+  $('#btnNew').onclick = () => toast('New order form would open here');
+
+  render();
+})();
+</script>
+</body>
+</html>

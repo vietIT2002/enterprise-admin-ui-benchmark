@@ -1,0 +1,496 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Cài đặt công ty - Sao Việt Admin</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+  html { scroll-padding-bottom: 80px; }
+  body { font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; }
+  dialog::backdrop { background: rgba(15, 23, 42, .4); }
+  @keyframes sk { 0%,100% { opacity: 1 } 50% { opacity: .5 } }
+  .sk { animation: sk 1.4s ease-in-out infinite; background: #e2e8f0; border-radius: 4px; }
+</style>
+</head>
+<body class="bg-white text-slate-900 text-sm">
+
+<div class="flex min-h-screen">
+  <!-- App sidebar -->
+  <aside class="hidden md:flex w-56 shrink-0 flex-col border-r border-slate-200 bg-slate-50">
+    <div class="flex h-12 items-center gap-2 border-b border-slate-200 px-4">
+      <span class="grid size-6 place-items-center rounded bg-slate-200 text-xs font-semibold text-slate-800" aria-hidden="true">SV</span>
+      <span class="font-semibold">Sao Việt</span>
+    </div>
+    <nav aria-label="Menu chính" class="flex flex-col gap-4 p-2" id="appnav"></nav>
+  </aside>
+
+  <div class="flex min-w-0 flex-1 flex-col">
+    <header class="flex h-12 items-center justify-between gap-3 border-b border-slate-200 px-4">
+      <button type="button" class="flex h-8 w-full max-w-sm items-center gap-2 rounded border border-slate-300 bg-white px-2 text-left text-slate-600">
+        <span id="i-search"></span><span class="flex-1">Tìm kiếm hoặc chạy lệnh</span><kbd class="rounded border border-slate-300 px-1 text-xs">Ctrl K</kbd>
+      </button>
+      <div class="flex items-center gap-2">
+        <button type="button" class="relative grid size-8 place-items-center rounded hover:bg-slate-100" aria-label="Thông báo, 3 chưa đọc"><span id="i-bell"></span><span class="absolute right-0.5 top-0.5 rounded-full bg-red-600 px-1 text-[10px] font-medium leading-4 text-white" aria-hidden="true">3</span></button>
+        <button type="button" class="grid size-8 place-items-center rounded-full bg-slate-200 text-xs font-medium text-slate-800" aria-label="Menu tài khoản">LH</button>
+      </div>
+    </header>
+
+    <main class="min-w-0 flex-1 p-6">
+      <nav aria-label="Breadcrumb" class="mb-2">
+        <ol class="flex items-center gap-1 text-slate-600">
+          <li><a href="#general" class="inline-flex min-h-6 items-center hover:underline">Cài đặt</a></li>
+          <li aria-hidden="true">/</li>
+          <li><span aria-current="page" class="text-slate-900" id="crumb">Thông tin chung</span></li>
+        </ol>
+      </nav>
+
+      <div class="flex flex-col gap-6 lg:flex-row lg:gap-10">
+        <!-- Settings navigation -->
+        <div class="lg:w-60 lg:shrink-0">
+          <label for="navsel" class="mb-1 block text-xs font-medium text-slate-700 lg:hidden">Mục cài đặt</label>
+          <select id="navsel" class="h-8 w-full rounded border border-slate-300 bg-white px-2 lg:hidden"></select>
+          <nav aria-label="Cài đặt" class="hidden lg:sticky lg:top-6 lg:block" id="setnav"></nav>
+        </div>
+
+        <!-- Section content -->
+        <div class="min-w-0 max-w-3xl flex-1" id="content" aria-live="polite"></div>
+      </div>
+    </main>
+  </div>
+</div>
+
+<!-- Toast -->
+<div id="toast" role="status" class="pointer-events-none fixed bottom-20 right-6 z-50"></div>
+
+<dialog id="dlg" class="w-[min(30rem,calc(100vw-2rem))] rounded-lg border border-slate-200 bg-white p-0 text-slate-900 shadow-xl"></dialog>
+
+<script>
+/* ---------- Helpers ---------- */
+const $ = (s, r = document) => r.querySelector(s);
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const P = {
+  search: '<circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/>',
+  bell: '<path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/>',
+  home: '<path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><path d="M9 22V12h6v10"/>',
+  receipt: '<path d="M4 2v20l2-1 2 1 2-1 2 1 2-1 2 1 2-1 2 1V2l-2 1-2-1-2 1-2-1-2 1-2-1-2 1Z"/><path d="M16 8h-6a2 2 0 1 0 0 4h4a2 2 0 1 1 0 4H8"/>',
+  box: '<path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/><path d="m3.3 7 8.7 5 8.7-5"/><path d="M12 22V12"/>',
+  users: '<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>',
+  chart: '<path d="M3 3v16a2 2 0 0 0 2 2h16"/><path d="M18 17V9"/><path d="M13 17V5"/><path d="M8 17v-3"/>',
+  gear: '<path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/>',
+  alert: '<circle cx="12" cy="12" r="10"/><path d="M12 8v4"/><path d="M12 16h.01"/>',
+  check: '<path d="M20 6 9 17l-5-5"/>',
+  spin: '<path d="M21 12a9 9 0 1 1-6.219-8.56"/>',
+  image: '<rect width="18" height="18" x="3" y="3" rx="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.1-3.1a2 2 0 0 0-2.8 0L6 21"/>',
+  history: '<path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M12 7v5l4 2"/>'
+};
+const ic = (n, c = '') => `<svg class="size-4 shrink-0 ${c}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${P[n]}</svg>`;
+$('#i-search').innerHTML = ic('search'); $('#i-bell').innerHTML = ic('bell');
+
+/* ---------- Mock data ---------- */
+const COMPANY = { users: 24, orders: 1284, invoices: 312 };
+const MEMBERS = ['Trần Minh Quân (Quản lý tài chính)', 'Phạm Ngọc Anh (Giám đốc vận hành)', 'Nguyễn Văn Hậu (Quản trị hệ thống)'];
+const TZ = [['Asia/Ho_Chi_Minh','Hồ Chí Minh'],['Asia/Bangkok','Bangkok'],['Asia/Singapore','Singapore'],['Asia/Tokyo','Tokyo'],['Europe/London','London'],['America/New_York','New York'],['America/Los_Angeles','Los Angeles']];
+const CUR = [['VND','Đồng Việt Nam (VND)'],['USD','Đô la Mỹ (USD)'],['EUR','Euro (EUR)'],['JPY','Yên Nhật (JPY)'],['SGD','Đô la Singapore (SGD)']];
+const DATEF = [['dd/MM/yyyy','dd/MM/yyyy'],['MM/dd/yyyy','MM/dd/yyyy'],['yyyy-MM-dd','yyyy-MM-dd'],['dd MMM yyyy','dd MMM yyyy']];
+const NUMF = [['vi-VN','1.234.567,89'],['en-US','1,234,567.89'],['fr-FR','1 234 567,89']];
+const EVENTS = [
+  ['overdue','Hóa đơn quá hạn','Khi một hóa đơn quá hạn thanh toán'],
+  ['approval','Yêu cầu chờ phê duyệt','Khi bạn là người duyệt tiếp theo'],
+  ['delivery','Giao hàng thất bại','Khi đơn hàng bị hoàn hoặc giao không thành công'],
+  ['stock','Tồn kho dưới mức tối thiểu','Khi sản phẩm xuống dưới định mức tồn'],
+  ['newuser','Người dùng mới tham gia','Khi có người chấp nhận lời mời vào công ty'],
+  ['security','Đăng nhập bất thường','Khi phát hiện đăng nhập từ thiết bị hoặc quốc gia lạ']
+];
+const DIGEST = [['now','Ngay lập tức'],['daily','Hằng ngày, 08:00'],['weekly','Hằng tuần, thứ Hai']];
+
+const saved = {
+  general: { name: 'Công ty CP Sao Việt', legal: 'Công ty Cổ phần Công nghệ Sao Việt', taxCode: '0312845671', industry: 'Phân phối & bán lẻ', size: '51-200', email: 'ketoan@saoviet.vn', phone: '028 3822 1409', website: 'https://saoviet.vn', address: '72 Lê Thánh Tôn, Phường Bến Nghé, Quận 1', city: 'TP. Hồ Chí Minh', postal: '700000' },
+  locale: { currency: 'VND', tz: 'Asia/Ho_Chi_Minh', dateFmt: 'dd/MM/yyyy', numFmt: 'vi-VN', hour: '24', week: '1' },
+  notif: { digest: 'daily', ch: { overdue:[true,true], approval:[true,true], delivery:[true,true], stock:[false,true], newuser:[false,true], security:[true,true] } }
+};
+const stamp = { general: ['Lê Thu Hà', '28/10/2026 09:14'], locale: ['Nguyễn Văn Hậu', '12/09/2026 16:40'], notif: ['Lê Thu Hà', '04/11/2026 15:58'] };
+const history = {
+  general: [{ who: 'Lê Thu Hà', when: '28/10/2026 09:14', ch: [['Số điện thoại', '028 3822 1400', '028 3822 1409']] }, { who: 'Nguyễn Văn Hậu', when: '03/06/2026 11:02', ch: [['Quy mô', '11-50', '51-200']] }],
+  locale: [{ who: 'Nguyễn Văn Hậu', when: '12/09/2026 16:40', ch: [['Định dạng ngày', 'yyyy-MM-dd', 'dd/MM/yyyy']] }],
+  notif: [{ who: 'Lê Thu Hà', when: '04/11/2026 15:58', ch: [['Tồn kho dưới mức tối thiểu – Email', 'Bật', 'Tắt']] }]
+};
+const LABELS = { name: 'Tên công ty', legal: 'Tên pháp lý', taxCode: 'Mã số thuế', industry: 'Ngành nghề', size: 'Quy mô', email: 'Email liên hệ', phone: 'Số điện thoại', website: 'Website', address: 'Địa chỉ', city: 'Tỉnh/Thành phố', postal: 'Mã bưu chính', currency: 'Tiền tệ', tz: 'Múi giờ', dateFmt: 'Định dạng ngày', numFmt: 'Định dạng số', hour: 'Định dạng giờ', week: 'Ngày đầu tuần' };
+
+const SECTIONS = [
+  { group: 'Công ty', items: [['general', 'Thông tin chung'], ['locale', 'Bản địa hóa'], ['notif', 'Thông báo']] },
+  { group: 'Truy cập', items: [['users', 'Người dùng & vai trò']] },
+  { group: 'Rủi ro', items: [['danger', 'Vùng nguy hiểm']] }
+];
+const TITLES = { general: ['Thông tin chung', 'Hồ sơ pháp lý và thông tin liên hệ xuất hiện trên hóa đơn và email gửi khách hàng.'], locale: ['Bản địa hóa', 'Tiền tệ, múi giờ và định dạng hiển thị áp dụng cho mọi người dùng trong công ty.'], notif: ['Thông báo', 'Chọn sự kiện nào gửi qua email và trong ứng dụng. Thay đổi có hiệu lực ngay.'], users: ['Người dùng & vai trò', 'Quản lý ai được truy cập và quyền của họ.'], danger: ['Vùng nguy hiểm', 'Các thao tác dưới đây ảnh hưởng đến toàn bộ công ty và khó hoàn tác.'] };
+
+/* ---------- State ---------- */
+let sec = (location.hash || '#general').slice(1);
+if (!TITLES[sec]) sec = 'general';
+const draft = { general: {...saved.general}, locale: {...saved.locale} };
+let saving = false, loading = true, loadError = new URLSearchParams(location.search).get('state') === 'error';
+const isForm = s => s === 'general' || s === 'locale';
+const dirty = () => isForm(sec) && JSON.stringify(draft[sec]) !== JSON.stringify(saved[sec]);
+
+/* ---------- Shell navigation ---------- */
+function renderAppNav() {
+  const g = [['Bán hàng', [['home','Tổng quan'],['receipt','Hóa đơn'],['box','Sản phẩm']]], ['Quản trị', [['users','Người dùng'],['chart','Báo cáo'],['gear','Cài đặt']]]];
+  $('#appnav').innerHTML = g.map(([l, items]) => `<div class="flex flex-col gap-0.5"><p class="px-2 py-1 text-xs font-medium text-slate-600">${l}</p>${items.map(([i, t]) =>
+    `<a href="#" data-app="${t}" ${t === 'Cài đặt' ? 'aria-current="page"' : ''} class="flex h-8 items-center gap-2 rounded px-2 text-slate-700 hover:bg-slate-100 ${t === 'Cài đặt' ? 'bg-slate-200 font-medium text-slate-900' : ''}">${ic(i)}<span>${t}</span></a>`).join('')}</div>`).join('');
+  $('#appnav').addEventListener('click', e => { const a = e.target.closest('a[data-app]'); if (!a) return; e.preventDefault(); if (a.dataset.app !== 'Cài đặt') guard(() => toast('Trang này không có trong bản demo')); });
+}
+function renderSetNav() {
+  $('#setnav').innerHTML = SECTIONS.map(g => `<div class="mb-4"><p class="px-2 py-1 text-xs font-medium text-slate-600">${g.group}</p><div class="flex flex-col gap-0.5">${g.items.map(([k, t]) =>
+    `<a href="#${k}" data-sec="${k}" ${k === sec ? 'aria-current="page"' : ''} class="flex h-8 items-center rounded px-2 hover:bg-slate-100 ${k === sec ? 'bg-slate-100 font-medium text-slate-900' : 'text-slate-700'} ${k === 'danger' ? 'text-red-700' : ''}">${t}</a>`).join('')}</div></div>`).join('') +
+    `<button type="button" id="simerr" class="mt-2 px-2 text-xs text-slate-600 underline">Mô phỏng lỗi tải dữ liệu</button>`;
+  $('#navsel').innerHTML = SECTIONS.flatMap(g => g.items).map(([k, t]) => `<option value="${k}" ${k === sec ? 'selected' : ''}>${t}</option>`).join('');
+  $('#crumb').textContent = TITLES[sec][0];
+}
+document.addEventListener('click', e => {
+  const a = e.target.closest('a[data-sec]');
+  if (a) { e.preventDefault(); go(a.dataset.sec); }
+  if (e.target.id === 'simerr') { loading = true; loadError = true; renderContent(); finishLoad(); }
+});
+$('#navsel').addEventListener('change', e => { const v = e.target.value; e.target.value = sec; go(v); });
+window.addEventListener('beforeunload', e => { if (dirty()) { e.preventDefault(); e.returnValue = ''; } });
+window.addEventListener('hashchange', () => { const h = location.hash.slice(1); if (h !== sec && TITLES[h]) go(h); });
+
+function go(next) {
+  if (next === sec) return;
+  guard(() => { sec = next; history_replace(); renderSetNav(); renderContent(); window.scrollTo(0, 0); });
+}
+function history_replace() { window.history.replaceState(null, '', '#' + sec); }
+
+/* ---------- Dialog / toast ---------- */
+const dlg = $('#dlg');
+function openDlg(html) { dlg.innerHTML = html; if (!dlg.open) dlg.showModal(); }
+function closeDlg() { if (dlg.open) dlg.close(); }
+function toast(msg) {
+  const t = $('#toast');
+  t.innerHTML = `<div class="pointer-events-auto flex items-center gap-2 rounded-md border border-slate-200 bg-white px-3 py-2 shadow-lg"><span class="text-emerald-700">${ic('check')}</span><span>${esc(msg)}</span></div>`;
+  clearTimeout(toast.t); toast.t = setTimeout(() => t.innerHTML = '', 4000);
+}
+function guard(cb) {
+  if (!dirty()) return cb();
+  openDlg(`<div class="p-6"><h2 class="text-base font-semibold">Bạn có thay đổi chưa lưu. Rời đi mà không lưu?</h2>
+    <p class="mt-2 text-slate-600">Các thay đổi trong mục “${TITLES[sec][0]}” sẽ bị mất.</p>
+    <div class="mt-6 flex justify-end gap-3"><button type="button" id="leave" class="h-8 rounded border border-slate-300 bg-white px-3 font-medium text-red-700 hover:bg-slate-50">Rời đi</button>
+    <button type="button" id="stay" autofocus class="h-8 rounded bg-blue-700 px-3 font-medium text-white hover:bg-blue-800">Ở lại</button></div></div>`);
+  $('#stay').onclick = closeDlg;
+  $('#leave').onclick = () => { draft[sec] = {...saved[sec]}; closeDlg(); cb(); };
+}
+
+/* ---------- Field builders ---------- */
+const INP = 'h-8 w-full rounded border border-slate-300 bg-white px-2 text-slate-900 placeholder:text-slate-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-700 aria-[invalid=true]:border-red-600';
+function field(id, label, { req, help, w = 'max-w-xl', type = 'text', ph = '', mode } = {}) {
+  const v = draft[sec][id];
+  return `<div class="${w}"><label for="${id}" class="mb-1 block text-xs font-medium text-slate-700">${label}${req ? ' <span aria-hidden="true">*</span>' : ''}</label>
+    <input id="${id}" name="${id}" type="${type}" value="${esc(v)}" placeholder="${esc(ph)}" ${mode ? `inputmode="${mode}"` : ''} ${req ? 'aria-required="true"' : ''} autocomplete="off" class="${INP}" aria-describedby="${id}-help ${id}-error">
+    <p id="${id}-help" class="mt-1 text-xs text-slate-600">${help || ''}</p>
+    <p id="${id}-error" class="mt-1 flex items-center gap-1 text-xs text-red-700"></p></div>`;
+}
+function select(id, label, opts, { w = 'max-w-xs', help = '' } = {}) {
+  return `<div class="${w}"><label for="${id}" class="mb-1 block text-xs font-medium text-slate-700">${label}</label>
+    <select id="${id}" name="${id}" class="${INP}" aria-describedby="${id}-help">${opts.map(([v, t]) => `<option value="${esc(v)}" ${draft[sec][id] === v ? 'selected' : ''}>${esc(t)}</option>`).join('')}</select>
+    <p id="${id}-help" class="mt-1 text-xs text-slate-600">${help}</p></div>`;
+}
+const h2 = t => `<h2 class="mb-4 border-b border-slate-200 pb-2 text-base font-semibold">${t}</h2>`;
+function stampLine() {
+  const [who, when] = stamp[sec] || [];
+  if (!who) return '';
+  return `<p class="mt-3 flex flex-wrap items-center gap-x-2 text-xs text-slate-600">Thay đổi lần cuối bởi ${who} vào ${when}<span aria-hidden="true">·</span><button type="button" id="openhist" class="inline-flex min-h-6 items-center gap-1 text-blue-700 underline">${ic('history')}Xem lịch sử thay đổi</button></p>`;
+}
+
+/* ---------- Section renderers ---------- */
+function viewGeneral() {
+  return `<form id="form" novalidate class="space-y-8">
+    <div id="summary" role="status"></div>
+    <section aria-labelledby="g1">${h2('<span id="g1">Hồ sơ công ty</span>')}<p class="-mt-2 mb-4 text-xs text-slate-600">* Bắt buộc</p><div class="space-y-6">
+      <div class="flex items-center gap-4"><div class="grid size-14 place-items-center rounded border border-dashed border-slate-400 text-slate-600">${ic('image')}</div>
+        <div><p class="text-xs font-medium text-slate-700">Logo công ty</p><p class="text-xs text-slate-600">PNG hoặc SVG, tối đa 2 MB. Hiển thị trên hóa đơn.</p>
+        <button type="button" class="mt-1 h-8 rounded border border-slate-300 bg-white px-3 hover:bg-slate-50" data-toast="Tải logo chưa có trong bản demo">Tải logo lên</button></div></div>
+      ${field('name', 'Tên công ty', { req: true, help: 'Tên hiển thị trong ứng dụng.' })}
+      ${field('legal', 'Tên pháp lý', { help: 'Như trên giấy phép đăng ký kinh doanh.' })}
+      ${field('taxCode', 'Mã số thuế', { req: true, w: 'max-w-[14rem]', help: '10 hoặc 13 chữ số, ví dụ 0312845671-001.', mode: 'numeric' })}
+      <div class="flex flex-wrap gap-6">${select('industry', 'Ngành nghề', [['Phân phối & bán lẻ','Phân phối & bán lẻ'],['Sản xuất','Sản xuất'],['Dịch vụ','Dịch vụ'],['Công nghệ thông tin','Công nghệ thông tin']], { w: 'w-64' })}
+      ${select('size', 'Quy mô nhân sự', [['1-10','1–10'],['11-50','11–50'],['51-200','51–200'],['201+','Trên 200']], { w: 'w-40' })}</div></div></section>
+    <section aria-labelledby="g2">${h2('<span id="g2">Liên hệ</span>')}<div class="space-y-6">
+      ${field('email', 'Email liên hệ', { req: true, type: 'email', help: 'Dùng làm địa chỉ trả lời cho hóa đơn.', ph: 'name@company.com' })}
+      ${field('phone', 'Số điện thoại', { w: 'w-56', type: 'tel' })}
+      ${field('website', 'Website', { ph: 'https://' })}</div></section>
+    <section aria-labelledby="g3">${h2('<span id="g3">Địa chỉ trụ sở</span>')}<div class="space-y-6">
+      ${field('address', 'Địa chỉ')}
+      <div class="flex flex-wrap gap-6">${field('city', 'Tỉnh/Thành phố', { w: 'w-64' })}${field('postal', 'Mã bưu chính', { w: 'w-28', mode: 'numeric' })}</div></div></section>
+    ${stampLine()}
+    ${actionBar()}
+  </form>`;
+}
+function viewLocale() {
+  return `<form id="form" novalidate class="space-y-8">
+    <section aria-labelledby="p0" class="rounded-md border border-slate-200 bg-slate-50 p-4">
+      <h2 id="p0" class="mb-2 text-xs font-medium text-slate-700">Xem trước</h2>
+      <dl id="preview" class="grid grid-cols-1 gap-x-6 gap-y-1 sm:grid-cols-[auto_1fr]" aria-live="polite"></dl></section>
+    <section aria-labelledby="l1">${h2('<span id="l1">Tiền tệ và số</span>')}<div class="flex flex-wrap gap-6">
+      ${select('currency', 'Tiền tệ mặc định', CUR, { w: 'w-64', help: 'Dùng cho hóa đơn, báo giá và báo cáo.' })}
+      ${select('numFmt', 'Định dạng số', NUMF, { w: 'w-48', help: 'Dấu phân cách hàng nghìn và thập phân.' })}</div></section>
+    <section aria-labelledby="l2">${h2('<span id="l2">Ngày và giờ</span>')}<div class="flex flex-wrap gap-6">
+      ${select('tz', 'Múi giờ', TZ.map(([v, n]) => [v, `${n} (${offset(v)})`]), { w: 'w-72', help: 'Thời điểm hiển thị cho mọi người dùng.' })}
+      ${select('dateFmt', 'Định dạng ngày', DATEF, { w: 'w-48' })}
+      ${select('hour', 'Định dạng giờ', [['24', '24 giờ'], ['12', '12 giờ (SA/CH)']], { w: 'w-40' })}
+      ${select('week', 'Ngày đầu tuần', [['1', 'Thứ Hai'], ['0', 'Chủ nhật']], { w: 'w-40' })}</div></section>
+    ${stampLine()}
+    ${actionBar()}
+  </form>`;
+}
+function actionBar() {
+  return `<div class="sticky bottom-0 -mx-1 flex items-center justify-end gap-3 border-t border-slate-200 bg-white px-1 py-3">
+    <span id="dirtyst" role="status" class="mr-auto flex items-center text-xs text-slate-600"></span>
+    <button type="button" id="cancel" class="h-8 rounded border border-slate-300 bg-white px-3 font-medium hover:bg-slate-50">Hủy</button>
+    <button type="submit" id="save" class="inline-flex h-8 items-center gap-2 rounded bg-blue-700 px-3 font-medium text-white hover:bg-blue-800 disabled:opacity-80"><span id="spin" class="hidden animate-spin">${ic('spin')}</span>Lưu thay đổi</button></div>`;
+}
+function switchBtn(ev, i, label, on, locked) {
+  return `<button type="button" role="switch" data-ev="${ev}" data-i="${i}" aria-checked="${on}" aria-label="${esc(label)}" ${locked ? 'aria-disabled="true" title="Bắt buộc bật để bảo vệ tài khoản"' : ''}
+    class="relative inline-flex h-6 w-10 shrink-0 items-center rounded-full ${on ? 'bg-blue-700' : 'bg-slate-500'} ${locked ? 'opacity-60 cursor-not-allowed' : ''} focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-700"><span class="inline-block size-4 rounded-full bg-white transition-transform ${on ? 'translate-x-5' : 'translate-x-1'}"></span></button>`;
+}
+function viewNotif() {
+  const n = saved.notif;
+  return `<div class="space-y-8">
+    <section aria-labelledby="n1">${h2('<span id="n1">Sự kiện</span>')}
+      <div class="grid grid-cols-[1fr_5rem_6rem] items-end gap-x-4 border-b border-slate-200 pb-2 text-xs font-medium text-slate-700 sm:grid-cols-[1fr_6rem_7rem]"><span>Sự kiện</span><span class="text-center">Email</span><span class="text-center">Trong ứng dụng</span></div>
+      <ul>${EVENTS.map(([k, t, d]) => `<li class="grid grid-cols-[1fr_5rem_6rem] items-center gap-x-4 border-b border-slate-100 py-3 sm:grid-cols-[1fr_6rem_7rem]">
+        <div><p class="font-medium">${t}</p><p class="text-xs text-slate-600">${d}${k === 'security' ? ' Email luôn bật để bảo vệ tài khoản.' : ''}</p><p id="st-${k}" role="status" class="min-h-4 text-xs text-emerald-700"></p></div>
+        <div class="flex justify-center">${switchBtn(k, 0, `${t} – Email`, n.ch[k][0], k === 'security')}</div>
+        <div class="flex justify-center">${switchBtn(k, 1, `${t} – Trong ứng dụng`, n.ch[k][1], false)}</div></li>`).join('')}</ul></section>
+    <section aria-labelledby="n2">${h2('<span id="n2">Tần suất email</span>')}
+      <fieldset><legend class="mb-1 text-xs font-medium text-slate-700">Gửi email tổng hợp</legend>
+      <div class="inline-flex rounded border border-slate-300" role="radiogroup" aria-label="Tần suất email">${DIGEST.map(([v, t]) => `<button type="button" role="radio" aria-checked="${n.digest === v}" data-digest="${v}" class="h-8 border-r border-slate-300 px-3 last:border-r-0 ${n.digest === v ? 'bg-blue-700 font-medium text-white' : 'bg-white hover:bg-slate-50'} focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-700">${t}</button>`).join('')}</div>
+      <p id="st-digest" role="status" class="mt-1 min-h-4 text-xs text-emerald-700"></p></fieldset></section>
+    <div id="stampn">${stampLine()}</div></div>`;
+}
+function viewUsers() {
+  return `<div class="rounded-md border border-slate-200 p-6"><p class="font-medium">Vai trò và quyền được quản lý ở trang riêng.</p>
+    <p class="mt-1 text-slate-600">${COMPANY.users} người dùng đang hoạt động trong công ty.</p>
+    <button type="button" class="mt-4 h-8 rounded bg-blue-700 px-3 font-medium text-white hover:bg-blue-800" data-toast="Trang này không có trong bản demo">Mở Người dùng & vai trò</button></div>`;
+}
+function viewDanger() {
+  const row = (t, d, btn, id) => `<div class="flex flex-wrap items-center justify-between gap-4 py-4"><div class="max-w-md"><p class="font-medium">${t}</p><p class="text-slate-600">${d}</p></div>${btn}</div>`;
+  return `<div class="rounded-md border border-red-300">
+    <div class="divide-y divide-red-100 px-4">
+      ${row('Xuất toàn bộ dữ liệu', 'Tải về bản sao hóa đơn, đơn hàng và khách hàng dạng CSV. Không làm mất dữ liệu.', '<button type="button" class="h-8 rounded border border-slate-300 bg-white px-3 font-medium hover:bg-slate-50" data-toast="Đã yêu cầu xuất dữ liệu. Chúng tôi sẽ gửi liên kết qua email">Xuất dữ liệu</button>')}
+      ${row('Chuyển quyền sở hữu', 'Người sở hữu mới có toàn quyền, bao gồm thanh toán và xóa công ty. Bạn sẽ trở thành quản trị viên.', '<button type="button" id="btn-transfer" class="h-8 rounded border border-red-300 bg-white px-3 font-medium text-red-700 hover:bg-red-50">Chuyển quyền sở hữu</button>')}
+      ${row('Xóa công ty', `Xóa vĩnh viễn công ty, ${COMPANY.users} người dùng, ${COMPANY.orders.toLocaleString('vi-VN')} đơn hàng và ${COMPANY.invoices} hóa đơn sau 30 ngày.`, '<button type="button" id="btn-delete" class="h-8 rounded bg-red-700 px-3 font-medium text-white hover:bg-red-800">Xóa công ty</button>')}
+    </div></div>`;
+}
+
+/* ---------- Content render ---------- */
+function skeleton() {
+  return `<div aria-busy="true" aria-label="Đang tải" class="space-y-6"><div class="sk h-6 w-56"></div><div class="sk h-4 w-96 max-w-full"></div>
+    ${Array.from({ length: 5 }, () => '<div class="space-y-2"><div class="sk h-3 w-24"></div><div class="sk h-8 w-full max-w-xl"></div></div>').join('')}</div>`;
+}
+function errorView() {
+  return `<div class="rounded-md border border-red-300 bg-red-50 p-6" role="alert"><p class="font-medium text-red-800">Không tải được cài đặt “${TITLES[sec][0]}”</p>
+    <p class="mt-1 text-red-800">Kết nối tới máy chủ bị gián đoạn. Dữ liệu đã lưu trước đó không bị ảnh hưởng.</p>
+    <button type="button" id="retry" class="mt-4 h-8 rounded bg-blue-700 px-3 font-medium text-white hover:bg-blue-800">Thử lại</button></div>`;
+}
+function renderContent() {
+  const c = $('#content');
+  const head = `<header class="mb-6"><h1 class="text-xl font-semibold">${TITLES[sec][0]}</h1><p class="mt-1 text-slate-600">${TITLES[sec][1]}</p></header>`;
+  if (loading) { c.innerHTML = skeleton(); return; }
+  if (loadError) { c.innerHTML = head + errorView(); $('#retry').onclick = () => { loadError = false; loading = true; renderContent(); finishLoad(); }; return; }
+  const views = { general: viewGeneral, locale: viewLocale, notif: viewNotif, users: viewUsers, danger: viewDanger };
+  c.innerHTML = head + views[sec]();
+  bind();
+}
+function finishLoad() {
+  setTimeout(() => {
+    if (loadError && new URLSearchParams(location.search).get('state') === 'error' && !finishLoad.shown) { finishLoad.shown = true; loading = false; renderContent(); return; }
+    loading = false; renderContent();
+  }, 450);
+}
+
+/* ---------- Binding ---------- */
+function bind() {
+  document.querySelectorAll('[data-toast]').forEach(b => b.onclick = () => toast(b.dataset.toast));
+  if (isForm(sec)) bindForm();
+  if (sec === 'notif') bindNotif();
+  if (sec === 'danger') bindDanger();
+  const h = $('#openhist'); if (h) h.onclick = showHistory;
+}
+function bindForm() {
+  const f = $('#form');
+  f.addEventListener('input', e => {
+    const t = e.target; if (!t.name) return;
+    draft[sec][t.name] = t.value;
+    if (t.getAttribute('aria-invalid') === 'true') validateField(t.name);
+    updateDirty(); if (sec === 'locale') preview();
+  });
+  f.addEventListener('focusout', e => { const t = e.target; if (t.name && sec === 'general') validateField(t.name); });
+  f.addEventListener('submit', e => { e.preventDefault(); save(); });
+  $('#cancel').onclick = () => { if (!dirty()) return; guard(() => {}); /* guard leave resets */ };
+  $('#cancel').onclick = () => { if (!dirty()) return; const was = sec; openDlg(`<div class="p-6"><h2 class="text-base font-semibold">Bạn có thay đổi chưa lưu. Rời đi mà không lưu?</h2><p class="mt-2 text-slate-600">Các thay đổi trong mục “${TITLES[was][0]}” sẽ bị bỏ.</p><div class="mt-6 flex justify-end gap-3"><button type="button" id="leave" class="h-8 rounded border border-slate-300 bg-white px-3 font-medium text-red-700 hover:bg-slate-50">Rời đi</button><button type="button" id="stay" autofocus class="h-8 rounded bg-blue-700 px-3 font-medium text-white hover:bg-blue-800">Ở lại</button></div></div>`);
+    $('#stay').onclick = closeDlg; $('#leave').onclick = () => { draft[was] = {...saved[was]}; closeDlg(); renderContent(); }; };
+  updateDirty(); if (sec === 'locale') preview();
+}
+function updateDirty() {
+  const s = $('#dirtyst'); if (!s) return;
+  s.innerHTML = dirty() ? '<span aria-hidden="true" class="mr-1.5 inline-block size-1.5 rounded-full bg-amber-500"></span>Thay đổi chưa lưu' : '';
+}
+
+/* ---------- Validation ---------- */
+const RULES = {
+  name: v => v.trim() ? '' : 'Nhập tên công ty',
+  taxCode: v => /^\d{10}(-\d{3})?$/.test(v.trim()) ? '' : 'Nhập 10 hoặc 13 chữ số, ví dụ 0312845671',
+  email: v => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v.trim()) ? '' : 'Nhập email dạng name@company.com',
+  phone: v => !v.trim() || /^[0-9+\s().-]{8,16}$/.test(v.trim()) ? '' : 'Nhập số điện thoại 8–16 ký tự, ví dụ 028 3822 1409',
+  website: v => !v.trim() || /^https?:\/\/\S+\.\S+$/.test(v.trim()) ? '' : 'Nhập địa chỉ bắt đầu bằng https://',
+  postal: v => !v.trim() || /^\d{5,6}$/.test(v.trim()) ? '' : 'Nhập 5 hoặc 6 chữ số'
+};
+function setErr(id, msg) {
+  const i = $('#' + id), p = $('#' + id + '-error'); if (!i || !p) return;
+  if (msg) { i.setAttribute('aria-invalid', 'true'); p.innerHTML = ic('alert') + `<span>${esc(msg)}</span>`; }
+  else { i.removeAttribute('aria-invalid'); p.innerHTML = ''; }
+}
+function validateField(id) { if (!RULES[id]) return ''; const m = RULES[id](draft.general[id] || ''); setErr(id, m); return m; }
+function summary(errs) {
+  const s = $('#summary'); if (!s) return;
+  s.innerHTML = errs.length >= 3 ? `<div class="mb-6 rounded-md border border-red-300 bg-red-50 p-4 text-red-800"><p class="font-medium">${errs.length} trường cần chỉnh sửa</p>
+    <ul class="mt-2 list-disc pl-5">${errs.map(([k, m]) => `<li><a href="#${k}" data-jump="${k}" class="inline-flex min-h-6 items-center underline">${LABELS[k]}: ${esc(m)}</a></li>`).join('')}</ul></div>` : '';
+  s.querySelectorAll('[data-jump]').forEach(a => a.onclick = e => { e.preventDefault(); $('#' + a.dataset.jump).focus(); });
+}
+function setSaving(on) {
+  saving = on; const b = $('#save'); if (!b) return;
+  b.disabled = on; $('#spin').classList.toggle('hidden', !on);
+}
+
+/* ---------- Save ---------- */
+async function save() {
+  if (saving) return;
+  if (sec === 'general') {
+    const errs = Object.keys(RULES).map(k => [k, validateField(k)]).filter(([, m]) => m);
+    summary(errs);
+    if (errs.length) { $('#' + errs[0][0]).focus(); return; }
+  }
+  setSaving(true);
+  await sleep(800);
+  if (sec === 'general' && draft.general.taxCode.trim() === '0100109106') {
+    setSaving(false);
+    const m = 'Mã số thuế đã được dùng bởi Công ty TNHH Minh Phát';
+    setErr('taxCode', m); summary([['taxCode', m]]);
+    $('#taxCode').focus(); return;
+  }
+  const diffs = Object.keys(draft[sec]).filter(k => draft[sec][k] !== saved[sec][k]).map(k => [LABELS[k], saved[sec][k] || '(trống)', draft[sec][k] || '(trống)']);
+  history[sec].unshift({ who: 'Lê Thu Hà', when: nowStr(), ch: diffs });
+  stamp[sec] = ['Lê Thu Hà', nowStr()];
+  saved[sec] = {...draft[sec]};
+  setSaving(false);
+  const label = sec === 'general' ? saved.general.name : 'bản địa hóa';
+  toast(sec === 'general' ? `Đã lưu thông tin chung của ${label}` : 'Đã lưu cài đặt bản địa hóa');
+  renderContent();
+}
+function nowStr() { return '04/11/2026 ' + new Date().toTimeString().slice(0, 5); }
+
+/* ---------- Localization preview ---------- */
+function offset(tz) {
+  const p = new Intl.DateTimeFormat('en-US', { timeZone: tz, timeZoneName: 'shortOffset' }).formatToParts(new Date()).find(x => x.type === 'timeZoneName');
+  return (p ? p.value : '').replace('GMT', 'UTC') || 'UTC';
+}
+function fmtDate(d, o) {
+  const get = opt => new Intl.DateTimeFormat('en-GB', { timeZone: o.tz, ...opt }).format(d);
+  const dd = get({ day: '2-digit' }), mm = get({ month: '2-digit' }), yy = get({ year: 'numeric' }), mon = get({ month: 'short' });
+  return { 'dd/MM/yyyy': `${dd}/${mm}/${yy}`, 'MM/dd/yyyy': `${mm}/${dd}/${yy}`, 'yyyy-MM-dd': `${yy}-${mm}-${dd}`, 'dd MMM yyyy': `${dd} ${mon} ${yy}` }[o.dateFmt];
+}
+function fmtTime(d, o) { return new Intl.DateTimeFormat(o.numFmt === 'vi-VN' ? 'en-GB' : 'en-US', { timeZone: o.tz, hour: '2-digit', minute: '2-digit', hour12: o.hour === '12' }).format(d); }
+function preview() {
+  const o = draft.locale, d = new Date(), el = $('#preview'); if (!el) return;
+  const money = new Intl.NumberFormat(o.numFmt, { style: 'currency', currency: o.currency }).format(1250000);
+  const num = new Intl.NumberFormat(o.numFmt, { minimumFractionDigits: 2 }).format(1234567.89);
+  const wk = o.week === '1' ? 'Thứ Hai' : 'Chủ nhật';
+  const rows = [['Ngày', fmtDate(d, o)], ['Giờ', `${fmtTime(d, o)} (${offset(o.tz)})`], ['Số tiền', money], ['Số', num], ['Tuần bắt đầu', wk]];
+  el.innerHTML = rows.map(([k, v]) => `<dt class="text-slate-600">${k}</dt><dd class="font-medium tabular-nums">${esc(v)}</dd>`).join('');
+}
+
+/* ---------- Notifications (instant save) ---------- */
+function bindNotif() {
+  $('#content').onclick = async e => {
+    const sw = e.target.closest('[role=switch]');
+    if (sw) {
+      if (sw.getAttribute('aria-disabled') === 'true') { flash('st-' + sw.dataset.ev, 'Không thể tắt: bắt buộc để bảo vệ tài khoản', true); return; }
+      const ev = sw.dataset.ev, i = +sw.dataset.i, prev = saved.notif.ch[ev][i], next = !prev;
+      saved.notif.ch[ev][i] = next; setSwitch(sw, next);
+      await sleep(300);
+      const name = EVENTS.find(x => x[0] === ev)[1] + ' – ' + (i ? 'Trong ứng dụng' : 'Email');
+      history.notif.unshift({ who: 'Lê Thu Hà', when: nowStr(), ch: [[name, prev ? 'Bật' : 'Tắt', next ? 'Bật' : 'Tắt']] });
+      stamp.notif = ['Lê Thu Hà', nowStr()]; $('#stampn').innerHTML = stampLine(); $('#openhist').onclick = showHistory;
+      flash('st-' + ev, 'Đã lưu');
+    }
+    const dg = e.target.closest('[data-digest]');
+    if (dg && dg.dataset.digest !== saved.notif.digest) {
+      const prev = saved.notif.digest; saved.notif.digest = dg.dataset.digest;
+      document.querySelectorAll('[data-digest]').forEach(b => { const on = b === dg; b.setAttribute('aria-checked', on); b.className = b.className.replace(/bg-blue-700 font-medium text-white|bg-white hover:bg-slate-50/, on ? 'bg-blue-700 font-medium text-white' : 'bg-white hover:bg-slate-50'); });
+      await sleep(300);
+      const nm = k => DIGEST.find(x => x[0] === k)[1];
+      history.notif.unshift({ who: 'Lê Thu Hà', when: nowStr(), ch: [['Tần suất email', nm(prev), nm(dg.dataset.digest)]] });
+      stamp.notif = ['Lê Thu Hà', nowStr()]; $('#stampn').innerHTML = stampLine(); $('#openhist').onclick = showHistory;
+      flash('st-digest', 'Đã lưu');
+    }
+  };
+}
+function setSwitch(sw, on) {
+  sw.setAttribute('aria-checked', on);
+  sw.classList.toggle('bg-blue-700', on); sw.classList.toggle('bg-slate-500', !on);
+  const k = sw.firstElementChild; k.classList.toggle('translate-x-5', on); k.classList.toggle('translate-x-1', !on);
+}
+function flash(id, msg, warn) {
+  const el = $('#' + id); if (!el) return;
+  el.textContent = msg; el.className = el.className.replace(/text-(emerald|amber)-700/, warn ? 'text-amber-700' : 'text-emerald-700');
+  clearTimeout(el._t); el._t = setTimeout(() => el.textContent = '', 2000);
+}
+
+/* ---------- History dialog ---------- */
+function showHistory() {
+  const items = history[sec];
+  openDlg(`<div class="p-6"><h2 class="text-base font-semibold">Lịch sử thay đổi: ${TITLES[sec][0]}</h2>
+    <ul class="mt-4 max-h-80 space-y-4 overflow-auto">${items.map(h => `<li><p class="font-medium">${esc(h.who)} <span class="font-normal text-slate-600">· ${h.when}</span></p>
+      <ul class="mt-1 text-slate-700">${h.ch.map(([l, a, b]) => `<li>${esc(l)}: <span class="text-slate-600">${esc(a)}</span> → <span class="font-medium">${esc(b)}</span></li>`).join('')}</ul></li>`).join('')}</ul>
+    <div class="mt-6 flex justify-end"><button type="button" id="closeh" autofocus class="h-8 rounded bg-blue-700 px-3 font-medium text-white hover:bg-blue-800">Đóng</button></div></div>`);
+  $('#closeh').onclick = closeDlg;
+}
+
+/* ---------- Danger zone ---------- */
+function bindDanger() {
+  $('#btn-delete').onclick = () => confirmByName({
+    title: `Xóa công ty ${saved.general.name}?`,
+    impact: `${COMPANY.users} người dùng, ${COMPANY.orders.toLocaleString('vi-VN')} đơn hàng và ${COMPANY.invoices} hóa đơn sẽ bị xóa vĩnh viễn sau 30 ngày. Trong thời gian này chỉ chủ sở hữu có thể khôi phục.`,
+    action: 'Xóa công ty', done: `Đã lên lịch xóa ${saved.general.name} sau 30 ngày`
+  });
+  $('#btn-transfer').onclick = () => confirmByName({
+    title: `Chuyển quyền sở hữu ${saved.general.name}?`,
+    impact: 'Bạn sẽ mất quyền thanh toán và xóa công ty, và chỉ còn là quản trị viên.',
+    extra: `<div class="mt-4"><label for="newowner" class="mb-1 block text-xs font-medium text-slate-700">Chủ sở hữu mới <span aria-hidden="true">*</span></label><select id="newowner" class="${INP}">${MEMBERS.map(m => `<option>${m}</option>`).join('')}</select></div>`,
+    action: 'Chuyển quyền', done: () => `Đã gửi yêu cầu chuyển quyền cho ${$('#newowner') ? '' : ''}người được chọn`
+  });
+}
+function confirmByName({ title, impact, extra = '', action, done }) {
+  const name = saved.general.name;
+  openDlg(`<form id="cf" class="p-6"><h2 class="text-base font-semibold text-red-800">${esc(title)}</h2>
+    <p class="mt-2 text-slate-700">${esc(impact)} Hành động này không thể hoàn tác.</p>${extra}
+    <div class="mt-4"><label for="typed" class="mb-1 block text-xs font-medium text-slate-700">Nhập <span class="font-semibold">${esc(name)}</span> để xác nhận</label>
+    <input id="typed" autocomplete="off" class="${INP}" aria-describedby="typed-help"><p id="typed-help" class="mt-1 text-xs text-slate-600">Phải trùng khớp chính xác với tên công ty.</p></div>
+    <div class="mt-6 flex justify-end gap-3"><button type="button" id="dcancel" class="h-8 rounded border border-slate-300 bg-white px-3 font-medium hover:bg-slate-50">Hủy</button>
+    <button type="submit" id="dok" disabled class="h-8 rounded bg-red-700 px-3 font-medium text-white hover:bg-red-800 disabled:cursor-not-allowed disabled:opacity-60">${esc(action)}</button></div></form>`);
+  $('#typed').focus();
+  $('#typed').oninput = e => { $('#dok').disabled = e.target.value !== name; };
+  $('#dcancel').onclick = closeDlg;
+  $('#cf').onsubmit = e => {
+    e.preventDefault(); if ($('#typed').value !== name) return;
+    const owner = $('#newowner') ? $('#newowner').value.split(' (')[0] : '';
+    closeDlg(); toast(typeof done === 'function' ? `Đã gửi yêu cầu chuyển quyền cho ${owner}` : done);
+  };
+}
+
+/* ---------- Init ---------- */
+renderAppNav(); renderSetNav(); renderContent(); finishLoad();
+</script>
+</body>
+</html>

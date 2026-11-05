@@ -1,0 +1,727 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Orders - Sales</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+  body { font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; font-size: 14px; color: #0f172a; }
+  :focus-visible { outline: 2px solid #1d4ed8; outline-offset: 1px; }
+  @media (prefers-reduced-motion: reduce) { .animate-pulse { animation: none; } }
+  input[type=checkbox] { accent-color: #1d4ed8; }
+</style>
+</head>
+<body class="bg-white">
+<div class="flex min-h-screen">
+  <!-- Sidebar -->
+  <aside id="sidebar" class="w-60 shrink-0 border-r border-slate-200 bg-slate-50 text-slate-800">
+    <div class="flex h-12 items-center gap-2 border-b border-slate-200 px-4">
+      <span class="flex size-6 items-center justify-center rounded bg-slate-800 text-xs font-semibold text-white" aria-hidden="true">B</span>
+      <span class="font-semibold">Bình An ERP</span>
+    </div>
+    <nav aria-label="Main" class="flex flex-col gap-4 p-2" id="nav"></nav>
+  </aside>
+
+  <div class="flex min-w-0 flex-1 flex-col">
+    <header class="flex h-12 items-center justify-between border-b border-slate-200 bg-white px-4">
+      <button type="button" id="collapse" class="inline-flex size-8 items-center justify-center rounded text-slate-700 hover:bg-slate-100" aria-label="Collapse sidebar" aria-expanded="true"></button>
+      <button type="button" class="inline-flex size-8 items-center justify-center rounded-full bg-slate-200 text-xs font-semibold text-slate-800 hover:bg-slate-300" aria-label="Account menu">TQ</button>
+    </header>
+
+    <main class="min-w-0 flex-1 p-6">
+      <header class="mb-4 flex flex-col gap-2">
+        <nav aria-label="Breadcrumb">
+          <ol class="flex items-center gap-1 text-sm text-slate-600">
+            <li><a href="#sales" class="inline-flex min-h-6 items-center hover:text-slate-900 hover:underline">Sales</a></li>
+            <li aria-hidden="true">/</li>
+            <li><span aria-current="page" class="text-slate-900">Orders</span></li>
+          </ol>
+        </nav>
+        <div class="flex flex-wrap items-center justify-between gap-2">
+          <h1 class="text-xl font-semibold">Orders</h1>
+          <div class="flex items-center gap-2">
+            <button type="button" data-act="import" class="inline-flex h-8 items-center gap-1.5 rounded border border-slate-300 bg-white px-3 text-sm font-medium text-slate-800 hover:bg-slate-50"><span data-ic="upload"></span>Import</button>
+            <button type="button" data-act="export" class="inline-flex h-8 items-center gap-1.5 rounded border border-slate-300 bg-white px-3 text-sm font-medium text-slate-800 hover:bg-slate-50"><span data-ic="download"></span>Export</button>
+            <button type="button" data-act="create" class="inline-flex h-8 items-center gap-1.5 rounded bg-blue-700 px-3 text-sm font-medium text-white hover:bg-blue-800"><span data-ic="plus"></span>Create order</button>
+          </div>
+        </div>
+      </header>
+
+      <div id="tabs" class="border-b border-slate-200"></div>
+
+      <div class="relative flex flex-wrap items-center gap-2 py-3" id="toolbar">
+        <div class="relative">
+          <span class="pointer-events-none absolute left-2.5 top-2 text-slate-500" data-ic="search"></span>
+          <input id="q" type="text" aria-label="Search orders" placeholder="Search order no., customer, phone" autocomplete="off"
+            class="h-8 w-80 rounded border border-slate-300 bg-white pl-8 pr-8 text-sm placeholder:text-slate-500">
+          <button type="button" id="qclear" data-act="qclear" aria-label="Clear search" class="absolute right-1 top-1 hidden size-6 items-center justify-center rounded text-slate-600 hover:bg-slate-100"></button>
+        </div>
+        <div id="fbtns" class="flex flex-wrap items-center gap-2"></div>
+        <div id="tools" class="ml-auto flex items-center gap-2"></div>
+      </div>
+
+      <div id="chips"></div>
+      <div id="banner"></div>
+
+      <div class="mb-2 flex items-center justify-between text-sm text-slate-600">
+        <p id="summary"></p>
+        <p role="status" id="live" class="sr-only"></p>
+      </div>
+
+      <section id="card" class="rounded-md border border-slate-200 bg-white" aria-label="Orders table"></section>
+
+      <div class="mt-4 flex items-center gap-2 text-xs text-slate-600">
+        <label for="demo">Demo data</label>
+        <select id="demo" class="h-7 rounded border border-slate-300 bg-white px-1 text-xs text-slate-800">
+          <option value="normal">96 orders</option>
+          <option value="empty">First use (no orders)</option>
+          <option value="error">Load error</option>
+        </select>
+      </div>
+    </main>
+  </div>
+</div>
+
+<div id="menulayer"></div>
+<div id="dialoglayer"></div>
+<div id="toasts" role="status" aria-live="polite" class="pointer-events-none fixed right-4 top-14 z-50 flex w-80 flex-col gap-2"></div>
+
+<script>
+/* ---------- helpers ---------- */
+const $ = (s, r = document) => r.querySelector(s);
+const $$ = (s, r = document) => [...r.querySelectorAll(s)];
+const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const norm = s => String(s).normalize('NFD').replace(/\p{Diacritic}/gu, '').replace(/đ/gi, 'd').toLowerCase();
+const nf = new Intl.NumberFormat('vi-VN');
+const cur = new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' });
+const df = new Intl.DateTimeFormat('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' });
+const plural = (n, w) => `${nf.format(n)} ${w}${n === 1 ? '' : 's'}`;
+
+const ICONS = {
+  search: '<circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/>',
+  plus: '<path d="M5 12h14"/><path d="M12 5v14"/>',
+  x: '<path d="M18 6 6 18"/><path d="m6 6 12 12"/>',
+  down: '<path d="m6 9 6 6 6-6"/>',
+  left: '<path d="m15 18-6-6 6-6"/>',
+  right: '<path d="m9 18 6-6-6-6"/>',
+  more: '<circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/>',
+  download: '<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/>',
+  upload: '<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" x2="12" y1="3" y2="15"/>',
+  cart: '<circle cx="8" cy="21" r="1"/><circle cx="19" cy="21" r="1"/><path d="M2.05 2.05h2l2.66 12.42a2 2 0 0 0 2 1.58h9.78a2 2 0 0 0 1.95-1.57l1.65-7.43H5.12"/>',
+  users: '<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>',
+  pkg: '<path d="m7.5 4.27 9 5.15"/><path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/><path d="m3.3 7 8.7 5 8.7-5"/><path d="M12 22V12"/>',
+  file: '<path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/>',
+  sliders: '<line x1="21" x2="14" y1="4" y2="4"/><line x1="10" x2="3" y1="4" y2="4"/><line x1="21" x2="12" y1="12" y2="12"/><line x1="8" x2="3" y1="12" y2="12"/><line x1="21" x2="16" y1="20" y2="20"/><line x1="12" x2="3" y1="20" y2="20"/><line x1="14" x2="14" y1="2" y2="6"/><line x1="8" x2="8" y1="10" y2="14"/><line x1="16" x2="16" y1="18" y2="22"/>',
+  columns: '<rect width="18" height="18" x="3" y="3" rx="2"/><path d="M12 3v18"/>',
+  alert: '<path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"/><path d="M12 9v4"/><path d="M12 17h.01"/>',
+  check: '<path d="M20 6 9 17l-5-5"/>',
+  up: '<path d="m5 12 7-7 7 7"/><path d="M12 19V5"/>',
+  arrdown: '<path d="M12 5v14"/><path d="m19 12-7 7-7-7"/>',
+  panel: '<rect width="18" height="18" x="3" y="3" rx="2"/><path d="M9 3v18"/>',
+  card: '<rect width="20" height="14" x="2" y="5" rx="2"/><line x1="2" x2="22" y1="10" y2="10"/>',
+  truck: '<path d="M14 18V6a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v11a1 1 0 0 0 1 1h2"/><path d="M15 18H9"/><path d="M19 18h2a1 1 0 0 0 1-1v-3.65a1 1 0 0 0-.22-.624l-3.48-4.35A1 1 0 0 0 17.52 8H14"/><circle cx="17" cy="18" r="2"/><circle cx="7" cy="18" r="2"/>',
+  chart: '<path d="M3 3v16a2 2 0 0 0 2 2h16"/><path d="M18 17V9"/><path d="M13 17V5"/><path d="M8 17v-3"/>',
+};
+const ic = (n, cls = 'size-4') => `<svg class="${cls} shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICONS[n]}</svg>`;
+
+/* ---------- mock data ---------- */
+const NOW = new Date(2026, 10, 4);
+const REPS = ['Nguyễn Thị Hoa', 'Trần Minh Quân', 'Lê Hoàng Nam', 'Phạm Thu Hà', 'Đặng Quốc Việt', 'Võ Thanh Tâm'];
+const CUSTOMERS = [
+  ['Công ty TNHH Minh Phát', 'Hà Nội', '0243 556 7812'], ['Công ty CP Thương mại Đại Dương', 'Hồ Chí Minh', '0283 812 4490'],
+  ['Siêu thị Hoàng Gia', 'Đà Nẵng', '0236 355 2201'], ['Công ty TNHH Nam Việt Foods', 'Hồ Chí Minh', '0283 920 1177'],
+  ['Cửa hàng Bách Hóa Xanh Q7', 'Hồ Chí Minh', '0912 440 318'], ['Công ty CP Thực phẩm Sao Mai', 'Hải Phòng', '0225 384 6620'],
+  ['Nhà phân phối Đức Thịnh', 'Cần Thơ', '0292 381 9904'], ['Công ty TNHH Thiết bị Long Châu', 'Hà Nội', '0243 771 3365'],
+  ['Đại lý Lê Văn Dương', 'Nghệ An', '0238 355 7013'], ['Công ty CP Dược Phẩm An Khang', 'Hồ Chí Minh', '0283 600 4128'],
+  ['Công ty TNHH Xây dựng Đông Á', 'Bình Dương', '0274 382 5509'], ['Chuỗi cửa hàng Mẹ và Bé Thiên Ân', 'Hà Nội', '0243 640 9921'],
+  ['Công ty TNHH In ấn Tân Tiến', 'Đồng Nai', '0251 394 7780'], ['Nhà hàng Hương Việt', 'Huế', '0234 382 1146'],
+  ['Công ty CP Vận tải Hải Âu', 'Hải Phòng', '0225 359 2284'], ['Trường Quốc tế Á Châu', 'Hồ Chí Minh', '0283 930 5521'],
+  ['Công ty TNHH Điện máy Phú Cường', 'Đà Nẵng', '0236 374 8803'], ['Tổng kho Nguyễn Đình Tuấn', 'Bắc Ninh', '0222 382 6619'],
+];
+const CHANNELS = ['Direct', 'Distributor', 'E-commerce', 'Retail'];
+const STATUSES = ['Draft', 'Pending', 'Shipping', 'Late', 'Delivered', 'Cancelled'];
+const TONE_OF = { Draft: 'neutral', Pending: 'info', Shipping: 'info', Late: 'danger', Delivered: 'success', Cancelled: 'neutral' };
+const TONE = {
+  neutral: 'bg-slate-100 text-slate-700', info: 'bg-blue-50 text-blue-800', success: 'bg-green-50 text-green-800',
+  warning: 'bg-amber-50 text-amber-800', danger: 'bg-red-50 text-red-800',
+};
+const PAYS = ['Paid', 'Partial', 'Unpaid'];
+
+function makeOrders() {
+  let seed = 20261104;
+  const r = () => (seed = (seed * 1664525 + 1013904223) % 4294967296) / 4294967296;
+  const pick = a => a[Math.floor(r() * a.length)];
+  const out = [];
+  for (let i = 0; i < 96; i++) {
+    const ago = Math.floor(i * 1.85 + r() * 1.5);
+    const date = new Date(NOW.getFullYear(), NOW.getMonth(), NOW.getDate() - ago);
+    const due = new Date(date.getFullYear(), date.getMonth(), date.getDate() + 3 + Math.floor(r() * 10));
+    const x = r();
+    let status;
+    if (ago < 4) status = x < .3 ? 'Draft' : x < .8 ? 'Pending' : 'Shipping';
+    else if (ago < 18) status = x < .1 ? 'Draft' : x < .3 ? 'Pending' : x < .65 ? 'Shipping' : x < .8 ? 'Late' : 'Delivered';
+    else status = x < .08 ? 'Late' : x < .15 ? 'Cancelled' : 'Delivered';
+    if (status === 'Late' && due >= NOW) status = 'Shipping';
+    let pay = status === 'Delivered' ? (r() < .8 ? 'Paid' : 'Partial') : status === 'Draft' || status === 'Cancelled' ? 'Unpaid' : pick(['Paid', 'Partial', 'Unpaid', 'Unpaid']);
+    const c = CUSTOMERS[Math.floor(r() * CUSTOMERS.length)];
+    out.push({
+      no: 'DH-' + (1140 - i), customer: c[0], city: c[1], phone: c[2], status, pay,
+      rep: pick(REPS), channel: pick(CHANNELS), date, due,
+      items: 1 + Math.floor(r() * r() * 60),
+      total: Math.round((2800000 + r() * r() * 190000000) / 1000) * 1000,
+    });
+  }
+  return out;
+}
+const ALL = makeOrders();
+let ORDERS = [];
+
+/* ---------- state ---------- */
+const COLS = [
+  { id: 'no', label: 'Order no.', sort: 'no', def: true },
+  { id: 'customer', label: 'Customer', sort: 'customer', def: true },
+  { id: 'status', label: 'Status', sort: 'status', def: true },
+  { id: 'pay', label: 'Payment', sort: 'pay', def: true },
+  { id: 'rep', label: 'Sales rep', sort: 'rep', def: true },
+  { id: 'date', label: 'Order date', sort: 'date', def: true },
+  { id: 'due', label: 'Delivery due', sort: 'due', def: false },
+  { id: 'channel', label: 'Channel', sort: 'channel', def: false },
+  { id: 'city', label: 'City', sort: 'city', def: false },
+  { id: 'items', label: 'Items', sort: 'items', align: 'r', def: true },
+  { id: 'total', label: 'Total (VND)', sort: 'total', align: 'r', def: true },
+];
+const DEFAULT_SORT = '-date';
+const DATES = { '7': 'Last 7 days', '30': 'Last 30 days', '90': 'Last 90 days', month: 'This month' };
+const S = {
+  q: '', status: [], owner: [], pay: [], ch: [], min: '', max: '', date: '',
+  sort: DEFAULT_SORT, page: 1, size: 25,
+  order: COLS.map(c => c.id), hidden: new Set(COLS.filter(c => !c.def).map(c => c.id)),
+  compact: false, sel: new Set(), allMatching: false,
+  load: 'loading', busy: false, demo: 'normal', open: null, draft: null, banner: null, menuRow: null,
+};
+
+function readUrl() {
+  const p = new URLSearchParams(location.search);
+  S.q = p.get('q') || '';
+  S.status = p.getAll('status').filter(v => STATUSES.includes(v));
+  S.owner = p.getAll('owner').filter(v => REPS.includes(v));
+  S.pay = p.getAll('pay').filter(v => PAYS.includes(v));
+  S.ch = p.getAll('ch').filter(v => CHANNELS.includes(v));
+  S.min = /^\d+$/.test(p.get('min') || '') ? p.get('min') : '';
+  S.max = /^\d+$/.test(p.get('max') || '') ? p.get('max') : '';
+  S.date = DATES[p.get('date')] ? p.get('date') : '';
+  const sort = p.get('sort') || DEFAULT_SORT;
+  if (COLS.some(c => c.sort === sort.replace('-', ''))) S.sort = sort;
+  S.page = Math.max(1, parseInt(p.get('page'), 10) || 1);
+  const size = parseInt(p.get('size'), 10);
+  S.size = [25, 50, 100].includes(size) ? size : 25;
+}
+function writeUrl() {
+  const p = new URLSearchParams();
+  if (S.q) p.set('q', S.q);
+  S.status.forEach(v => p.append('status', v)); S.owner.forEach(v => p.append('owner', v));
+  S.pay.forEach(v => p.append('pay', v)); S.ch.forEach(v => p.append('ch', v));
+  if (S.min !== '') p.set('min', S.min); if (S.max !== '') p.set('max', S.max);
+  if (S.date) p.set('date', S.date);
+  if (S.sort !== DEFAULT_SORT) p.set('sort', S.sort);
+  if (S.page > 1) p.set('page', S.page);
+  if (S.size !== 25) p.set('size', S.size);
+  const qs = p.toString();
+  try { history.replaceState(null, '', qs ? '?' + qs : location.pathname); } catch (e) { /* file:// */ }
+}
+
+/* ---------- querying ---------- */
+function match(o, skipStatus) {
+  if (S.q && !norm(`${o.no} ${o.customer} ${o.phone}`).includes(norm(S.q))) return false;
+  if (!skipStatus && S.status.length && !S.status.includes(o.status)) return false;
+  if (S.owner.length && !S.owner.includes(o.rep)) return false;
+  if (S.pay.length && !S.pay.includes(o.pay)) return false;
+  if (S.ch.length && !S.ch.includes(o.channel)) return false;
+  if (S.min !== '' && o.total < +S.min) return false;
+  if (S.max !== '' && o.total > +S.max) return false;
+  if (S.date) {
+    const days = (NOW - o.date) / 864e5;
+    if (S.date === 'month') { if (o.date.getMonth() !== NOW.getMonth() || o.date.getFullYear() !== NOW.getFullYear()) return false; }
+    else if (days > +S.date) return false;
+  }
+  return true;
+}
+function sortVal(o, k) {
+  switch (k) {
+    case 'no': return +o.no.slice(3);
+    case 'date': return o.date.getTime(); case 'due': return o.due.getTime();
+    case 'status': return STATUSES.indexOf(o.status);
+    default: return o[k];
+  }
+}
+function filtered() {
+  const key = S.sort.replace('-', ''), dir = S.sort.startsWith('-') ? -1 : 1;
+  return ORDERS.filter(o => match(o)).sort((a, b) => {
+    const x = sortVal(a, key), y = sortVal(b, key);
+    let c = typeof x === 'string' ? x.localeCompare(y, 'vi') : x - y;
+    if (c === 0) c = +a.no.slice(3) - +b.no.slice(3);
+    return c * dir;
+  });
+}
+const pageRows = list => list.slice((S.page - 1) * S.size, S.page * S.size);
+
+/* ---------- UI atoms ---------- */
+const BTN = 'inline-flex h-8 items-center gap-1.5 rounded border border-slate-300 bg-white px-3 text-sm font-medium text-slate-800 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50';
+const PRI = 'inline-flex h-8 items-center gap-1.5 rounded bg-blue-700 px-3 text-sm font-medium text-white hover:bg-blue-800';
+const LINK = 'text-sm font-medium text-blue-700 hover:underline';
+const badge = s => `<span class="inline-flex h-6 items-center rounded-full px-2 text-xs font-medium ${TONE[TONE_OF[s]]}">${s}</span>`;
+
+function toast(msg) {
+  const el = document.createElement('div');
+  el.className = 'pointer-events-auto flex items-start gap-2 rounded-md border border-slate-200 bg-white p-3 text-sm shadow-lg';
+  el.innerHTML = `<span class="mt-0.5 text-green-700">${ic('check')}</span><span class="flex-1">${esc(msg)}</span><button type="button" aria-label="Dismiss notification" class="inline-flex size-6 items-center justify-center rounded text-slate-600 hover:bg-slate-100">${ic('x')}</button>`;
+  $('#toasts').appendChild(el);
+  let t = setTimeout(() => el.remove(), 5000);
+  el.addEventListener('mouseenter', () => clearTimeout(t));
+  el.addEventListener('mouseleave', () => (t = setTimeout(() => el.remove(), 5000)));
+  $('button', el).addEventListener('click', () => el.remove());
+}
+
+/* ---------- render: shell ---------- */
+const NAV = [
+  ['Sales', [['Orders', 'cart', true], ['Quotations', 'file'], ['Customers', 'users'], ['Returns', 'truck']]],
+  ['Inventory', [['Products', 'pkg'], ['Stock levels', 'chart'], ['Warehouses', 'pkg']]],
+  ['Finance', [['Invoices', 'file'], ['Payments', 'card']]],
+];
+function renderNav() {
+  $('#nav').innerHTML = NAV.map(([g, items]) => `<div class="flex flex-col gap-0.5"><p class="nav-label px-2 py-1 text-xs font-medium text-slate-600">${g}</p>${items.map(([l, i, a]) =>
+    `<a href="#${l}" ${a ? 'aria-current="page"' : ''} title="${l}" class="flex h-8 items-center gap-2 rounded px-2 text-sm text-slate-800 hover:bg-slate-200/70 ${a ? 'bg-slate-200 font-medium' : ''}">${ic(i)}<span class="nav-text truncate">${l}</span></a>`).join('')}</div>`).join('');
+}
+
+/* ---------- render: tabs ---------- */
+function renderTabs() {
+  const ready = S.load === 'ready' && ORDERS.length;
+  const base = ORDERS.filter(o => match(o, true));
+  const cnt = s => (s ? base.filter(o => o.status === s).length : base.length);
+  const active = S.status.length === 1 ? S.status[0] : S.status.length === 0 ? '' : null;
+  const tab = (label, val) => {
+    const on = active === val;
+    return `<button type="button" role="tab" aria-selected="${on}" data-act="tab" data-val="${val}" class="-mb-px inline-flex h-10 items-center gap-1.5 border-b-2 px-3 text-sm ${on ? 'border-blue-700 font-semibold text-blue-700' : 'border-transparent text-slate-700 hover:text-slate-900'}">${label}${ready ? ` <span class="${on ? 'text-blue-700' : 'text-slate-600'} font-normal tabular-nums">${nf.format(cnt(val))}</span>` : ''}</button>`;
+  };
+  $('#tabs').innerHTML = `<div role="tablist" aria-label="Order status" class="flex flex-wrap">${tab('All', '')}${STATUSES.map(s => tab(s, s)).join('')}</div>`;
+}
+
+/* ---------- render: toolbar ---------- */
+function trig(id, label, value) {
+  const open = S.open === id;
+  return `<button type="button" data-act="pop" data-id="${id}" aria-haspopup="true" aria-expanded="${open}" class="inline-flex h-8 items-center gap-1.5 rounded border px-3 text-sm ${value ? 'border-blue-700 bg-blue-50 text-blue-800' : 'border-slate-300 bg-white text-slate-800 hover:bg-slate-50'}">${label}${value ? `: <span class="font-medium">${esc(value)}</span>` : ''}${ic('down')}</button>`;
+}
+const POP = 'absolute left-0 top-9 z-30 min-w-56 rounded-md border border-slate-200 bg-white p-1 shadow-lg';
+function checkList(name, opts, sel) {
+  return opts.map(o => `<label class="flex h-8 cursor-pointer items-center gap-2 rounded px-2 text-sm hover:bg-slate-100"><input type="checkbox" data-chg="${name}" value="${esc(o)}" ${sel.includes(o) ? 'checked' : ''} class="size-4"><span>${esc(o)}</span></label>`).join('');
+}
+function summarize(a) { return a.length ? (a.length > 1 ? `${a[0]} +${a.length - 1}` : a[0]) : ''; }
+
+function renderToolbar() {
+  const more = S.pay.length + S.ch.length + (S.min !== '' || S.max !== '' ? 1 : 0);
+  const d = S.draft || { pay: S.pay, ch: S.ch, min: S.min, max: S.max };
+  const wrap = (id, trigHtml, panel) => `<div class="relative">${trigHtml}${S.open === id ? panel : ''}</div>`;
+  $('#fbtns').innerHTML =
+    wrap('status', trig('status', 'Status', summarize(S.status)), `<div class="${POP}" role="group" aria-label="Filter by status">${checkList('status', STATUSES, S.status)}</div>`) +
+    wrap('owner', trig('owner', 'Sales rep', summarize(S.owner)), `<div class="${POP}" role="group" aria-label="Filter by sales rep">${checkList('owner', REPS, S.owner)}</div>`) +
+    wrap('date', trig('date', 'Order date', DATES[S.date] || ''), `<div class="${POP}" role="radiogroup" aria-label="Order date">${['', '7', '30', 'month', '90'].map(v => `<label class="flex h-8 cursor-pointer items-center gap-2 rounded px-2 text-sm hover:bg-slate-100"><input type="radio" name="dt" data-chg="date" value="${v}" ${S.date === v ? 'checked' : ''} class="size-4"><span>${v ? DATES[v] : 'Any time'}</span></label>`).join('')}</div>`) +
+    wrap('more', `<button type="button" data-act="pop" data-id="more" aria-haspopup="true" aria-expanded="${S.open === 'more'}" class="inline-flex h-8 items-center gap-1.5 rounded border border-slate-300 bg-white px-3 text-sm text-slate-800 hover:bg-slate-50">${ic('sliders')}More filters${more ? ` (${more})` : ''}</button>`,
+      `<div class="${POP} w-72 p-3" role="group" aria-label="More filters">
+        <fieldset class="mb-3"><legend class="mb-1 text-xs font-medium text-slate-700">Payment</legend><div class="flex flex-wrap gap-x-3">${PAYS.map(p => `<label class="flex h-8 items-center gap-1.5 text-sm"><input type="checkbox" data-dr="pay" value="${p}" ${d.pay.includes(p) ? 'checked' : ''} class="size-4">${p}</label>`).join('')}</div></fieldset>
+        <fieldset class="mb-3"><legend class="mb-1 text-xs font-medium text-slate-700">Channel</legend><div class="grid grid-cols-2">${CHANNELS.map(p => `<label class="flex h-8 items-center gap-1.5 text-sm"><input type="checkbox" data-dr="ch" value="${p}" ${d.ch.includes(p) ? 'checked' : ''} class="size-4">${p}</label>`).join('')}</div></fieldset>
+        <fieldset class="mb-3"><legend class="mb-1 text-xs font-medium text-slate-700">Total (VND)</legend><div class="flex items-center gap-2">
+          <input type="number" min="0" inputmode="numeric" data-dr="min" value="${d.min}" placeholder="From" aria-label="Total from" class="h-8 w-full rounded border border-slate-300 px-2 text-sm tabular-nums placeholder:text-slate-500">
+          <span class="text-slate-600">–</span>
+          <input type="number" min="0" inputmode="numeric" data-dr="max" value="${d.max}" placeholder="To" aria-label="Total to" class="h-8 w-full rounded border border-slate-300 px-2 text-sm tabular-nums placeholder:text-slate-500"></div></fieldset>
+        <div class="flex justify-end gap-2 border-t border-slate-200 pt-3"><button type="button" data-act="more-reset" class="${BTN}">Reset</button><button type="button" data-act="more-apply" class="${PRI}">Apply</button></div>
+      </div>`);
+
+  const hid = S.hidden.size;
+  const colPanel = `<div class="${POP.replace('left-0', 'right-0')} w-64" role="group" aria-label="Choose columns">${S.order.map((id, i) => {
+    const c = COLS.find(x => x.id === id);
+    return `<div class="flex h-8 items-center gap-1 rounded px-2 hover:bg-slate-100"><label class="flex flex-1 cursor-pointer items-center gap-2 text-sm"><input type="checkbox" data-chg="col" value="${id}" ${S.hidden.has(id) ? '' : 'checked'} class="size-4">${c.label}</label>
+      <button type="button" data-act="colmove" data-id="${id}" data-dir="-1" ${i === 0 ? 'disabled' : ''} aria-label="Move ${c.label} up" class="inline-flex size-6 items-center justify-center rounded text-slate-700 hover:bg-slate-200 disabled:opacity-40">${ic('up')}</button>
+      <button type="button" data-act="colmove" data-id="${id}" data-dir="1" ${i === S.order.length - 1 ? 'disabled' : ''} aria-label="Move ${c.label} down" class="inline-flex size-6 items-center justify-center rounded text-slate-700 hover:bg-slate-200 disabled:opacity-40">${ic('arrdown')}</button></div>`;
+  }).join('')}</div>`;
+  $('#tools').innerHTML =
+    `<div class="relative"><button type="button" data-act="pop" data-id="columns" aria-haspopup="true" aria-expanded="${S.open === 'columns'}" class="${BTN}">${ic('columns')}Columns${hid ? ` (${hid} hidden)` : ''}</button>${S.open === 'columns' ? colPanel : ''}</div>` +
+    `<button type="button" data-act="density" aria-pressed="${S.compact}" class="${BTN} ${S.compact ? 'border-blue-700 bg-blue-50 text-blue-800' : ''}">Compact rows</button>`;
+  $('#qclear').classList.toggle('hidden', !S.q);
+  $('#qclear').classList.toggle('inline-flex', !!S.q);
+}
+
+/* ---------- render: chips ---------- */
+function chipList() {
+  const c = [];
+  if (S.q) c.push({ k: 'q', v: S.q, l: `Search: ${S.q}` });
+  S.status.forEach(v => c.push({ k: 'status', v, l: `Status: ${v}` }));
+  S.owner.forEach(v => c.push({ k: 'owner', v, l: `Sales rep: ${v}` }));
+  if (S.date) c.push({ k: 'date', v: S.date, l: `Order date: ${DATES[S.date]}` });
+  S.pay.forEach(v => c.push({ k: 'pay', v, l: `Payment: ${v}` }));
+  S.ch.forEach(v => c.push({ k: 'ch', v, l: `Channel: ${v}` }));
+  if (S.min !== '' || S.max !== '') c.push({ k: 'amt', v: '', l: `Total: ${S.min !== '' ? nf.format(S.min) : '0'} – ${S.max !== '' ? nf.format(S.max) : 'any'} ₫` });
+  return c;
+}
+function renderChips() {
+  const chips = chipList();
+  $('#chips').innerHTML = chips.length ? `<div class="flex flex-wrap items-center gap-2 pb-3">${chips.map(c =>
+    `<span class="inline-flex h-6 items-center gap-1 rounded-full border border-slate-300 bg-slate-100 pl-2 pr-0.5 text-xs font-medium text-slate-800">${esc(c.l)}<button type="button" data-act="chip" data-k="${c.k}" data-v="${esc(c.v)}" aria-label="Remove filter ${esc(c.l)}" class="inline-flex size-6 items-center justify-center rounded-full hover:bg-slate-200">${ic('x')}</button></span>`).join('')}
+    <button type="button" data-act="clearall" class="${LINK}">Clear all</button></div>` : '';
+}
+
+/* ---------- render: banner ---------- */
+function renderBanner() {
+  const b = S.banner;
+  if (!b) { $('#banner').innerHTML = ''; return; }
+  const tone = b.allFailed ? 'bg-red-50 text-red-800 border-red-200' : 'bg-amber-50 text-amber-800 border-amber-200';
+  $('#banner').innerHTML = `<div role="status" class="mb-3 rounded-md border ${tone} px-3 py-2 text-sm">
+    <div class="flex flex-wrap items-center gap-3">${ic('alert')}<span class="font-medium">${b.updated} updated, ${b.failed.length} failed</span>
+      <button type="button" data-act="viewfailed" aria-expanded="${!!b.open}" class="font-medium underline">View failed (${b.failed.length})</button>
+      <button type="button" data-act="retryfailed" class="font-medium underline">Retry failed</button>
+      <button type="button" data-act="dismissbanner" aria-label="Dismiss message" class="ml-auto inline-flex size-6 items-center justify-center rounded hover:bg-black/5">${ic('x')}</button></div>
+    ${b.open ? `<ul class="mt-2 space-y-0.5 border-t border-current/20 pt-2">${b.failed.map(f => `<li><span class="font-medium">${f.no}</span>: ${esc(f.reason)}</li>`).join('')}</ul>` : ''}</div>`;
+}
+
+/* ---------- render: table card ---------- */
+function cellHtml(id, o) {
+  switch (id) {
+    case 'no': return `<a href="#${o.no}" class="font-medium text-blue-700 hover:underline">${o.no}</a>`;
+    case 'customer': return esc(o.customer);
+    case 'status': return badge(o.status);
+    case 'pay': return o.pay;
+    case 'rep': return esc(o.rep);
+    case 'date': return df.format(o.date);
+    case 'due': return df.format(o.due);
+    case 'channel': return o.channel;
+    case 'city': return esc(o.city);
+    case 'items': return nf.format(o.items);
+    case 'total': return nf.format(o.total);
+  }
+}
+const SKW = { no: 'w-16', customer: 'w-44', status: 'w-16', pay: 'w-14', rep: 'w-28', date: 'w-20', due: 'w-20', channel: 'w-20', city: 'w-20', items: 'w-8', total: 'w-24' };
+
+function bulkBar(list, n) {
+  const rows = pageRows(list);
+  const allPage = rows.length && rows.every(o => S.sel.has(o.no));
+  const selectAll = !S.allMatching && allPage && list.length > rows.length;
+  return `<div class="flex h-10 items-center gap-3 border-b border-slate-200 bg-blue-50 px-3 text-sm text-blue-900">
+    <span class="font-medium tabular-nums">${S.allMatching ? `All ${nf.format(n)} matching selected` : `${nf.format(n)} selected`}</span>
+    ${selectAll ? `<button type="button" data-act="selectall" class="${LINK}">Select all ${nf.format(list.length)} matching</button>` : ''}
+    ${S.allMatching ? `<button type="button" data-act="cancelsel" class="${LINK}">Clear selection</button>` : ''}
+    <div class="ml-2 flex items-center gap-2">
+      <button type="button" data-act="bulk-ship" class="${BTN}">Start shipping</button>
+      <button type="button" data-act="bulk-print" class="${BTN}">Print picking lists</button>
+      <button type="button" data-act="bulk-assign" class="${BTN}">Assign sales rep</button>
+      <div class="relative"><button type="button" data-act="pop" data-id="bulkmore" aria-haspopup="true" aria-expanded="${S.open === 'bulkmore'}" class="${BTN}">More${ic('down')}</button>
+        ${S.open === 'bulkmore' ? `<div class="${POP} w-48"><button type="button" data-act="bulk-export" class="flex h-8 w-full items-center rounded px-2 text-left text-sm hover:bg-slate-100">Export selected</button><div class="my-1 border-t border-slate-200"></div><button type="button" data-act="bulk-cancel" class="flex h-8 w-full items-center rounded px-2 text-left text-sm text-red-700 hover:bg-red-50">Cancel orders…</button></div>` : ''}</div>
+    </div>
+    <button type="button" data-act="cancelsel" class="${BTN} ml-auto border-blue-200">Cancel</button></div>`;
+}
+
+function renderCard() {
+  const vis = S.order.filter(id => !S.hidden.has(id)).map(id => COLS.find(c => c.id === id));
+  const colspan = vis.length + 2;
+  const list = S.load === 'ready' ? filtered() : [];
+  const pages = Math.max(1, Math.ceil(list.length / S.size));
+  if (S.page > pages) S.page = pages;
+  const rows = pageRows(list);
+  const n = S.allMatching ? list.length : S.sel.size;
+  const rowH = S.compact ? 'h-8' : 'h-10';
+  const allPage = rows.length && (S.allMatching || rows.every(o => S.sel.has(o.no)));
+  const somePage = rows.some(o => S.sel.has(o.no)) || S.allMatching;
+
+  const sortKey = S.sort.replace('-', ''), desc = S.sort.startsWith('-');
+  const head = `<tr class="h-10 border-b border-slate-200 bg-slate-50">
+    <th scope="col" class="w-10 px-3"><input type="checkbox" id="selAll" aria-label="Select all rows on this page" ${allPage ? 'checked' : ''} ${S.load !== 'ready' || !rows.length ? 'disabled' : ''} class="size-4"></th>
+    ${vis.map(c => {
+      const on = sortKey === c.sort;
+      const right = c.align === 'r';
+      return `<th scope="col" ${on ? `aria-sort="${desc ? 'descending' : 'ascending'}"` : ''} class="whitespace-nowrap px-3 text-xs font-medium text-slate-700 ${right ? 'text-right' : 'text-left'}">
+        <button type="button" data-act="sort" data-col="${c.sort}" class="group inline-flex h-8 items-center gap-1 rounded font-medium hover:text-slate-900 ${right ? 'flex-row-reverse' : ''}">${c.label}<span class="${on ? '' : 'opacity-0 group-hover:opacity-60 group-focus-visible:opacity-60'}">${on ? ic(desc ? 'arrdown' : 'up') : ic('up')}</span></button></th>`;
+    }).join('')}
+    <th scope="col" class="w-28 px-3"><span class="sr-only">Actions</span></th></tr>`;
+
+  let body = '';
+  if (S.load === 'loading') {
+    body = Array.from({ length: 10 }, () => `<tr class="${rowH} border-b border-slate-100" aria-hidden="true"><td class="px-3"><div class="size-4 rounded bg-slate-200 animate-pulse"></div></td>${vis.map(c => `<td class="px-3"><div class="h-4 ${SKW[c.id]} ${c.align === 'r' ? 'ml-auto' : ''} rounded bg-slate-200 animate-pulse"></div></td>`).join('')}<td class="px-3"><div class="h-4 w-16 rounded bg-slate-200 animate-pulse"></div></td></tr>`).join('');
+  } else if (S.load === 'error') {
+    body = `<tr><td colspan="${colspan}"><div class="flex flex-col items-center gap-3 px-6 py-12 text-center"><p class="text-base font-medium">Couldn't load orders</p><p class="max-w-sm text-sm text-slate-600">Check your connection and try again. Your filters are kept.</p><button type="button" data-act="retry" class="${PRI}">Retry</button></div></td></tr>`;
+  } else if (!ORDERS.length) {
+    body = `<tr><td colspan="${colspan}"><div class="flex flex-col items-center gap-3 px-6 py-12 text-center"><p class="text-base font-medium">No orders yet</p><p class="max-w-sm text-sm text-slate-600">Orders from every sales channel appear here once they are created.</p><button type="button" data-act="create" class="${PRI}">${ic('plus')}Create order</button></div></td></tr>`;
+  } else if (!list.length) {
+    body = `<tr><td colspan="${colspan}"><div class="flex flex-col items-center gap-3 px-6 py-12 text-center"><p class="text-base font-medium">${S.q && chipList().length === 1 ? `No orders match "${esc(S.q)}"` : 'No orders match these filters'}</p><p class="max-w-sm text-sm text-slate-600">Check the spelling or widen the date range.</p><button type="button" data-act="clearall" class="${BTN}">Clear filters</button></div></td></tr>`;
+  } else {
+    body = rows.map(o => {
+      const sel = S.allMatching || S.sel.has(o.no);
+      const locked = o.status === 'Delivered' || o.status === 'Cancelled';
+      return `<tr class="${rowH} border-b border-slate-100 hover:bg-slate-50 ${sel ? 'bg-blue-50 hover:bg-blue-50' : ''}">
+        <td class="px-3"><input type="checkbox" data-chg="row" value="${o.no}" aria-label="Select order ${o.no}" ${sel ? 'checked' : ''} class="size-4"></td>
+        ${vis.map(c => `<td class="whitespace-nowrap px-3 ${c.align === 'r' ? 'text-right tabular-nums' : 'text-left'}">${cellHtml(c.id, o)}</td>`).join('')}
+        <td class="px-3 py-0"><div class="flex items-center justify-end gap-1">
+          <button type="button" data-act="rowedit" data-id="${o.no}" ${n > 0 ? 'disabled' : ''} aria-label="${locked ? 'View' : 'Edit'} order ${o.no}" class="inline-flex h-7 items-center rounded px-2 text-sm font-medium text-blue-700 hover:bg-blue-50 disabled:opacity-50">${locked ? 'View' : 'Edit'}</button>
+          <button type="button" data-act="rowmenu" data-id="${o.no}" ${n > 0 ? 'disabled' : ''} aria-haspopup="true" aria-label="Actions for order ${o.no}" class="inline-flex size-7 items-center justify-center rounded text-slate-700 hover:bg-slate-200 disabled:opacity-50">${ic('more')}</button></div></td></tr>`;
+    }).join('');
+  }
+
+  let pager = '';
+  if (S.load === 'ready' && list.length) {
+    const from = (S.page - 1) * S.size + 1, to = Math.min(list.length, S.page * S.size);
+    const nums = [];
+    for (let p = Math.max(1, S.page - 2); p <= Math.min(pages, Math.max(5, S.page + 2)); p++) nums.push(p);
+    const pb = 'inline-flex size-8 items-center justify-center rounded border text-sm tabular-nums';
+    pager = `<div class="flex h-12 items-center justify-between px-3 text-sm text-slate-700">
+      <p class="tabular-nums">${nf.format(from)}–${nf.format(to)} of ${nf.format(list.length)}</p>
+      <div class="flex items-center gap-3">
+        <label class="flex items-center gap-2">Rows per page <select data-chg="size" class="h-8 rounded border border-slate-300 bg-white px-1 text-sm">${[25, 50, 100].map(s => `<option ${s === S.size ? 'selected' : ''}>${s}</option>`).join('')}</select></label>
+        <nav aria-label="Pagination" class="flex items-center gap-1">
+          <button type="button" data-act="page" data-p="${S.page - 1}" ${S.page === 1 ? 'disabled' : ''} aria-label="Previous page" class="${pb} border-slate-300 hover:bg-slate-50 disabled:opacity-40">${ic('left')}</button>
+          ${nums.map(p => `<button type="button" data-act="page" data-p="${p}" ${p === S.page ? 'aria-current="page"' : ''} aria-label="Page ${p}" class="${pb} ${p === S.page ? 'border-blue-700 bg-blue-700 text-white' : 'border-slate-300 hover:bg-slate-50'}">${p}</button>`).join('')}
+          <button type="button" data-act="page" data-p="${S.page + 1}" ${S.page === pages ? 'disabled' : ''} aria-label="Next page" class="${pb} border-slate-300 hover:bg-slate-50 disabled:opacity-40">${ic('right')}</button>
+        </nav></div></div>`;
+  }
+
+  $('#card').innerHTML = `${n > 0 && S.load === 'ready' ? bulkBar(list, n) : ''}
+    <div class="overflow-x-auto"><table class="w-full border-collapse text-sm ${S.busy ? 'opacity-60' : ''}" aria-busy="${S.load === 'loading' || S.busy}">
+      <thead>${head}</thead><tbody>${body}</tbody></table></div>${pager ? `<div class="border-t border-slate-200">${pager}</div>` : ''}`;
+  const sa = $('#selAll'); if (sa) sa.indeterminate = !allPage && somePage;
+
+  // summary + live region
+  if (S.load === 'ready' && ORDERS.length) {
+    const sum = list.reduce((a, o) => a + o.total, 0);
+    $('#summary').textContent = list.length ? `${plural(list.length, 'order')} · ${cur.format(sum)}` : 'No orders';
+    $('#live').textContent = list.length ? `${plural(list.length, 'order')} match` : 'No orders match';
+  } else { $('#summary').textContent = S.load === 'loading' ? 'Loading orders…' : ''; $('#live').textContent = ''; }
+}
+
+function render(keepFocus) {
+  const fk = keepFocus && document.activeElement && document.activeElement.dataset ? { a: document.activeElement.dataset.act, id: document.activeElement.dataset.id, ch: document.activeElement.dataset.chg, v: document.activeElement.value, dr: document.activeElement.dataset.dr } : null;
+  renderTabs(); renderToolbar(); renderChips(); renderBanner(); renderCard();
+  if (fk) {
+    const sel = fk.dr ? `[data-dr="${fk.dr}"]${fk.dr === 'min' || fk.dr === 'max' ? '' : `[value="${fk.v}"]`}` : fk.ch ? `[data-chg="${fk.ch}"]${fk.ch === 'size' ? '' : `[value="${fk.v}"]`}` : fk.a ? `[data-act="${fk.a}"]${fk.id ? `[data-id="${fk.id}"]` : ''}` : null;
+    const el = sel && $(sel); if (el && el !== document.activeElement) el.focus();
+  }
+}
+
+/* ---------- state changes ---------- */
+let busyT;
+function changed(resetPage = true) {
+  if (resetPage) S.page = 1;
+  S.sel.clear(); S.allMatching = false; S.banner = null;
+  S.busy = true; writeUrl(); render(true);
+  clearTimeout(busyT);
+  busyT = setTimeout(() => { S.busy = false; render(true); }, 220);
+}
+function loadData(delay = 450) {
+  S.load = 'loading'; S.sel.clear(); S.allMatching = false; S.banner = null; S.open = null; render();
+  setTimeout(() => {
+    if (S.demo === 'error') { ORDERS = []; S.load = 'error'; }
+    else { ORDERS = S.demo === 'empty' ? [] : ALL; S.load = 'ready'; }
+    render();
+  }, delay);
+}
+function clearFilters() {
+  S.q = ''; S.status = []; S.owner = []; S.pay = []; S.ch = []; S.min = S.max = ''; S.date = '';
+  $('#q').value = ''; S.open = null; changed();
+}
+
+/* ---------- dialogs ---------- */
+let lastFocus = null;
+function dialog({ title, body, confirm, destructive, cancel = 'Cancel', onConfirm, field }) {
+  lastFocus = document.activeElement;
+  const dl = $('#dialoglayer');
+  dl.innerHTML = `<div class="fixed inset-0 z-40 flex items-center justify-center bg-slate-900/40 p-4"><div role="dialog" aria-modal="true" aria-labelledby="dtitle" class="w-full max-w-md rounded-lg border border-slate-200 bg-white p-6 shadow-lg">
+    <h2 id="dtitle" class="text-base font-semibold">${esc(title)}</h2><div class="mt-2 text-sm text-slate-700">${body}</div>${field || ''}
+    <div class="mt-6 flex justify-end gap-2"><button type="button" id="dcancel" class="${BTN}">${esc(cancel)}</button>${confirm ? `<button type="button" id="dok" class="inline-flex h-8 items-center rounded px-3 text-sm font-medium text-white ${destructive ? 'bg-red-700 hover:bg-red-800' : 'bg-blue-700 hover:bg-blue-800'}">${esc(confirm)}</button>` : ''}</div></div></div>`;
+  const close = () => { dl.innerHTML = ''; document.removeEventListener('keydown', key, true); lastFocus && lastFocus.isConnected && lastFocus.focus(); };
+  const key = e => {
+    if (e.key === 'Escape') { e.preventDefault(); close(); }
+    if (e.key === 'Tab') { const f = $$('button,select,input', dl); const i = f.indexOf(document.activeElement); e.preventDefault(); f[(i + (e.shiftKey ? -1 : 1) + f.length) % f.length].focus(); }
+  };
+  document.addEventListener('keydown', key, true);
+  $('#dcancel').onclick = close;
+  if ($('#dok')) $('#dok').onclick = () => { close(); onConfirm && onConfirm(); };
+  (field ? $('select', dl) : $('#dcancel')).focus();
+}
+
+const CANCELLABLE = ['Draft', 'Pending', 'Shipping', 'Late'];
+function targets() { return S.allMatching ? filtered() : ORDERS.filter(o => S.sel.has(o.no)); }
+
+function cancelOrders(list) {
+  const ok = list.filter(o => CANCELLABLE.includes(o.status)), no = list.length - ok.length;
+  const noun = list.length === 1 ? `order ${list[0].no}` : plural(list.length, 'order');
+  if (!ok.length) {
+    dialog({ title: `Can't cancel ${noun}`, body: `${list.length === 1 ? 'This order is' : 'These orders are'} already delivered or cancelled and can't be changed. Open the order to create a return instead.`, cancel: 'Close' });
+    return;
+  }
+  dialog({
+    title: `Cancel ${ok.length === list.length ? noun : plural(ok.length, 'order')}?`,
+    body: `Stock reserved for ${ok.length === 1 ? 'this order' : 'these orders'} is released and the customer is notified.${no ? ` ${plural(no, 'selected order')} (delivered or already cancelled) can't be cancelled and stay unchanged.` : ''}`,
+    confirm: ok.length === 1 ? 'Cancel order' : `Cancel ${ok.length} orders`, cancel: ok.length === 1 ? 'Keep order' : 'Keep orders', destructive: true,
+    onConfirm: () => { ok.forEach(o => (o.status = 'Cancelled')); S.sel.clear(); S.allMatching = false; render(); toast(`${plural(ok.length, 'order')} cancelled`); },
+  });
+}
+
+function bulkShip(list) {
+  const REASON = { Draft: 'Draft orders must be submitted before shipping', Shipping: 'Order is already shipping', Late: 'Order is already shipping', Delivered: 'Order is already delivered', Cancelled: 'Order is cancelled' };
+  let updated = 0; const failed = [];
+  list.forEach(o => { if (o.status === 'Pending') { o.status = 'Shipping'; updated++; } else failed.push({ no: o.no, reason: REASON[o.status] }); });
+  S.allMatching = false;
+  if (!failed.length) { S.sel.clear(); S.banner = null; render(); toast(`${plural(updated, 'order')} updated`); return; }
+  S.sel = new Set(failed.map(f => f.no));
+  S.banner = { updated, failed, allFailed: updated === 0, open: false };
+  render();
+}
+
+/* ---------- menus ---------- */
+function openRowMenu(btn, id) {
+  const o = ORDERS.find(x => x.no === id), r = btn.getBoundingClientRect();
+  S.menuRow = id; S.open = null; renderToolbar();
+  const can = CANCELLABLE.includes(o.status);
+  $('#menulayer').innerHTML = `<div class="fixed z-40 w-56 rounded-md border border-slate-200 bg-white p-1 shadow-lg" style="top:${Math.min(r.bottom + 4, innerHeight - 150)}px;left:${Math.max(8, r.right - 224)}px" role="menu" aria-label="Actions for order ${id}">
+    <button role="menuitem" type="button" data-act="rm-dup" data-id="${id}" class="flex h-8 w-full items-center rounded px-2 text-left text-sm hover:bg-slate-100">Duplicate order</button>
+    <button role="menuitem" type="button" data-act="rm-print" data-id="${id}" class="flex h-8 w-full items-center rounded px-2 text-left text-sm hover:bg-slate-100">Print order</button>
+    <div class="my-1 border-t border-slate-200"></div>
+    ${can ? `<button role="menuitem" type="button" data-act="rm-cancel" data-id="${id}" class="flex h-8 w-full items-center rounded px-2 text-left text-sm text-red-700 hover:bg-red-50">Cancel order…</button>`
+      : `<button role="menuitem" type="button" aria-disabled="true" class="flex w-full cursor-not-allowed flex-col rounded px-2 py-1 text-left text-sm text-slate-600"><span>Cancel order</span><span class="text-xs">Unavailable: order is ${o.status.toLowerCase()}</span></button>`}</div>`;
+  const first = $('#menulayer [role=menuitem]'); first && first.focus();
+}
+function closeMenus() {
+  if (S.open || S.menuRow) { const was = S.menuRow; S.open = null; S.menuRow = null; $('#menulayer').innerHTML = ''; render(); if (was) { const b = $(`[data-act=rowmenu][data-id="${was}"]`); b && b.focus(); } }
+}
+
+/* ---------- events ---------- */
+document.addEventListener('click', e => {
+  const t = e.target.closest('[data-act]');
+  const insidePop = e.target.closest('#fbtns, #tools, #menulayer, #card [aria-haspopup]');
+  if (!t && !insidePop && (S.open || S.menuRow)) { S.open = null; S.menuRow = null; $('#menulayer').innerHTML = ''; render(); return; }
+  if (!t) return;
+  const a = t.dataset.act, id = t.dataset.id;
+  if (a !== 'rowmenu' && a !== 'pop' && S.menuRow) { S.menuRow = null; $('#menulayer').innerHTML = ''; }
+  switch (a) {
+    case 'pop':
+      if (S.open === id) { S.open = null; S.draft = null; }
+      else { S.open = id; S.draft = id === 'more' ? { pay: [...S.pay], ch: [...S.ch], min: S.min, max: S.max } : null; }
+      S.menuRow = null; $('#menulayer').innerHTML = ''; render(true); break;
+    case 'tab': S.status = t.dataset.val ? [t.dataset.val] : []; changed(); break;
+    case 'qclear': S.q = ''; $('#q').value = ''; changed(); $('#q').focus(); break;
+    case 'chip': {
+      const k = t.dataset.k, v = t.dataset.v;
+      if (k === 'q') { S.q = ''; $('#q').value = ''; }
+      else if (k === 'date') S.date = '';
+      else if (k === 'amt') S.min = S.max = '';
+      else S[k] = S[k].filter(x => x !== v);
+      changed();
+      const nx = $('#chips [data-act=chip]'); (nx || $('#q')).focus(); break;
+    }
+    case 'clearall': clearFilters(); break;
+    case 'more-apply': {
+      const d = S.draft; S.pay = d.pay; S.ch = d.ch; S.min = d.min; S.max = d.max; S.open = null; S.draft = null; changed();
+      const b = $('[data-act=pop][data-id=more]'); b && b.focus(); break;
+    }
+    case 'more-reset': S.draft = { pay: [], ch: [], min: '', max: '' }; render(); break;
+    case 'colmove': {
+      const i = S.order.indexOf(id), j = i + +t.dataset.dir;
+      if (j >= 0 && j < S.order.length) { [S.order[i], S.order[j]] = [S.order[j], S.order[i]]; render(true); } break;
+    }
+    case 'density': S.compact = !S.compact; render(true); break;
+    case 'sort': {
+      const c = t.dataset.col;
+      if (S.sort === c) S.sort = '-' + c; else if (S.sort === '-' + c) S.sort = DEFAULT_SORT; else S.sort = c;
+      changed(); $(`[data-act=sort][data-col=${c}]`).focus(); break;
+    }
+    case 'page': S.page = +t.dataset.p; S.sel.clear(); S.allMatching = false; S.busy = true; writeUrl(); render(); setTimeout(() => { S.busy = false; render(); }, 200); break;
+    case 'selectall': S.allMatching = true; render(); break;
+    case 'cancelsel': S.sel.clear(); S.allMatching = false; render(); break;
+    case 'retry': S.demo = 'normal'; $('#demo').value = 'normal'; loadData(); break;
+    case 'create': toast('Create order form opens here (demo)'); break;
+    case 'import': toast('Import wizard opens here (demo)'); break;
+    case 'export': toast(`Export of ${plural(filtered().length, 'order')} started`); break;
+    case 'rowedit': toast(`Order ${id} opens here (demo)`); break;
+    case 'rowmenu': S.menuRow === id ? closeMenus() : openRowMenu(t, id); break;
+    case 'rm-dup': $('#menulayer').innerHTML = ''; S.menuRow = null; toast(`Order ${id} duplicated as a draft`); break;
+    case 'rm-print': $('#menulayer').innerHTML = ''; S.menuRow = null; toast(`Order ${id} sent to the printer`); break;
+    case 'rm-cancel': { $('#menulayer').innerHTML = ''; S.menuRow = null; cancelOrders([ORDERS.find(o => o.no === id)]); break; }
+    case 'bulk-ship': S.open = null; bulkShip(targets()); break;
+    case 'bulk-print': toast(`Picking lists for ${plural(targets().length, 'order')} sent to the printer`); break;
+    case 'bulk-export': S.open = null; render(); toast(`Export of ${plural(targets().length, 'selected order')} started`); break;
+    case 'bulk-cancel': S.open = null; render(); cancelOrders(targets()); break;
+    case 'bulk-assign': {
+      const list = targets();
+      dialog({ title: `Assign sales rep to ${plural(list.length, 'order')}`, body: 'The selected rep becomes the owner of every selected order.', confirm: 'Assign', cancel: 'Cancel',
+        field: `<label class="mt-3 block text-xs font-medium text-slate-700" for="arep">Sales rep</label><select id="arep" class="mt-1 h-8 w-full rounded border border-slate-300 bg-white px-2 text-sm">${REPS.map(r => `<option>${r}</option>`).join('')}</select>`,
+        onConfirm: null });
+      $('#dok').onclick = () => { const rep = $('#arep').value; list.forEach(o => (o.rep = rep)); $('#dialoglayer').innerHTML = ''; S.sel.clear(); S.allMatching = false; render(); toast(`${plural(list.length, 'order')} assigned to ${rep}`); };
+      break;
+    }
+    case 'viewfailed': S.banner.open = !S.banner.open; render(); break;
+    case 'dismissbanner': S.banner = null; render(); break;
+    case 'retryfailed': {
+      const ids = new Set(S.banner.failed.map(f => f.no)); S.banner = null; S.sel = ids; bulkShip(ORDERS.filter(o => ids.has(o.no))); break;
+    }
+  }
+});
+
+document.addEventListener('change', e => {
+  const t = e.target, k = t.dataset.chg;
+  if (t.dataset.dr) {
+    const d = S.draft, f = t.dataset.dr;
+    if (f === 'min' || f === 'max') d[f] = t.value.replace(/\D/g, '');
+    else d[f] = t.checked ? [...d[f], t.value] : d[f].filter(x => x !== t.value);
+    return;
+  }
+  if (!k) { if (t.id === 'selAll') toggleAll(t.checked); return; }
+  if (k === 'status' || k === 'owner') { S[k] = t.checked ? [...S[k], t.value] : S[k].filter(x => x !== t.value); changed(); }
+  else if (k === 'date') { S.date = t.value; S.open = null; changed(); $('[data-act=pop][data-id=date]').focus(); }
+  else if (k === 'col') { t.checked ? S.hidden.delete(t.value) : S.hidden.add(t.value); render(true); }
+  else if (k === 'size') { S.size = +t.value; changed(); }
+  else if (k === 'row') toggleRow(t.value, t.checked);
+});
+document.addEventListener('input', e => { if (e.target.dataset.dr === 'min' || e.target.dataset.dr === 'max') S.draft[e.target.dataset.dr] = e.target.value.replace(/\D/g, ''); });
+
+function toggleAll(on) {
+  const rows = pageRows(filtered());
+  if (S.allMatching && !on) { S.allMatching = false; S.sel.clear(); }
+  else rows.forEach(o => (on ? S.sel.add(o.no) : S.sel.delete(o.no)));
+  render();
+}
+function toggleRow(no, on) {
+  if (S.allMatching) { S.sel = new Set(filtered().map(o => o.no)); S.allMatching = false; }
+  on ? S.sel.add(no) : S.sel.delete(no);
+  render(true);
+}
+
+/* search */
+let qT;
+const qEl = $('#q');
+qEl.addEventListener('input', () => {
+  clearTimeout(qT);
+  const v = qEl.value.trim();
+  if (v.length === 1) return;
+  qT = setTimeout(() => { S.q = v; changed(); }, 300);
+});
+qEl.addEventListener('keydown', e => { if (e.key === 'Enter') { clearTimeout(qT); S.q = qEl.value.trim(); changed(); } });
+document.addEventListener('keydown', e => {
+  if (e.key === '/' && !/INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName) && !$('#dialoglayer').innerHTML) { e.preventDefault(); qEl.focus(); }
+  if (e.key === 'Escape' && (S.open || S.menuRow)) closeMenus();
+});
+window.addEventListener('scroll', () => { if (S.menuRow) closeMenus(); }, true);
+
+$('#demo').addEventListener('change', e => { S.demo = e.target.value; loadData(); });
+$('#collapse').addEventListener('click', () => {
+  const sb = $('#sidebar'), c = sb.classList.toggle('w-14'); sb.classList.toggle('w-60', !c);
+  $$('.nav-text,.nav-label').forEach(el => el.classList.toggle('hidden', c));
+  $('#collapse').setAttribute('aria-expanded', String(!c));
+});
+
+/* init */
+$$('[data-ic]').forEach(el => (el.innerHTML = ic(el.dataset.ic)));
+$('#collapse').innerHTML = ic('panel');
+$('#qclear').innerHTML = ic('x');
+renderNav();
+readUrl();
+qEl.value = S.q;
+loadData();
+</script>
+</body>
+</html>

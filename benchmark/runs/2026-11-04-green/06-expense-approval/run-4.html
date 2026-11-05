@@ -1,0 +1,408 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Duyệt đề nghị thanh toán ĐNTT-2026-0318 · Công ty TNHH Hưng Thịnh</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+  body { font-size: 14px; color: #0f172a; font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  @keyframes sk { 0%,100% { opacity: 1 } 50% { opacity: .5 } }
+  .sk { background: #e2e8f0; border-radius: 4px; animation: sk 1.2s ease-in-out infinite; }
+  .spin { animation: spin .8s linear infinite; } @keyframes spin { to { transform: rotate(360deg) } }
+  :focus-visible { outline: 2px solid #1d4ed8; outline-offset: 2px; }
+</style>
+</head>
+<body class="bg-slate-50">
+<div id="app" class="flex min-h-screen"></div>
+<div id="overlay"></div>
+<div id="toasts" class="fixed bottom-20 right-4 z-50 flex flex-col gap-2" role="status" aria-live="polite"></div>
+
+<script>
+/* ---------- helpers ---------- */
+const $ = (s, r = document) => r.querySelector(s);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const vnd = n => new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(n);
+const num = n => new Intl.NumberFormat('vi-VN').format(n);
+const size = b => b >= 1048576 ? new Intl.NumberFormat('vi-VN', { maximumFractionDigits: 1 }).format(b / 1048576) + ' MB' : new Intl.NumberFormat('vi-VN', { maximumFractionDigits: 0 }).format(b / 1024) + ' KB';
+const stamp = iso => {
+  const d = new Date(iso), tz = 'Asia/Ho_Chi_Minh';
+  const date = new Intl.DateTimeFormat('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric', timeZone: tz }).format(d);
+  const time = new Intl.DateTimeFormat('en-GB', { hour: '2-digit', minute: '2-digit', hourCycle: 'h23', timeZone: tz }).format(d);
+  return `${date} ${time}`;
+};
+const dateOnly = iso => new Intl.DateTimeFormat('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric', timeZone: 'Asia/Ho_Chi_Minh' }).format(new Date(iso));
+
+const ICON = {
+  check: '<path d="M20 6 9 17l-5-5"/>', x: '<path d="M18 6 6 18M6 6l12 12"/>', clock: '<circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/>',
+  circle: '<circle cx="12" cy="12" r="10"/>', cx: '<circle cx="12" cy="12" r="10"/><path d="m15 9-6 6M9 9l6 6"/>', cc: '<circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/>',
+  warn: '<path d="m21.7 18-8-14a2 2 0 0 0-3.4 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.7-3"/><path d="M12 9v4M12 17h.01"/>',
+  file: '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/>', dl: '<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/>',
+  eye: '<path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12"/><circle cx="12" cy="12" r="3"/>', home: '<path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><path d="M9 22V12h6v10"/>',
+  wallet: '<path d="M19 7V4a1 1 0 0 0-1-1H5a2 2 0 0 0 0 4h15a1 1 0 0 1 1 1v4h-3a2 2 0 0 0 0 4h3a1 1 0 0 0 1-1v-2"/><path d="M3 5v14a2 2 0 0 0 2 2h15a1 1 0 0 0 1-1v-4"/>',
+  inbox: '<path d="M22 12h-6l-2 3h-4l-2-3H2"/><path d="M5.5 5.1 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.5-6.9A2 2 0 0 0 16.8 4H7.2a2 2 0 0 0-1.7 1.1"/>',
+  users: '<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.9M16 3.1a4 4 0 0 1 0 7.8"/>',
+  chart: '<path d="M3 3v16a2 2 0 0 0 2 2h16"/><path d="M18 17V9M13 17V5M8 17v-3"/>', more: '<circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/>',
+  chev: '<path d="m9 18 6-6-6-6"/>', loader: '<path d="M21 12a9 9 0 1 1-6.2-8.6"/>', lock: '<rect width="18" height="11" x="3" y="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>'
+};
+const ic = (n, c = '') => `<svg class="size-4 shrink-0 ${c}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICON[n]}</svg>`;
+
+const TONES = {
+  neutral: ['bg-slate-100 text-slate-700', 'circle'], info: ['bg-blue-50 text-blue-800', 'clock'], success: ['bg-green-50 text-green-800', 'cc'],
+  warning: ['bg-amber-50 text-amber-800', 'warn'], danger: ['bg-red-50 text-red-800', 'cx']
+};
+const STATUS = { 'Nháp': 'neutral', 'Đã rút': 'neutral', 'Đã gửi': 'info', 'Đang duyệt': 'info', 'Đã duyệt': 'success', 'Bị từ chối': 'danger',
+  'Chưa bắt đầu': 'neutral', 'Đang chờ duyệt': 'info', 'Từ chối': 'danger' };
+const badge = t => { const [c, i] = TONES[STATUS[t]]; return `<span class="inline-flex h-6 max-w-[200px] items-center gap-1 rounded-full px-2 text-xs font-medium ${c}">${ic(i)}<span class="truncate" title="${esc(t)}">${esc(t)}</span></span>`; };
+
+/* ---------- mock data ---------- */
+const PEOPLE = {
+  an:   { name: 'Nguyễn Văn An',  role: 'Chuyên viên Mua hàng' },
+  tuan: { name: 'Vũ Quốc Tuấn',   role: 'Trưởng phòng Mua hàng' },
+  quan: { name: 'Trần Minh Quân', role: 'Kế toán trưởng' },
+  ha:   { name: 'Phạm Thu Hà',    role: 'Giám đốc tài chính' },
+  hoa:  { name: 'Lê Hoa',         role: 'Kế toán thanh toán' }
+};
+const req = {
+  id: 'ĐNTT-2026-0318', title: 'Thanh toán đợt 2 hợp đồng mua máy chủ HĐ-0925/HT', status: 'Đang duyệt',
+  requester: 'an', dept: 'Phòng Mua hàng', supplier: 'Công ty CP Giải pháp Hạ tầng Việt', tax: '0312 456 789', bank: 'Vietcombank · CN Tân Bình', account: '•••• •••• 4821',
+  due: '2026-11-10T00:00:00Z', method: 'Chuyển khoản', budget: 'CAPEX-IT-2026 (còn 412.600.000 ₫)', reason: 'Thanh toán 50% giá trị hợp đồng sau khi nghiệm thu thiết bị theo biên bản ngày 28/10/2026.',
+  createdAt: '2026-11-02T02:15:00Z', changedBy: 'an', changedAt: '2026-11-03T09:40:00Z',
+  items: [
+    { name: 'Máy chủ Dell PowerEdge R660 (2U, 128 GB RAM)', unit: 'Bộ', qty: 2, price: 62000000 },
+    { name: 'Ổ SSD NVMe 1,92 TB', unit: 'Chiếc', qty: 6, price: 7500000 },
+    { name: 'Dịch vụ lắp đặt, cấu hình và bàn giao', unit: 'Gói', qty: 1, price: 12000000 }
+  ], vatRate: 0.1
+};
+const steps = [
+  { name: 'Trưởng phòng đề xuất', who: 'tuan', status: 'Đã duyệt', at: '2026-11-02T08:20:00Z', comment: 'Đúng hợp đồng, đã nghiệm thu đủ số lượng.' },
+  { name: 'Kế toán trưởng kiểm tra', who: 'quan', status: 'Đang chờ duyệt', at: null, comment: '' },
+  { name: 'Giám đốc tài chính phê duyệt', who: 'ha', status: 'Chưa bắt đầu', at: null, comment: '' }
+];
+const files = [
+  { id: 1, name: 'hop-dong-0925-hung-thinh.pdf', type: 'PDF', bytes: 2411520, by: 'an', at: '2026-11-02T02:10:00Z', prev: 'ok' },
+  { id: 2, name: 'bien-ban-nghiem-thu-28-10.pdf', type: 'PDF', bytes: 865280, by: 'an', at: '2026-11-02T02:12:00Z', prev: 'ok' },
+  { id: 3, name: 'hoa-don-VAT-0004417.pdf', type: 'PDF', bytes: 412672, by: 'an', at: '2026-11-02T02:14:00Z', prev: 'fail' },
+  { id: 4, name: 'bang-doi-chieu-cong-no.xlsx', type: 'Excel', bytes: 98304, by: 'hoa', at: '2026-11-03T09:40:00Z', prev: 'none' }
+];
+const history = [
+  { at: '2026-11-03T09:40:00Z', who: 'hoa', what: 'Thêm tệp đính kèm', diff: [['Tệp', '(trống)', 'bang-doi-chieu-cong-no.xlsx']] },
+  { at: '2026-11-02T08:20:00Z', who: 'tuan', what: 'Duyệt bước 1', diff: [['Trạng thái bước 1', 'Đang chờ duyệt', 'Đã duyệt']] },
+  { at: '2026-11-02T02:16:00Z', who: 'an', what: 'Gửi đề nghị', diff: [['Trạng thái', 'Nháp', 'Đã gửi']] },
+  { at: '2026-11-02T02:15:00Z', who: 'an', what: 'Cập nhật 2 trường', diff: [['Số tiền', '185.000.000 ₫', '199.100.000 ₫'], ['Hạn thanh toán', '07/11/2026', '10/11/2026']] },
+  { at: '2026-11-02T01:50:00Z', who: 'an', what: 'Tạo đề nghị', diff: [] }
+];
+const comments = [
+  { who: 'hoa', at: '2026-11-03T09:41:00Z', text: 'Đã đối chiếu công nợ với nhà cung cấp, số dư khớp.' }
+];
+
+/* ---------- state ---------- */
+const S = { me: 'quan', tab: 'detail', page: 'loading', att: 'ok', note: '', busy: '', dialog: null, flash: null, histUser: '', };
+const sub = () => req.items.reduce((s, i) => s + i.qty * i.price, 0);
+const vat = () => Math.round(sub() * req.vatRate);
+const total = () => sub() + vat();
+const curIdx = () => steps.findIndex(s => s.status === 'Đang chờ duyệt');
+const dirty = () => S.note.trim().length > 0;
+
+/* ---------- shell ---------- */
+const NAV = [['home', 'Tổng quan', false], ['inbox', 'Chờ tôi duyệt', false, 3], ['wallet', 'Đề nghị thanh toán', true], ['users', 'Nhà cung cấp', false], ['chart', 'Báo cáo', false]];
+function shell(inner) {
+  return `
+  <aside class="hidden w-56 shrink-0 border-r border-slate-200 bg-white md:block">
+    <div class="flex h-12 items-center border-b border-slate-200 px-4 font-semibold">Hưng Thịnh ERP</div>
+    <nav aria-label="Điều hướng chính" class="space-y-1 p-2">
+      ${NAV.map(([i, l, a, c]) => `<a href="#" class="flex h-8 items-center gap-2 rounded px-2 text-slate-700 hover:bg-slate-100 ${a ? 'bg-slate-100 font-medium text-slate-900' : ''}" ${a ? 'aria-current="page"' : ''}>${ic(i)}<span class="flex-1">${l}</span>${c ? `<span class="text-xs text-slate-600">${c}</span>` : ''}</a>`).join('')}
+    </nav>
+  </aside>
+  <div class="flex min-w-0 flex-1 flex-col">
+    <header class="flex h-12 items-center justify-between border-b border-slate-200 bg-white px-6">
+      <span class="text-slate-600">Kế toán · Thanh toán</span>
+      <label class="flex items-center gap-2 text-xs text-slate-600">Xem với tư cách
+        <select id="me" class="h-8 rounded border border-slate-300 bg-white px-2 text-sm text-slate-900">
+          ${['quan', 'ha', 'an', 'hoa'].map(k => `<option value="${k}" ${S.me === k ? 'selected' : ''}>${PEOPLE[k].name} (${PEOPLE[k].role})</option>`).join('')}
+        </select>
+        <label class="ml-3 flex items-center gap-2">Tệp đính kèm
+          <select id="att" class="h-8 rounded border border-slate-300 bg-white px-2 text-sm text-slate-900">
+            ${[['ok', 'Bình thường'], ['loading', 'Đang tải'], ['error', 'Lỗi'], ['empty', 'Trống']].map(([v, l]) => `<option value="${v}" ${S.att === v ? 'selected' : ''}>${l}</option>`).join('')}
+          </select>
+        </label>
+      </label>
+    </header>
+    ${inner}
+  </div>`;
+}
+
+function skeletonPage() {
+  return `<main class="flex-1 p-6" aria-busy="true" aria-label="Đang tải">
+    <div class="sk h-4 w-64"></div><div class="sk mt-4 h-7 w-[28rem]"></div><div class="sk mt-3 h-4 w-80"></div>
+    <div class="mt-6 grid gap-6 lg:grid-cols-[1fr_380px]"><div class="space-y-4"><div class="sk h-48 w-full"></div><div class="sk h-40 w-full"></div></div><div class="sk h-80 w-full"></div></div></main>`;
+}
+
+/* ---------- sections ---------- */
+function infoCard() {
+  const r = req, p = PEOPLE[r.requester];
+  const f = (l, v) => `<div><dt class="text-xs font-medium text-slate-600">${l}</dt><dd class="mt-1">${v}</dd></div>`;
+  return `<section class="rounded-md border border-slate-200 bg-white" aria-labelledby="h-info">
+    <h2 id="h-info" class="border-b border-slate-200 px-4 py-3 text-sm font-semibold">Thông tin thanh toán</h2>
+    <dl class="grid gap-x-6 gap-y-4 p-4 sm:grid-cols-2 xl:grid-cols-3">
+      ${f('Người đề nghị', `${esc(p.name)} <span class="text-slate-600">· ${esc(r.dept)}</span>`)}
+      ${f('Nhà cung cấp', esc(r.supplier))}
+      ${f('Mã số thuế', `<span class="tabular-nums">${esc(r.tax)}</span>`)}
+      ${f('Tài khoản nhận', `${esc(r.bank)}<br><span class="tabular-nums text-slate-600">${esc(r.account)}</span>`)}
+      ${f('Hình thức', esc(r.method))}
+      ${f('Hạn thanh toán', `<time datetime="${r.due}" class="tabular-nums">${dateOnly(r.due)}</time>`)}
+      ${f('Ngân sách', esc(r.budget))}
+      <div class="sm:col-span-2">${f('Lý do thanh toán', esc(r.reason))}</div>
+    </dl>
+  </section>`;
+}
+
+function itemsCard() {
+  return `<section class="rounded-md border border-slate-200 bg-white" aria-labelledby="h-items">
+    <h2 id="h-items" class="border-b border-slate-200 px-4 py-3 text-sm font-semibold">Nội dung thanh toán</h2>
+    <div class="overflow-x-auto"><table class="w-full text-left">
+      <thead class="border-b border-slate-200 bg-slate-50 text-xs font-medium text-slate-700"><tr>
+        <th scope="col" class="h-10 px-4 font-medium">Nội dung</th><th scope="col" class="px-4 font-medium">Đơn vị</th>
+        <th scope="col" class="px-4 text-right font-medium">Số lượng</th><th scope="col" class="px-4 text-right font-medium">Đơn giá</th><th scope="col" class="px-4 text-right font-medium">Thành tiền</th></tr></thead>
+      <tbody class="divide-y divide-slate-200">
+        ${req.items.map(i => `<tr class="h-10"><td class="max-w-[22rem] truncate px-4" title="${esc(i.name)}">${esc(i.name)}</td><td class="px-4 text-slate-700">${i.unit}</td>
+          <td class="px-4 text-right tabular-nums">${num(i.qty)}</td><td class="px-4 text-right tabular-nums">${vnd(i.price)}</td><td class="px-4 text-right tabular-nums">${vnd(i.qty * i.price)}</td></tr>`).join('')}
+      </tbody></table></div>
+    <dl class="ml-auto w-full max-w-xs space-y-1 border-t border-slate-200 p-4 text-right sm:border-t-0">
+      <div class="flex justify-between"><dt class="text-slate-700">Cộng tiền hàng</dt><dd class="tabular-nums">${vnd(sub())}</dd></div>
+      <div class="flex justify-between"><dt class="text-slate-700">Thuế GTGT (${req.vatRate * 100}%)</dt><dd class="tabular-nums">${vnd(vat())}</dd></div>
+      <div class="flex justify-between border-t border-slate-200 pt-2 font-semibold"><dt>Tổng thanh toán</dt><dd class="tabular-nums">${vnd(total())}</dd></div>
+    </dl>
+  </section>`;
+}
+
+function attachCard() {
+  let body;
+  if (S.att === 'loading') body = `<div class="space-y-2 p-4" aria-busy="true">${[1, 2, 3].map(() => '<div class="sk h-8 w-full"></div>').join('')}</div>`;
+  else if (S.att === 'error') body = `<div class="p-6 text-center"><p class="font-medium">Không tải được danh sách chứng từ.</p><p class="mt-1 text-slate-700">Kiểm tra kết nối rồi thử lại. Các thông tin khác của đề nghị vẫn hiển thị bình thường.</p>
+    <button data-act="retry-att" class="mt-3 h-8 rounded border border-slate-300 bg-white px-3 font-medium hover:bg-slate-50">Thử lại</button></div>`;
+  else if (S.att === 'empty') body = `<div class="p-6 text-center"><p class="font-medium">Chưa có chứng từ đính kèm.</p><p class="mt-1 text-slate-700">Đề nghị thanh toán cần hợp đồng, biên bản nghiệm thu hoặc hóa đơn làm căn cứ.</p>
+    <button data-act="add-att" class="mt-3 h-8 rounded border border-slate-300 bg-white px-3 font-medium hover:bg-slate-50">Tải chứng từ lên</button></div>`;
+  else body = `<div class="overflow-x-auto"><table class="w-full text-left"><thead class="border-b border-slate-200 bg-slate-50 text-xs font-medium text-slate-700"><tr>
+      <th scope="col" class="h-10 px-4 font-medium">Tên tệp</th><th scope="col" class="px-4 font-medium">Loại</th><th scope="col" class="px-4 text-right font-medium">Dung lượng</th>
+      <th scope="col" class="px-4 font-medium">Tải lên bởi</th><th scope="col" class="px-4 font-medium">Thời điểm</th><th scope="col" class="px-4 text-right font-medium">Thao tác</th></tr></thead>
+    <tbody class="divide-y divide-slate-200">${files.map(f => `<tr class="h-10">
+      <td class="max-w-[16rem] truncate px-4"><span class="inline-flex items-center gap-2">${ic('file', 'text-slate-600')}<span class="truncate font-medium" title="${esc(f.name)}">${esc(f.name)}</span></span></td>
+      <td class="px-4 text-slate-700">${f.type}</td><td class="px-4 text-right tabular-nums">${size(f.bytes)}</td>
+      <td class="px-4">${esc(PEOPLE[f.by].name)}</td><td class="whitespace-nowrap px-4 tabular-nums text-slate-700">${stamp(f.at)}</td>
+      <td class="whitespace-nowrap px-4 py-1 text-right">
+        ${f.prev !== 'none' ? `<button data-act="preview" data-id="${f.id}" class="inline-flex h-8 items-center gap-1 rounded px-2 text-blue-700 hover:bg-blue-50" aria-label="Xem ${esc(f.name)}">${ic('eye')}Xem</button>` : ''}
+        <button data-act="download" data-id="${f.id}" class="inline-flex h-8 items-center gap-1 rounded px-2 text-blue-700 hover:bg-blue-50" aria-label="Tải xuống ${esc(f.name)}">${ic('dl')}Tải xuống</button></td></tr>`).join('')}
+    </tbody></table></div>`;
+  const count = S.att === 'ok' ? files.length : (S.att === 'empty' ? 0 : '');
+  return `<section class="rounded-md border border-slate-200 bg-white" aria-labelledby="h-att"><h2 id="h-att" class="border-b border-slate-200 px-4 py-3 text-sm font-semibold">Chứng từ đính kèm ${count !== '' ? `<span class="font-normal text-slate-600">(${count})</span>` : ''}</h2>${body}</section>`;
+}
+
+function stepsCard() {
+  const ci = curIdx();
+  const li = steps.map((s, i) => {
+    const p = PEOPLE[s.who], cur = i === ci;
+    const st = s.status;
+    const dot = st === 'Đã duyệt' ? 'bg-green-700 text-white' : st === 'Từ chối' ? 'bg-red-700 text-white' : cur ? 'bg-blue-700 text-white' : 'bg-slate-100 text-slate-700 border border-slate-300';
+    return `<li class="relative flex gap-3 pb-5 last:pb-0">
+      ${i < steps.length - 1 ? '<span class="absolute left-3 top-7 bottom-0 w-px bg-slate-200" aria-hidden="true"></span>' : ''}
+      <span class="z-10 flex size-6 shrink-0 items-center justify-center rounded-full text-xs font-medium ${dot}">${st === 'Đã duyệt' ? ic('check') : st === 'Từ chối' ? ic('x') : i + 1}</span>
+      <div class="min-w-0 flex-1">
+        <div class="flex flex-wrap items-center justify-between gap-2"><p class="font-medium">Bước ${i + 1}. ${esc(s.name)}</p>${badge(st)}</div>
+        <p class="text-slate-700">${esc(p.name)} · ${esc(p.role)}</p>
+        ${cur ? '<p class="mt-1 text-xs font-medium text-blue-800">Bước hiện tại</p>' : ''}
+        ${s.at ? `<p class="mt-1 text-xs tabular-nums text-slate-700"><time datetime="${s.at}">${stamp(s.at)}</time></p>` : ''}
+        ${s.comment ? `<p class="mt-2 rounded border border-slate-200 bg-slate-50 p-2 text-slate-800">${st === 'Từ chối' ? '<span class="font-medium">Lý do từ chối:</span> ' : ''}${esc(s.comment)}</p>` : ''}
+      </div></li>`;
+  }).join('');
+  return `<section class="rounded-md border border-slate-200 bg-white" aria-labelledby="h-steps">
+    <h2 id="h-steps" class="border-b border-slate-200 px-4 py-3 text-sm font-semibold">Các cấp duyệt</h2>
+    <ol class="p-4">${li}</ol></section>`;
+}
+
+function commentsCard() {
+  return `<section class="rounded-md border border-slate-200 bg-white" aria-labelledby="h-cm"><h2 id="h-cm" class="border-b border-slate-200 px-4 py-3 text-sm font-semibold">Trao đổi</h2>
+    <ul class="divide-y divide-slate-200">${comments.map(c => `<li class="p-4"><p class="text-xs text-slate-700"><span class="font-medium text-slate-900">${esc(PEOPLE[c.who].name)}</span> · <time class="tabular-nums" datetime="${c.at}">${stamp(c.at)}</time></p><p class="mt-1">${esc(c.text)}</p></li>`).join('')}</ul></section>`;
+}
+
+function historyTab() {
+  const rows = history.filter(h => !S.histUser || h.who === S.histUser);
+  const chip = S.histUser ? `<div class="mt-3 flex items-center gap-2"><span class="inline-flex h-6 items-center gap-1 rounded-full bg-blue-50 pl-2 pr-1 text-xs font-medium text-blue-800">Người thực hiện: ${esc(PEOPLE[S.histUser].name)}
+    <button data-act="hist-clear" class="flex size-5 items-center justify-center rounded-full hover:bg-blue-100" aria-label="Bỏ lọc người thực hiện ${esc(PEOPLE[S.histUser].name)}">${ic('x')}</button></span>
+    <button data-act="hist-clear" class="text-blue-700 hover:underline">Xóa tất cả bộ lọc</button></div>` : '';
+  return `<section class="rounded-md border border-slate-200 bg-white" aria-labelledby="h-hist">
+    <div class="flex flex-wrap items-center justify-between gap-2 border-b border-slate-200 px-4 py-3"><h2 id="h-hist" class="text-sm font-semibold">Lịch sử thay đổi</h2>
+      <label class="flex items-center gap-2 text-xs text-slate-700">Người thực hiện
+        <select id="hist-user" class="h-8 rounded border border-slate-300 bg-white px-2 text-sm text-slate-900"><option value="">Tất cả</option>${Object.keys(PEOPLE).map(k => `<option value="${k}" ${S.histUser === k ? 'selected' : ''}>${PEOPLE[k].name}</option>`).join('')}</select></label></div>
+    <div class="px-4 pb-4">${chip}</div>
+    ${rows.length ? `<div class="overflow-x-auto"><table class="w-full text-left"><thead class="border-y border-slate-200 bg-slate-50 text-xs font-medium text-slate-700"><tr><th scope="col" class="h-10 px-4 font-medium">Thời điểm</th><th scope="col" class="px-4 font-medium">Người thực hiện</th><th scope="col" class="px-4 font-medium">Nội dung</th><th scope="col" class="px-4 font-medium">Chi tiết thay đổi</th></tr></thead>
+    <tbody class="divide-y divide-slate-200">${rows.map(h => `<tr class="align-top"><td class="whitespace-nowrap px-4 py-2.5 tabular-nums">${stamp(h.at)}</td><td class="px-4 py-2.5"><a href="#" class="text-blue-700 hover:underline">${esc(PEOPLE[h.who].name)}</a></td><td class="px-4 py-2.5">${esc(h.what)}</td>
+      <td class="px-4 py-2.5">${h.diff.length ? h.diff.map(d => `<div>${esc(d[0])}: <span class="text-slate-700">${esc(d[1])}</span> → <span class="font-medium">${esc(d[2])}</span></div>`).join('') : '<span class="text-slate-700">Không có</span>'}</td></tr>`).join('')}</tbody></table></div>`
+      : `<div class="border-t border-slate-200 p-6 text-center"><p class="font-medium">Không có thay đổi nào khớp bộ lọc.</p><button data-act="hist-clear" class="mt-3 h-8 rounded border border-slate-300 bg-white px-3 font-medium hover:bg-slate-50">Xóa bộ lọc</button></div>`}
+    <p class="border-t border-slate-200 px-4 py-3 text-xs text-slate-700">Lịch sử được lưu 7 năm và không thể xóa.</p></section>`;
+}
+
+/* ---------- decision bar ---------- */
+function decisionBar() {
+  const st = req.status, ci = curIdx(), me = PEOPLE[S.me];
+  const wrap = c => `<div class="sticky bottom-0 z-20 border-t border-slate-200 bg-white px-6 py-3">${c}</div>`;
+  if (st === 'Đã duyệt') { const l = steps[steps.length - 1]; return wrap(`<p>${ic('cc', 'inline text-green-700')} Đã duyệt bởi ${esc(PEOPLE[l.who].name)} lúc <span class="tabular-nums">${stamp(l.at)}</span>. Có thể chuyển sang bước chi tiền.</p>`); }
+  if (st === 'Bị từ chối') { const l = steps.find(s => s.status === 'Từ chối'); return wrap(`<p>${ic('cx', 'inline text-red-700')} Bị từ chối bởi ${esc(PEOPLE[l.who].name)} lúc <span class="tabular-nums">${stamp(l.at)}</span>. Lý do: ${esc(l.comment)}</p>`); }
+  if (st === 'Đã rút') return wrap('<p class="text-slate-700">Đề nghị đã được người đề nghị rút lại. Không còn thao tác nào khả dụng.</p>');
+  const cur = steps[ci], curP = PEOPLE[cur.who];
+  if (cur.who === S.me && req.requester === S.me) return wrap(`<p id="why" class="text-slate-800">Bạn là người đề nghị nên cần một người duyệt khác quyết định.</p>`);
+  if (cur.who === S.me) {
+    const last = ci === steps.length - 1;
+    return wrap(`<div class="flex flex-wrap items-end gap-3">
+      <div class="min-w-[16rem] flex-1"><label for="note" class="text-xs font-medium text-slate-700">Ghi chú quyết định <span class="font-normal text-slate-600">(bắt buộc khi từ chối)</span></label>
+        <textarea id="note" rows="1" maxlength="500" class="mt-1 block max-h-24 min-h-8 w-full resize-y rounded border border-slate-300 px-2 py-1 text-sm" placeholder="Ví dụ: Đã đối chiếu hóa đơn, chấp thuận chi.">${esc(S.note)}</textarea>
+        <p id="note-err" class="mt-1 hidden text-xs text-red-700" role="alert"></p></div>
+      <p class="mb-1 text-xs text-slate-700">${dirty() ? '<span class="font-medium text-amber-800">Ghi chú chưa gửi</span> · ' : ''}Bạn đang duyệt bước ${ci + 1}/${steps.length}</p>
+      <div class="flex gap-2"><button data-act="reject" class="h-8 rounded border border-slate-300 bg-white px-3 font-medium text-red-700 hover:bg-red-50" ${S.busy ? 'disabled' : ''}>Từ chối</button>
+      <button data-act="approve" class="inline-flex h-8 items-center gap-2 rounded bg-blue-700 px-3 font-medium text-white hover:bg-blue-800 disabled:opacity-70" ${S.busy ? 'disabled' : ''}>${S.busy === 'approve' ? ic('loader', 'spin') : ''}${last ? 'Duyệt và hoàn tất' : 'Duyệt'}</button></div></div>`);
+  }
+  let line = `Đang chờ ${esc(curP.name)} (${esc(curP.role)}) duyệt bước ${ci + 1}/${steps.length}.`;
+  if (S.me === req.requester) return wrap(`<div class="flex flex-wrap items-center justify-between gap-3"><p>${line}</p><button data-act="withdraw" class="h-8 rounded border border-slate-300 bg-white px-3 font-medium hover:bg-slate-50">Rút đề nghị</button></div>`);
+  return wrap(`<p id="why">${line} Bạn (${esc(me.name)}) chỉ có quyền xem đề nghị này.</p>`);
+}
+
+/* ---------- page ---------- */
+function page() {
+  if (S.page === 'loading') return skeletonPage();
+  const p = PEOPLE[req.requester], ch = PEOPLE[req.changedBy];
+  const tab = (id, l) => `<button role="tab" data-act="tab" data-id="${id}" aria-selected="${S.tab === id}" class="h-10 border-b-2 px-3 font-medium ${S.tab === id ? 'border-blue-700 text-blue-700' : 'border-transparent text-slate-700 hover:text-slate-900'}">${l}</button>`;
+  return `<main class="flex flex-1 flex-col">
+    <div class="flex-1 px-6 pt-4 pb-6">
+      <nav aria-label="Breadcrumb" class="flex items-center gap-1 text-slate-700"><a href="#" class="hover:underline">Đề nghị thanh toán</a>${ic('chev')}<span aria-current="page" class="text-slate-900">${esc(req.id)}</span></nav>
+      <div class="mt-3 flex flex-wrap items-start justify-between gap-4">
+        <div class="min-w-0"><div class="flex flex-wrap items-center gap-3"><h1 class="text-xl font-semibold">${esc(req.id)}</h1>${badge(req.status)}</div>
+          <p class="mt-1 text-slate-800">${esc(req.title)}</p>
+          <p class="mt-1 text-xs text-slate-700">Cập nhật lần cuối bởi <a href="#" class="font-medium text-slate-900 hover:underline">${esc(ch.name)}</a> lúc <time class="tabular-nums" datetime="${req.changedAt}">${stamp(req.changedAt)}</time> · <button data-act="tab" data-id="history" class="text-blue-700 hover:underline">Xem lịch sử</button></p></div>
+        <button class="flex size-8 items-center justify-center rounded border border-slate-300 bg-white hover:bg-slate-50" aria-label="Thao tác khác cho đề nghị ${esc(req.id)}">${ic('more')}</button>
+      </div>
+      <dl class="mt-4 grid gap-4 rounded-md border border-slate-200 bg-white p-4 sm:grid-cols-2 lg:grid-cols-4">
+        <div><dt class="text-xs font-medium text-slate-600">Tổng thanh toán</dt><dd class="mt-1 text-lg font-semibold tabular-nums">${vnd(total())}</dd></div>
+        <div><dt class="text-xs font-medium text-slate-600">Nhà cung cấp</dt><dd class="mt-1 truncate" title="${esc(req.supplier)}">${esc(req.supplier)}</dd></div>
+        <div><dt class="text-xs font-medium text-slate-600">Người đề nghị</dt><dd class="mt-1">${esc(p.name)}</dd></div>
+        <div><dt class="text-xs font-medium text-slate-600">Hạn thanh toán</dt><dd class="mt-1 tabular-nums">${dateOnly(req.due)}</dd></div>
+      </dl>
+      <div role="tablist" aria-label="Nội dung đề nghị" class="mt-4 flex gap-1 border-b border-slate-200">${tab('detail', 'Chi tiết và phê duyệt')}${tab('history', 'Lịch sử')}</div>
+      <div class="mt-4">${S.tab === 'history' ? historyTab() : `<div class="grid items-start gap-4 lg:grid-cols-[minmax(0,1fr)_380px]"><div class="space-y-4">${infoCard()}${itemsCard()}${attachCard()}</div><div class="space-y-4">${stepsCard()}${commentsCard()}</div></div>`}</div>
+    </div>
+    ${decisionBar()}
+  </main>`;
+}
+
+/* ---------- dialogs / toast ---------- */
+function toast(msg) {
+  const t = document.createElement('div');
+  t.className = 'rounded-md border border-slate-200 bg-white px-4 py-2 shadow-lg';
+  t.textContent = msg; $('#toasts').appendChild(t); setTimeout(() => t.remove(), 4000);
+}
+let lastFocus = null;
+function openDialog(html, focusSel) {
+  lastFocus = document.activeElement;
+  $('#overlay').innerHTML = `<div class="fixed inset-0 z-40 flex items-center justify-center bg-slate-900/40 p-4" data-act="backdrop">${html}</div>`;
+  setTimeout(() => $(focusSel)?.focus(), 0);
+}
+function closeDialog() { $('#overlay').innerHTML = ''; S.dialog = null; lastFocus?.focus?.(); }
+const dlg = (title, body, foot, id = 'dlg-t') => `<div role="dialog" aria-modal="true" aria-labelledby="${id}" class="w-full max-w-md rounded-lg border border-slate-200 bg-white shadow-xl">
+  <h2 id="${id}" class="px-5 pt-5 text-base font-semibold">${title}</h2><div class="px-5 py-3">${body}</div><div class="flex justify-end gap-2 border-t border-slate-200 px-5 py-3">${foot}</div></div>`;
+
+function rejectDialog(err = '') {
+  S.dialog = 'reject';
+  openDialog(dlg(`Từ chối đề nghị thanh toán ${esc(req.id)}?`,
+    `<p class="text-slate-800">Đề nghị trị giá <span class="font-medium tabular-nums">${vnd(total())}</span> sẽ bị trả lại cho ${esc(PEOPLE[req.requester].name)}. Người đề nghị phải chỉnh sửa và gửi lại để chạy lại từ bước 1.</p>
+     <label for="rj" class="mt-3 block text-xs font-medium text-slate-700">Lý do từ chối *</label>
+     <textarea id="rj" rows="3" class="mt-1 block w-full rounded border ${err ? 'border-red-700' : 'border-slate-300'} px-2 py-1 text-sm" aria-describedby="rj-err" ${err ? 'aria-invalid="true"' : ''}>${esc(S.note)}</textarea>
+     <p id="rj-err" class="mt-1 text-xs text-red-700" role="alert">${esc(err)}</p>`,
+    `<button data-act="dlg-cancel" id="rj-cancel" class="h-8 rounded border border-slate-300 bg-white px-3 font-medium hover:bg-slate-50">Hủy</button>
+     <button data-act="reject-confirm" class="h-8 rounded bg-red-700 px-3 font-medium text-white hover:bg-red-800">Từ chối đề nghị</button>`), '#rj-cancel');
+}
+function withdrawDialog() {
+  S.dialog = 'withdraw';
+  openDialog(dlg(`Rút đề nghị ${esc(req.id)}?`, `<p class="text-slate-800">Đề nghị đang chờ ${esc(PEOPLE[steps[curIdx()].who].name)} duyệt sẽ dừng lại và không thể mở lại. Bạn có thể tạo bản sao để gửi lại.</p>`,
+    `<button data-act="dlg-cancel" id="wd-cancel" class="h-8 rounded border border-slate-300 bg-white px-3 font-medium hover:bg-slate-50">Giữ đề nghị</button>
+     <button data-act="withdraw-confirm" class="h-8 rounded bg-red-700 px-3 font-medium text-white hover:bg-red-800">Rút đề nghị</button>`), '#wd-cancel');
+}
+function previewDialog(f) {
+  S.dialog = 'preview';
+  const body = f.prev === 'fail'
+    ? `<div class="rounded border border-red-200 bg-red-50 p-4 text-red-800" role="alert"><p class="font-medium">Không xem trước được tệp này.</p><p class="mt-1">Tệp có thể bị hỏng hoặc quá lớn. Hãy tải xuống để mở bằng ứng dụng khác.</p></div>`
+    : `<div class="rounded border border-slate-200 bg-slate-50 p-6"><div class="mx-auto h-52 w-40 rounded border border-slate-300 bg-white p-3 text-[10px] leading-4 text-slate-700"><p class="font-semibold text-slate-900">${esc(f.name.replace(/\.[^.]+$/, '').toUpperCase())}</p><p class="mt-2">Trang 1/${f.type === 'PDF' ? 6 : 1}</p><div class="sk mt-3 h-2 w-full"></div><div class="sk mt-2 h-2 w-5/6"></div><div class="sk mt-2 h-2 w-full"></div><div class="sk mt-2 h-2 w-2/3"></div></div></div>`;
+  openDialog(dlg(esc(f.name), `<p class="mb-3 text-slate-700">${f.type} · ${size(f.bytes)} · tải lên ${stamp(f.at)}</p>${body}`,
+    `<button data-act="dlg-cancel" id="pv-close" class="h-8 rounded border border-slate-300 bg-white px-3 font-medium hover:bg-slate-50">Đóng</button>
+     <button data-act="download" data-id="${f.id}" class="h-8 rounded bg-blue-700 px-3 font-medium text-white hover:bg-blue-800" aria-label="Tải xuống ${esc(f.name)}">Tải xuống</button>`), '#pv-close');
+}
+
+/* ---------- actions ---------- */
+function approve() {
+  S.busy = 'approve'; render();
+  setTimeout(() => {
+    const i = curIdx(), s = steps[i];
+    s.status = 'Đã duyệt'; s.at = new Date().toISOString(); s.comment = S.note.trim();
+    history.unshift({ at: s.at, who: S.me, what: `Duyệt bước ${i + 1}`, diff: [[`Trạng thái bước ${i + 1}`, 'Đang chờ duyệt', 'Đã duyệt']] });
+    if (i + 1 < steps.length) steps[i + 1].status = 'Đang chờ duyệt'; else req.status = 'Đã duyệt';
+    req.changedBy = S.me; req.changedAt = s.at;
+    S.note = ''; S.busy = ''; render();
+    toast(i + 1 < steps.length ? `Đã duyệt ${req.id}, chuyển tới ${PEOPLE[steps[i + 1].who].name}` : `Đề nghị ${req.id} đã được duyệt hoàn tất`);
+  }, 700);
+}
+function doReject() {
+  const v = $('#rj').value.trim();
+  if (!v) { rejectDialog('Nhập lý do từ chối để người đề nghị biết cần sửa gì.'); S.note = ''; setTimeout(() => $('#rj')?.focus(), 0); return; }
+  const i = curIdx(), s = steps[i];
+  s.status = 'Từ chối'; s.at = new Date().toISOString(); s.comment = v; req.status = 'Bị từ chối';
+  history.unshift({ at: s.at, who: S.me, what: `Từ chối bước ${i + 1}`, diff: [[`Trạng thái bước ${i + 1}`, 'Đang chờ duyệt', 'Từ chối']] });
+  req.changedBy = S.me; req.changedAt = s.at; S.note = '';
+  closeDialog(); render(); toast(`Đã từ chối đề nghị ${req.id}`);
+}
+function withdraw() {
+  req.status = 'Đã rút'; const now = new Date().toISOString();
+  history.unshift({ at: now, who: S.me, what: 'Rút đề nghị', diff: [['Trạng thái', 'Đang duyệt', 'Đã rút']] });
+  req.changedBy = S.me; req.changedAt = now; closeDialog(); render(); toast(`Đã rút đề nghị ${req.id}`);
+}
+
+document.addEventListener('click', e => {
+  const el = e.target.closest('[data-act]'); if (!el) return;
+  const a = el.dataset.act;
+  if (a === 'backdrop') { if (e.target === el) closeDialog(); return; }
+  if (a === 'tab') { S.tab = el.dataset.id; render(); return; }
+  if (a === 'approve') return approve();
+  if (a === 'reject') return rejectDialog();
+  if (a === 'reject-confirm') return doReject();
+  if (a === 'withdraw') return withdrawDialog();
+  if (a === 'withdraw-confirm') return withdraw();
+  if (a === 'dlg-cancel') return closeDialog();
+  if (a === 'retry-att') { S.att = 'loading'; render(); setTimeout(() => { S.att = 'ok'; render(); }, 600); return; }
+  if (a === 'add-att') return toast('Chọn tệp để tải lên (mô phỏng)');
+  if (a === 'hist-clear') { S.histUser = ''; render(); return; }
+  if (a === 'preview') return previewDialog(files.find(f => f.id == el.dataset.id));
+  if (a === 'download') { const f = files.find(f => f.id == el.dataset.id); toast(`Đang tải ${f.name} (${size(f.bytes)})`); }
+});
+document.addEventListener('change', e => {
+  if (e.target.id === 'me') { S.me = e.target.value; S.note = ''; render(); }
+  if (e.target.id === 'att') { S.att = e.target.value; render(); }
+  if (e.target.id === 'hist-user') { S.histUser = e.target.value; render(); }
+});
+document.addEventListener('input', e => {
+  if (e.target.id === 'note') {
+    S.note = e.target.value;
+    $('#note-err')?.classList.add('hidden');
+  }
+});
+document.addEventListener('keydown', e => { if (e.key === 'Escape' && S.dialog) closeDialog(); });
+window.addEventListener('beforeunload', e => { if (dirty()) { e.preventDefault(); e.returnValue = ''; } });
+
+function render() {
+  const keep = document.activeElement?.id === 'note' ? $('#note').selectionStart : null;
+  $('#app').innerHTML = shell(page());
+  if (keep !== null && $('#note')) { $('#note').focus(); $('#note').setSelectionRange(keep, keep); }
+  // the note textarea reports unsaved text without re-rendering on each key
+  const n = $('#note'); if (n) n.addEventListener('blur', () => { const bar = $('#note')?.closest('.sticky'); });
+}
+render();
+setTimeout(() => { S.page = 'ready'; render(); }, 500);
+</script>
+</body>
+</html>

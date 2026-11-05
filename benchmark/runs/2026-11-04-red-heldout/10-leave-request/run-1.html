@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>New Leave Request - Northwind HR</title>
+<script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-slate-50 text-slate-800 min-h-screen">
+<header class="bg-white border-b border-slate-200">
+  <div class="max-w-5xl mx-auto px-6 h-14 flex items-center justify-between">
+    <div class="flex items-center gap-3">
+      <div class="w-8 h-8 rounded-md bg-indigo-600 text-white grid place-items-center font-bold">N</div>
+      <span class="font-semibold">Northwind HR</span>
+    </div>
+    <div class="flex items-center gap-3 text-sm">
+      <span class="text-slate-500">Linh Tran, Engineering</span>
+      <div class="w-8 h-8 rounded-full bg-slate-200 grid place-items-center text-xs font-semibold">LT</div>
+    </div>
+  </div>
+</header>
+
+<main class="max-w-5xl mx-auto px-6 py-8">
+  <nav class="text-sm text-slate-500 mb-2">Time off / <span class="text-slate-800">New request</span></nav>
+  <h1 class="text-2xl font-semibold mb-6">Request leave</h1>
+
+  <div id="success" class="hidden mb-6 rounded-lg border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-800" role="status"></div>
+
+  <form id="form" novalidate class="grid lg:grid-cols-3 gap-6">
+    <div class="lg:col-span-2 bg-white rounded-lg border border-slate-200 p-6 space-y-6">
+      <div>
+        <label for="type" class="block text-sm font-medium mb-1">Leave type <span class="text-red-600">*</span></label>
+        <select id="type" class="w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" aria-describedby="type-err">
+          <option value="">Select a leave type</option>
+        </select>
+        <p id="type-err" class="text-xs text-red-600 mt-1 hidden"></p>
+      </div>
+
+      <div class="grid sm:grid-cols-2 gap-4">
+        <div>
+          <label for="start" class="block text-sm font-medium mb-1">Start date <span class="text-red-600">*</span></label>
+          <input id="start" type="date" class="w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
+          <p id="start-err" class="text-xs text-red-600 mt-1 hidden"></p>
+        </div>
+        <div>
+          <label for="end" class="block text-sm font-medium mb-1">End date <span class="text-red-600">*</span></label>
+          <input id="end" type="date" class="w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
+          <p id="end-err" class="text-xs text-red-600 mt-1 hidden"></p>
+        </div>
+      </div>
+
+      <label class="flex items-center gap-2 text-sm"><input id="half" type="checkbox" class="rounded border-slate-300"> Half day (only for single-day requests)</label>
+
+      <div>
+        <label for="approver" class="block text-sm font-medium mb-1">Approver <span class="text-red-600">*</span></label>
+        <select id="approver" class="w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"></select>
+        <p id="approver-err" class="text-xs text-red-600 mt-1 hidden"></p>
+      </div>
+
+      <div>
+        <label for="reason" class="block text-sm font-medium mb-1">Reason <span class="text-slate-400 font-normal">(optional)</span></label>
+        <textarea id="reason" rows="3" maxlength="300" class="w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" placeholder="Anything your approver should know"></textarea>
+      </div>
+
+      <div>
+        <span class="block text-sm font-medium mb-1">Supporting document <span id="doc-req" class="text-slate-400 font-normal">(optional)</span></span>
+        <label for="file" id="drop" class="flex flex-col items-center justify-center rounded-md border-2 border-dashed border-slate-300 px-4 py-6 text-sm text-slate-500 cursor-pointer hover:border-indigo-400">
+          <span>Click to choose a file or drop it here</span>
+          <span class="text-xs mt-1">PDF, JPG or PNG, up to 5 MB</span>
+        </label>
+        <input id="file" type="file" accept=".pdf,.jpg,.jpeg,.png" class="sr-only">
+        <div id="file-info" class="hidden mt-2 flex items-center justify-between rounded-md bg-slate-50 border border-slate-200 px-3 py-2 text-sm">
+          <span id="file-name" class="truncate"></span>
+          <button type="button" id="file-remove" class="text-indigo-600 hover:underline ml-3">Remove</button>
+        </div>
+        <p id="file-err" class="text-xs text-red-600 mt-1 hidden"></p>
+      </div>
+
+      <div class="flex justify-end gap-3 pt-4 border-t border-slate-200">
+        <button type="button" id="cancel" class="px-4 py-2 text-sm rounded-md border border-slate-300 bg-white hover:bg-slate-50">Cancel</button>
+        <button type="submit" id="submit" class="px-4 py-2 text-sm rounded-md bg-indigo-600 text-white font-medium hover:bg-indigo-700 disabled:opacity-60">Submit request</button>
+      </div>
+    </div>
+
+    <aside class="space-y-6">
+      <section class="bg-white rounded-lg border border-slate-200 p-5">
+        <h2 class="text-sm font-semibold mb-3">Summary</h2>
+        <dl class="text-sm space-y-2">
+          <div class="flex justify-between"><dt class="text-slate-500">Working days</dt><dd id="s-days" class="font-medium">-</dd></div>
+          <div class="flex justify-between"><dt class="text-slate-500">Balance now</dt><dd id="s-bal" class="font-medium">-</dd></div>
+          <div class="flex justify-between"><dt class="text-slate-500">Balance after</dt><dd id="s-after" class="font-medium">-</dd></div>
+        </dl>
+        <p id="s-warn" class="hidden mt-3 text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded p-2"></p>
+      </section>
+      <section class="bg-white rounded-lg border border-slate-200 p-5">
+        <h2 class="text-sm font-semibold mb-3">Recent requests</h2>
+        <ul id="recent" class="text-sm divide-y divide-slate-100"></ul>
+      </section>
+    </aside>
+  </form>
+</main>
+
+<script>
+const TYPES = [
+  {id:'annual', name:'Annual leave', balance:12.5, doc:false},
+  {id:'sick', name:'Sick leave', balance:6, doc:true, docAfter:2},
+  {id:'personal', name:'Personal leave', balance:3, doc:false},
+  {id:'parental', name:'Parental leave', balance:60, doc:true},
+  {id:'unpaid', name:'Unpaid leave', balance:null, doc:false}
+];
+const APPROVERS = [
+  {id:'mn', name:'Minh Nguyen', role:'Engineering Manager', away:null},
+  {id:'sp', name:'Sara Patel', role:'Director of Engineering', away:'2026-11-16'},
+  {id:'dk', name:'David Kim', role:'HR Business Partner', away:null}
+];
+const HOLIDAYS = ['2026-11-26','2026-12-25'];
+const RECENT = [
+  {t:'Annual leave', d:'12 Aug - 14 Aug 2026', s:'Approved', c:'text-emerald-700 bg-emerald-50'},
+  {t:'Sick leave', d:'03 Jun 2026', s:'Approved', c:'text-emerald-700 bg-emerald-50'},
+  {t:'Personal leave', d:'22 Dec 2026', s:'Pending', c:'text-amber-700 bg-amber-50'}
+];
+const $ = id => document.getElementById(id);
+const MAX = 5*1024*1024;
+let file = null;
+
+$('type').insertAdjacentHTML('beforeend', TYPES.map(t=>`<option value="${t.id}">${t.name}</option>`).join(''));
+$('approver').innerHTML = '<option value="">Select an approver</option>' + APPROVERS.map(a=>`<option value="${a.id}">${a.name} - ${a.role}</option>`).join('');
+$('recent').innerHTML = RECENT.map(r=>`<li class="py-2"><div class="flex justify-between"><span>${r.t}</span><span class="text-xs px-2 py-0.5 rounded-full ${r.c}">${r.s}</span></div><div class="text-xs text-slate-500">${r.d}</div></li>`).join('');
+const today = new Date().toISOString().slice(0,10);
+$('start').min = today; $('end').min = today;
+
+function days(){
+  const s=$('start').value, e=$('end').value;
+  if(!s||!e||e<s) return null;
+  if(s===e && $('half').checked) return 0.5;
+  let n=0; const d=new Date(s+'T00:00:00'), end=new Date(e+'T00:00:00');
+  while(d<=end){
+    const iso=d.toISOString().slice(0,10), w=d.getDay();
+    if(w!==0&&w!==6&&!HOLIDAYS.includes(iso)) n++;
+    d.setDate(d.getDate()+1);
+  }
+  return n;
+}
+function docRequired(){
+  const t=TYPES.find(x=>x.id===$('type').value); const n=days();
+  if(!t) return false;
+  if(t.id==='sick') return n!==null && n>t.docAfter;
+  return t.doc;
+}
+function refresh(){
+  const t=TYPES.find(x=>x.id===$('type').value), n=days();
+  $('s-days').textContent = n===null?'-':n;
+  $('s-bal').textContent = t? (t.balance===null?'No limit':t.balance+' days') : '-';
+  const after = t&&t.balance!==null&&n!==null ? t.balance-n : null;
+  $('s-after').textContent = after===null?(t&&t.balance===null?'-':'-'):after+' days';
+  $('s-after').className = 'font-medium ' + (after!==null&&after<0?'text-red-600':'');
+  const w=$('s-warn');
+  if(after!==null&&after<0){w.textContent='This request exceeds your available balance.';w.classList.remove('hidden');} else w.classList.add('hidden');
+  $('doc-req').textContent = docRequired()? '(required)' : '(optional)';
+  $('doc-req').className = docRequired()? 'text-red-600 font-normal':'text-slate-400 font-normal';
+  $('half').disabled = $('start').value!==$('end').value;
+  if($('half').disabled) $('half').checked=false;
+}
+function err(id,msg){
+  const p=$(id+'-err'); p.textContent=msg||''; p.classList.toggle('hidden',!msg);
+  const f=$(id); if(f) f.classList.toggle('border-red-500',!!msg);
+}
+function validate(){
+  let first=null; const bad=(id,m)=>{err(id,m); if(m&&!first) first=id;};
+  const t=TYPES.find(x=>x.id===$('type').value), n=days();
+  bad('type', t?'':'Choose a leave type.');
+  bad('start', $('start').value?'':'Choose a start date.');
+  let em=''; if(!$('end').value) em='Choose an end date.'; else if($('start').value && $('end').value<$('start').value) em='End date cannot be before the start date.';
+  bad('end', em);
+  if(!em&&$('start').value&&n===0) bad('end','The selected dates contain no working days.');
+  const a=APPROVERS.find(x=>x.id===$('approver').value);
+  bad('approver', a?'':'Choose an approver.');
+  let fm=''; if(docRequired()&&!file) fm='A supporting document is required for this request.';
+  err('file',fm); if(fm&&!first) first='file';
+  if(t&&t.balance!==null&&n!==null&&n>t.balance){ bad('end','Requested days exceed your '+t.balance+'-day balance.'); }
+  if(first){const el=$(first==='file'?'file':first); el.focus&&el.focus();}
+  return !first;
+}
+function setFile(f){
+  err('file','');
+  if(!f){file=null;$('file-info').classList.add('hidden');$('file').value='';refresh();return;}
+  if(!/\.(pdf|jpe?g|png)$/i.test(f.name)){err('file','Unsupported file type. Use PDF, JPG or PNG.');return;}
+  if(f.size>MAX){err('file','File is larger than 5 MB.');return;}
+  file=f; $('file-name').textContent=f.name+' ('+Math.max(1,Math.round(f.size/1024))+' KB)'; $('file-info').classList.remove('hidden');
+}
+['type','start','end','half'].forEach(i=>$(i).addEventListener('change',()=>{
+  if(i==='start'&&$('start').value){$('end').min=$('start').value; if(!$('end').value) $('end').value=$('start').value;}
+  refresh();
+}));
+$('approver').addEventListener('change',()=>{
+  const a=APPROVERS.find(x=>x.id===$('approver').value), s=$('start').value;
+  err('approver', a&&a.away&&s&&s>=a.away ? a.name+' is away from '+a.away+'; pick someone else if you need a faster decision.' : '');
+});
+$('file').addEventListener('change',e=>setFile(e.target.files[0]));
+$('file-remove').addEventListener('click',()=>setFile(null));
+const drop=$('drop');
+['dragover','dragenter'].forEach(ev=>drop.addEventListener(ev,e=>{e.preventDefault();drop.classList.add('border-indigo-400');}));
+['dragleave','drop'].forEach(ev=>drop.addEventListener(ev,e=>{e.preventDefault();drop.classList.remove('border-indigo-400');}));
+drop.addEventListener('drop',e=>setFile(e.dataTransfer.files[0]));
+$('cancel').addEventListener('click',()=>{ if(confirm('Discard this request?')){ $('form').reset(); setFile(null); refresh(); ['type','start','end','approver','file'].forEach(i=>err(i,'')); } });
+
+$('form').addEventListener('submit',e=>{
+  e.preventDefault();
+  if(!validate()) return;
+  const btn=$('submit'); btn.disabled=true; btn.textContent='Submitting...';
+  setTimeout(()=>{
+    const t=TYPES.find(x=>x.id===$('type').value), a=APPROVERS.find(x=>x.id===$('approver').value);
+    const ref='LV-'+(20400+Math.floor(Math.random()*500));
+    const ok=$('success');
+    ok.textContent=`Request ${ref} submitted: ${t.name}, ${$('start').value} to ${$('end').value} (${days()} working days). ${a.name} has been notified.`;
+    ok.classList.remove('hidden'); ok.scrollIntoView({behavior:'smooth'});
+    $('recent').insertAdjacentHTML('afterbegin',`<li class="py-2"><div class="flex justify-between"><span>${t.name}</span><span class="text-xs px-2 py-0.5 rounded-full text-amber-700 bg-amber-50">Pending</span></div><div class="text-xs text-slate-500">${$('start').value} - ${$('end').value}</div></li>`);
+    $('form').reset(); setFile(null); refresh();
+    btn.disabled=false; btn.textContent='Submit request';
+  },700);
+});
+refresh();
+</script>
+</body>
+</html>

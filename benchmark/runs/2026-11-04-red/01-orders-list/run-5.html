@@ -1,0 +1,435 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sales Orders - Meridian ERP</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+tailwind.config = { theme: { extend: { fontFamily: { sans: ['Inter','system-ui','-apple-system','Segoe UI','sans-serif'] } } } };
+</script>
+<style>
+  body { font-feature-settings: "tnum"; }
+  .num { font-variant-numeric: tabular-nums; }
+  th[aria-sort] button:hover { color: #0f172a; }
+  .skip:focus { top: 8px; }
+</style>
+</head>
+<body class="bg-slate-50 text-slate-800 font-sans antialiased">
+<a href="#main" class="skip absolute -top-10 left-2 z-50 bg-white px-3 py-2 rounded shadow text-sm focus:outline-none focus:ring-2 focus:ring-indigo-600">Skip to content</a>
+
+<div class="flex min-h-screen">
+  <!-- Sidebar -->
+  <aside class="hidden lg:flex w-60 shrink-0 flex-col bg-slate-900 text-slate-300" aria-label="Primary">
+    <div class="h-14 flex items-center gap-2 px-5 border-b border-slate-800">
+      <div class="w-7 h-7 rounded bg-indigo-500 grid place-items-center text-white font-bold text-sm">M</div>
+      <span class="text-white font-semibold tracking-tight">Meridian ERP</span>
+    </div>
+    <nav class="flex-1 overflow-y-auto py-4 px-3 text-sm space-y-6">
+      <div>
+        <p class="px-2 mb-1 text-[11px] uppercase tracking-wider text-slate-500">Sales</p>
+        <ul class="space-y-0.5">
+          <li><a href="#" class="block px-2 py-1.5 rounded hover:bg-slate-800">Dashboard</a></li>
+          <li><a href="#" aria-current="page" class="block px-2 py-1.5 rounded bg-slate-800 text-white font-medium">Orders</a></li>
+          <li><a href="#" class="block px-2 py-1.5 rounded hover:bg-slate-800">Quotations</a></li>
+          <li><a href="#" class="block px-2 py-1.5 rounded hover:bg-slate-800">Customers</a></li>
+          <li><a href="#" class="block px-2 py-1.5 rounded hover:bg-slate-800">Price lists</a></li>
+        </ul>
+      </div>
+      <div>
+        <p class="px-2 mb-1 text-[11px] uppercase tracking-wider text-slate-500">Fulfilment</p>
+        <ul class="space-y-0.5">
+          <li><a href="#" class="block px-2 py-1.5 rounded hover:bg-slate-800">Shipments</a></li>
+          <li><a href="#" class="block px-2 py-1.5 rounded hover:bg-slate-800">Returns</a></li>
+          <li><a href="#" class="block px-2 py-1.5 rounded hover:bg-slate-800">Inventory</a></li>
+        </ul>
+      </div>
+      <div>
+        <p class="px-2 mb-1 text-[11px] uppercase tracking-wider text-slate-500">Finance</p>
+        <ul class="space-y-0.5">
+          <li><a href="#" class="block px-2 py-1.5 rounded hover:bg-slate-800">Invoices</a></li>
+          <li><a href="#" class="block px-2 py-1.5 rounded hover:bg-slate-800">Payments</a></li>
+          <li><a href="#" class="block px-2 py-1.5 rounded hover:bg-slate-800">Reports</a></li>
+        </ul>
+      </div>
+    </nav>
+    <div class="p-4 border-t border-slate-800 flex items-center gap-3 text-sm">
+      <div class="w-8 h-8 rounded-full bg-slate-700 grid place-items-center text-white text-xs font-semibold">HN</div>
+      <div class="min-w-0"><p class="text-white truncate">Hana Nguyen</p><p class="text-xs text-slate-400 truncate">Sales Manager</p></div>
+    </div>
+  </aside>
+
+  <div class="flex-1 min-w-0 flex flex-col">
+    <header class="h-14 bg-white border-b border-slate-200 flex items-center justify-between px-4 sm:px-6">
+      <nav aria-label="Breadcrumb" class="text-sm text-slate-500">
+        <ol class="flex items-center gap-2"><li>Sales</li><li aria-hidden="true">/</li><li class="text-slate-900 font-medium" aria-current="page">Orders</li></ol>
+      </nav>
+      <div class="flex items-center gap-3 text-sm text-slate-600">
+        <span class="hidden sm:inline">Fiscal period: <strong class="font-medium text-slate-800">Nov 2026</strong></span>
+        <span class="hidden sm:inline text-slate-300">|</span>
+        <span>Acme Distribution Ltd.</span>
+      </div>
+    </header>
+
+    <main id="main" class="flex-1 px-4 sm:px-6 py-6 max-w-[1400px] w-full mx-auto">
+      <div class="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h1 class="text-2xl font-semibold tracking-tight text-slate-900">Sales orders</h1>
+          <p class="text-sm text-slate-500 mt-1">Track, approve and fulfil customer orders across all channels.</p>
+        </div>
+        <div class="flex gap-2">
+          <button id="exportAll" class="h-9 px-3 text-sm rounded-md border border-slate-300 bg-white hover:bg-slate-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-600">Export CSV</button>
+          <button class="h-9 px-4 text-sm font-medium rounded-md bg-indigo-600 text-white hover:bg-indigo-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-indigo-600">New order</button>
+        </div>
+      </div>
+
+      <!-- Summary -->
+      <section aria-label="Order summary" class="mt-5 grid grid-cols-2 lg:grid-cols-4 gap-3" id="kpis"></section>
+
+      <!-- Table card -->
+      <section class="mt-5 bg-white border border-slate-200 rounded-lg shadow-sm" aria-label="Orders list">
+        <!-- Status tabs -->
+        <div class="border-b border-slate-200 px-2 sm:px-4 overflow-x-auto">
+          <div role="tablist" aria-label="Filter by status" id="tabs" class="flex gap-1 min-w-max"></div>
+        </div>
+
+        <!-- Toolbar -->
+        <div class="p-3 sm:p-4 flex flex-wrap items-end gap-3">
+          <div class="relative grow basis-64 max-w-md">
+            <label for="q" class="sr-only">Search orders</label>
+            <svg class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="9" cy="9" r="6"/><path d="M14 14l4 4" stroke-linecap="round"/></svg>
+            <input id="q" type="search" placeholder="Search order no., customer or PO..." class="w-full h-9 pl-9 pr-3 text-sm rounded-md border border-slate-300 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-600 focus:border-indigo-600">
+          </div>
+          <div>
+            <label for="fPay" class="block text-xs text-slate-500 mb-1">Payment</label>
+            <select id="fPay" class="h-9 text-sm rounded-md border border-slate-300 bg-white pl-2 pr-8 focus:outline-none focus:ring-2 focus:ring-indigo-600">
+              <option value="">All</option><option>Paid</option><option>Partial</option><option>Unpaid</option><option>Overdue</option>
+            </select>
+          </div>
+          <div>
+            <label for="fChan" class="block text-xs text-slate-500 mb-1">Channel</label>
+            <select id="fChan" class="h-9 text-sm rounded-md border border-slate-300 bg-white pl-2 pr-8 focus:outline-none focus:ring-2 focus:ring-indigo-600">
+              <option value="">All</option><option>Direct</option><option>Distributor</option><option>E-commerce</option><option>EDI</option>
+            </select>
+          </div>
+          <div>
+            <label for="fRep" class="block text-xs text-slate-500 mb-1">Sales rep</label>
+            <select id="fRep" class="h-9 text-sm rounded-md border border-slate-300 bg-white pl-2 pr-8 focus:outline-none focus:ring-2 focus:ring-indigo-600"></select>
+          </div>
+          <div>
+            <label for="fRange" class="block text-xs text-slate-500 mb-1">Order date</label>
+            <select id="fRange" class="h-9 text-sm rounded-md border border-slate-300 bg-white pl-2 pr-8 focus:outline-none focus:ring-2 focus:ring-indigo-600">
+              <option value="0">Any time</option><option value="7">Last 7 days</option><option value="30">Last 30 days</option><option value="90">Last 90 days</option>
+            </select>
+          </div>
+          <button id="clear" class="h-9 px-2 text-sm text-indigo-700 hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-600 rounded hidden">Clear filters</button>
+        </div>
+
+        <!-- Bulk bar -->
+        <div id="bulk" class="hidden px-3 sm:px-4 py-2 bg-indigo-50 border-y border-indigo-100 flex flex-wrap items-center gap-2 text-sm" role="region" aria-label="Bulk actions">
+          <span class="font-medium text-indigo-900"><span id="selCount">0</span> selected</span>
+          <span class="text-indigo-300" aria-hidden="true">|</span>
+          <button data-bulk="approve" class="h-8 px-3 rounded-md bg-white border border-indigo-200 text-indigo-900 hover:bg-indigo-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-600">Approve</button>
+          <button data-bulk="ship" class="h-8 px-3 rounded-md bg-white border border-indigo-200 text-indigo-900 hover:bg-indigo-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-600">Mark as shipped</button>
+          <button data-bulk="invoice" class="h-8 px-3 rounded-md bg-white border border-indigo-200 text-indigo-900 hover:bg-indigo-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-600">Create invoices</button>
+          <button data-bulk="export" class="h-8 px-3 rounded-md bg-white border border-indigo-200 text-indigo-900 hover:bg-indigo-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-600">Export</button>
+          <button data-bulk="cancel" class="h-8 px-3 rounded-md bg-white border border-red-200 text-red-700 hover:bg-red-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-red-600">Cancel orders</button>
+          <button id="deselect" class="ml-auto h-8 px-2 text-indigo-800 hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-600 rounded">Deselect all</button>
+        </div>
+
+        <!-- Table -->
+        <div class="overflow-x-auto">
+          <table class="w-full text-sm min-w-[1000px]">
+            <caption class="sr-only">Sales orders</caption>
+            <thead class="bg-slate-50 text-xs text-slate-500 border-y border-slate-200">
+              <tr id="thead">
+                <th scope="col" class="w-10 pl-4 py-2.5 text-left"><input id="all" type="checkbox" aria-label="Select all orders on this page" class="w-4 h-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-600"></th>
+                <th scope="col" class="px-3 py-2.5 text-left font-medium" aria-sort="none" data-k="no"><button class="uppercase tracking-wide">Order</button></th>
+                <th scope="col" class="px-3 py-2.5 text-left font-medium" aria-sort="none" data-k="customer"><button class="uppercase tracking-wide">Customer</button></th>
+                <th scope="col" class="px-3 py-2.5 text-left font-medium" aria-sort="none" data-k="date"><button class="uppercase tracking-wide">Date</button></th>
+                <th scope="col" class="px-3 py-2.5 text-left font-medium" aria-sort="none" data-k="status"><button class="uppercase tracking-wide">Status</button></th>
+                <th scope="col" class="px-3 py-2.5 text-left font-medium" aria-sort="none" data-k="pay"><button class="uppercase tracking-wide">Payment</button></th>
+                <th scope="col" class="px-3 py-2.5 text-right font-medium" aria-sort="none" data-k="items"><button class="uppercase tracking-wide">Items</button></th>
+                <th scope="col" class="px-3 py-2.5 text-right font-medium" aria-sort="none" data-k="total"><button class="uppercase tracking-wide">Total</button></th>
+                <th scope="col" class="pr-4 py-2.5 w-24 text-right font-medium">Actions</th>
+              </tr>
+            </thead>
+            <tbody id="rows" class="divide-y divide-slate-100"></tbody>
+          </table>
+        </div>
+        <div id="empty" class="hidden py-16 text-center">
+          <p class="text-slate-900 font-medium">No orders match your filters</p>
+          <p class="text-sm text-slate-500 mt-1">Try a different search term or clear the filters.</p>
+          <button id="clear2" class="mt-4 h-9 px-4 text-sm rounded-md border border-slate-300 hover:bg-slate-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-600">Clear filters</button>
+        </div>
+
+        <!-- Pagination -->
+        <div class="px-3 sm:px-4 py-3 border-t border-slate-200 flex flex-wrap items-center justify-between gap-3 text-sm text-slate-600">
+          <p id="range" aria-live="polite"></p>
+          <div class="flex items-center gap-3">
+            <label class="flex items-center gap-2">Rows
+              <select id="size" class="h-8 text-sm rounded-md border border-slate-300 bg-white pl-2 pr-7 focus:outline-none focus:ring-2 focus:ring-indigo-600"><option>10</option><option selected>15</option><option>25</option></select>
+            </label>
+            <div class="flex gap-1">
+              <button id="prev" class="h-8 px-3 rounded-md border border-slate-300 bg-white hover:bg-slate-50 disabled:opacity-40 disabled:hover:bg-white focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-600">Previous</button>
+              <button id="next" class="h-8 px-3 rounded-md border border-slate-300 bg-white hover:bg-slate-50 disabled:opacity-40 disabled:hover:bg-white focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-600">Next</button>
+            </div>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+</div>
+
+<div id="toast" role="status" aria-live="polite" class="fixed bottom-5 left-1/2 -translate-x-1/2 bg-slate-900 text-white text-sm px-4 py-2.5 rounded-md shadow-lg opacity-0 pointer-events-none transition-opacity"></div>
+
+<script>
+(function () {
+  // ---------- Mock data (deterministic) ----------
+  var seed = 7;
+  function rnd() { seed = (seed * 16807) % 2147483647; return (seed - 1) / 2147483646; }
+  function pick(a) { return a[Math.floor(rnd() * a.length)]; }
+
+  var customers = [
+    ['Northwind Traders','Seattle, US'],['Brightline Pharmacy Group','Manchester, UK'],['Kestrel Industrial Supply','Rotterdam, NL'],
+    ['Alpine Outfitters GmbH','Munich, DE'],['Harbor & Co. Hardware','Boston, US'],['Sakura Home Goods','Osaka, JP'],
+    ['Pacifica Foods Ltd.','Auckland, NZ'],['Lumen Electronics','Austin, US'],['Orchard Lane Retail','Dublin, IE'],
+    ['Veridian Health Supply','Toronto, CA'],['Cobalt Logistics','Singapore, SG'],['Fjord Marine AS','Bergen, NO'],
+    ['Delta Office Solutions','Chicago, US'],['Maple Street Grocers','Vancouver, CA'],['Solstice Furnishings','Barcelona, ES']
+  ];
+  var reps = ['Hana Nguyen','Marcus Reid','Priya Patel','Tomas Silva'];
+  var channels = ['Direct','Distributor','E-commerce','EDI'];
+  var statuses = ['Draft','Pending approval','Approved','Processing','Shipped','Delivered','Cancelled'];
+  var pays = ['Paid','Partial','Unpaid','Overdue'];
+  var today = new Date(2026, 10, 4);
+  var orders = [];
+  for (var i = 0; i < 64; i++) {
+    var c = pick(customers);
+    var age = Math.floor(rnd() * 100);
+    var d = new Date(today.getTime() - age * 86400000);
+    var st = pick(statuses);
+    if (age > 45 && (st === 'Draft' || st === 'Pending approval')) st = 'Delivered';
+    var pay = pick(pays);
+    if (st === 'Draft' || st === 'Cancelled') pay = 'Unpaid';
+    if (st === 'Delivered' && rnd() > .4) pay = 'Paid';
+    if (pay === 'Overdue' && age < 20) pay = 'Unpaid';
+    var items = 1 + Math.floor(rnd() * 24);
+    var total = Math.round((items * (40 + rnd() * 420)) * 100) / 100;
+    orders.push({
+      id: i, no: 'SO-' + (24180 - i), po: 'PO-' + (100000 + Math.floor(rnd() * 899999)),
+      customer: c[0], city: c[1], date: d, status: st, pay: pay, items: items, total: total,
+      channel: pick(channels), rep: pick(reps)
+    });
+  }
+
+  // ---------- State ----------
+  var S = { q: '', tab: 'All', pay: '', chan: '', rep: '', range: 0, sort: 'date', dir: 'desc', page: 1, size: 15, sel: {} };
+  var $ = function (id) { return document.getElementById(id); };
+  var fmt = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' });
+  var fmt0 = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 });
+  var dfmt = new Intl.DateTimeFormat('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+  function esc(s) { return String(s).replace(/[&<>"']/g, function (m) { return { '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[m]; }); }
+
+  var statusStyle = {
+    'Draft': 'bg-slate-100 text-slate-700 ring-slate-300',
+    'Pending approval': 'bg-amber-50 text-amber-800 ring-amber-200',
+    'Approved': 'bg-blue-50 text-blue-800 ring-blue-200',
+    'Processing': 'bg-indigo-50 text-indigo-800 ring-indigo-200',
+    'Shipped': 'bg-cyan-50 text-cyan-800 ring-cyan-200',
+    'Delivered': 'bg-emerald-50 text-emerald-800 ring-emerald-200',
+    'Cancelled': 'bg-red-50 text-red-800 ring-red-200'
+  };
+  var statusDot = { 'Draft':'bg-slate-400','Pending approval':'bg-amber-500','Approved':'bg-blue-500','Processing':'bg-indigo-500','Shipped':'bg-cyan-500','Delivered':'bg-emerald-500','Cancelled':'bg-red-500' };
+  var payStyle = { Paid: 'text-emerald-700', Partial: 'text-amber-700', Unpaid: 'text-slate-600', Overdue: 'text-red-700 font-medium' };
+
+  // Rep filter options
+  $('fRep').innerHTML = '<option value="">All</option>' + reps.map(function (r) { return '<option>' + r + '</option>'; }).join('');
+
+  // ---------- Filtering ----------
+  function base() {
+    var q = S.q.trim().toLowerCase();
+    return orders.filter(function (o) {
+      if (q && (o.no + ' ' + o.customer + ' ' + o.po + ' ' + o.city).toLowerCase().indexOf(q) < 0) return false;
+      if (S.pay && o.pay !== S.pay) return false;
+      if (S.chan && o.channel !== S.chan) return false;
+      if (S.rep && o.rep !== S.rep) return false;
+      if (S.range && (today - o.date) / 86400000 > S.range) return false;
+      return true;
+    });
+  }
+  function view() {
+    var list = base().filter(function (o) { return S.tab === 'All' || o.status === S.tab; });
+    var k = S.sort, m = S.dir === 'asc' ? 1 : -1;
+    list.sort(function (a, b) {
+      var x = a[k], y = b[k];
+      if (k === 'date') { x = +x; y = +y; }
+      if (typeof x === 'string') return x.localeCompare(y) * m;
+      return (x - y) * m;
+    });
+    return list;
+  }
+
+  // ---------- Render ----------
+  function renderTabs() {
+    var b = base(), counts = { All: b.length };
+    statuses.forEach(function (s) { counts[s] = 0; });
+    b.forEach(function (o) { counts[o.status]++; });
+    $('tabs').innerHTML = ['All'].concat(statuses).map(function (s) {
+      var on = S.tab === s;
+      return '<button role="tab" aria-selected="' + on + '" data-tab="' + s + '" class="px-3 py-3 text-sm whitespace-nowrap border-b-2 -mb-px focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-indigo-600 ' +
+        (on ? 'border-indigo-600 text-indigo-700 font-medium' : 'border-transparent text-slate-600 hover:text-slate-900 hover:border-slate-300') + '">' +
+        s + ' <span class="ml-1 text-xs num ' + (on ? 'text-indigo-600' : 'text-slate-400') + '">' + counts[s] + '</span></button>';
+    }).join('');
+  }
+
+  function renderKpis() {
+    var b = base();
+    var open = b.filter(function (o) { return ['Pending approval','Approved','Processing'].indexOf(o.status) >= 0; });
+    var pend = b.filter(function (o) { return o.status === 'Pending approval'; });
+    var overdue = b.filter(function (o) { return o.pay === 'Overdue' && o.status !== 'Cancelled'; });
+    var rev = b.filter(function (o) { return o.status !== 'Cancelled' && o.status !== 'Draft'; });
+    var sum = function (a) { return a.reduce(function (s, o) { return s + o.total; }, 0); };
+    var cards = [
+      ['Total order value', fmt0.format(sum(rev)), rev.length + ' confirmed orders'],
+      ['Open orders', open.length, fmt0.format(sum(open)) + ' in pipeline'],
+      ['Awaiting approval', pend.length, fmt0.format(sum(pend)) + ' on hold'],
+      ['Overdue payments', overdue.length, fmt0.format(sum(overdue)) + ' outstanding']
+    ];
+    $('kpis').innerHTML = cards.map(function (c, i) {
+      return '<div class="bg-white border border-slate-200 rounded-lg px-4 py-3 shadow-sm"><p class="text-xs text-slate-500">' + c[0] + '</p><p class="text-2xl font-semibold mt-1 num ' + (i === 3 && c[1] ? 'text-red-700' : 'text-slate-900') + '">' + c[1] + '</p><p class="text-xs text-slate-500 mt-0.5">' + c[2] + '</p></div>';
+    }).join('');
+  }
+
+  function actionsFor(o) {
+    var a = [];
+    if (o.status === 'Pending approval') a.push(['approve', 'Approve']);
+    if (o.status === 'Approved' || o.status === 'Processing') a.push(['ship', 'Ship']);
+    return a;
+  }
+
+  function render() {
+    var list = view();
+    var pages = Math.max(1, Math.ceil(list.length / S.size));
+    if (S.page > pages) S.page = pages;
+    var start = (S.page - 1) * S.size, pageRows = list.slice(start, start + S.size);
+
+    renderTabs(); renderKpis();
+
+    $('rows').innerHTML = pageRows.map(function (o) {
+      var sel = !!S.sel[o.id];
+      var act = actionsFor(o).map(function (a) {
+        return '<button data-row="' + a[0] + '" data-id="' + o.id + '" class="h-7 px-2 text-xs font-medium rounded border border-slate-300 bg-white hover:bg-slate-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-600">' + a[1] + '</button>';
+      }).join('');
+      return '<tr class="' + (sel ? 'bg-indigo-50/60' : 'hover:bg-slate-50') + '">' +
+        '<td class="pl-4 py-3"><input type="checkbox" data-id="' + o.id + '" ' + (sel ? 'checked' : '') + ' aria-label="Select ' + o.no + '" class="rowchk w-4 h-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-600"></td>' +
+        '<td class="px-3 py-3"><a href="#" class="font-medium text-indigo-700 hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-600 rounded">' + o.no + '</a><div class="text-xs text-slate-500">' + o.po + '</div></td>' +
+        '<td class="px-3 py-3"><div class="text-slate-900">' + esc(o.customer) + '</div><div class="text-xs text-slate-500">' + esc(o.city) + ' &middot; ' + o.channel + '</div></td>' +
+        '<td class="px-3 py-3 whitespace-nowrap text-slate-700">' + dfmt.format(o.date) + '<div class="text-xs text-slate-500">' + o.rep + '</div></td>' +
+        '<td class="px-3 py-3"><span class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs font-medium ring-1 ring-inset whitespace-nowrap ' + statusStyle[o.status] + '"><span class="w-1.5 h-1.5 rounded-full ' + statusDot[o.status] + '"></span>' + o.status + '</span></td>' +
+        '<td class="px-3 py-3 ' + payStyle[o.pay] + '">' + o.pay + '</td>' +
+        '<td class="px-3 py-3 text-right num text-slate-700">' + o.items + '</td>' +
+        '<td class="px-3 py-3 text-right num font-medium text-slate-900">' + fmt.format(o.total) + '</td>' +
+        '<td class="pr-4 py-3 text-right whitespace-nowrap">' + act + '</td></tr>';
+    }).join('');
+
+    $('empty').classList.toggle('hidden', list.length > 0);
+    $('range').textContent = list.length ? 'Showing ' + (start + 1) + '-' + (start + pageRows.length) + ' of ' + list.length + ' orders' : '0 orders';
+    $('prev').disabled = S.page <= 1;
+    $('next').disabled = S.page >= pages;
+
+    // select-all state
+    var n = pageRows.filter(function (o) { return S.sel[o.id]; }).length;
+    $('all').checked = pageRows.length > 0 && n === pageRows.length;
+    $('all').indeterminate = n > 0 && n < pageRows.length;
+
+    var total = Object.keys(S.sel).length;
+    $('bulk').classList.toggle('hidden', total === 0);
+    $('selCount').textContent = total;
+
+    var active = S.q || S.pay || S.chan || S.rep || S.range || S.tab !== 'All';
+    $('clear').classList.toggle('hidden', !active);
+
+    Array.prototype.forEach.call(document.querySelectorAll('#thead th[data-k]'), function (th) {
+      th.setAttribute('aria-sort', th.dataset.k === S.sort ? (S.dir === 'asc' ? 'ascending' : 'descending') : 'none');
+      var arrow = th.dataset.k === S.sort ? (S.dir === 'asc' ? ' ↑' : ' ↓') : '';
+      th.firstElementChild.textContent = th.firstElementChild.textContent.replace(/ [↑↓]$/, '') + arrow;
+    });
+  }
+
+  function toast(msg) {
+    var t = $('toast'); t.textContent = msg; t.classList.remove('opacity-0');
+    clearTimeout(toast.h); toast.h = setTimeout(function () { t.classList.add('opacity-0'); }, 2800);
+  }
+
+  // ---------- Actions ----------
+  function apply(kind, ids) {
+    var done = 0, skipped = 0;
+    ids.forEach(function (id) {
+      var o = orders[id];
+      if (kind === 'approve') { if (o.status === 'Pending approval' || o.status === 'Draft') { o.status = 'Approved'; done++; } else skipped++; }
+      else if (kind === 'ship') { if (o.status === 'Approved' || o.status === 'Processing') { o.status = 'Shipped'; done++; } else skipped++; }
+      else if (kind === 'invoice') { if (o.status !== 'Cancelled' && o.status !== 'Draft') { done++; } else skipped++; }
+      else if (kind === 'cancel') { if (o.status !== 'Delivered' && o.status !== 'Shipped' && o.status !== 'Cancelled') { o.status = 'Cancelled'; done++; } else skipped++; }
+      else if (kind === 'export') { done++; }
+    });
+    var verb = { approve: 'approved', ship: 'marked as shipped', invoice: 'queued for invoicing', cancel: 'cancelled', export: 'exported' }[kind];
+    toast(done + ' order' + (done === 1 ? '' : 's') + ' ' + verb + (skipped ? ' (' + skipped + ' skipped: not eligible)' : ''));
+  }
+
+  function reset() {
+    S.q = ''; S.tab = 'All'; S.pay = ''; S.chan = ''; S.rep = ''; S.range = 0; S.page = 1;
+    $('q').value = ''; $('fPay').value = ''; $('fChan').value = ''; $('fRep').value = ''; $('fRange').value = '0';
+    render();
+  }
+
+  // ---------- Events ----------
+  var timer;
+  $('q').addEventListener('input', function (e) { clearTimeout(timer); var v = e.target.value; timer = setTimeout(function () { S.q = v; S.page = 1; render(); }, 150); });
+  [['fPay','pay'],['fChan','chan'],['fRep','rep']].forEach(function (p) {
+    $(p[0]).addEventListener('change', function (e) { S[p[1]] = e.target.value; S.page = 1; render(); });
+  });
+  $('fRange').addEventListener('change', function (e) { S.range = +e.target.value; S.page = 1; render(); });
+  $('size').addEventListener('change', function (e) { S.size = +e.target.value; S.page = 1; render(); });
+  $('clear').addEventListener('click', reset);
+  $('clear2').addEventListener('click', reset);
+  $('prev').addEventListener('click', function () { S.page--; render(); });
+  $('next').addEventListener('click', function () { S.page++; render(); });
+  $('tabs').addEventListener('click', function (e) { var b = e.target.closest('[data-tab]'); if (b) { S.tab = b.dataset.tab; S.page = 1; render(); } });
+  $('thead').addEventListener('click', function (e) {
+    var th = e.target.closest('th[data-k]'); if (!th) return;
+    var k = th.dataset.k;
+    if (S.sort === k) S.dir = S.dir === 'asc' ? 'desc' : 'asc'; else { S.sort = k; S.dir = (k === 'total' || k === 'date' || k === 'items') ? 'desc' : 'asc'; }
+    render();
+  });
+  $('all').addEventListener('change', function (e) {
+    var list = view(), start = (S.page - 1) * S.size;
+    list.slice(start, start + S.size).forEach(function (o) { if (e.target.checked) S.sel[o.id] = true; else delete S.sel[o.id]; });
+    render();
+  });
+  $('rows').addEventListener('change', function (e) {
+    if (!e.target.classList.contains('rowchk')) return;
+    var id = e.target.dataset.id;
+    if (e.target.checked) S.sel[id] = true; else delete S.sel[id];
+    render();
+    var again = document.querySelector('.rowchk[data-id="' + id + '"]'); if (again) again.focus();
+  });
+  $('rows').addEventListener('click', function (e) {
+    var b = e.target.closest('[data-row]'); if (!b) return;
+    apply(b.dataset.row, [+b.dataset.id]); render();
+  });
+  $('bulk').addEventListener('click', function (e) {
+    var b = e.target.closest('[data-bulk]'); if (!b) return;
+    var ids = Object.keys(S.sel).map(Number);
+    if (b.dataset.bulk === 'cancel' && !confirm('Cancel ' + ids.length + ' selected order(s)? This cannot be undone.')) return;
+    apply(b.dataset.bulk, ids);
+    if (b.dataset.bulk !== 'export') { /* keep selection so users can chain actions */ }
+    render();
+  });
+  $('deselect').addEventListener('click', function () { S.sel = {}; render(); });
+  $('exportAll').addEventListener('click', function () { toast(view().length + ' orders exported to CSV'); });
+
+  render();
+})();
+</script>
+</body>
+</html>

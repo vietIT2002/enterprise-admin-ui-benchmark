@@ -1,0 +1,417 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tổng quan vận hành kho</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+  body { font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; }
+  .skel { background: #e2e8f0; border-radius: 4px; animation: pulse 1.4s ease-in-out infinite; }
+  @keyframes pulse { 50% { opacity: .5; } }
+  @media (prefers-reduced-motion: reduce) { .skel { animation: none; } .spin { animation: none !important; } }
+  .spin { animation: spin .8s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  a:focus-visible, button:focus-visible, select:focus-visible { outline: 2px solid #1d4ed8; outline-offset: 2px; }
+</style>
+</head>
+<body class="bg-slate-50 text-slate-900 text-sm">
+<div class="flex min-h-screen">
+
+  <!-- Sidebar -->
+  <aside class="hidden md:block w-60 shrink-0 border-r border-slate-200 bg-white">
+    <div class="flex h-12 items-center border-b border-slate-200 px-4 font-semibold">Kho Tân Bình</div>
+    <nav aria-label="Chính" class="flex flex-col gap-4 p-2">
+      <div class="flex flex-col gap-0.5">
+        <p class="px-2 py-1 text-xs font-medium text-slate-600">Vận hành</p>
+        <a href="#" aria-current="page" class="flex h-8 items-center gap-2 rounded px-2 bg-slate-100 font-medium text-slate-900">
+          <svg class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="3" y="3" width="7" height="9"/><rect x="14" y="3" width="7" height="5"/><rect x="14" y="12" width="7" height="9"/><rect x="3" y="16" width="7" height="5"/></svg>Tổng quan</a>
+        <a href="/orders" class="flex h-8 items-center gap-2 rounded px-2 text-slate-700 hover:bg-slate-100">
+          <svg class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M6 2 3 6v14h18V6l-3-4z"/><path d="M3 6h18"/></svg>Đơn xuất</a>
+        <a href="/receipts" class="flex h-8 items-center gap-2 rounded px-2 text-slate-700 hover:bg-slate-100">
+          <svg class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M12 3v12m0 0-4-4m4 4 4-4"/><path d="M4 21h16"/></svg>Phiếu nhập</a>
+        <a href="/pickings" class="flex h-8 items-center gap-2 rounded px-2 text-slate-700 hover:bg-slate-100">
+          <svg class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M9 11l3 3 8-8"/><path d="M20 12v7H4V5h10"/></svg>Lệnh lấy hàng</a>
+      </div>
+      <div class="flex flex-col gap-0.5">
+        <p class="px-2 py-1 text-xs font-medium text-slate-600">Tồn kho</p>
+        <a href="/inventory" class="flex h-8 items-center gap-2 rounded px-2 text-slate-700 hover:bg-slate-100">
+          <svg class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M21 8 12 3 3 8v8l9 5 9-5z"/><path d="M3 8l9 5 9-5M12 13v8"/></svg>Hàng tồn</a>
+        <a href="/locations" class="flex h-8 items-center gap-2 rounded px-2 text-slate-700 hover:bg-slate-100">
+          <svg class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M12 21s7-6 7-11a7 7 0 0 0-14 0c0 5 7 11 7 11z"/><circle cx="12" cy="10" r="2"/></svg>Vị trí kho</a>
+        <a href="/stocktakes" class="flex h-8 items-center gap-2 rounded px-2 text-slate-700 hover:bg-slate-100">
+          <svg class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M4 4h16v16H4z"/><path d="M8 9h8M8 13h8M8 17h5"/></svg>Kiểm kê</a>
+      </div>
+      <div class="flex flex-col gap-0.5">
+        <p class="px-2 py-1 text-xs font-medium text-slate-600">Hệ thống</p>
+        <a href="/settings" class="flex h-8 items-center gap-2 rounded px-2 text-slate-700 hover:bg-slate-100">
+          <svg class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M5 5l2 2M17 17l2 2M19 5l-2 2M7 17l-2 2"/></svg>Cài đặt</a>
+      </div>
+    </nav>
+  </aside>
+
+  <div class="flex min-w-0 flex-1 flex-col">
+    <header class="flex h-12 items-center justify-between border-b border-slate-200 bg-white px-4">
+      <button type="button" class="flex h-8 w-72 max-w-full items-center justify-between rounded border border-slate-300 px-3 text-slate-600 hover:bg-slate-50">
+        <span>Tìm kiếm hoặc chạy lệnh</span><kbd class="text-xs text-slate-600">Ctrl K</kbd>
+      </button>
+      <div class="flex items-center gap-3">
+        <button type="button" class="h-8 rounded px-2 text-slate-700 hover:bg-slate-100" aria-label="Thông báo, 3 chưa đọc">Thông báo (3)</button>
+        <button type="button" aria-label="Menu tài khoản" class="flex size-8 items-center justify-center rounded-full bg-slate-200 text-xs font-medium text-slate-800">LH</button>
+      </div>
+    </header>
+
+    <main class="min-w-0 flex-1 p-4 md:p-6">
+      <!-- Dashboard header -->
+      <div class="mb-4 flex flex-wrap items-center gap-x-4 gap-y-2">
+        <h1 class="text-xl font-semibold">Tổng quan vận hành kho</h1>
+        <div class="flex items-center gap-2">
+          <label for="range" class="sr-only">Khoảng thời gian</label>
+          <select id="range" class="h-8 rounded border border-slate-300 bg-white px-2 text-sm">
+            <option value="today">Hôm nay</option>
+            <option value="yesterday">Hôm qua</option>
+            <option value="7d">7 ngày qua</option>
+          </select>
+          <span id="resolved" class="text-slate-600 tabular-nums"></span>
+        </div>
+        <div class="ml-auto flex items-center gap-2">
+          <span id="updated" class="text-slate-600 tabular-nums"></span>
+          <span id="refreshErr" class="hidden text-red-700">Làm mới thất bại</span>
+          <button id="refresh" type="button" class="inline-flex h-8 items-center gap-2 rounded border border-slate-300 bg-white px-3 hover:bg-slate-50">
+            <svg id="refreshIcon" class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M21 12a9 9 0 1 1-3-6.7L21 8"/><path d="M21 3v5h-5"/></svg>
+            <span>Làm mới</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- KPI tiles -->
+      <section aria-label="Chỉ số chính" id="kpis" class="mb-4 grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-6"></section>
+
+      <div class="grid grid-cols-1 gap-4 xl:grid-cols-3">
+        <div class="flex flex-col gap-4 xl:col-span-2">
+          <section class="rounded-md border border-slate-200 bg-white" aria-labelledby="t-trend">
+            <div class="flex items-start justify-between gap-2 border-b border-slate-200 px-4 py-3">
+              <div>
+                <h2 id="t-trend" class="text-base font-semibold">Đơn đã xuất</h2>
+                <p id="trendSub" class="text-xs text-slate-600"></p>
+              </div>
+              <button id="trendToggle" type="button" class="h-8 rounded border border-slate-300 px-3 text-sm hover:bg-slate-50" aria-pressed="false">Xem bảng số liệu</button>
+            </div>
+            <div id="trend" class="min-h-[300px] p-4"></div>
+          </section>
+
+          <section class="rounded-md border border-slate-200 bg-white" aria-labelledby="t-zones">
+            <div class="border-b border-slate-200 px-4 py-3">
+              <h2 id="t-zones" class="text-base font-semibold">Đơn chờ xuất theo khu vực</h2>
+              <p class="text-xs text-slate-600">Thời điểm hiện tại, sắp xếp giảm dần</p>
+            </div>
+            <div id="zones" class="min-h-[220px] p-4"></div>
+          </section>
+        </div>
+
+        <section class="h-fit rounded-md border border-slate-200 bg-white" aria-labelledby="t-attn">
+          <div class="border-b border-slate-200 px-4 py-3">
+            <h2 id="t-attn" class="text-base font-semibold">Cần xử lý</h2>
+            <p id="attnSub" class="text-xs text-slate-600">Thời điểm hiện tại, không phụ thuộc khoảng thời gian</p>
+          </div>
+          <p id="attnLive" role="status" class="sr-only"></p>
+          <div id="attn" class="min-h-[260px]"></div>
+        </section>
+      </div>
+    </main>
+  </div>
+</div>
+
+<script>
+(function () {
+  const LOCALE = 'vi-VN';
+  const nf = new Intl.NumberFormat(LOCALE);
+  const sgn = new Intl.NumberFormat(LOCALE, { signDisplay: 'exceptZero' });
+  const pctSgn = new Intl.NumberFormat(LOCALE, { style: 'percent', signDisplay: 'exceptZero', maximumFractionDigits: 1 });
+  const pct1 = new Intl.NumberFormat(LOCALE, { style: 'percent', maximumFractionDigits: 1 });
+  const dateFmt = new Intl.DateTimeFormat('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' });
+  const timeFmt = new Intl.DateTimeFormat('vi-VN', { hour: '2-digit', minute: '2-digit', hour12: false });
+  const $ = (id) => document.getElementById(id);
+
+  // ---------- Mock data ----------
+  const RANGES = {
+    today:     { label: 'hôm qua',         days: 0 },
+    yesterday: { label: 'hôm kia',         days: 1 },
+    '7d':      { label: '7 ngày trước đó', days: 7 }
+  };
+  const KPI = {
+    today: [
+      { key: 'open',   label: 'Đơn chờ xuất',          v: 412,   d: 0.08,   kind: 'pct',  href: '/orders?status=pending' },
+      { key: 'shipped',label: 'Đơn đã xuất',           v: 1286,  d: 0.052,  kind: 'pct',  href: '/orders?status=shipped&date=today' },
+      { key: 'sla',    label: 'Đúng hạn giao (SLA)',   v: 0.964, d: -0.011, kind: 'pp',   href: '/orders?sla=breached' },
+      { key: 'recv',   label: 'Phiếu nhập chờ kiểm',   v: 23,    d: -4,     kind: 'abs',  href: '/receipts?status=awaiting-qc' },
+      { key: 'cap',    label: 'Công suất vị trí kho',  v: 0.78,  d: 0.02,   kind: 'pp',   href: '/locations' },
+      { key: 'low',    label: 'SKU dưới mức tối thiểu',v: 17,    d: 3,      kind: 'abs',  href: '/inventory?stock=below-min' }
+    ],
+    yesterday: [
+      { key: 'open',   label: 'Đơn chờ xuất',          v: 381,   d: 0.03,   kind: 'pct',  href: '/orders?status=pending' },
+      { key: 'shipped',label: 'Đơn đã xuất',           v: 1222,  d: -0.017, kind: 'pct',  href: '/orders?status=shipped&date=yesterday' },
+      { key: 'sla',    label: 'Đúng hạn giao (SLA)',   v: 0.975, d: 0.004,  kind: 'pp',   href: '/orders?sla=breached' },
+      { key: 'recv',   label: 'Phiếu nhập chờ kiểm',   v: 27,    d: 2,      kind: 'abs',  href: '/receipts?status=awaiting-qc' },
+      { key: 'cap',    label: 'Công suất vị trí kho',  v: 0.76,  d: 0.01,   kind: 'pp',   href: '/locations' },
+      { key: 'low',    label: 'SKU dưới mức tối thiểu',v: 14,    d: 1,      kind: 'abs',  href: '/inventory?stock=below-min' }
+    ],
+    '7d': [
+      { key: 'open',   label: 'Đơn chờ xuất',          v: 412,   d: 0.06,   kind: 'pct',  href: '/orders?status=pending' },
+      { key: 'shipped',label: 'Đơn đã xuất',           v: 8764,  d: 0.031,  kind: 'pct',  href: '/orders?status=shipped&range=7d' },
+      { key: 'sla',    label: 'Đúng hạn giao (SLA)',   v: 0.971, d: 0.006,  kind: 'pp',   href: '/orders?sla=breached&range=7d' },
+      { key: 'recv',   label: 'Phiếu nhập chờ kiểm',   v: 23,    d: -6,     kind: 'abs',  href: '/receipts?status=awaiting-qc' },
+      { key: 'cap',    label: 'Công suất vị trí kho',  v: 0.78,  d: 0.04,   kind: 'pp',   href: '/locations' },
+      { key: 'low',    label: 'SKU dưới mức tối thiểu',v: 17,    d: 5,      kind: 'abs',  href: '/inventory?stock=below-min' }
+    ]
+  };
+  const HOURS = [6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22];
+  const H_CUR   = [48,92,131,148,162,139,96,118,152,171,166,143,121,88,64,41,22];
+  const H_PREV  = [44,85,126,140,158,145,102,121,147,160,158,139,118,92,70,45,25];
+  const D_CUR   = [1190,1244,1302,1268,1190,1096,1286];
+  const D_PREV  = [1150,1201,1275,1240,1170,1040,1222];
+  const ZONES = [
+    { name: 'Khu A – Hàng nhanh',   v: 148 },
+    { name: 'Khu B – Điện tử',      v: 96 },
+    { name: 'Khu C – Hàng cồng kềnh',v: 71 },
+    { name: 'Khu D – Mỹ phẩm',      v: 58 },
+    { name: 'Khu E – Lạnh',         v: 39 }
+  ];
+  const ATTN = [
+    { count: 7,  label: 'đơn trễ hạn giao',            href: '/orders?status=late',                  tone: 'danger',  badge: 'Quá hạn' },
+    { count: 17, label: 'SKU dưới mức tồn tối thiểu',  href: '/inventory?stock=below-min',           tone: 'warning', badge: 'Cần nhập' },
+    { count: 5,  label: 'phiếu nhập chờ kiểm quá 4 giờ',href: '/receipts?status=awaiting-qc&wait=4h',tone: 'warning', badge: 'Sắp trễ' },
+    { count: 4,  label: 'lệnh lấy hàng chưa phân công', href: '/pickings?assignee=none',              tone: 'info',    badge: 'Chờ xử lý' },
+    { count: 3,  label: 'chênh lệch kiểm kê chờ duyệt', href: '/stocktakes?status=variance',          tone: 'info',    badge: 'Chờ duyệt' }
+  ];
+  const TONES = {
+    danger:  'bg-red-50 text-red-800',
+    warning: 'bg-amber-50 text-amber-800',
+    info:    'bg-blue-50 text-blue-800',
+    neutral: 'bg-slate-100 text-slate-800'
+  };
+
+  // ---------- State ----------
+  const params = new URLSearchParams(location.search);
+  const forced = params.get('state'); // empty | error | loading
+  let range = RANGES[params.get('range')] ? params.get('range') : 'today';
+  let tableView = false;
+  const W = { kpis: 'loading', trend: 'loading', zones: 'loading', attn: 'loading' };
+  const forceOk = {}; // widgets whose Retry succeeded
+  let lastUpdated = new Date();
+  let timers = [];
+
+  // ---------- Helpers ----------
+  const skel = (cls) => `<div class="skel ${cls}"></div>`;
+  const errBox = (what, w) => `<div class="flex flex-col items-start gap-2 p-4"><p class="font-medium">Không tải được ${what}.</p><p class="text-slate-600">Các widget khác vẫn hiển thị dữ liệu bình thường.</p><button type="button" data-retry="${w}" class="h-8 rounded border border-slate-300 bg-white px-3 hover:bg-slate-50">Thử lại</button></div>`;
+  const emptyBox = (msg, action) => `<div class="p-4"><p>${msg}</p>${action || ''}</div>`;
+
+  function shown(w) {
+    return W[w];
+  }
+
+  function fmtDelta(k) {
+    const period = 'so với ' + RANGES[range].label;
+    let t;
+    if (k.kind === 'pct') t = pctSgn.format(k.d);
+    else if (k.kind === 'pp') t = sgn.format(Math.round(k.d * 1000) / 10) + ' điểm %';
+    else t = sgn.format(k.d);
+    return t + ' ' + period;
+  }
+  function fmtVal(k) {
+    return k.kind === 'abs' || k.kind === 'pct' && k.v > 1 ? nf.format(k.v) : pct1.format(k.v);
+  }
+
+  // ---------- Renderers ----------
+  function renderKpis() {
+    const el = $('kpis');
+    const st = shown('kpis');
+    if (st === 'loading') {
+      el.innerHTML = Array.from({ length: 6 }, () => `<div class="h-24 rounded-md border border-slate-200 bg-white p-4">${skel('h-3 w-24')}<div class="mt-3">${skel('h-6 w-16')}</div></div>`).join('');
+    } else if (st === 'error') {
+      el.innerHTML = `<div class="rounded-md border border-slate-200 bg-white sm:col-span-2 xl:col-span-6">${errBox('các chỉ số chính', 'kpis')}</div>`;
+    } else if (st === 'empty') {
+      el.innerHTML = `<div class="rounded-md border border-slate-200 bg-white sm:col-span-2 xl:col-span-6">${emptyBox('Chưa có dữ liệu vận hành cho khoảng thời gian này.', '<p class="mt-1 text-slate-600">Chọn khoảng thời gian khác hoặc kiểm tra kết nối máy quét.</p>')}</div>`;
+    } else {
+      el.innerHTML = KPI[range].map((k) => `
+        <a href="${k.href}" class="block min-h-24 rounded-md border border-slate-200 bg-white p-4 hover:bg-slate-50">
+          <p class="text-xs font-medium text-slate-600">${k.label}</p>
+          <p class="mt-1 text-2xl font-semibold tabular-nums">${fmtVal(k)}</p>
+          <p class="text-xs text-slate-600 tabular-nums">${fmtDelta(k)}</p>
+        </a>`).join('');
+    }
+  }
+
+  function renderTrend() {
+    const el = $('trend'), st = shown('trend');
+    const hourly = range !== '7d';
+    $('trendSub').textContent = hourly
+      ? `Theo giờ, ${range === 'today' ? 'hôm nay so với hôm qua' : 'hôm qua so với hôm kia'}`
+      : 'Theo ngày, 7 ngày qua so với 7 ngày trước đó';
+    $('trendToggle').classList.toggle('hidden', st !== 'ready');
+    if (st === 'loading') { el.innerHTML = skel('h-[268px] w-full'); return; }
+    if (st === 'error')   { el.innerHTML = errBox('biểu đồ đơn đã xuất', 'trend'); return; }
+    if (st === 'empty')   { el.innerHTML = emptyBox('Chưa có đơn xuất nào trong khoảng thời gian này.', '<p class="mt-1 text-slate-600">Biểu đồ sẽ hiện khi có đơn đầu tiên được xuất.</p>'); return; }
+
+    let labels, cur, prev;
+    if (hourly) {
+      labels = HOURS.map((h) => String(h).padStart(2, '0') + ':00');
+      let n = HOURS.length;
+      if (range === 'today') { const h = Math.min(Math.max(new Date().getHours(), 8), 22); n = HOURS.indexOf(h) + 1; }
+      cur = (range === 'today' ? H_CUR : H_PREV).slice(0, n);
+      prev = (range === 'today' ? H_PREV : H_PREV.map((v) => Math.round(v * 0.94)));
+    } else {
+      const base = new Date(); labels = [];
+      for (let i = 6; i >= 0; i--) { const d = new Date(base); d.setDate(d.getDate() - i); labels.push(String(d.getDate()).padStart(2, '0') + '/' + String(d.getMonth() + 1).padStart(2, '0')); }
+      cur = D_CUR; prev = D_PREV;
+    }
+
+    if (tableView) {
+      el.innerHTML = `<div class="max-h-[268px] overflow-auto"><table class="w-full text-sm"><thead><tr class="border-b border-slate-200 text-left text-slate-600">
+        <th class="px-3 py-2 font-medium">${hourly ? 'Giờ' : 'Ngày'}</th><th class="px-3 py-2 text-right font-medium">Kỳ này (đơn)</th><th class="px-3 py-2 text-right font-medium">Kỳ trước (đơn)</th></tr></thead><tbody>
+        ${labels.map((l, i) => `<tr class="h-10 border-b border-slate-100"><td class="px-3">${l}</td><td class="px-3 text-right tabular-nums">${cur[i] != null ? nf.format(cur[i]) : '–'}</td><td class="px-3 text-right tabular-nums">${nf.format(prev[i])}</td></tr>`).join('')}
+        </tbody></table></div>`;
+      return;
+    }
+
+    const Wd = 680, Ht = 290, L = 56, R = 96, T = 12, B = 52;
+    const max = Math.ceil(Math.max(...cur, ...prev) / (hourly ? 50 : 500)) * (hourly ? 50 : 500);
+    const min = hourly ? 0 : 0;
+    const x = (i) => L + (i * (Wd - L - R)) / (labels.length - 1);
+    const y = (v) => T + (Ht - T - B) * (1 - (v - min) / (max - min));
+    const ticks = 5, step = max / ticks;
+    let g = '';
+    for (let i = 0; i <= ticks; i++) {
+      const v = i * step;
+      g += `<line x1="${L}" x2="${Wd - R}" y1="${y(v)}" y2="${y(v)}" stroke="#e2e8f0"/><text x="${L - 8}" y="${y(v) + 4}" text-anchor="end" font-size="12" fill="#475569">${nf.format(v)}</text>`;
+    }
+    const every = hourly ? 2 : 1;
+    labels.forEach((l, i) => { if (i % every === 0) g += `<text x="${x(i)}" y="${Ht - B + 18}" text-anchor="middle" font-size="12" fill="#475569">${l}</text>`; });
+    const path = (arr) => arr.map((v, i) => (i ? 'L' : 'M') + x(i).toFixed(1) + ' ' + y(v).toFixed(1)).join(' ');
+    const lc = cur.length - 1, lp = prev.length - 1;
+    const summary = `Đơn đã xuất kỳ này tổng ${nf.format(cur.reduce((a, b) => a + b, 0))}, kỳ trước ${nf.format(prev.slice(0, cur.length).reduce((a, b) => a + b, 0))} cùng thời điểm.`;
+    el.innerHTML = `
+      <svg viewBox="0 0 ${Wd} ${Ht}" class="h-auto w-full" role="img" aria-label="${summary}">
+        ${g}
+        <path d="${path(prev)}" fill="none" stroke="#94a3b8" stroke-width="2" stroke-dasharray="5 4"/>
+        <path d="${path(cur)}" fill="none" stroke="#1d4ed8" stroke-width="2.5"/>
+        <circle cx="${x(lc)}" cy="${y(cur[lc])}" r="4" fill="#1d4ed8"/>
+        <text x="${x(lc) + 8}" y="${y(cur[lc]) + 4}" font-size="12" font-weight="600" fill="#1d4ed8">Kỳ này</text>
+        <text x="${x(lp) + 8}" y="${y(prev[lp]) + 4}" font-size="12" fill="#475569">Kỳ trước</text>
+        <text x="${(L + Wd - R) / 2}" y="${Ht - 6}" text-anchor="middle" font-size="12" fill="#475569">${hourly ? 'Giờ trong ngày' : 'Ngày'}</text>
+        <text transform="translate(14 ${(T + Ht - B) / 2}) rotate(-90)" text-anchor="middle" font-size="12" fill="#475569">${hourly ? 'Đơn xuất mỗi giờ (đơn)' : 'Đơn xuất mỗi ngày (đơn)'}</text>
+      </svg>`;
+  }
+
+  function renderZones() {
+    const el = $('zones'), st = shown('zones');
+    if (st === 'loading') { el.innerHTML = `<div class="space-y-3">${Array.from({ length: 5 }, () => skel('h-6 w-full')).join('')}</div>`; return; }
+    if (st === 'error')   { el.innerHTML = errBox('dữ liệu theo khu vực', 'zones'); return; }
+    if (st === 'empty')   { el.innerHTML = emptyBox('Không có đơn nào đang chờ xuất.', '<p class="mt-1 text-slate-600">Các khu vực sẽ hiện ở đây khi có đơn mới.</p>'); return; }
+    const max = Math.max(...ZONES.map((z) => z.v));
+    const total = ZONES.reduce((a, z) => a + z.v, 0);
+    el.innerHTML = `
+      <ul aria-label="Đơn chờ xuất theo khu vực, tổng ${nf.format(total)} đơn" class="space-y-2">
+        ${ZONES.map((z) => `
+          <li>
+            <a href="/orders?status=pending&zone=${encodeURIComponent(z.name.split(' –')[0])}" class="grid grid-cols-[11rem_1fr_3rem] items-center gap-3 rounded px-1 hover:bg-slate-50">
+              <span class="truncate py-1 text-slate-800" title="${z.name}">${z.name}</span>
+              <span class="h-5 rounded-sm bg-slate-100"><span class="block h-5 rounded-sm bg-blue-700" style="width:${(z.v / max) * 100}%"></span></span>
+              <span class="text-right font-medium tabular-nums">${nf.format(z.v)}</span>
+            </a>
+          </li>`).join('')}
+      </ul>
+      <p class="mt-3 text-xs text-slate-600">Trục ngang: số đơn chờ xuất (đơn), bắt đầu từ 0. Tổng ${nf.format(total)} đơn.</p>`;
+  }
+
+  let lastAnnounced = '';
+  function renderAttn() {
+    const el = $('attn'), st = shown('attn');
+    if (st === 'loading') { el.innerHTML = `<div class="space-y-3 p-4">${Array.from({ length: 5 }, () => skel('h-6 w-full')).join('')}</div>`; return; }
+    if (st === 'error')   { el.innerHTML = errBox('danh sách cần xử lý', 'attn'); return; }
+    if (st === 'empty') {
+      el.innerHTML = emptyBox('Không có việc nào cần xử lý.', `<p class="mt-1 text-slate-600">Kiểm tra lúc ${timeFmt.format(lastUpdated)}.</p>`);
+      announce('Không có việc nào cần xử lý'); return;
+    }
+    el.innerHTML = `<ul>${ATTN.map((i) => `
+      <li class="border-b border-slate-200 last:border-0">
+        <a href="${i.href}" class="flex min-h-10 items-center gap-3 px-4 py-2 hover:bg-slate-50">
+          <span class="w-8 shrink-0 text-base font-semibold tabular-nums">${nf.format(i.count)}</span>
+          <span class="flex-1">${i.label}</span>
+          <span class="shrink-0 rounded-full px-2 py-0.5 text-xs font-medium ${TONES[i.tone]}">${i.badge}</span>
+        </a>
+      </li>`).join('')}</ul>
+      <p class="border-t border-slate-200 px-4 py-2 text-xs text-slate-600">Kiểm tra lúc ${timeFmt.format(lastUpdated)}</p>`;
+    announce(`${ATTN.length} nhóm việc cần xử lý`);
+  }
+  function announce(msg) { const n = $('attnLive'); n.textContent = ''; setTimeout(() => { n.textContent = msg; }, 50); }
+
+  function renderAll() { renderKpis(); renderTrend(); renderZones(); renderAttn(); }
+
+  // ---------- Loading flow ----------
+  function resolveState(w) {
+    if (forceOk[w]) return 'ready';
+    if (forced === 'empty') return 'empty';
+    if (forced === 'error') return 'error';
+    return 'ready';
+  }
+  function loadWidgets(list, done) {
+    list.forEach((w) => { W[w] = 'loading'; });
+    renderAll();
+    if (forced === 'loading' && !list.some((w) => forceOk[w])) return; // hold skeleton
+    const t = setTimeout(() => {
+      list.forEach((w) => { W[w] = resolveState(w); });
+      if (list.length === 4) { lastUpdated = new Date(); updateStamp(); }
+      renderAll();
+      if (done) done();
+    }, 500);
+    timers.push(t);
+  }
+  function updateStamp() { $('updated').textContent = 'Cập nhật ' + timeFmt.format(lastUpdated); }
+
+  function updateResolved() {
+    const now = new Date();
+    const d = (n) => { const x = new Date(now); x.setDate(x.getDate() - n); return dateFmt.format(x); };
+    $('resolved').textContent = range === 'today' ? d(0) : range === 'yesterday' ? d(1) : d(6) + ' – ' + d(0);
+  }
+
+  // ---------- Events ----------
+  $('range').value = range;
+  $('range').addEventListener('change', (e) => {
+    range = e.target.value;
+    const p = new URLSearchParams(location.search); p.set('range', range);
+    history.replaceState(null, '', '?' + p.toString());
+    updateResolved();
+    loadWidgets(['kpis', 'trend']);
+  });
+  $('refresh').addEventListener('click', () => {
+    const icon = $('refreshIcon'), btn = $('refresh');
+    btn.disabled = true; btn.classList.add('opacity-70'); icon.classList.add('spin');
+    $('refreshErr').classList.add('hidden');
+    loadWidgets(['kpis', 'trend', 'zones', 'attn'], () => {
+      btn.disabled = false; btn.classList.remove('opacity-70'); icon.classList.remove('spin');
+    });
+    if (forced === 'loading') { btn.disabled = false; btn.classList.remove('opacity-70'); icon.classList.remove('spin'); }
+  });
+  $('trendToggle').addEventListener('click', (e) => {
+    tableView = !tableView;
+    e.currentTarget.setAttribute('aria-pressed', String(tableView));
+    e.currentTarget.textContent = tableView ? 'Xem biểu đồ' : 'Xem bảng số liệu';
+    renderTrend();
+  });
+  document.addEventListener('click', (e) => {
+    const b = e.target.closest('[data-retry]');
+    if (!b) return;
+    const w = b.getAttribute('data-retry');
+    forceOk[w] = true;
+    loadWidgets([w]);
+  });
+
+  // ---------- Init ----------
+  updateResolved();
+  updateStamp();
+  loadWidgets(['kpis', 'trend', 'zones', 'attn']);
+})();
+</script>
+</body>
+</html>

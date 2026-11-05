@@ -1,0 +1,399 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Operations dashboard - Northgate WMS</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+  body { font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; font-size: 14px; color: #0f172a; }
+  .skel { background: #e2e8f0; border-radius: 4px; animation: pulse 1.4s ease-in-out infinite; }
+  @keyframes pulse { 50% { opacity: .5; } }
+  @media (prefers-reduced-motion: reduce) { .skel { animation: none; } }
+  .spin { width: 14px; height: 14px; border: 2px solid #cbd5e1; border-top-color: #1d4ed8; border-radius: 9999px; animation: rot .7s linear infinite; }
+  @keyframes rot { to { transform: rotate(360deg); } }
+  svg text { font-family: inherit; }
+</style>
+</head>
+<body class="bg-slate-50">
+<div class="flex min-h-screen">
+  <!-- Sidebar -->
+  <aside class="hidden w-60 shrink-0 border-r border-slate-200 bg-white lg:block">
+    <div class="flex h-12 items-center border-b border-slate-200 px-4 text-sm font-semibold">Northgate WMS</div>
+    <div class="border-b border-slate-200 p-2">
+      <button class="flex h-8 w-full items-center justify-between rounded px-2 text-left text-sm hover:bg-slate-100" aria-label="Switch warehouse, current Hanoi DC-02">
+        <span class="truncate">Hanoi DC-02</span><span aria-hidden="true" class="text-slate-500">&#9662;</span>
+      </button>
+    </div>
+    <nav aria-label="Main" class="flex flex-col gap-4 p-2">
+      <div class="flex flex-col gap-0.5">
+        <p class="px-2 py-1 text-xs font-medium text-slate-600">Overview</p>
+        <a href="#" aria-current="page" class="flex h-8 items-center gap-2 rounded bg-slate-100 px-2 text-sm font-medium text-slate-900">Dashboard</a>
+      </div>
+      <div class="flex flex-col gap-0.5">
+        <p class="px-2 py-1 text-xs font-medium text-slate-600">Outbound</p>
+        <a href="/orders" class="flex h-8 items-center rounded px-2 text-sm hover:bg-slate-100">Orders</a>
+        <a href="/shipments" class="flex h-8 items-center rounded px-2 text-sm hover:bg-slate-100">Shipments</a>
+        <a href="/pick-tasks" class="flex h-8 items-center rounded px-2 text-sm hover:bg-slate-100">Pick tasks</a>
+      </div>
+      <div class="flex flex-col gap-0.5">
+        <p class="px-2 py-1 text-xs font-medium text-slate-600">Inbound</p>
+        <a href="/receipts" class="flex h-8 items-center rounded px-2 text-sm hover:bg-slate-100">Receipts</a>
+        <a href="/appointments" class="flex h-8 items-center rounded px-2 text-sm hover:bg-slate-100">Dock appointments</a>
+      </div>
+      <div class="flex flex-col gap-0.5">
+        <p class="px-2 py-1 text-xs font-medium text-slate-600">Inventory</p>
+        <a href="/stock" class="flex h-8 items-center rounded px-2 text-sm hover:bg-slate-100">Stock</a>
+        <a href="/bins" class="flex h-8 items-center rounded px-2 text-sm hover:bg-slate-100">Bins</a>
+        <a href="/cycle-counts" class="flex h-8 items-center rounded px-2 text-sm hover:bg-slate-100">Cycle counts</a>
+      </div>
+    </nav>
+  </aside>
+
+  <div class="flex min-w-0 flex-1 flex-col">
+    <header class="flex h-12 items-center justify-between border-b border-slate-200 bg-white px-4">
+      <span class="text-sm font-semibold lg:hidden">Northgate WMS</span>
+      <button class="ml-auto flex h-8 w-72 max-w-full items-center justify-between rounded border border-slate-300 px-3 text-sm text-slate-600 hover:bg-slate-50" aria-label="Search or run a command">
+        <span>Search or run a command</span><kbd class="rounded border border-slate-300 px-1 text-xs">Ctrl K</kbd>
+      </button>
+      <button class="ml-2 flex h-8 w-8 items-center justify-center rounded-full bg-slate-200 text-xs font-medium text-slate-800" aria-label="Account menu">LH</button>
+    </header>
+
+    <main class="min-w-0 flex-1 p-4 lg:p-6">
+      <!-- Page header -->
+      <div class="mb-4 flex flex-wrap items-center gap-x-4 gap-y-2">
+        <h1 class="text-xl font-semibold">Operations dashboard</h1>
+        <div class="flex items-center gap-2">
+          <label for="range" class="sr-only">Date range</label>
+          <select id="range" class="h-8 rounded border border-slate-300 bg-white px-2 text-sm">
+            <option value="today">Today</option>
+            <option value="yesterday">Yesterday</option>
+            <option value="7d">Last 7 days</option>
+            <option value="30d">Last 30 days</option>
+            <option value="month">This month</option>
+          </select>
+          <span id="range-dates" class="text-sm tabular-nums text-slate-600"></span>
+        </div>
+        <div class="ml-auto flex items-center gap-2">
+          <span id="updated" class="text-sm text-slate-600" role="status"></span>
+          <button id="refresh" class="h-8 rounded border border-slate-300 bg-white px-3 text-sm hover:bg-slate-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-700">Refresh</button>
+        </div>
+      </div>
+
+      <!-- Needs attention -->
+      <section aria-labelledby="attn-h" class="mb-4 rounded-md border border-slate-200 bg-white">
+        <div class="flex items-center justify-between border-b border-slate-200 px-4 py-3">
+          <h2 id="attn-h" class="text-base font-semibold">Needs attention</h2>
+          <span id="attn-meta" class="text-xs text-slate-600"></span>
+        </div>
+        <p id="attn-live" role="status" class="sr-only"></p>
+        <div id="attn-body"></div>
+      </section>
+
+      <!-- KPI tiles -->
+      <section aria-label="Key numbers" id="kpis" class="mb-4 grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-6"></section>
+
+      <!-- Charts -->
+      <div class="mb-4 grid grid-cols-1 gap-4 xl:grid-cols-3">
+        <section aria-labelledby="c1-h" class="rounded-md border border-slate-200 bg-white xl:col-span-2">
+          <div class="flex items-center justify-between border-b border-slate-200 px-4 py-3">
+            <h2 id="c1-h" class="text-base font-semibold">Units picked per hour</h2>
+            <button id="c1-toggle" class="h-8 rounded border border-slate-300 px-3 text-sm hover:bg-slate-50" aria-pressed="false">View as table</button>
+          </div>
+          <div id="c1" class="min-h-[300px] p-4"></div>
+        </section>
+        <section aria-labelledby="c2-h" class="rounded-md border border-slate-200 bg-white">
+          <div class="border-b border-slate-200 px-4 py-3"><h2 id="c2-h" class="text-base font-semibold">Open pick tasks by zone</h2></div>
+          <div id="c2" class="min-h-[300px] p-4"></div>
+        </section>
+      </div>
+
+      <div class="grid grid-cols-1 gap-4 xl:grid-cols-3">
+        <section aria-labelledby="c3-h" class="rounded-md border border-slate-200 bg-white">
+          <div class="border-b border-slate-200 px-4 py-3"><h2 id="c3-h" class="text-base font-semibold">Orders by status</h2></div>
+          <div id="c3" class="min-h-[200px] p-4"></div>
+        </section>
+        <section aria-labelledby="c4-h" class="rounded-md border border-slate-200 bg-white xl:col-span-2">
+          <div class="flex items-center justify-between border-b border-slate-200 px-4 py-3">
+            <h2 id="c4-h" class="text-base font-semibold">Inbound dock appointments</h2>
+            <a href="/appointments" class="text-sm text-blue-700 hover:underline">View all</a>
+          </div>
+          <div id="c4" class="min-h-[200px]"></div>
+        </section>
+      </div>
+    </main>
+  </div>
+</div>
+
+<script>
+(function () {
+  var LOCALE = 'en-US';
+  var nf = new Intl.NumberFormat(LOCALE);
+  var pf = new Intl.NumberFormat(LOCALE, { style: 'percent', signDisplay: 'exceptZero', maximumFractionDigits: 0 });
+  var sg = new Intl.NumberFormat(LOCALE, { signDisplay: 'exceptZero', maximumFractionDigits: 1 });
+  var NS = 'http://www.w3.org/2000/svg';
+  var BLUE = '#1d4ed8', GREY = '#94a3b8', GRID = '#e2e8f0', TXT = '#475569';
+
+  function pad(n) { return String(n).padStart(2, '0'); }
+  function fmtDate(d) { return pad(d.getDate()) + '/' + pad(d.getMonth() + 1) + '/' + d.getFullYear(); }
+  function fmtTime(d) { return pad(d.getHours()) + ':' + pad(d.getMinutes()); }
+  function esc(s) { return String(s).replace(/[&<>"]/g, function (c) { return ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]; }); }
+
+  var NOW = new Date(2026, 10, 4, 15, 58);
+  var state = { range: 'today', lastOk: null, inboundFailedOnce: false, tableView: false };
+
+  /* ---------- URL state ---------- */
+  var params = new URLSearchParams(location.search);
+  if (params.get('range')) state.range = params.get('range');
+  var rangeEl = document.getElementById('range');
+  rangeEl.value = state.range;
+  function resolveRange(r) {
+    var d = new Date(NOW), from = new Date(NOW), cmp = 'vs yesterday';
+    if (r === 'yesterday') { from.setDate(from.getDate() - 1); d = new Date(from); cmp = 'vs previous day'; }
+    if (r === '7d') { from.setDate(from.getDate() - 6); cmp = 'vs previous 7 days'; }
+    if (r === '30d') { from.setDate(from.getDate() - 29); cmp = 'vs previous 30 days'; }
+    if (r === 'month') { from = new Date(NOW.getFullYear(), NOW.getMonth(), 1); cmp = 'vs last month'; }
+    return { from: from, to: d, cmp: cmp };
+  }
+  function paintRange() {
+    var r = resolveRange(state.range);
+    document.getElementById('range-dates').textContent = (fmtDate(r.from) === fmtDate(r.to)) ? fmtDate(r.from) : fmtDate(r.from) + ' – ' + fmtDate(r.to);
+  }
+
+  /* ---------- Mock data (scaled by range) ---------- */
+  var SCALE = { today: 1, yesterday: 1.06, '7d': 6.7, '30d': 27.4, month: 3.9 };
+  function sc(n) { return Math.round(n * (SCALE[state.range] || 1)); }
+  function data() {
+    var k = sc(1);
+    var kpis = [
+      { label: 'Orders shipped', value: sc(1284), delta: 0.08, deltaTxt: pf.format(0.08), href: '/shipments?status=shipped' },
+      { label: 'Orders waiting to pick', value: sc(412), delta: -0.05, deltaTxt: pf.format(-0.05), href: '/orders?status=waiting_pick' },
+      { label: 'Pick accuracy', value: '99.4%', deltaTxt: sg.format(-0.2) + ' pts', target: 'Target 99.5%', href: '/pick-tasks?view=accuracy' },
+      { label: 'Dock-to-stock time', value: '3.2 h', deltaTxt: sg.format(-0.4) + ' h', target: 'Target 4.0 h', href: '/receipts?view=dock_to_stock' },
+      { label: 'Late shipments', value: 7, deltaTxt: sg.format(3), href: '/shipments?status=late' },
+      { label: 'Inventory accuracy', value: '98.9%', deltaTxt: sg.format(0.3) + ' pts', target: 'Target 99.0%', href: '/cycle-counts?view=accuracy' }
+    ];
+    var attention = [
+      { count: 7, label: 'late shipments', href: '/shipments?status=late', tone: 'danger', badge: 'Overdue' },
+      { count: 2, label: 'carrier pickups missed', href: '/shipments?pickup=missed', tone: 'danger', badge: 'Overdue' },
+      { count: 5, label: 'short-picks waiting for replenishment', href: '/pick-tasks?status=short', tone: 'warning', badge: 'Needs attention' },
+      { count: 3, label: 'inbound trucks waiting more than 60 min', href: '/appointments?wait=gt60', tone: 'warning', badge: 'Due soon' },
+      { count: 12, label: 'bins with count variance', href: '/bins?variance=open', tone: 'warning', badge: 'Needs attention' }
+    ];
+    var hours = ['06', '07', '08', '09', '10', '11', '12', '13', '14', '15', '16', '17'];
+    var yest = [310, 540, 820, 1010, 1180, 1090, 760, 980, 1150, 1210, 1060, 640];
+    var today = [335, 590, 880, 1090, 1260, 1130, 810, 1060, 1240, 1180];
+    var zones = [
+      { z: 'A - Fast movers', v: 128 }, { z: 'B - Bulk', v: 96 }, { z: 'C - Cold storage', v: 71 },
+      { z: 'D - Returns', v: 44 }, { z: 'E - Oversize', v: 31 }, { z: 'F - Hazmat', v: 18 }
+    ];
+    var statuses = [
+      { s: 'Shipped', v: sc(1284) }, { s: 'Packed', v: sc(236) }, { s: 'Picking', v: sc(171) }, { s: 'Waiting to pick', v: sc(412) }, { s: 'On hold', v: sc(23) }
+    ];
+    var appts = [
+      { id: 'APT-20418', carrier: 'Vinatrans', dock: 'Dock 3', eta: '04/11/2026 14:30', status: 'Waiting', tone: 'warning', pallets: 22 },
+      { id: 'APT-20421', carrier: 'Gemadept', dock: 'Dock 1', eta: '04/11/2026 15:00', status: 'Unloading', tone: 'info', pallets: 18 },
+      { id: 'APT-20425', carrier: 'Sotrans', dock: 'Dock 5', eta: '04/11/2026 16:15', status: 'Scheduled', tone: 'neutral', pallets: 30 },
+      { id: 'APT-20427', carrier: 'Kerry Logistics', dock: 'Dock 2', eta: '04/11/2026 16:45', status: 'Scheduled', tone: 'neutral', pallets: 12 },
+      { id: 'APT-20431', carrier: 'DHL Supply Chain', dock: 'Dock 4', eta: '04/11/2026 17:30', status: 'Scheduled', tone: 'neutral', pallets: 26 }
+    ];
+    return { kpis: kpis, attention: attention, hours: hours, yest: yest, today: today, zones: zones, statuses: statuses, appts: appts };
+  }
+
+  /* ---------- Tone classes (full strings for the Tailwind scanner) ---------- */
+  var TONES = {
+    danger: 'bg-red-50 text-red-800',
+    warning: 'bg-amber-50 text-amber-800',
+    info: 'bg-blue-50 text-blue-800',
+    success: 'bg-green-50 text-green-800',
+    neutral: 'bg-slate-100 text-slate-700'
+  };
+
+  /* ---------- Widget helpers ---------- */
+  function errorBox(msg, id) {
+    return '<div class="p-4 text-sm"><p class="text-slate-900">' + esc(msg) + '</p><button data-retry="' + id + '" class="mt-2 h-8 rounded border border-slate-300 bg-white px-3 hover:bg-slate-50">Retry</button></div>';
+  }
+  function svg(tag, attrs, text) {
+    var e = document.createElementNS(NS, tag);
+    for (var k in attrs) e.setAttribute(k, attrs[k]);
+    if (text != null) e.textContent = text;
+    return e;
+  }
+
+  /* ---------- Skeletons ---------- */
+  function skelAll() {
+    document.getElementById('kpis').innerHTML = [1, 2, 3, 4, 5, 6].map(function () {
+      return '<div class="h-24 rounded-md border border-slate-200 bg-white p-4"><div class="skel h-3 w-24"></div><div class="skel mt-3 h-6 w-16"></div><div class="skel mt-2 h-3 w-28"></div></div>';
+    }).join('');
+    document.getElementById('attn-body').innerHTML = '<div class="space-y-2 p-4"><div class="skel h-6 w-full"></div><div class="skel h-6 w-full"></div><div class="skel h-6 w-full"></div></div>';
+    ['c1', 'c2', 'c3', 'c4'].forEach(function (id) {
+      document.getElementById(id).innerHTML = '<div class="space-y-3 p-4"><div class="skel h-4 w-1/3"></div><div class="skel h-24 w-full"></div><div class="skel h-4 w-2/3"></div></div>';
+    });
+  }
+
+  /* ---------- Renderers ---------- */
+  function renderKpis(d) {
+    var r = resolveRange(state.range);
+    document.getElementById('kpis').innerHTML = d.kpis.map(function (k) {
+      var val = typeof k.value === 'number' ? nf.format(k.value) : k.value;
+      return '<a href="' + k.href + '" class="block min-h-24 rounded-md border border-slate-200 bg-white p-4 hover:bg-slate-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-700">' +
+        '<p class="text-xs font-medium text-slate-600">' + esc(k.label) + '</p>' +
+        '<p class="mt-1 text-2xl font-semibold tabular-nums">' + esc(val) + '</p>' +
+        '<p class="text-xs tabular-nums text-slate-600">' + esc(k.deltaTxt) + ' ' + esc(r.cmp) + '</p>' +
+        (k.target ? '<p class="text-xs text-slate-600">' + esc(k.target) + '</p>' : '') + '</a>';
+    }).join('');
+  }
+
+  function renderAttention(d) {
+    var items = d.attention;
+    var body = document.getElementById('attn-body');
+    if (!items.length) { body.innerHTML = '<p class="p-4 text-sm text-slate-600">Nothing needs attention. Checked at ' + fmtTime(NOW) + '.</p>'; return; }
+    body.innerHTML = '<ul>' + items.slice(0, 5).map(function (i) {
+      return '<li class="border-b border-slate-200 last:border-0"><a href="' + i.href + '" class="flex h-10 items-center gap-3 px-4 text-sm hover:bg-slate-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-700">' +
+        '<span class="w-8 font-semibold tabular-nums">' + nf.format(i.count) + '</span><span class="min-w-0 flex-1 truncate">' + esc(i.label) + '</span>' +
+        '<span class="rounded-full px-2 text-xs font-medium ' + TONES[i.tone] + '">' + esc(i.badge) + '</span></a></li>';
+    }).join('') + '</ul>';
+    document.getElementById('attn-meta').textContent = items.length + ' items, most urgent first';
+    document.getElementById('attn-live').textContent = items.length + ' items need attention';
+  }
+
+  function renderLine(d) {
+    var el = document.getElementById('c1');
+    var summary = 'Units picked per hour today rose from ' + nf.format(d.today[0]) + ' at 06:00 to a peak of ' + nf.format(Math.max.apply(null, d.today)) + ', tracking slightly above yesterday.';
+    if (state.tableView) {
+      el.innerHTML = '<div class="overflow-x-auto"><table class="w-full text-sm"><thead><tr class="border-b border-slate-200 text-left text-xs font-medium text-slate-600"><th class="h-10 px-2 font-medium">Hour</th><th class="h-10 px-2 text-right font-medium">Today</th><th class="h-10 px-2 text-right font-medium">Yesterday</th></tr></thead><tbody>' +
+        d.hours.map(function (h, i) {
+          return '<tr class="border-b border-slate-100"><td class="h-10 px-2 tabular-nums">' + h + ':00</td><td class="h-10 px-2 text-right tabular-nums">' + (d.today[i] != null ? nf.format(d.today[i]) : '–') + '</td><td class="h-10 px-2 text-right tabular-nums">' + nf.format(d.yest[i]) + '</td></tr>';
+        }).join('') + '</tbody></table></div>';
+      return;
+    }
+    var W = 640, H = 290, L = 56, R = 80, T = 12, B = 48, max = 1400;
+    var s = svg('svg', { viewBox: '0 0 ' + W + ' ' + H, width: '100%', role: 'img', 'aria-label': summary });
+    var x = function (i) { return L + i * (W - L - R) / (d.hours.length - 1); };
+    var y = function (v) { return T + (H - T - B) * (1 - v / max); };
+    [0, 350, 700, 1050, 1400].forEach(function (t) {
+      s.appendChild(svg('line', { x1: L, x2: W - R, y1: y(t), y2: y(t), stroke: GRID }));
+      s.appendChild(svg('text', { x: L - 6, y: y(t) + 4, 'text-anchor': 'end', 'font-size': 11, fill: TXT }, nf.format(t)));
+    });
+    d.hours.forEach(function (h, i) { s.appendChild(svg('text', { x: x(i), y: H - B + 16, 'text-anchor': 'middle', 'font-size': 11, fill: TXT }, h)); });
+    s.appendChild(svg('text', { x: (L + W - R) / 2, y: H - 6, 'text-anchor': 'middle', 'font-size': 12, fill: TXT }, 'Hour of day (local time)'));
+    var yl = svg('text', { transform: 'translate(12 ' + (T + (H - T - B) / 2) + ') rotate(-90)', 'text-anchor': 'middle', 'font-size': 12, fill: TXT }, 'Units picked per hour');
+    s.appendChild(yl);
+    function path(arr, color, dash, w) {
+      var p = arr.map(function (v, i) { return (i ? 'L' : 'M') + x(i) + ' ' + y(v); }).join(' ');
+      s.appendChild(svg('path', { d: p, fill: 'none', stroke: color, 'stroke-width': w, 'stroke-dasharray': dash || '', 'stroke-linejoin': 'round' }));
+    }
+    path(d.yest, GREY, '5 4', 2);
+    path(d.today, BLUE, '', 2.5);
+    var li = d.today.length - 1;
+    s.appendChild(svg('circle', { cx: x(li), cy: y(d.today[li]), r: 4, fill: BLUE }));
+    s.appendChild(svg('text', { x: x(li) + 8, y: y(d.today[li]) + 4, 'font-size': 12, 'font-weight': 600, fill: BLUE }, 'Today'));
+    s.appendChild(svg('text', { x: x(d.yest.length - 1) + 8, y: y(d.yest[d.yest.length - 1]) + 4, 'font-size': 12, fill: TXT }, 'Yesterday'));
+    el.innerHTML = '';
+    el.appendChild(s);
+    var p = document.createElement('p');
+    p.className = 'mt-2 text-xs text-slate-600';
+    p.textContent = 'Peak today ' + nf.format(Math.max.apply(null, d.today)) + ' units at 10:00. Updated through 15:00.';
+    el.appendChild(p);
+  }
+
+  function renderZones(d) {
+    var el = document.getElementById('c2');
+    var rows = d.zones.slice().sort(function (a, b) { return b.v - a.v; });
+    var total = rows.reduce(function (a, r) { return a + r.v; }, 0);
+    var W = 360, rowH = 34, L = 120, R = 40, T = 8, B = 44, H = T + rows.length * rowH + B, max = 140;
+    var s = svg('svg', { viewBox: '0 0 ' + W + ' ' + H, width: '100%', role: 'img', 'aria-label': 'Open pick tasks by zone, ' + nf.format(total) + ' in total. ' + rows.map(function (r) { return r.z + ' ' + r.v; }).join(', ') });
+    var x = function (v) { return L + v * (W - L - R) / max; };
+    [0, 35, 70, 105, 140].forEach(function (t) {
+      s.appendChild(svg('line', { x1: x(t), x2: x(t), y1: T, y2: H - B, stroke: GRID }));
+      s.appendChild(svg('text', { x: x(t), y: H - B + 14, 'text-anchor': 'middle', 'font-size': 11, fill: TXT }, t));
+    });
+    rows.forEach(function (r, i) {
+      var y0 = T + i * rowH;
+      s.appendChild(svg('text', { x: L - 8, y: y0 + rowH / 2 + 4, 'text-anchor': 'end', 'font-size': 11, fill: '#0f172a' }, r.z));
+      s.appendChild(svg('rect', { x: L, y: y0 + 6, width: x(r.v) - L, height: rowH - 12, fill: i === 0 ? BLUE : GREY, rx: 2 }));
+      s.appendChild(svg('text', { x: x(r.v) + 5, y: y0 + rowH / 2 + 4, 'font-size': 11, 'font-weight': 600, fill: '#0f172a' }, r.v));
+    });
+    s.appendChild(svg('text', { x: (L + W - R) / 2, y: H - 6, 'text-anchor': 'middle', 'font-size': 12, fill: TXT }, 'Open pick tasks (count)'));
+    el.innerHTML = '';
+    el.appendChild(s);
+  }
+
+  function renderStatus(d) {
+    var el = document.getElementById('c3');
+    var total = d.statuses.reduce(function (a, r) { return a + r.v; }, 0);
+    var shades = [BLUE, '#60a5fa', '#94a3b8', '#cbd5e1', '#64748b'];
+    var bar = d.statuses.map(function (r, i) {
+      return '<div style="width:' + (r.v / total * 100) + '%;background:' + shades[i] + '" title="' + esc(r.s) + ': ' + nf.format(r.v) + '"></div>';
+    }).join('');
+    var label = 'Orders by status: ' + d.statuses.map(function (r) { return r.s + ' ' + nf.format(r.v); }).join(', ');
+    el.innerHTML = '<p class="text-xs text-slate-600">Share of ' + nf.format(total) + ' orders (stacked bar, % of total)</p>' +
+      '<div class="mt-2 flex h-6 w-full overflow-hidden rounded-sm" role="img" aria-label="' + esc(label) + '">' + bar + '</div>' +
+      '<ul class="mt-3 space-y-1">' + d.statuses.map(function (r, i) {
+        return '<li class="flex h-8 items-center gap-2 text-sm"><span aria-hidden="true" class="h-3 w-3 shrink-0 rounded-sm" style="background:' + shades[i] + '"></span><span class="flex-1">' + esc(r.s) + '</span><span class="tabular-nums text-slate-600">' + Math.round(r.v / total * 100) + '%</span><span class="w-14 text-right font-medium tabular-nums">' + nf.format(r.v) + '</span></li>';
+      }).join('') + '</ul>';
+  }
+
+  function renderInbound(d) {
+    var el = document.getElementById('c4');
+    if (state.range !== 'today') {
+      el.innerHTML = '<div class="p-6 text-sm"><p class="text-slate-900">No dock appointments to show for this range. This list covers today only.</p><button data-today class="mt-2 h-8 rounded border border-slate-300 bg-white px-3 hover:bg-slate-50">Change date range to Today</button></div>';
+      return;
+    }
+    el.innerHTML = '<div class="overflow-x-auto"><table class="w-full min-w-[560px] text-sm"><thead><tr class="border-b border-slate-200 text-left text-xs font-medium text-slate-600">' +
+      '<th scope="col" class="h-10 px-4 font-medium">Appointment</th><th scope="col" class="h-10 px-2 font-medium">Carrier</th><th scope="col" class="h-10 px-2 font-medium">Dock</th><th scope="col" class="h-10 px-2 font-medium">Expected</th><th scope="col" class="h-10 px-2 text-right font-medium">Pallets</th><th scope="col" class="h-10 px-4 font-medium">Status</th></tr></thead><tbody>' +
+      d.appts.map(function (a) {
+        return '<tr class="border-b border-slate-100 last:border-0"><td class="h-10 whitespace-nowrap px-4"><a class="text-blue-700 hover:underline" href="/appointments/' + a.id + '">' + a.id + '</a></td><td class="h-10 whitespace-nowrap px-2">' + esc(a.carrier) + '</td><td class="h-10 whitespace-nowrap px-2">' + a.dock + '</td><td class="h-10 whitespace-nowrap px-2 tabular-nums">' + a.eta + '</td><td class="h-10 px-2 text-right tabular-nums">' + a.pallets + '</td><td class="h-10 px-4"><span class="rounded-full px-2 text-xs font-medium ' + TONES[a.tone] + '">' + a.status + '</span></td></tr>';
+      }).join('') + '</tbody></table></div>';
+  }
+
+  /* ---------- Load cycle ---------- */
+  var timer;
+  function load(manual) {
+    paintRange();
+    skelAll();
+    var btn = document.getElementById('refresh');
+    btn.disabled = true; btn.innerHTML = '<span class="inline-flex items-center gap-2"><span class="spin"></span>Refreshing</span>';
+    clearTimeout(timer);
+    timer = setTimeout(function () {
+      var d = data();
+      renderKpis(d); renderAttention(d); renderLine(d); renderZones(d); renderStatus(d);
+      // Inbound widget fails once on first load so the error state is reachable; Retry succeeds.
+      if (!state.inboundFailedOnce && state.range === 'today') {
+        state.inboundFailedOnce = true;
+        document.getElementById('c4').innerHTML = errorBox('Could not load dock appointments. The other widgets are unaffected.', 'inbound');
+      } else { renderInbound(d); }
+      state.lastOk = new Date(NOW);
+      document.getElementById('updated').textContent = 'Updated ' + fmtTime(state.lastOk);
+      btn.disabled = false; btn.textContent = 'Refresh';
+      window.__data = d;
+    }, 450);
+  }
+
+  document.getElementById('refresh').addEventListener('click', function () { load(true); });
+  rangeEl.addEventListener('change', function () {
+    state.range = rangeEl.value;
+    var u = new URL(location.href); u.searchParams.set('range', state.range); history.replaceState(null, '', u);
+    load();
+  });
+  document.getElementById('c1-toggle').addEventListener('click', function () {
+    state.tableView = !state.tableView;
+    this.textContent = state.tableView ? 'View as chart' : 'View as table';
+    this.setAttribute('aria-pressed', String(state.tableView));
+    if (window.__data) renderLine(window.__data);
+  });
+  document.addEventListener('click', function (e) {
+    var t = e.target.closest('[data-retry]');
+    if (t) {
+      document.getElementById('c4').innerHTML = '<div class="space-y-3 p-4"><div class="skel h-4 w-1/3"></div><div class="skel h-24 w-full"></div></div>';
+      setTimeout(function () { renderInbound(window.__data); }, 400);
+    }
+    if (e.target.closest('[data-today]')) { rangeEl.value = 'today'; rangeEl.dispatchEvent(new Event('change')); }
+  });
+  // Operational dashboard: refresh on a timer.
+  setInterval(function () { if (!document.hidden) load(); }, 5 * 60 * 1000);
+  load();
+})();
+</script>
+</body>
+</html>

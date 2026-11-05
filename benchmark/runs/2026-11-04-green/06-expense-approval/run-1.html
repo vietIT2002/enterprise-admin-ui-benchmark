@@ -1,0 +1,533 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Expense request EXP-2041 · Approvals · Northwind Finance</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+  html { scroll-padding-bottom: 5rem; }
+  body { font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; font-size: 14px; color: #0f172a; }
+  :focus-visible { outline: 2px solid #1d4ed8; outline-offset: 2px; }
+  .tnum { font-variant-numeric: tabular-nums; }
+  @keyframes sk { 0%,100% { opacity: 1 } 50% { opacity: .5 } }
+  .sk { animation: sk 1.4s ease-in-out infinite; background: #e2e8f0; border-radius: 4px; }
+  details > summary { cursor: pointer; list-style: none; }
+  details > summary::-webkit-details-marker { display: none; }
+</style>
+</head>
+<body class="bg-slate-50">
+
+<a href="#main" class="sr-only focus:not-sr-only focus:absolute focus:left-2 focus:top-2 focus:z-50 focus:rounded focus:bg-white focus:px-3 focus:py-2">Skip to content</a>
+
+<div class="flex min-h-screen">
+  <!-- Sidebar -->
+  <aside class="hidden w-60 shrink-0 border-r border-slate-200 bg-white lg:block">
+    <div class="flex h-12 items-center gap-2 border-b border-slate-200 px-4">
+      <span class="flex h-6 w-6 items-center justify-center rounded bg-blue-700 text-xs font-semibold text-white" aria-hidden="true">N</span>
+      <span class="font-semibold">Northwind Finance</span>
+    </div>
+    <nav aria-label="Main" class="flex flex-col gap-4 p-2">
+      <div class="flex flex-col gap-0.5">
+        <p class="px-2 py-1 text-xs font-medium text-slate-600">Expenses</p>
+        <a href="#" data-nav class="flex h-8 items-center gap-2 rounded px-2 hover:bg-slate-100"><span data-i="file"></span>My requests</a>
+        <a href="#" data-nav aria-current="page" class="flex h-8 items-center gap-2 rounded bg-slate-100 px-2 font-medium"><span data-i="check"></span>Approvals<span class="ml-auto rounded-full bg-slate-200 px-1.5 text-xs text-slate-700 tnum">4</span></a>
+        <a href="#" data-nav class="flex h-8 items-center gap-2 rounded px-2 hover:bg-slate-100"><span data-i="wallet"></span>Reimbursements</a>
+      </div>
+      <div class="flex flex-col gap-0.5">
+        <p class="px-2 py-1 text-xs font-medium text-slate-600">Finance</p>
+        <a href="#" data-nav class="flex h-8 items-center gap-2 rounded px-2 hover:bg-slate-100"><span data-i="bars"></span>Budgets</a>
+        <a href="#" data-nav class="flex h-8 items-center gap-2 rounded px-2 hover:bg-slate-100"><span data-i="user"></span>Vendors</a>
+      </div>
+    </nav>
+  </aside>
+
+  <div class="flex min-w-0 flex-1 flex-col">
+    <header class="flex h-12 items-center gap-3 border-b border-slate-200 bg-white px-4">
+      <button type="button" data-nav-search class="flex h-8 w-full max-w-xs items-center gap-2 rounded border border-slate-300 px-2 text-left text-slate-600 hover:bg-slate-50">
+        <span data-i="search"></span><span class="truncate">Search or run a command</span><kbd class="ml-auto rounded border border-slate-300 px-1 text-xs">Ctrl K</kbd>
+      </button>
+      <div class="ml-auto flex items-center gap-3">
+        <label class="flex items-center gap-2 text-xs font-medium text-slate-600" for="view-as">View as
+          <select id="view-as" class="h-8 rounded border border-slate-300 bg-white px-2 text-sm text-slate-900">
+            <option value="quan">Trần Minh Quân (Finance manager)</option>
+            <option value="an">Nguyễn Văn An (Director)</option>
+            <option value="lananh">Nguyễn Thị Lan Anh (Requester)</option>
+            <option value="hoa">Lê Hoa (Accountant)</option>
+          </select>
+        </label>
+        <label class="hidden items-center gap-2 text-xs font-medium text-slate-600 md:flex" for="sim">Data
+          <select id="sim" class="h-8 rounded border border-slate-300 bg-white px-2 text-sm text-slate-900">
+            <option value="normal">Normal</option>
+            <option value="load">Fail to load</option>
+            <option value="submit">Fail next decision</option>
+          </select>
+        </label>
+        <button type="button" aria-label="Notifications, 3 unread" class="relative flex h-8 w-8 items-center justify-center rounded text-slate-700 hover:bg-slate-100"><span data-i="bell"></span><span class="absolute right-0.5 top-0.5 rounded-full bg-blue-700 px-1 text-[10px] leading-4 text-white">3</span></button>
+        <button type="button" id="account" aria-label="Account menu" class="flex h-8 w-8 items-center justify-center rounded-full bg-slate-200 text-xs font-medium text-slate-800">TQ</button>
+      </div>
+    </header>
+
+    <main id="main" class="min-w-0 flex-1 p-4 lg:p-6" tabindex="-1">
+      <div id="page"></div>
+    </main>
+  </div>
+</div>
+
+<div id="modal-root"></div>
+<div id="toast-region" role="status" aria-live="polite" class="pointer-events-none fixed bottom-4 right-4 z-50 flex max-w-sm flex-col gap-2"></div>
+
+<script>
+(function () {
+  'use strict';
+
+  /* ---------- helpers ---------- */
+  var ICONS = {
+    check: '<path d="M20 6 9 17l-5-5"/>', x: '<path d="M18 6 6 18M6 6l12 12"/>',
+    clock: '<circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/>', circle: '<circle cx="12" cy="12" r="10"/>',
+    circlecheck: '<circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/>', circlex: '<circle cx="12" cy="12" r="10"/><path d="m15 9-6 6M9 9l6 6"/>',
+    alert: '<path d="m21.7 18-8-14a2 2 0 0 0-3.4 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.7-3Z"/><path d="M12 9v4M12 17h.01"/>',
+    file: '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/>',
+    download: '<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/>',
+    eye: '<path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/>',
+    more: '<circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/>',
+    search: '<circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/>', bell: '<path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9M10.3 21a1.9 1.9 0 0 0 3.4 0"/>',
+    wallet: '<path d="M19 7V4a1 1 0 0 0-1-1H5a2 2 0 0 0 0 4h15a1 1 0 0 1 1 1v4h-3a2 2 0 0 0 0 4h3a1 1 0 0 0 1-1v-2"/><path d="M3 5v14a2 2 0 0 0 2 2h15a1 1 0 0 0 1-1v-4"/>',
+    bars: '<path d="M3 3v16a2 2 0 0 0 2 2h16M8 17v-6M13 17V7M18 17v-3"/>', user: '<circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/>',
+    paperclip: '<path d="m21.4 11.1-9.2 9.2a6 6 0 0 1-8.5-8.5l9.2-9.2a4 4 0 0 1 5.7 5.7l-9.2 9.2a2 2 0 0 1-2.8-2.8l8.5-8.5"/>',
+    lock: '<rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>'
+  };
+  function ic(name, cls) {
+    return '<svg class="' + (cls || 'h-4 w-4 shrink-0') + '" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + (ICONS[name] || '') + '</svg>';
+  }
+  function esc(s) { return String(s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
+  var money = new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' });
+  var num1 = new Intl.NumberFormat('vi-VN', { maximumFractionDigits: 1 });
+  function fmtSize(kb) { return kb >= 1024 ? num1.format(kb / 1024) + ' MB' : num1.format(kb) + ' KB'; }
+  function stamp(v) {
+    var d = new Date(v);
+    var date = new Intl.DateTimeFormat('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' }).format(d);
+    var time = new Intl.DateTimeFormat('en-GB', { hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).format(d);
+    return date + ' ' + time;
+  }
+  function dateOnly(v) { return stamp(v).slice(0, 10); }
+  function delay(ms) { return new Promise(function (r) { setTimeout(r, ms); }); }
+  function $(s, r) { return (r || document).querySelector(s); }
+  function hydrateIcons(root) {
+    (root || document).querySelectorAll('[data-i]').forEach(function (el) { el.innerHTML = ic(el.getAttribute('data-i')); el.removeAttribute('data-i'); });
+  }
+
+  /* One status vocabulary, five tones, always with text */
+  var TONES = {
+    neutral: ['bg-slate-100 text-slate-700', 'circle'], info: ['bg-blue-50 text-blue-800', 'clock'],
+    success: ['bg-green-50 text-green-800', 'circlecheck'], warning: ['bg-amber-50 text-amber-800', 'alert'],
+    danger: ['bg-red-50 text-red-800', 'circlex']
+  };
+  var STATUS_TONE = { 'Draft': 'neutral', 'Withdrawn': 'neutral', 'Not started': 'neutral', 'Skipped': 'neutral',
+    'Submitted': 'info', 'In approval': 'info', 'Current step': 'info', 'Approved': 'success', 'Rejected': 'danger' };
+  function badge(label) {
+    var t = TONES[STATUS_TONE[label] || 'neutral'];
+    return '<span class="inline-flex h-6 max-w-[200px] items-center gap-1 rounded-full px-2 text-xs font-medium ' + t[0] + '">' + ic(t[1]) + '<span class="truncate" title="' + esc(label) + '">' + esc(label) + '</span></span>';
+  }
+
+  /* ---------- mock data ---------- */
+  var USERS = {
+    quan: { name: 'Trần Minh Quân', role: 'Finance manager', ini: 'TQ' },
+    an: { name: 'Nguyễn Văn An', role: 'Director', ini: 'NA' },
+    lananh: { name: 'Nguyễn Thị Lan Anh', role: 'Sales staff', ini: 'LA' },
+    hoa: { name: 'Lê Hoa', role: 'Accountant', ini: 'LH' },
+    ha: { name: 'Phạm Thu Hà', role: 'Sales manager', ini: 'PH' }
+  };
+  var REQ = {
+    id: 'EXP-2041', title: 'Client workshop trip to Đà Nẵng', requester: 'lananh', department: 'Sales · Cost center 4120',
+    submittedAt: '2026-11-01T08:30:00', purpose: 'On-site workshop with Đà Nẵng Port Co. on the Q4 logistics contract, 28–30/10/2026.',
+    paidBy: 'Personal card, reimbursed to bank account ending 4821',
+    lines: [
+      { date: '2026-10-28', cat: 'Airfare', desc: 'Vietjet HAN–DAD return, VJ512 / VJ517', amount: 3280000 },
+      { date: '2026-10-28', cat: 'Lodging', desc: 'Sheraton Đà Nẵng, 2 nights', amount: 3600000 },
+      { date: '2026-10-29', cat: 'Meals', desc: 'Client dinner, 6 guests', amount: 2150000 },
+      { date: '2026-10-30', cat: 'Transport', desc: 'Taxi and airport transfers', amount: 640000 },
+      { date: '2026-10-30', cat: 'Per diem', desc: '3 days × 300.000 ₫', amount: 900000 }
+    ],
+    files: [
+      { name: 've-may-bay-VJ512.pdf', type: 'PDF', kb: 412, by: 'lananh', at: '2026-10-31T16:55:00', preview: 'doc' },
+      { name: 'hoa-don-khach-san-sheraton.pdf', type: 'PDF', kb: 1229, by: 'lananh', at: '2026-10-31T16:55:00', preview: 'fail' },
+      { name: 'hoa-don-tiep-khach.jpg', type: 'JPG', kb: 2458, by: 'lananh', at: '2026-10-31T16:56:00', preview: 'img' },
+      { name: 'chi-tiet-chi-phi.zip', type: 'ZIP', kb: 3174, by: 'lananh', at: '2026-10-31T16:57:00', preview: null }
+    ]
+  };
+  var state = {
+    me: 'quan', sim: 'normal', load: 'loading', tab: 'overview', status: 'In approval',
+    comment: '', submitting: null, submitError: '', menuOpen: false,
+    steps: [
+      { name: 'Line manager', who: 'ha', decision: 'Approved', at: '2026-11-02T09:14:00', comment: 'Trip matches the workshop plan agreed for Q4. Receipts look complete.' },
+      { name: 'Finance review', who: 'quan', decision: 'Current step', at: null, comment: '' },
+      { name: 'Director approval', who: 'an', decision: 'Not started', at: null, comment: '', note: 'Required for requests over 10.000.000 ₫' }
+    ],
+    events: [
+      { at: '2026-10-31T16:42:00', who: 'lananh', what: 'Created request' },
+      { at: '2026-10-31T16:48:00', who: 'lananh', what: 'Updated 1 field', diff: [{ f: 'Purpose', o: 'Client visit', n: 'On-site workshop with Đà Nẵng Port Co. on the Q4 logistics contract, 28–30/10/2026.' }] },
+      { at: '2026-10-31T16:57:00', who: 'lananh', what: 'Added 4 attachments' },
+      { at: '2026-11-01T08:30:00', who: 'lananh', what: 'Submitted for approval' },
+      { at: '2026-11-01T08:30:00', who: null, what: 'Step 1 opened for Phạm Thu Hà' },
+      { at: '2026-11-02T09:14:00', who: 'ha', what: 'Approved step 1', comment: 'Trip matches the workshop plan agreed for Q4. Receipts look complete.' },
+      { at: '2026-11-02T09:14:00', who: null, what: 'Step 2 opened for Trần Minh Quân' }
+    ]
+  };
+  function total() { return REQ.lines.reduce(function (s, l) { return s + l.amount; }, 0); }
+  function currentStep() { return state.steps.filter(function (s) { return s.decision === 'Current step'; })[0]; }
+  function isFinal() { return state.status === 'Approved' || state.status === 'Rejected' || state.status === 'Withdrawn'; }
+  function dirty() { return state.comment.trim().length > 0; }
+  function lastChange() { for (var i = state.events.length - 1; i >= 0; i--) if (state.events[i].who) return state.events[i]; }
+
+  /* ---------- toast & modal ---------- */
+  function toast(msg, tone) {
+    var el = document.createElement('div');
+    el.className = 'pointer-events-auto flex items-start gap-2 rounded-md border bg-white px-3 py-2 text-sm shadow-lg ' + (tone === 'error' ? 'border-red-300' : 'border-slate-200');
+    el.innerHTML = '<span class="mt-0.5 ' + (tone === 'error' ? 'text-red-700' : 'text-green-700') + '">' + ic(tone === 'error' ? 'circlex' : 'circlecheck') + '</span><span>' + esc(msg) + '</span>';
+    $('#toast-region').appendChild(el);
+    setTimeout(function () { el.remove(); }, 5000);
+  }
+  var lastFocus = null;
+  function openModal(html, focusSel) {
+    lastFocus = document.activeElement;
+    var root = $('#modal-root');
+    root.innerHTML = '<div class="fixed inset-0 z-40 flex items-start justify-center overflow-y-auto bg-slate-900/40 p-4 pt-[10vh]" data-overlay>' +
+      '<div role="dialog" aria-modal="true" aria-labelledby="dlg-title" class="w-full max-w-lg rounded-lg border border-slate-200 bg-white shadow-xl">' + html + '</div></div>';
+    hydrateIcons(root);
+    var f = focusSel && $(focusSel, root);
+    (f || $('button', root)).focus();
+  }
+  function closeModal() {
+    $('#modal-root').innerHTML = '';
+    if (lastFocus && document.body.contains(lastFocus)) lastFocus.focus();
+  }
+  document.addEventListener('keydown', function (e) {
+    var dlg = $('#modal-root [role=dialog]');
+    if (e.key === 'Escape') { if (dlg) { closeModal(); } else if (state.menuOpen) { state.menuOpen = false; renderPage(); } }
+    if (e.key === 'Tab' && dlg) {
+      var f = dlg.querySelectorAll('button:not([disabled]), textarea, a[href], select, input');
+      if (!f.length) return;
+      var first = f[0], last = f[f.length - 1];
+      if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+      else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+    }
+  });
+
+  /* ---------- views ---------- */
+  var BTN = 'inline-flex h-8 items-center justify-center gap-2 rounded px-3 text-sm font-medium disabled:cursor-not-allowed disabled:opacity-60';
+  var BTN_PRIMARY = BTN + ' bg-blue-700 text-white hover:bg-blue-800';
+  var BTN_OUTLINE = BTN + ' border border-slate-300 bg-white text-slate-900 hover:bg-slate-50';
+  var BTN_REJECT = BTN + ' border border-red-300 bg-white text-red-700 hover:bg-red-50';
+  var SPIN = '<svg class="h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="12" cy="12" r="10" stroke="currentColor" stroke-opacity=".3" stroke-width="3"/><path d="M22 12a10 10 0 0 0-10-10" stroke="currentColor" stroke-width="3" stroke-linecap="round"/></svg>';
+
+  function skeleton() {
+    return '<div aria-busy="true" aria-label="Loading expense request"><div class="sk mb-3 h-4 w-64"></div><div class="sk mb-6 h-7 w-96 max-w-full"></div>' +
+      '<div class="grid gap-4 lg:grid-cols-[1fr_380px]"><div class="space-y-4"><div class="rounded-md border border-slate-200 bg-white p-4"><div class="sk mb-3 h-4 w-40"></div><div class="sk h-16 w-full"></div></div>' +
+      '<div class="rounded-md border border-slate-200 bg-white p-4"><div class="sk mb-3 h-4 w-32"></div>' + [1, 2, 3, 4, 5].map(function () { return '<div class="sk mb-2 h-8 w-full"></div>'; }).join('') + '</div></div>' +
+      '<div class="space-y-4"><div class="rounded-md border border-slate-200 bg-white p-4"><div class="sk mb-3 h-4 w-32"></div><div class="sk h-24 w-full"></div></div><div class="rounded-md border border-slate-200 bg-white p-4"><div class="sk mb-3 h-4 w-32"></div><div class="sk h-40 w-full"></div></div></div></div></div>';
+  }
+  function errorState() {
+    return '<div class="mx-auto mt-16 max-w-md rounded-md border border-slate-200 bg-white p-6 text-center" role="alert">' +
+      '<div class="mx-auto mb-3 flex h-8 w-8 items-center justify-center rounded-full bg-red-50 text-red-700">' + ic('alert') + '</div>' +
+      '<h1 class="text-base font-semibold">Couldn\'t load expense request EXP-2041</h1>' +
+      '<p class="mt-1 text-slate-600">The approvals service did not respond. Nothing was changed.</p>' +
+      '<button type="button" data-act="retry" class="' + BTN_PRIMARY + ' mt-4">Retry</button></div>';
+  }
+
+  function header() {
+    var lc = lastChange();
+    var req = USERS[REQ.requester];
+    return '<header class="mb-4 flex flex-col gap-2">' +
+      '<nav aria-label="Breadcrumb"><ol class="flex flex-wrap items-center gap-1 text-sm text-slate-600">' +
+      '<li><a href="#" data-nav class="inline-flex min-h-6 items-center hover:text-slate-900 hover:underline">Expenses</a></li><li aria-hidden="true">/</li>' +
+      '<li><a href="#" data-nav class="inline-flex min-h-6 items-center hover:text-slate-900 hover:underline">Approvals</a></li><li aria-hidden="true">/</li>' +
+      '<li><span aria-current="page" class="text-slate-900">EXP-2041</span></li></ol></nav>' +
+      '<div class="flex flex-wrap items-center justify-between gap-2">' +
+      '<div class="flex flex-wrap items-center gap-3"><h1 class="text-xl font-semibold">Expense request EXP-2041</h1>' + badge(state.status) + '</div>' +
+      '<div class="relative"><button type="button" data-act="menu" aria-haspopup="menu" aria-expanded="' + state.menuOpen + '" aria-label="More actions for EXP-2041" class="' + BTN_OUTLINE + ' !px-2">' + ic('more') + '</button>' +
+      (state.menuOpen ? '<div role="menu" class="absolute right-0 z-20 mt-1 w-44 rounded-md border border-slate-200 bg-white py-1 shadow-lg">' +
+        '<button role="menuitem" type="button" data-act="copylink" class="flex h-8 w-full items-center px-3 text-left hover:bg-slate-100">Copy link</button>' +
+        '<button role="menuitem" type="button" data-act="print" class="flex h-8 w-full items-center px-3 text-left hover:bg-slate-100">Print</button></div>' : '') +
+      '</div></div>' +
+      '<p class="text-sm text-slate-600">Last changed by <a href="#" data-nav class="font-medium text-slate-900 hover:underline">' + esc(USERS[lc.who].name) + '</a> on <time>' + stamp(lc.at) + '</time> · <button type="button" data-act="tab-history" class="text-blue-700 underline-offset-2 hover:underline">View history</button></p>' +
+      '<dl class="mt-2 grid grid-cols-2 gap-4 rounded-md border border-slate-200 bg-white p-4 md:grid-cols-4">' +
+      kv('Requester', esc(req.name) + '<span class="block text-xs text-slate-600">' + esc(req.role) + '</span>') +
+      kv('Department', esc(REQ.department)) +
+      kv('Total amount', '<span class="tnum text-base font-semibold">' + money.format(total()) + '</span>') +
+      kv('Submitted', '<time>' + stamp(REQ.submittedAt) + '</time>') + '</dl></header>';
+  }
+  function kv(k, v) { return '<div><dt class="text-xs font-medium text-slate-600">' + k + '</dt><dd class="mt-0.5">' + v + '</dd></div>'; }
+
+  function tabs() {
+    var n = REQ.files.length;
+    function t(id, label, extra) {
+      var on = state.tab === id;
+      return '<button type="button" role="tab" id="tab-' + id + '" aria-selected="' + on + '" aria-controls="panel-' + id + '" tabindex="' + (on ? 0 : -1) + '" data-act="tab" data-tab="' + id + '" class="-mb-px h-9 border-b-2 px-3 text-sm ' + (on ? 'border-blue-700 font-medium text-slate-900' : 'border-transparent text-slate-600 hover:text-slate-900') + '">' + label + (extra || '') + '</button>';
+    }
+    return '<div role="tablist" aria-label="Request sections" class="mb-4 flex border-b border-slate-200">' + t('overview', 'Overview') + t('history', 'History', ' <span class="ml-1 rounded-full bg-slate-100 px-1.5 text-xs text-slate-700 tnum">' + state.events.length + '</span>') + '</div>';
+  }
+
+  function overview() {
+    var rows = REQ.lines.map(function (l) {
+      return '<tr class="h-10 border-t border-slate-200"><td class="px-3 tnum whitespace-nowrap">' + dateOnly(l.date + 'T00:00:00') + '</td><td class="px-3">' + esc(l.cat) + '</td><td class="px-3">' + esc(l.desc) + '</td><td class="px-3 text-right tnum whitespace-nowrap">' + money.format(l.amount) + '</td></tr>';
+    }).join('');
+    var lines = '<section class="rounded-md border border-slate-200 bg-white" aria-labelledby="h-lines">' +
+      '<div class="flex items-center justify-between px-4 py-3"><h2 id="h-lines" class="text-base font-semibold">Expense lines</h2><span class="text-sm text-slate-600 tnum">' + REQ.lines.length + ' lines</span></div>' +
+      '<div class="overflow-x-auto"><table class="w-full min-w-[560px] text-left"><thead class="bg-slate-50 text-xs font-medium text-slate-600"><tr class="h-9"><th scope="col" class="px-3 font-medium">Date</th><th scope="col" class="px-3 font-medium">Category</th><th scope="col" class="px-3 font-medium">Description</th><th scope="col" class="px-3 text-right font-medium">Amount</th></tr></thead><tbody>' + rows + '</tbody>' +
+      '<tfoot><tr class="h-10 border-t border-slate-300"><td colspan="3" class="px-3 text-right font-medium">Total</td><td class="px-3 text-right font-semibold tnum whitespace-nowrap">' + money.format(total()) + '</td></tr></tfoot></table></div></section>';
+
+    var details = '<section class="rounded-md border border-slate-200 bg-white p-4" aria-labelledby="h-det"><h2 id="h-det" class="mb-3 text-base font-semibold">Request details</h2>' +
+      '<dl class="grid gap-4 md:grid-cols-2">' + kv('Title', esc(REQ.title)) + kv('Reimbursement', esc(REQ.paidBy)) +
+      '<div class="md:col-span-2">' + kv('Purpose', esc(REQ.purpose)) + '</div></dl></section>';
+
+    var files;
+    if (!REQ.files.length) {
+      files = '<div class="px-4 pb-6 pt-2 text-center"><p class="text-slate-600">No attachments yet. Receipts and invoices uploaded by the requester appear here.</p></div>';
+    } else {
+      files = '<div class="overflow-x-auto"><table class="w-full min-w-[640px] text-left"><thead class="bg-slate-50 text-xs font-medium text-slate-600"><tr class="h-9"><th scope="col" class="px-3 font-medium">File name</th><th scope="col" class="px-3 font-medium">Type</th><th scope="col" class="px-3 text-right font-medium">Size</th><th scope="col" class="px-3 font-medium">Uploaded</th><th scope="col" class="px-3 font-medium"><span class="sr-only">Actions</span></th></tr></thead><tbody>' +
+        REQ.files.map(function (f, i) {
+          return '<tr class="h-10 border-t border-slate-200"><td class="px-3"><span class="flex items-center gap-2 text-slate-900"><span class="text-slate-600">' + ic('paperclip') + '</span><span class="max-w-[260px] truncate" title="' + esc(f.name) + '">' + esc(f.name) + '</span></span></td>' +
+            '<td class="px-3">' + f.type + '</td><td class="px-3 text-right tnum whitespace-nowrap">' + fmtSize(f.kb) + '</td>' +
+            '<td class="px-3 whitespace-nowrap text-slate-600">' + esc(USERS[f.by].name) + ' · <span class="tnum">' + stamp(f.at) + '</span></td>' +
+            '<td class="px-3 py-1"><div class="flex justify-end gap-1">' +
+            (f.preview ? '<button type="button" data-act="preview" data-i="' + i + '" aria-label="Preview ' + esc(f.name) + '" class="' + BTN_OUTLINE + ' !h-7">Preview</button>' : '') +
+            '<button type="button" data-act="download" data-i="' + i + '" aria-label="Download ' + esc(f.name) + '" class="' + BTN_OUTLINE + ' !h-7">Download</button></div></td></tr>';
+        }).join('') + '</tbody></table></div>';
+    }
+    var att = '<section class="rounded-md border border-slate-200 bg-white" aria-labelledby="h-att"><div class="flex items-center justify-between px-4 py-3"><h2 id="h-att" class="text-base font-semibold">Attachments</h2><span class="text-sm text-slate-600 tnum">' + REQ.files.length + ' files</span></div>' + files + '</section>';
+    return '<div class="space-y-4">' + details + lines + att + '</div>';
+  }
+
+  function history() {
+    var evs = state.events.slice().reverse();
+    var rows = evs.map(function (e) {
+      var detail = '';
+      if (e.comment) detail = '<details><summary class="text-blue-700 hover:underline">View comment</summary><p class="mt-1 max-w-md whitespace-normal rounded bg-slate-50 p-2">' + esc(e.comment) + '</p></details>';
+      if (e.diff) detail = '<details><summary class="text-blue-700 hover:underline">View changes</summary><div class="mt-1 max-w-md whitespace-normal rounded bg-slate-50 p-2">' + e.diff.map(function (d) { return esc(d.f) + ': ' + esc(d.o) + ' → ' + esc(d.n); }).join('<br>') + '</div></details>';
+      return '<tr class="min-h-10 border-t border-slate-200 align-top"><td class="whitespace-nowrap px-3 py-2.5 tnum">' + stamp(e.at) + '</td><td class="whitespace-nowrap px-3 py-2.5">' + (e.who ? esc(USERS[e.who].name) : '<span class="text-slate-600">System</span>') + '</td><td class="px-3 py-2.5">' + esc(e.what) + '</td><td class="px-3 py-2.5">' + detail + '</td></tr>';
+    }).join('');
+    return '<section class="rounded-md border border-slate-200 bg-white" aria-labelledby="h-hist"><div class="flex items-center justify-between px-4 py-3"><h2 id="h-hist" class="text-base font-semibold">History</h2>' +
+      '<button type="button" data-act="exportcsv" class="' + BTN_OUTLINE + '">Export CSV</button></div>' +
+      '<div class="overflow-x-auto"><table class="w-full min-w-[620px] text-left"><thead class="bg-slate-50 text-xs font-medium text-slate-600"><tr class="h-9"><th scope="col" class="px-3 font-medium">When</th><th scope="col" class="px-3 font-medium">Who</th><th scope="col" class="px-3 font-medium">What</th><th scope="col" class="px-3 font-medium">Detail</th></tr></thead><tbody>' + rows + '</tbody></table></div>' +
+      '<p class="border-t border-slate-200 px-4 py-3 text-xs text-slate-600">History is read-only and kept for 7 years.</p></section>';
+  }
+
+  function stepsCard() {
+    var li = state.steps.map(function (s, i) {
+      var u = USERS[s.who];
+      var tone = STATUS_TONE[s.decision];
+      var dot = { success: 'bg-green-50 text-green-800', info: 'bg-blue-50 text-blue-800', danger: 'bg-red-50 text-red-800', neutral: 'bg-slate-100 text-slate-700' }[tone];
+      var ico = { success: 'check', info: 'clock', danger: 'x', neutral: 'circle' }[tone];
+      var last = i === state.steps.length - 1;
+      return '<li class="relative flex gap-3 ' + (last ? '' : 'pb-5') + '">' +
+        (last ? '' : '<span class="absolute left-3 top-6 bottom-0 w-px bg-slate-200" aria-hidden="true"></span>') +
+        '<span class="z-10 flex h-6 w-6 shrink-0 items-center justify-center rounded-full ' + dot + '">' + ic(ico, 'h-3.5 w-3.5') + '</span>' +
+        '<div class="min-w-0 flex-1"><div class="flex flex-wrap items-center gap-2"><p class="font-medium">Step ' + (i + 1) + ' · ' + esc(s.name) + '</p>' + badge(s.decision) + '</div>' +
+        '<p class="text-slate-600">' + esc(u.name) + ' · ' + esc(u.role) + '</p>' +
+        (s.at ? '<p class="text-xs text-slate-600 tnum"><time>' + stamp(s.at) + '</time></p>' : '') +
+        (s.note && s.decision === 'Not started' ? '<p class="mt-1 text-xs text-slate-600">' + esc(s.note) + '</p>' : '') +
+        (s.comment ? '<p class="mt-2 rounded border-l-2 ' + (s.decision === 'Rejected' ? 'border-red-300' : 'border-slate-300') + ' bg-slate-50 px-2 py-1.5">' + (s.decision === 'Rejected' ? '<span class="font-medium">Reason: </span>' : '') + esc(s.comment) + '</p>' : '') +
+        '</div></li>';
+    }).join('');
+    return '<section class="rounded-md border border-slate-200 bg-white p-4" aria-labelledby="h-steps"><h2 id="h-steps" class="mb-3 text-base font-semibold">Approval steps</h2><ol>' + li + '</ol></section>';
+  }
+
+  function decisionCard() {
+    var me = USERS[state.me];
+    var cur = currentStep();
+    var h = '<section class="rounded-md border border-slate-200 bg-white p-4" aria-labelledby="h-dec"><h2 id="h-dec" tabindex="-1" class="mb-2 text-base font-semibold">Decision</h2>';
+    if (isFinal()) {
+      var done = state.steps.filter(function (s) { return s.decision === 'Rejected'; })[0];
+      var last = state.steps.slice().reverse().filter(function (s) { return s.decision === 'Approved'; })[0];
+      if (state.status === 'Approved') h += '<p class="flex items-start gap-2">' + badge('Approved') + '</p><p class="mt-2">Approved by ' + esc(USERS[last.who].name) + ' on ' + stamp(last.at) + '. Reimbursement is queued for payment.</p>';
+      else if (state.status === 'Rejected') h += badge('Rejected') + '<p class="mt-2">Rejected by ' + esc(USERS[done.who].name) + ' on ' + stamp(done.at) + ' — Reason: ' + esc(done.comment) + '</p>' + (state.me === REQ.requester ? '<p class="mt-2 text-slate-600">Edit the request and resubmit it to start the approval again from step 1.</p>' : '');
+      else h += badge('Withdrawn') + '<p class="mt-2">Withdrawn by ' + esc(USERS[REQ.requester].name) + ' on ' + stamp(lastChange().at) + '. No further approval is needed.</p>';
+      return h + '</section>';
+    }
+    if (cur.who === state.me) {
+      var idx = state.steps.indexOf(cur) + 1;
+      var busy = !!state.submitting;
+      h += '<p class="mb-3 text-slate-600">You are the approver for step ' + idx + ' of ' + state.steps.length + ' (' + esc(cur.name) + '). Total ' + '<span class="tnum font-medium text-slate-900">' + money.format(total()) + '</span>.</p>' +
+        (state.submitError ? '<div role="alert" class="mb-3 flex items-start gap-2 rounded border border-red-300 bg-red-50 p-2 text-red-800">' + ic('circlex', 'mt-0.5 h-4 w-4 shrink-0') + '<span>' + esc(state.submitError) + '</span></div>' : '') +
+        '<label for="dec-comment" class="mb-1 block text-xs font-medium text-slate-700">Comment</label>' +
+        '<textarea id="dec-comment" rows="4" ' + (busy ? 'disabled' : '') + ' aria-describedby="dec-hint" class="w-full rounded border border-slate-300 px-2 py-1.5 disabled:bg-slate-50" placeholder="Add a note for the requester and the next approver">' + esc(state.comment) + '</textarea>' +
+        '<p id="dec-hint" class="mt-1 text-xs text-slate-600">Optional when approving. Required when rejecting; you will confirm the reason in the next step.</p>' +
+        '<div class="mt-3 flex justify-end gap-2"><button type="button" data-act="reject" ' + (busy ? 'disabled' : '') + ' class="' + BTN_REJECT + '">Reject</button>' +
+        '<button type="button" data-act="approve" ' + (busy ? 'disabled' : '') + ' class="' + BTN_PRIMARY + '">' + (state.submitting === 'approve' ? SPIN + 'Approving…' : 'Approve') + '</button></div>';
+    } else {
+      var w = USERS[cur.who];
+      h += '<p id="wait-reason" class="flex items-start gap-2">' + '<span class="mt-0.5 text-slate-600">' + ic('clock') + '</span><span>Waiting for ' + esc(w.name) + ' (' + esc(w.role) + ')</span></p>';
+      if (state.me === REQ.requester) {
+        h += '<div class="mt-3 flex justify-end"><button type="button" data-act="withdraw" class="' + BTN_OUTLINE + '">Withdraw request</button></div>';
+      } else {
+        h += '<p class="mt-2 text-xs text-slate-600">You can view this request but only the current approver can decide on it.</p>';
+      }
+    }
+    return h + '</section>';
+  }
+
+  function renderPage() {
+    var page = $('#page');
+    if (state.load === 'loading') { page.innerHTML = skeleton(); return; }
+    if (state.load === 'error') { page.innerHTML = errorState(); return; }
+    page.innerHTML = header() +
+      '<div class="grid items-start gap-4 lg:grid-cols-[minmax(0,1fr)_380px]"><div class="min-w-0">' + tabs() +
+      '<div role="tabpanel" id="panel-' + state.tab + '" aria-labelledby="tab-' + state.tab + '">' + (state.tab === 'overview' ? overview() : history()) + '</div></div>' +
+      '<div class="order-first space-y-4 lg:order-none lg:sticky lg:top-4"><div id="decision">' + decisionCard() + '</div>' + stepsCard() + '</div></div>';
+    hydrateIcons(page);
+    var ac = $('#account'); ac.textContent = USERS[state.me].ini;
+  }
+
+  /* ---------- loading ---------- */
+  async function load() {
+    state.load = 'loading'; renderPage();
+    await delay(550);
+    if (state.sim === 'load') { state.load = 'error'; } else { state.load = 'ready'; }
+    renderPage();
+  }
+
+  /* ---------- decisions ---------- */
+  function nowIso() { return new Date().toISOString(); }
+  async function approve() {
+    if (state.submitting) return;
+    state.submitting = 'approve'; state.submitError = ''; renderPage();
+    await delay(700);
+    state.submitting = null;
+    if (state.sim === 'submit') {
+      state.sim = 'normal'; $('#sim').value = 'normal';
+      state.submitError = 'Couldn\'t save your decision because the approvals service timed out. Your comment is kept. Try again.';
+      renderPage(); return;
+    }
+    var cur = currentStep(), i = state.steps.indexOf(cur), now = new Date();
+    cur.decision = 'Approved'; cur.at = now; cur.comment = state.comment.trim();
+    state.events.push({ at: now, who: state.me, what: 'Approved step ' + (i + 1), comment: cur.comment || undefined });
+    if (i + 1 < state.steps.length) {
+      var nx = state.steps[i + 1]; nx.decision = 'Current step';
+      state.events.push({ at: now, who: null, what: 'Step ' + (i + 2) + ' opened for ' + USERS[nx.who].name });
+      toast('Expense request EXP-2041 approved at step ' + (i + 1) + '. Now waiting for ' + USERS[nx.who].name + '.');
+    } else {
+      state.status = 'Approved';
+      state.events.push({ at: now, who: null, what: 'Request approved' });
+      toast('Expense request EXP-2041 approved. Reimbursement is queued.');
+    }
+    state.comment = '';
+    renderPage(); $('#h-dec').focus();
+  }
+  function rejectDialog(prefill) {
+    openModal('<form id="reject-form" novalidate class="p-4"><h2 id="dlg-title" class="text-base font-semibold">Reject expense request EXP-2041?</h2>' +
+      '<p class="mt-1 text-slate-600">The requester sees your reason and can edit and resubmit the request. Later approval steps are skipped.</p>' +
+      '<div id="rej-error" role="alert" class="mt-3 hidden rounded border border-red-300 bg-red-50 p-2 text-red-800"></div>' +
+      '<label for="rej-reason" class="mt-3 block text-xs font-medium text-slate-700">Reason <span aria-hidden="true">*</span><span class="sr-only">(required)</span></label>' +
+      '<textarea id="rej-reason" rows="4" required aria-describedby="rej-msg" class="mt-1 w-full rounded border border-slate-300 px-2 py-1.5">' + esc(prefill) + '</textarea>' +
+      '<p id="rej-msg" class="mt-1 hidden text-xs text-red-700"></p>' +
+      '<div class="mt-4 flex justify-end gap-2"><button type="button" id="rej-cancel" data-act="close" class="' + BTN_OUTLINE + '">Cancel</button>' +
+      '<button type="submit" id="rej-submit" class="' + BTN + ' bg-red-700 text-white hover:bg-red-800">Reject request</button></div></form>', '#rej-cancel');
+    var ta = $('#rej-reason');
+    function validate() {
+      var bad = ta.value.trim() === '';
+      ta.setAttribute('aria-invalid', bad); ta.classList.toggle('border-red-600', bad);
+      var m = $('#rej-msg'); m.classList.toggle('hidden', !bad); m.textContent = bad ? 'Enter a reason for rejecting this request.' : '';
+      return !bad;
+    }
+    ta.addEventListener('blur', validate);
+    ta.addEventListener('input', function () { if (ta.getAttribute('aria-invalid') === 'true') validate(); });
+    $('#reject-form').addEventListener('submit', async function (e) {
+      e.preventDefault();
+      if (!validate()) { ta.focus(); return; }
+      var btn = $('#rej-submit'), err = $('#rej-error');
+      btn.disabled = true; btn.innerHTML = SPIN + 'Rejecting…'; err.classList.add('hidden');
+      await delay(700);
+      if (state.sim === 'submit') {
+        state.sim = 'normal'; $('#sim').value = 'normal';
+        btn.disabled = false; btn.textContent = 'Reject request';
+        err.textContent = 'Couldn\'t save your decision because the approvals service timed out. Your reason is kept. Try again.'; err.classList.remove('hidden');
+        return;
+      }
+      var cur = currentStep(), i = state.steps.indexOf(cur), now = new Date(), reason = ta.value.trim();
+      cur.decision = 'Rejected'; cur.at = now; cur.comment = reason;
+      state.steps.slice(i + 1).forEach(function (s) { s.decision = 'Skipped'; });
+      state.status = 'Rejected'; state.comment = '';
+      state.events.push({ at: now, who: state.me, what: 'Rejected step ' + (i + 1), comment: reason });
+      closeModal(); toast('Expense request EXP-2041 rejected.');
+      renderPage(); $('#h-dec').focus();
+    });
+  }
+  function withdrawDialog() {
+    openModal('<div class="p-4"><h2 id="dlg-title" class="text-base font-semibold">Withdraw expense request EXP-2041?</h2>' +
+      '<p class="mt-1 text-slate-600">Approvers will no longer see it in their queue and the approval stops at step 2. You can duplicate the request later.</p>' +
+      '<div class="mt-4 flex justify-end gap-2"><button type="button" id="keep" data-act="close" class="' + BTN_OUTLINE + '">Keep request</button>' +
+      '<button type="button" data-act="withdraw-confirm" class="' + BTN + ' bg-red-700 text-white hover:bg-red-800">Withdraw request</button></div></div>', '#keep');
+  }
+  function previewDialog(i) {
+    var f = REQ.files[i], body;
+    if (f.preview === 'fail') {
+      body = '<div role="alert" class="flex items-start gap-2 rounded border border-red-300 bg-red-50 p-3 text-red-800">' + ic('circlex', 'mt-0.5 h-4 w-4 shrink-0') + '<div><p class="font-medium">Preview failed</p><p>This file could not be rendered. Download it to open it on your computer.</p></div></div>';
+    } else {
+      var bars = [90, 70, 82, 40, 76, 60].map(function (w) { return '<div class="mb-2 h-2 rounded bg-slate-200" style="width:' + w + '%"></div>'; }).join('');
+      body = '<div class="rounded border border-slate-200 bg-slate-50 p-6"><p class="mb-1 font-medium">' + (f.preview === 'img' ? 'Receipt · Nhà hàng Hải Sản Bé Mặn' : 'E-ticket · Vietjet Air · VJ512 HAN–DAD') + '</p><p class="mb-4 text-xs text-slate-600">Mock preview of ' + esc(f.name) + '</p>' + bars + '<p class="mt-4 text-right font-semibold tnum">' + (f.preview === 'img' ? money.format(2150000) : money.format(3280000)) + '</p></div>';
+    }
+    openModal('<div class="p-4"><h2 id="dlg-title" class="mb-3 truncate text-base font-semibold" title="' + esc(f.name) + '">' + esc(f.name) + '</h2>' + body +
+      '<p class="mt-2 text-xs text-slate-600">' + f.type + ' · <span class="tnum">' + fmtSize(f.kb) + '</span></p>' +
+      '<div class="mt-4 flex justify-end gap-2"><button type="button" data-act="download" data-i="' + i + '" aria-label="Download ' + esc(f.name) + '" class="' + BTN_OUTLINE + '">Download</button><button type="button" id="pv-close" data-act="close" class="' + BTN_PRIMARY + '">Close</button></div></div>', '#pv-close');
+  }
+
+  /* ---------- events ---------- */
+  document.addEventListener('click', function (e) {
+    var nav = e.target.closest('[data-nav], [data-nav-search]');
+    if (nav) {
+      e.preventDefault();
+      if (dirty()) {
+        openModal('<div class="p-4"><h2 id="dlg-title" class="text-base font-semibold">Discard your comment?</h2><p class="mt-1 text-slate-600">You typed a comment on expense request EXP-2041 that has not been sent with a decision. Leaving this page discards it.</p>' +
+          '<div class="mt-4 flex justify-end gap-2"><button type="button" id="stay" data-act="close" class="' + BTN_OUTLINE + '">Stay on page</button><button type="button" data-act="discard" class="' + BTN_PRIMARY + '">Discard and leave</button></div></div>', '#stay');
+      } else { toast('This demo page has no other screens to open.'); }
+      return;
+    }
+    if (e.target.matches('[data-overlay]')) { closeModal(); return; }
+    var b = e.target.closest('[data-act]');
+    if (!b) { if (state.menuOpen) { state.menuOpen = false; renderPage(); } return; }
+    var act = b.getAttribute('data-act');
+    if (act !== 'menu' && state.menuOpen) { state.menuOpen = false; }
+    switch (act) {
+      case 'retry': state.sim = 'normal'; $('#sim').value = 'normal'; load(); break;
+      case 'menu': state.menuOpen = !state.menuOpen; renderPage(); var mi = $('[role=menuitem]'); if (mi) mi.focus(); break;
+      case 'copylink': renderPage(); toast('Link to EXP-2041 copied.'); break;
+      case 'print': renderPage(); window.print(); break;
+      case 'tab': setTab(b.getAttribute('data-tab')); break;
+      case 'tab-history': setTab('history'); break;
+      case 'preview': previewDialog(+b.getAttribute('data-i')); break;
+      case 'download': toast('Downloading ' + REQ.files[+b.getAttribute('data-i')].name); break;
+      case 'exportcsv': toast('Exported ' + state.events.length + ' history entries for EXP-2041 to CSV.'); break;
+      case 'approve': approve(); break;
+      case 'reject': rejectDialog(state.comment); break;
+      case 'withdraw': withdrawDialog(); break;
+      case 'withdraw-confirm':
+        var cur = currentStep(), now = new Date();
+        state.steps.forEach(function (s) { if (s.decision === 'Current step' || s.decision === 'Not started') s.decision = 'Skipped'; });
+        state.status = 'Withdrawn'; state.events.push({ at: now, who: state.me, what: 'Withdrew request' });
+        closeModal(); renderPage(); toast('Expense request EXP-2041 withdrawn.'); break;
+      case 'discard': state.comment = ''; closeModal(); toast('Comment discarded.'); renderPage(); break;
+      case 'close': closeModal(); break;
+    }
+  });
+  function setTab(t) {
+    state.tab = t; renderPage();
+    try { history.replaceState(null, '', '?tab=' + t); } catch (e) { /* file:// */ }
+    var el = $('#tab-' + t); if (el) el.focus();
+  }
+  document.addEventListener('keydown', function (e) {
+    var t = e.target.closest && e.target.closest('[role=tab]');
+    if (t && (e.key === 'ArrowRight' || e.key === 'ArrowLeft')) { setTab(state.tab === 'overview' ? 'history' : 'overview'); }
+  });
+  document.addEventListener('input', function (e) { if (e.target.id === 'dec-comment') { state.comment = e.target.value; state.submitError = state.submitError; } });
+  $('#view-as').addEventListener('change', function (e) { state.me = e.target.value; state.comment = ''; state.submitError = ''; renderPage(); });
+  $('#sim').addEventListener('change', function (e) { state.sim = e.target.value; if (state.sim === 'load') load(); });
+  window.addEventListener('beforeunload', function (e) { if (dirty()) { e.preventDefault(); e.returnValue = ''; } });
+
+  hydrateIcons();
+  var q = (location.search.match(/tab=(history|overview)/) || [])[1]; if (q) state.tab = q;
+  load();
+})();
+</script>
+</body>
+</html>

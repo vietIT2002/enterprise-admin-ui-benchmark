@@ -1,0 +1,633 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Orders · Sales · Minh Phát ERP</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+  :focus-visible { outline: 2px solid #1d4ed8; outline-offset: 1px; }
+  dialog::backdrop { background: rgba(15, 23, 42, .4); }
+  @media (prefers-reduced-motion: reduce) { .animate-pulse { animation: none !important; } }
+  .tnum { font-variant-numeric: tabular-nums; }
+</style>
+</head>
+<body class="bg-white text-sm text-slate-900 antialiased" style="font-family: ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif">
+
+<div class="flex min-h-screen">
+  <!-- Sidebar -->
+  <aside class="w-14 shrink-0 border-r border-slate-200 bg-slate-50 lg:w-60">
+    <div class="flex h-12 items-center gap-2 border-b border-slate-200 px-3">
+      <span class="flex size-6 shrink-0 items-center justify-center rounded bg-slate-200 text-xs font-semibold text-slate-800" aria-hidden="true">MP</span>
+      <span class="hidden truncate font-semibold lg:inline">Minh Phát Trading</span>
+    </div>
+    <nav id="nav" aria-label="Main" class="flex flex-col gap-4 p-2"></nav>
+  </aside>
+
+  <div class="flex min-w-0 flex-1 flex-col">
+    <header class="flex h-12 items-center justify-end gap-1 border-b border-slate-200 px-4">
+      <button type="button" class="inline-flex size-8 items-center justify-center rounded text-slate-600 hover:bg-slate-100" aria-label="Help" id="hHelp"></button>
+      <button type="button" class="relative inline-flex size-8 items-center justify-center rounded text-slate-600 hover:bg-slate-100" aria-label="3 unread notifications" id="hBell"></button>
+      <button type="button" class="ml-1 inline-flex size-8 items-center justify-center rounded-full bg-slate-200 text-xs font-semibold text-slate-800" aria-label="Account menu">HN</button>
+    </header>
+
+    <main class="min-w-0 flex-1 p-6">
+      <!-- Page header -->
+      <div class="mb-4 flex flex-col gap-2">
+        <nav aria-label="Breadcrumb">
+          <ol class="flex items-center gap-1 text-sm text-slate-600">
+            <li><a href="#" class="inline-flex min-h-6 items-center hover:text-slate-900 hover:underline">Sales</a></li>
+            <li aria-hidden="true">/</li>
+            <li><span aria-current="page" class="text-slate-900">Orders</span></li>
+          </ol>
+        </nav>
+        <div class="flex flex-wrap items-center justify-between gap-2">
+          <h1 class="text-xl font-semibold">Orders</h1>
+          <div class="flex items-center gap-2">
+            <button type="button" id="btnImport" class="inline-flex h-8 items-center gap-1.5 rounded border border-slate-300 bg-white px-3 text-sm font-medium hover:bg-slate-50"></button>
+            <button type="button" id="btnExport" class="inline-flex h-8 items-center gap-1.5 rounded border border-slate-300 bg-white px-3 text-sm font-medium hover:bg-slate-50"></button>
+            <button type="button" id="btnCreate" class="inline-flex h-8 items-center gap-1.5 rounded bg-blue-700 px-3 text-sm font-medium text-white hover:bg-blue-800"></button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Status tabs -->
+      <nav id="tabs" aria-label="Order status" class="flex gap-5 overflow-x-auto border-b border-slate-200"></nav>
+
+      <!-- Filter row -->
+      <div class="flex flex-wrap items-center gap-2 pt-3">
+        <div class="relative">
+          <span id="icSearch" class="pointer-events-none absolute left-2 top-2 text-slate-500"></span>
+          <input id="q" type="search" aria-label="Search orders" placeholder="Search order no., customer, phone"
+                 class="h-8 w-80 rounded border border-slate-300 bg-white pl-8 pr-2 text-sm placeholder-slate-500" autocomplete="off">
+        </div>
+        <select id="fPayment" aria-label="Payment" class="h-8 rounded border border-slate-300 bg-white px-2 text-sm"></select>
+        <select id="fChannel" aria-label="Channel" class="h-8 rounded border border-slate-300 bg-white px-2 text-sm"></select>
+        <div class="relative" data-pop>
+          <button type="button" id="btnMore" aria-expanded="false" aria-controls="morePanel" class="inline-flex h-8 items-center gap-1.5 rounded border border-slate-300 bg-white px-3 text-sm font-medium hover:bg-slate-50"></button>
+          <div id="morePanel" hidden class="absolute left-0 top-9 z-30 w-80 rounded-lg border border-slate-200 bg-white shadow-lg" role="group" aria-label="More filters">
+            <div class="flex flex-col gap-3 p-4">
+              <label class="flex flex-col gap-1 font-medium">Salesperson
+                <select id="mRep" class="h-8 rounded border border-slate-300 bg-white px-2 text-sm font-normal"></select></label>
+              <div class="grid grid-cols-2 gap-3">
+                <label class="flex flex-col gap-1 font-medium">Ordered from
+                  <input id="mFrom" type="date" class="h-8 rounded border border-slate-300 px-2 text-sm font-normal"></label>
+                <label class="flex flex-col gap-1 font-medium">Ordered to
+                  <input id="mTo" type="date" class="h-8 rounded border border-slate-300 px-2 text-sm font-normal"></label>
+              </div>
+              <div class="grid grid-cols-2 gap-3">
+                <label class="flex flex-col gap-1 font-medium">Total from (VND)
+                  <input id="mMin" type="number" min="0" step="1000" inputmode="numeric" class="tnum h-8 rounded border border-slate-300 px-2 text-sm font-normal"></label>
+                <label class="flex flex-col gap-1 font-medium">Total to (VND)
+                  <input id="mMax" type="number" min="0" step="1000" inputmode="numeric" class="tnum h-8 rounded border border-slate-300 px-2 text-sm font-normal"></label>
+              </div>
+              <p id="mErr" class="text-sm text-red-700" hidden></p>
+            </div>
+            <div class="flex justify-end gap-2 border-t border-slate-200 px-4 py-3">
+              <button type="button" id="mReset" class="inline-flex h-8 items-center rounded border border-slate-300 bg-white px-3 text-sm font-medium hover:bg-slate-50">Reset</button>
+              <button type="button" id="mApply" class="inline-flex h-8 items-center rounded bg-blue-700 px-3 text-sm font-medium text-white hover:bg-blue-800">Apply</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Applied chips -->
+      <div id="chips" class="flex flex-wrap items-center gap-2 pt-2"></div>
+
+      <!-- Banner (partial failure) -->
+      <div id="banner" class="pt-3"></div>
+
+      <!-- Table card -->
+      <section class="mt-3 rounded-md border border-slate-200 bg-white" aria-label="Orders list">
+        <div id="strip" class="relative flex h-10 items-center justify-between gap-3 border-b border-slate-200 px-3"></div>
+        <div class="overflow-x-auto"><table id="tbl" class="w-full border-collapse text-sm"></table></div>
+        <div id="footer"></div>
+      </section>
+      <p id="live" role="status" class="sr-only"></p>
+    </main>
+  </div>
+</div>
+
+<!-- Floating UI -->
+<div id="menu" hidden data-pop role="menu" class="fixed z-40 w-52 rounded-md border border-slate-200 bg-white py-1 shadow-lg"></div>
+<div id="toasts" role="status" aria-live="polite" class="pointer-events-none fixed right-4 top-14 z-50 flex w-96 max-w-[calc(100vw-2rem)] flex-col gap-2"></div>
+<dialog id="dlg" class="w-[30rem] max-w-[calc(100vw-2rem)] rounded-lg border border-slate-200 p-0 text-slate-900 shadow-xl">
+  <div class="p-5">
+    <h2 id="dlgTitle" class="text-base font-semibold"></h2>
+    <div id="dlgBody" class="mt-2 text-sm text-slate-700"></div>
+  </div>
+  <div id="dlgActions" class="flex justify-end gap-2 border-t border-slate-200 px-5 py-3"></div>
+</dialog>
+
+<script>
+/* ---------- helpers ---------- */
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const norm = (s) => String(s).normalize('NFD').replace(/\p{Diacritic}/gu, '').replace(/đ/gi, 'd').toLowerCase();
+const nf = new Intl.NumberFormat('vi-VN');
+const vnd = new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' });
+const dateFmt = new Intl.DateTimeFormat('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' });
+const ICONS = {
+  search: '<circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/>',
+  x: '<path d="M18 6 6 18"/><path d="m6 6 12 12"/>',
+  down: '<path d="m6 9 6 6 6-6"/>', up: '<path d="m18 15-6-6-6 6"/>',
+  left: '<path d="m15 18-6-6 6-6"/>', right: '<path d="m9 18 6-6-6-6"/>',
+  more: '<circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/>',
+  plus: '<path d="M5 12h14"/><path d="M12 5v14"/>',
+  download: '<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m7 10 5 5 5-5"/><path d="M12 15V3"/>',
+  upload: '<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m17 8-5-5-5 5"/><path d="M12 3v12"/>',
+  filter: '<path d="M3 6h18"/><path d="M7 12h10"/><path d="M10 18h4"/>',
+  columns: '<rect width="18" height="18" x="3" y="3" rx="2"/><path d="M9 3v18"/><path d="M15 3v18"/>',
+  rows: '<path d="M3 6h18"/><path d="M3 12h18"/><path d="M3 18h18"/>',
+  alert: '<path d="m21.7 18-8-14a2 2 0 0 0-3.5 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.7-3"/><path d="M12 9v4"/><path d="M12 17h.01"/>',
+  check: '<path d="M20 6 9 17l-5-5"/>',
+  sort: '<path d="m7 15 5 5 5-5"/><path d="m7 9 5-5 5 5"/>',
+  bell: '<path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/>',
+  help: '<circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><path d="M12 17h.01"/>',
+  cart: '<circle cx="8" cy="21" r="1"/><circle cx="19" cy="21" r="1"/><path d="M2.05 2.05h2l2.66 12.42a2 2 0 0 0 2 1.58h9.78a2 2 0 0 0 1.95-1.57l1.65-7.43H5.12"/>',
+  file: '<path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M10 9H8"/><path d="M16 13H8"/><path d="M16 17H8"/>',
+  users: '<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>',
+  box: '<path d="m7.5 4.27 9 5.15"/><path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/><path d="m3.3 7 8.7 5 8.7-5"/><path d="M12 22V12"/>',
+  card: '<rect width="20" height="14" x="2" y="5" rx="2"/><path d="M2 10h20"/>',
+  chart: '<path d="M3 3v18h18"/><path d="M18 17V9"/><path d="M13 17V5"/><path d="M8 17v-3"/>'
+};
+const ic = (n, cls = '') => `<svg class="size-4 shrink-0 ${cls}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICONS[n]}</svg>`;
+
+/* ---------- shell ---------- */
+const NAV = [
+  ['Sales', [['Orders', 'cart', true], ['Quotations', 'file'], ['Customers', 'users']]],
+  ['Inventory', [['Products', 'box'], ['Stock levels', 'rows']]],
+  ['Finance', [['Invoices', 'file'], ['Payments', 'card'], ['Reports', 'chart']]]
+];
+$('nav').innerHTML = NAV.map(([g, items]) => `<div class="flex flex-col gap-0.5">
+  <p class="hidden px-2 py-1 text-xs font-medium text-slate-600 lg:block">${g}</p>
+  ${items.map(([l, i, a]) => `<a href="#" title="${l}" ${a ? 'aria-current="page"' : ''} class="flex h-8 items-center gap-2 rounded px-2 text-sm text-slate-700 hover:bg-slate-200/60 ${a ? 'bg-slate-200/70 font-medium text-slate-900' : ''}">${ic(i)}<span class="hidden truncate lg:inline">${l}</span></a>`).join('')}
+</div>`).join('');
+$('hHelp').innerHTML = ic('help'); $('hBell').innerHTML = ic('bell') + '<span class="absolute right-1 top-1 size-2 rounded-full bg-red-600" aria-hidden="true"></span>';
+$('icSearch').innerHTML = ic('search');
+$('btnImport').innerHTML = ic('upload') + 'Import';
+$('btnExport').innerHTML = ic('download') + 'Export';
+$('btnCreate').innerHTML = ic('plus') + 'Create order';
+
+/* ---------- vocabulary ---------- */
+const TONES = {
+  neutral: 'bg-slate-100 text-slate-700', info: 'bg-blue-50 text-blue-800',
+  success: 'bg-green-50 text-green-800', warning: 'bg-amber-50 text-amber-800', danger: 'bg-red-50 text-red-800'
+};
+const STATUS = { Draft: 'neutral', Pending: 'info', Shipping: 'info', Completed: 'success', 'On hold': 'warning', Cancelled: 'neutral' };
+const PAYMENT = { Unpaid: 'warning', Partial: 'info', Paid: 'success', Overdue: 'danger', Refunded: 'neutral' };
+const badge = (t, tone) => `<span class="inline-flex h-6 items-center rounded-full px-2 text-xs font-medium ${TONES[tone]}">${esc(t)}</span>`;
+const CHANNELS = ['Direct sales', 'Distributor', 'Online store', 'Marketplace'];
+const REPS = ['Nguyễn Thị Hoa', 'Trần Minh Quân', 'Lê Hoàng Nam', 'Phạm Thu Hà', 'Đặng Quốc Việt', 'Võ Ngọc Anh'];
+const STATUS_ORDER = ['Draft', 'Pending', 'Shipping', 'Completed', 'On hold', 'Cancelled'];
+
+/* ---------- mock data (seeded, stable between reloads) ---------- */
+const CUSTOMERS = [
+  ['Công ty TNHH Minh Phát', '0903 112 458'], ['Công ty CP Thương mại Đông Á', '0912 884 301'], ['Nhà phân phối Hoàng Long', '0987 330 019'],
+  ['Công ty TNHH Xây dựng Việt Tiến', '0938 207 764'], ['Cửa hàng Bách hóa Ngọc Lan', '0976 541 220'], ['Công ty CP Dược phẩm An Khang', '0908 993 175'],
+  ['Siêu thị Mini Phương Nam', '0916 402 688'], ['Công ty TNHH Cơ khí Đại Dương', '0902 775 143'], ['Đại lý Vật tư Hải Âu', '0945 118 392'],
+  ['Công ty CP Nội thất Bảo Châu', '0933 660 827'], ['Nguyễn Văn Dương (bán lẻ)', '0977 214 905'], ['Công ty TNHH Thực phẩm Sạch Xanh', '0989 506 431'],
+  ['Trung tâm Điện máy Thành Công', '0919 337 760'], ['Công ty CP Logistics Đường Việt', '0906 428 119'], ['Công ty TNHH In ấn Hồng Phúc', '0932 871 504'],
+  ['Cửa hàng Thiết bị Lê Gia', '0964 205 338'], ['Công ty CP Du lịch Sao Biển', '0972 640 291'], ['Công ty TNHH Điện lạnh Trường Sơn', '0908 119 872']
+];
+const ALL = (() => {
+  let seed = 20261104; const rnd = () => (seed = (seed * 1664525 + 1013904223) % 4294967296) / 4294967296;
+  const pick = (a) => a[Math.floor(rnd() * a.length)];
+  const now = new Date(2026, 10, 4, 16, 30).getTime(); const N = 148; const rows = [];
+  for (let i = 0; i < N; i++) {
+    const age = Math.floor(i * 96 / N + rnd() * 0.8);
+    const ts = now - age * 864e5 - Math.floor(rnd() * 8 * 36e5);
+    let status;
+    if (age <= 3) status = pick(['Draft', 'Pending', 'Pending', 'Shipping', 'On hold']);
+    else if (age <= 14) status = pick(['Pending', 'Shipping', 'Shipping', 'Completed', 'On hold', 'Cancelled']);
+    else status = pick(['Completed', 'Completed', 'Completed', 'Completed', 'Completed', 'Cancelled', 'On hold']);
+    let payment;
+    if (status === 'Completed') payment = rnd() < .88 ? 'Paid' : (age > 30 ? 'Overdue' : 'Unpaid');
+    else if (status === 'Cancelled') payment = pick(['Unpaid', 'Refunded']);
+    else if (status === 'Shipping') payment = pick(['Paid', 'Partial', 'Unpaid']);
+    else payment = pick(['Unpaid', 'Unpaid', 'Partial']);
+    const c = pick(CUSTOMERS);
+    rows.push({ ts, status, payment, customer: c[0], phone: c[1], channel: pick(CHANNELS), rep: pick(REPS),
+      total: Math.round((Math.pow(rnd(), 2) * 150e6 + 800e3) / 1000) * 1000 });
+  }
+  rows.sort((a, b) => b.ts - a.ts).forEach((r, i) => { r.num = 1148 - i; r.id = 'DH-' + r.num; });
+  return rows;
+})();
+let DATA = ALL;
+
+/* ---------- state ---------- */
+const DEFAULTS = { q: '', status: [], payment: [], channel: [], rep: [], from: '', to: '', min: '', max: '', sort: '-date', page: 1, size: 25 };
+let S = { ...DEFAULTS };
+let phase = 'loading'; let urlState = '';
+let sel = new Set(); let allMatching = false; let banner = null;
+let compact = localStorage.getItem('orders.compact') === '1';
+let COLS = [
+  { id: 'id', label: 'Order no.', show: true, sort: 'id', locked: true },
+  { id: 'customer', label: 'Customer', show: true, sort: 'customer' },
+  { id: 'status', label: 'Status', show: true },
+  { id: 'payment', label: 'Payment', show: true },
+  { id: 'date', label: 'Order date', show: true, sort: 'date' },
+  { id: 'channel', label: 'Channel', show: true },
+  { id: 'rep', label: 'Salesperson', show: false },
+  { id: 'total', label: 'Total (VND)', show: true, sort: 'total', right: true }
+];
+try { const saved = JSON.parse(localStorage.getItem('orders.cols') || 'null'); if (saved) { COLS = saved.map((s) => ({ ...COLS.find((c) => c.id === s.id), show: s.show })).filter((c) => c.id); } } catch (e) {}
+
+function parseURL() {
+  const p = new URLSearchParams(location.search); const s = { ...DEFAULTS };
+  s.q = p.get('q') || '';
+  s.status = p.getAll('status').filter((v) => STATUS_ORDER.includes(v));
+  s.payment = p.getAll('payment').filter((v) => v in PAYMENT);
+  s.channel = p.getAll('channel').filter((v) => CHANNELS.includes(v));
+  s.rep = p.getAll('rep').filter((v) => REPS.includes(v));
+  const iso = (v) => (/^\d{4}-\d{2}-\d{2}$/.test(v || '') ? v : '');
+  s.from = iso(p.get('from')); s.to = iso(p.get('to'));
+  const num = (v) => (/^\d+$/.test(v || '') ? v : '');
+  s.min = num(p.get('min')); s.max = num(p.get('max'));
+  const sort = p.get('sort') || '-date';
+  s.sort = ['id', 'customer', 'date', 'total'].includes(sort.replace('-', '')) ? sort : '-date';
+  s.page = Math.max(1, parseInt(p.get('page'), 10) || 1);
+  s.size = [25, 50, 100].includes(parseInt(p.get('size'), 10)) ? parseInt(p.get('size'), 10) : 25;
+  urlState = p.get('state') || '';
+  return s;
+}
+function syncURL(push) {
+  const p = new URLSearchParams();
+  if (S.q) p.set('q', S.q);
+  ['status', 'payment', 'channel', 'rep'].forEach((k) => S[k].forEach((v) => p.append(k, v)));
+  ['from', 'to', 'min', 'max'].forEach((k) => S[k] && p.set(k, S[k]));
+  if (S.sort !== DEFAULTS.sort) p.set('sort', S.sort);
+  if (S.page > 1) p.set('page', S.page);
+  if (S.size !== DEFAULTS.size) p.set('size', S.size);
+  if (urlState) p.set('state', urlState);
+  const qs = p.toString(); const url = location.pathname + (qs ? '?' + qs : '');
+  history[push ? 'pushState' : 'replaceState'](null, '', url);
+}
+function setState(patch, push = false) {
+  Object.assign(S, patch);
+  if (!('page' in patch)) S.page = 1;
+  sel.clear(); allMatching = false; banner = null;
+  syncURL(push); render();
+}
+
+/* ---------- querying ---------- */
+function matches(o, skipStatus) {
+  if (S.q) { const hay = norm(o.id + ' ' + o.customer + ' ' + o.phone + ' ' + o.rep); if (!norm(S.q).split(/\s+/).every((t) => hay.includes(t))) return false; }
+  if (!skipStatus && S.status.length && !S.status.includes(o.status)) return false;
+  if (S.payment.length && !S.payment.includes(o.payment)) return false;
+  if (S.channel.length && !S.channel.includes(o.channel)) return false;
+  if (S.rep.length && !S.rep.includes(o.rep)) return false;
+  if (S.from && o.ts < new Date(S.from + 'T00:00:00').getTime()) return false;
+  if (S.to && o.ts > new Date(S.to + 'T23:59:59').getTime()) return false;
+  if (S.min && o.total < +S.min) return false;
+  if (S.max && o.total > +S.max) return false;
+  return true;
+}
+function sorted(list) {
+  const desc = S.sort.startsWith('-'); const k = S.sort.replace('-', '');
+  const val = { id: (o) => o.num, customer: (o) => o.customer, date: (o) => o.ts, total: (o) => o.total }[k];
+  const cmp = (a, b) => { const x = val(a), y = val(b); return typeof x === 'string' ? x.localeCompare(y, 'vi') : x - y; };
+  return list.slice().sort((a, b) => (desc ? -cmp(a, b) : cmp(a, b)));
+}
+
+/* ---------- render ---------- */
+function render() {
+  renderControls(); renderTabs(); renderChips(); renderBanner();
+  const filtered = phase === 'ready' ? sorted(DATA.filter((o) => matches(o))) : [];
+  const pages = Math.max(1, Math.ceil(filtered.length / S.size));
+  if (S.page > pages) S.page = pages;
+  const start = (S.page - 1) * S.size; const pageRows = filtered.slice(start, start + S.size);
+  renderStrip(filtered, pageRows); renderTable(filtered, pageRows); renderFooter(filtered, pages, start, pageRows);
+  if (phase === 'ready') $('live').textContent = filtered.length ? `${nf.format(filtered.length)} orders match` : 'No orders match';
+  window.__filtered = filtered; window.__pageRows = pageRows;
+}
+function renderControls() {
+  if (document.activeElement !== $('q')) $('q').value = S.q;
+  const opt = (label, list, cur) => `<option value="">${label}</option>` + list.map((v) => `<option ${cur === v ? 'selected' : ''}>${esc(v)}</option>`).join('');
+  $('fPayment').innerHTML = opt('Payment: all', Object.keys(PAYMENT), S.payment[0]);
+  $('fChannel').innerHTML = opt('Channel: all', CHANNELS, S.channel[0]);
+  const extra = (S.rep.length ? 1 : 0) + (S.from || S.to ? 1 : 0) + (S.min || S.max ? 1 : 0);
+  $('btnMore').innerHTML = ic('filter') + `More filters${extra ? ` (${extra})` : ''}` + ic('down');
+}
+function renderTabs() {
+  const base = phase === 'ready' ? DATA.filter((o) => matches(o, true)) : null;
+  const count = (st) => (base ? base.filter((o) => !st || o.status === st).length : null);
+  const tabs = [['All', null], ...STATUS_ORDER.map((s) => [s, s])];
+  $('tabs').innerHTML = tabs.map(([label, st]) => {
+    const active = st ? (S.status.length === 1 && S.status[0] === st) : S.status.length === 0;
+    const c = count(st);
+    return `<button type="button" data-tab="${st || ''}" ${active ? 'aria-current="true"' : ''} class="-mb-px inline-flex h-10 shrink-0 items-center gap-1.5 border-b-2 px-0.5 text-sm ${active ? 'border-blue-700 font-medium text-slate-900' : 'border-transparent text-slate-700 hover:text-slate-900'}">${label}${c === null || !DATA.length ? '' : `<span class="tnum font-normal text-slate-600">${nf.format(c)}</span>`}</button>`;
+  }).join('');
+}
+function chipList() {
+  const c = [];
+  if (S.q) c.push({ k: 'q', label: `Search: ${S.q}` });
+  S.status.forEach((v) => c.push({ k: 'status', v, label: `Status: ${v}` }));
+  S.payment.forEach((v) => c.push({ k: 'payment', v, label: `Payment: ${v}` }));
+  S.channel.forEach((v) => c.push({ k: 'channel', v, label: `Channel: ${v}` }));
+  S.rep.forEach((v) => c.push({ k: 'rep', v, label: `Salesperson: ${v}` }));
+  if (S.from || S.to) c.push({ k: 'date', label: `Ordered: ${S.from ? dateFmt.format(new Date(S.from + 'T00:00')) : '…'} – ${S.to ? dateFmt.format(new Date(S.to + 'T00:00')) : '…'}` });
+  if (S.min || S.max) c.push({ k: 'amount', label: `Total: ${S.min ? nf.format(S.min) : '0'} – ${S.max ? nf.format(S.max) : '…'} ₫` });
+  return c;
+}
+function renderChips() {
+  const chips = chipList();
+  $('chips').hidden = !chips.length;
+  $('chips').innerHTML = chips.map((c, i) => `<span class="inline-flex h-6 items-center gap-1 rounded-full border border-slate-300 bg-slate-50 pl-2.5 pr-0.5 text-xs font-medium text-slate-800">${esc(c.label)}<button type="button" data-chip="${i}" aria-label="Remove filter ${esc(c.label)}" class="inline-flex size-6 items-center justify-center rounded-full hover:bg-slate-200">${ic('x')}</button></span>`).join('')
+    + (chips.length ? `<button type="button" id="clearAll" class="inline-flex h-6 items-center px-1 text-sm font-medium text-blue-700 hover:underline">Clear all</button>` : '');
+}
+function renderBanner() {
+  if (!banner) { $('banner').innerHTML = ''; return; }
+  const b = banner;
+  $('banner').innerHTML = `<div role="status" class="flex items-center gap-2 rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-amber-900">${ic('alert')}<span class="font-medium">${esc(b.label)}: ${b.ok} updated, ${b.failed.length} failed</span>
+    <button type="button" id="viewFailed" class="font-medium underline">View failed (${b.failed.length})</button>
+    <button type="button" id="dismissBanner" class="ml-auto inline-flex size-6 items-center justify-center rounded hover:bg-amber-100" aria-label="Dismiss message">${ic('x')}</button></div>`;
+}
+function renderStrip(filtered, pageRows) {
+  const strip = $('strip'); const n = allMatching ? filtered.length : sel.size;
+  if (phase === 'ready' && n > 0) {
+    const pageAll = pageRows.length && pageRows.every((o) => sel.has(o.id));
+    strip.className = 'relative flex h-10 items-center gap-3 border-b border-blue-200 bg-blue-50 px-3 text-blue-950';
+    strip.innerHTML = `<span class="tnum font-medium">${nf.format(n)} selected</span>
+      ${!allMatching && pageAll && filtered.length > pageRows.length ? `<button type="button" id="selAll" class="font-medium text-blue-700 underline">Select all ${nf.format(filtered.length)} matching</button>` : ''}
+      ${allMatching ? `<span>All ${nf.format(filtered.length)} matching selected</span><button type="button" id="selClear" class="font-medium text-blue-700 underline">Clear selection</button>` : ''}
+      <span class="mx-1 h-5 w-px bg-blue-200"></span>
+      <button type="button" data-bulk="confirm" class="inline-flex h-8 items-center rounded border border-slate-300 bg-white px-3 font-medium text-slate-900 hover:bg-slate-50">Confirm orders</button>
+      <button type="button" data-bulk="ship" class="inline-flex h-8 items-center rounded border border-slate-300 bg-white px-3 font-medium text-slate-900 hover:bg-slate-50">Mark as shipped</button>
+      <button type="button" data-bulk="export" class="inline-flex h-8 items-center gap-1.5 rounded border border-slate-300 bg-white px-3 font-medium text-slate-900 hover:bg-slate-50">${ic('download')}Export selected</button>
+      <button type="button" id="bulkMore" aria-haspopup="menu" class="inline-flex h-8 items-center gap-1 rounded border border-slate-300 bg-white px-3 font-medium text-slate-900 hover:bg-slate-50">More${ic('down')}</button>
+      <button type="button" id="bulkCancel" class="ml-auto inline-flex h-8 items-center rounded px-3 font-medium text-blue-700 hover:bg-blue-100">Cancel</button>`;
+    return;
+  }
+  strip.className = 'relative flex h-10 items-center justify-between gap-3 border-b border-slate-200 px-3';
+  const total = filtered.reduce((s, o) => s + o.total, 0);
+  const hidden = COLS.filter((c) => !c.show).length;
+  const summary = phase === 'ready' && DATA.length ? `<span class="tnum text-slate-700">${nf.format(filtered.length)} orders · ${vnd.format(total)}</span>` : `<span class="text-slate-700">${phase === 'loading' ? 'Loading orders…' : 'Orders'}</span>`;
+  strip.innerHTML = `${summary}
+    <div class="flex items-center gap-1">
+      <div class="relative" data-pop>
+        <button type="button" id="btnCols" aria-expanded="false" aria-controls="colsPanel" class="inline-flex h-8 items-center gap-1.5 rounded px-2 font-medium text-slate-800 hover:bg-slate-100">${ic('columns')}Columns${hidden ? ` (${hidden} hidden)` : ''}</button>
+        <div id="colsPanel" hidden class="absolute right-0 top-9 z-30 w-64 rounded-lg border border-slate-200 bg-white p-2 shadow-lg" role="group" aria-label="Columns"></div>
+      </div>
+      <button type="button" id="btnDensity" aria-pressed="${compact}" class="inline-flex h-8 items-center gap-1.5 rounded px-2 font-medium ${compact ? 'bg-slate-100' : ''} text-slate-800 hover:bg-slate-100">${ic('rows')}Compact</button>
+    </div>`;
+}
+function renderColsPanel() {
+  const vis = COLS.length;
+  $('colsPanel').innerHTML = COLS.map((c, i) => `<div class="flex h-8 items-center gap-2 rounded px-2 hover:bg-slate-50">
+    <label class="flex flex-1 cursor-pointer items-center gap-2"><input type="checkbox" data-col="${c.id}" ${c.show ? 'checked' : ''} ${c.locked ? 'disabled' : ''} class="size-4 accent-blue-700"> ${esc(c.label)}</label>
+    <button type="button" data-colmove="${i}" data-dir="-1" ${i === 0 ? 'disabled' : ''} aria-label="Move ${esc(c.label)} up" class="inline-flex size-6 items-center justify-center rounded text-slate-700 hover:bg-slate-100 disabled:opacity-40">${ic('up')}</button>
+    <button type="button" data-colmove="${i}" data-dir="1" ${i === vis - 1 ? 'disabled' : ''} aria-label="Move ${esc(c.label)} down" class="inline-flex size-6 items-center justify-center rounded text-slate-700 hover:bg-slate-100 disabled:opacity-40">${ic('down')}</button></div>`).join('');
+}
+function cellHTML(c, o) {
+  switch (c.id) {
+    case 'id': return `<a href="#" data-open="${o.id}" class="font-medium text-blue-700 hover:underline">${o.id}</a>`;
+    case 'customer': return esc(o.customer);
+    case 'status': return badge(o.status, STATUS[o.status]);
+    case 'payment': return badge(o.payment, PAYMENT[o.payment]);
+    case 'date': return dateFmt.format(o.ts);
+    case 'channel': return esc(o.channel);
+    case 'rep': return esc(o.rep);
+    case 'total': return nf.format(o.total);
+  }
+}
+function renderTable(filtered, pageRows) {
+  const cols = COLS.filter((c) => c.show); const span = cols.length + 2;
+  const n = allMatching ? filtered.length : sel.size;
+  const rowH = compact ? 'h-8' : 'h-10';
+  const sortKey = S.sort.replace('-', ''); const desc = S.sort.startsWith('-');
+  const pageAll = pageRows.length > 0 && pageRows.every((o) => sel.has(o.id));
+  const head = cols.map((c) => {
+    const sorted = c.sort && sortKey === c.sort;
+    const aria = sorted ? ` aria-sort="${desc ? 'descending' : 'ascending'}"` : '';
+    const icon = c.sort ? (sorted ? ic(desc ? 'down' : 'up') : ic('sort', 'opacity-0 group-hover:opacity-100 group-focus-visible:opacity-100 text-slate-500')) : '';
+    const inner = c.sort ? `<button type="button" data-sort="${c.sort}" class="group inline-flex ${c.right ? 'flex-row-reverse' : ''} items-center gap-1 font-medium">${esc(c.label)}${icon}</button>` : esc(c.label);
+    return `<th scope="col"${aria} class="h-10 whitespace-nowrap px-3 font-medium text-slate-800 ${c.right ? 'text-right' : 'text-left'}">${inner}</th>`;
+  }).join('');
+  const thead = `<thead class="border-b border-slate-200 bg-slate-50"><tr>
+    <th scope="col" class="h-10 w-10 px-3"><input id="selPage" type="checkbox" aria-label="Select all rows on this page" class="size-4 accent-blue-700" ${pageAll ? 'checked' : ''} ${phase === 'ready' && pageRows.length ? '' : 'disabled'}></th>
+    ${head}<th scope="col" class="h-10 w-28 px-3 text-right"><span class="sr-only">Actions</span></th></tr></thead>`;
+  let body = '';
+  if (phase === 'loading') {
+    body = Array.from({ length: 10 }, () => `<tr class="${rowH} border-b border-slate-100" aria-hidden="true"><td class="px-3"><div class="size-4 rounded bg-slate-200 animate-pulse"></div></td>${cols.map((c) => `<td class="px-3"><div class="h-4 ${c.right ? 'ml-auto w-20' : 'w-3/4'} rounded bg-slate-200 animate-pulse"></div></td>`).join('')}<td class="px-3"></td></tr>`).join('');
+  } else if (phase === 'error') {
+    body = `<tr><td colspan="${span}" class="px-6 py-12 text-center"><p class="flex items-center justify-center gap-2 text-base font-medium">${ic('alert', 'text-red-700')}Couldn't load orders</p><p class="mt-1 text-slate-700">Check your connection and try again.</p><button type="button" id="retry" class="mt-4 inline-flex h-8 items-center rounded border border-slate-300 bg-white px-3 font-medium hover:bg-slate-50">Retry</button></td></tr>`;
+  } else if (!DATA.length) {
+    body = `<tr><td colspan="${span}" class="px-6 py-12 text-center"><p class="text-base font-medium">No orders yet</p><p class="mx-auto mt-1 max-w-sm text-slate-700">Orders from every sales channel appear here once they are created.</p><button type="button" id="emptyCreate" class="mt-4 inline-flex h-8 items-center gap-1.5 rounded bg-blue-700 px-3 font-medium text-white hover:bg-blue-800">${ic('plus')}Create order</button></td></tr>`;
+  } else if (!filtered.length) {
+    body = `<tr><td colspan="${span}" class="px-6 py-12 text-center"><p class="text-base font-medium">${S.q ? `No orders match “${esc(S.q)}”` : 'No orders match these filters'}</p><p class="mt-1 text-slate-700">Check the spelling or widen the date range.</p><button type="button" id="emptyClear" class="mt-4 inline-flex h-8 items-center rounded border border-slate-300 bg-white px-3 font-medium hover:bg-slate-50">Clear filters</button></td></tr>`;
+  } else {
+    body = pageRows.map((o) => {
+      const on = allMatching || sel.has(o.id);
+      return `<tr class="${rowH} border-b border-slate-100 ${on ? 'bg-blue-50' : 'hover:bg-slate-50'}">
+        <td class="px-3"><input type="checkbox" data-row="${o.id}" aria-label="Select order ${o.id}" class="size-4 accent-blue-700" ${on ? 'checked' : ''}></td>
+        ${cols.map((c) => `<td class="whitespace-nowrap px-3 ${c.right ? 'tnum text-right' : 'text-left'}">${cellHTML(c, o)}</td>`).join('')}
+        <td class="px-3 text-right"><div class="flex items-center justify-end gap-1">
+          <button type="button" data-edit="${o.id}" aria-label="Edit order ${o.id}" ${n ? 'disabled' : ''} class="inline-flex h-6 items-center rounded px-2 font-medium text-blue-700 hover:bg-slate-100 disabled:text-slate-500 disabled:hover:bg-transparent">Edit</button>
+          <button type="button" data-rowmenu="${o.id}" aria-label="Actions for order ${o.id}" aria-haspopup="menu" ${n ? 'disabled' : ''} class="inline-flex size-8 items-center justify-center rounded text-slate-700 hover:bg-slate-100 disabled:text-slate-400 disabled:hover:bg-transparent">${ic('more')}</button></div></td></tr>`;
+    }).join('');
+  }
+  const t = $('tbl'); t.setAttribute('aria-busy', phase === 'loading');
+  t.innerHTML = thead + `<tbody>${body}</tbody>`;
+  const sp = $('selPage'); if (sp) sp.indeterminate = !pageAll && pageRows.some((o) => sel.has(o.id));
+}
+function renderFooter(filtered, pages, start, pageRows) {
+  const f = $('footer');
+  if (phase !== 'ready' || !filtered.length) { f.innerHTML = ''; return; }
+  const btn = 'inline-flex size-8 items-center justify-center rounded border text-sm';
+  const nums = []; const cur = S.page;
+  for (let p = 1; p <= pages; p++) if (p === 1 || p === pages || Math.abs(p - cur) <= 1) nums.push(p); else if (nums[nums.length - 1] !== '…') nums.push('…');
+  f.innerHTML = `<div class="flex h-12 flex-wrap items-center justify-between gap-3 border-t border-slate-200 px-3">
+    <span class="tnum text-slate-700">${nf.format(start + 1)}–${nf.format(start + pageRows.length)} of ${nf.format(filtered.length)}</span>
+    <div class="flex items-center gap-3">
+      <label class="flex items-center gap-2 text-slate-700">Rows per page
+        <select id="pageSize" class="h-8 rounded border border-slate-300 bg-white px-2 text-sm text-slate-900">${[25, 50, 100].map((v) => `<option ${v === S.size ? 'selected' : ''}>${v}</option>`).join('')}</select></label>
+      <nav aria-label="Pagination" class="flex items-center gap-1">
+        <button type="button" data-page="${cur - 1}" ${cur === 1 ? 'disabled' : ''} aria-label="Previous page" class="${btn} border-slate-300 bg-white hover:bg-slate-50 disabled:text-slate-400 disabled:hover:bg-white">${ic('left')}</button>
+        ${nums.map((p) => p === '…' ? '<span class="px-1 text-slate-600">…</span>' : `<button type="button" data-page="${p}" ${p === cur ? 'aria-current="page"' : ''} class="${btn} tnum ${p === cur ? 'border-blue-700 bg-blue-700 font-medium text-white' : 'border-transparent hover:bg-slate-100'}" aria-label="Page ${p}">${p}</button>`).join('')}
+        <button type="button" data-page="${cur + 1}" ${cur === pages ? 'disabled' : ''} aria-label="Next page" class="${btn} border-slate-300 bg-white hover:bg-slate-50 disabled:text-slate-400 disabled:hover:bg-white">${ic('right')}</button>
+      </nav></div></div>`;
+}
+
+/* ---------- loading ---------- */
+function load(delay = 500) {
+  phase = 'loading'; DATA = urlState === 'empty' ? [] : ALL; render();
+  if (urlState === 'loading') return;
+  setTimeout(() => { phase = urlState === 'error' ? 'error' : 'ready'; render(); }, delay);
+}
+
+/* ---------- popovers, menu, toast, dialog ---------- */
+function closePops(except) {
+  ['morePanel', 'colsPanel'].forEach((id) => { const p = $(id); if (p && id !== except && !p.hidden) { p.hidden = true; const t = id === 'morePanel' ? $('btnMore') : $('btnCols'); if (t) t.setAttribute('aria-expanded', 'false'); } });
+  if (except !== 'menu') $('menu').hidden = true;
+}
+function showMenu(anchor, items) {
+  closePops('menu'); const m = $('menu');
+  m.innerHTML = items.map((it, i) => it.sep ? '<div class="my-1 h-px bg-slate-200" role="separator"></div>'
+    : `<button type="button" role="menuitem" data-mi="${i}" class="flex h-8 w-full items-center px-3 text-left text-sm hover:bg-slate-50 ${it.danger ? 'text-red-700' : 'text-slate-900'}">${esc(it.label)}</button>`).join('');
+  m.hidden = false; const r = anchor.getBoundingClientRect(); const h = m.offsetHeight;
+  m.style.left = Math.max(8, Math.min(r.right - 208, innerWidth - 216)) + 'px';
+  m.style.top = (r.bottom + h + 8 > innerHeight ? r.top - h - 4 : r.bottom + 4) + 'px';
+  m._items = items; m._anchor = anchor; m.querySelector('button')?.focus();
+}
+function toast(msg) {
+  const t = document.createElement('div');
+  t.className = 'pointer-events-auto flex items-start gap-2 rounded-md border border-slate-200 bg-white px-3 py-2 shadow-lg';
+  t.innerHTML = `<span class="mt-0.5 text-green-700">${ic('check')}</span><span class="flex-1">${esc(msg)}</span><button type="button" aria-label="Dismiss notification" class="inline-flex size-6 items-center justify-center rounded text-slate-700 hover:bg-slate-100">${ic('x')}</button>`;
+  $('toasts').appendChild(t);
+  let timer; const arm = () => { timer = setTimeout(() => t.remove(), 5000); };
+  arm(); t.addEventListener('mouseenter', () => clearTimeout(timer)); t.addEventListener('mouseleave', arm);
+  t.addEventListener('focusin', () => clearTimeout(timer)); t.addEventListener('focusout', arm);
+  t.querySelector('button').onclick = () => t.remove();
+}
+function openDialog({ title, body, actions }) {
+  $('dlgTitle').textContent = title; $('dlgBody').innerHTML = body;
+  $('dlgActions').innerHTML = '';
+  actions.forEach((a) => {
+    const b = document.createElement('button'); b.type = 'button'; b.textContent = a.label;
+    b.className = 'inline-flex h-8 items-center rounded px-3 text-sm font-medium ' + (a.kind === 'danger' ? 'bg-red-700 text-white hover:bg-red-800' : a.kind === 'primary' ? 'bg-blue-700 text-white hover:bg-blue-800' : 'border border-slate-300 bg-white hover:bg-slate-50');
+    if (a.autofocus) b.autofocus = true;
+    b.onclick = () => { $('dlg').close(); a.onClick && a.onClick(); };
+    $('dlgActions').appendChild(b);
+  });
+  $('dlg').showModal();
+  ($('dlgActions').querySelector('[autofocus]') || $('dlgActions').querySelector('button')).focus();
+}
+
+/* ---------- actions ---------- */
+const RULES = {
+  confirm: { label: 'Confirm orders', done: 'confirmed', ok: (o) => o.status === 'Draft', apply: (o) => { o.status = 'Pending'; }, why: (o) => `Order is ${o.status.toLowerCase()}; only drafts can be confirmed` },
+  ship: { label: 'Mark as shipped', done: 'marked as shipped', ok: (o) => o.status === 'Pending', apply: (o) => { o.status = 'Shipping'; }, why: (o) => `Order is ${o.status.toLowerCase()}; only pending orders can be shipped` },
+  print: { label: 'Print picking lists', done: 'sent to the printer', ok: (o) => ['Pending', 'Shipping'].includes(o.status), apply: () => {}, why: (o) => `Order is ${o.status.toLowerCase()}; no picking list needed` },
+  cancel: { label: 'Cancel orders', done: 'cancelled', ok: (o) => ['Draft', 'Pending', 'On hold'].includes(o.status), apply: (o) => { o.status = 'Cancelled'; }, why: (o) => `Order is ${o.status.toLowerCase()} and can't be cancelled` }
+};
+const targets = () => (allMatching ? window.__filtered.slice() : DATA.filter((o) => sel.has(o.id)));
+function runBulk(key, list) {
+  const r = RULES[key]; const ok = list.filter(r.ok); const failed = list.filter((o) => !r.ok(o));
+  ok.forEach(r.apply); allMatching = false;
+  if (!failed.length) {
+    sel.clear(); banner = null; render();
+    toast(`${nf.format(ok.length)} ${ok.length === 1 ? 'order' : 'orders'} ${r.done}`);
+  } else {
+    sel = new Set(failed.map((o) => o.id));
+    banner = { label: r.label, ok: ok.length, failed: failed.map((o) => ({ id: o.id, reason: r.why(o) })), key };
+    render();
+  }
+}
+function confirmCancel(list) {
+  const r = RULES.cancel; const ok = list.filter(r.ok); const skip = list.length - ok.length;
+  if (!ok.length) return openDialog({ title: `Can't cancel ${list.length === 1 ? list[0].id : 'these orders'}`, body: `<p>${list.length === 1 ? 'This order is' : 'None of the selected orders can be cancelled:'} already ${list.length === 1 ? list[0].status.toLowerCase() : 'shipping or completed'}. Shipped orders need a return instead.</p>`, actions: [{ label: 'Close', autofocus: true }] });
+  const paid = ok.filter((o) => ['Paid', 'Partial'].includes(o.payment)).length;
+  const title = ok.length === 1 ? `Cancel order ${ok[0].id}?` : `Cancel ${nf.format(ok.length)} orders?`;
+  const body = `<p>${ok.length === 1 ? `The order for ${esc(ok[0].customer)} (${nf.format(ok[0].total)} ₫) will be cancelled.` : `${nf.format(ok.length)} orders worth ${vnd.format(ok.reduce((s, o) => s + o.total, 0))} will be cancelled.`} Stock reserved for ${ok.length === 1 ? 'it' : 'them'} is released.</p>`
+    + (paid ? `<p class="mt-2 font-medium text-red-700">${paid} ${paid === 1 ? 'is' : 'are'} already paid or part-paid and will need a refund.</p>` : '')
+    + (skip ? `<p class="mt-2">${skip} selected ${skip === 1 ? 'order is' : 'orders are'} already shipping or completed and will be skipped.</p>` : '');
+  openDialog({ title, body, actions: [{ label: ok.length === 1 ? 'Keep order' : 'Keep orders', autofocus: true }, { label: ok.length === 1 ? 'Cancel order' : 'Cancel orders', kind: 'danger', onClick: () => runBulk('cancel', list) }] });
+}
+function exportCSV(list, name) {
+  const rows = [['Order no.', 'Customer', 'Phone', 'Status', 'Payment', 'Order date', 'Channel', 'Salesperson', 'Total (VND)']]
+    .concat(list.map((o) => [o.id, o.customer, o.phone, o.status, o.payment, new Date(o.ts).toISOString().slice(0, 10), o.channel, o.rep, o.total]));
+  const csv = '﻿' + rows.map((r) => r.map((v) => `"${String(v).replace(/"/g, '""')}"`).join(',')).join('\r\n');
+  const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' })); a.download = name; a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+  toast(`${nf.format(list.length)} ${list.length === 1 ? 'order' : 'orders'} exported to ${name}`);
+}
+const demo = () => toast('This opens the full order form in the live app');
+
+/* ---------- events ---------- */
+let qTimer;
+$('q').addEventListener('input', (e) => { clearTimeout(qTimer); const v = e.target.value.trim(); if (v.length === 1) return; qTimer = setTimeout(() => setState({ q: v }), 300); });
+$('q').addEventListener('keydown', (e) => { if (e.key === 'Enter') { clearTimeout(qTimer); setState({ q: e.target.value.trim() }); } });
+$('fPayment').onchange = (e) => setState({ payment: e.target.value ? [e.target.value] : [] });
+$('fChannel').onchange = (e) => setState({ channel: e.target.value ? [e.target.value] : [] });
+$('btnImport').onclick = demo; $('btnCreate').onclick = demo;
+$('btnExport').onclick = () => exportCSV(window.__filtered || [], 'orders.csv');
+
+function openMore() {
+  const p = $('morePanel'); const open = p.hidden; closePops(open ? 'morePanel' : null);
+  p.hidden = !open; $('btnMore').setAttribute('aria-expanded', String(open));
+  if (open) {
+    $('mRep').innerHTML = '<option value="">All salespeople</option>' + REPS.map((r) => `<option ${S.rep[0] === r ? 'selected' : ''}>${esc(r)}</option>`).join('');
+    $('mFrom').value = S.from; $('mTo').value = S.to; $('mMin').value = S.min; $('mMax').value = S.max; $('mErr').hidden = true;
+    $('mRep').focus();
+  }
+}
+$('btnMore').onclick = openMore;
+$('mApply').onclick = () => {
+  const from = $('mFrom').value, to = $('mTo').value, min = $('mMin').value, max = $('mMax').value;
+  const err = (from && to && from > to) ? 'Ordered-from date must be before the ordered-to date.' : (min && max && +min > +max) ? 'Minimum total must not exceed the maximum.' : '';
+  $('mErr').hidden = !err; $('mErr').textContent = err; if (err) return;
+  closePops(); setState({ rep: $('mRep').value ? [$('mRep').value] : [], from, to, min, max }); $('btnMore').focus();
+};
+$('mReset').onclick = () => { $('mRep').value = ''; $('mFrom').value = $('mTo').value = $('mMin').value = $('mMax').value = ''; $('mErr').hidden = true; };
+
+document.addEventListener('click', (e) => {
+  const t = e.target; const q = (s) => t.closest(s);
+  if (!q('[data-pop]')) closePops();
+  let b;
+  if ((b = q('[data-tab]'))) return setState({ status: b.dataset.tab ? [b.dataset.tab] : [] }, true);
+  if ((b = q('[data-chip]'))) {
+    const i = +b.dataset.chip; const c = chipList()[i]; const patch = {};
+    if (c.k === 'q') patch.q = ''; else if (c.k === 'date') { patch.from = ''; patch.to = ''; } else if (c.k === 'amount') { patch.min = ''; patch.max = ''; } else patch[c.k] = S[c.k].filter((v) => v !== c.v);
+    setState(patch); const rem = $('chips').querySelectorAll('[data-chip]'); (rem[i] || rem[rem.length - 1] || $('q')).focus(); return;
+  }
+  if (q('#clearAll') || q('#emptyClear')) { setState({ q: '', status: [], payment: [], channel: [], rep: [], from: '', to: '', min: '', max: '' }); return $('q').focus(); }
+  if (q('#retry')) { urlState = ''; syncURL(false); return load(500); }
+  if (q('#emptyCreate')) return demo();
+  if ((b = q('[data-sort]'))) {
+    const k = b.dataset.sort; const cur = S.sort;
+    const next = cur.replace('-', '') !== k ? k : (cur === k ? '-' + k : DEFAULTS.sort);
+    return setState({ sort: next }, true);
+  }
+  if ((b = q('[data-page]'))) { sel.clear(); allMatching = false; banner = null; S.page = +b.dataset.page; syncURL(true); render(); return window.scrollTo({ top: 0 }); }
+  if (q('#selAll')) { allMatching = true; return render(); }
+  if (q('#selClear') || q('#bulkCancel')) { sel.clear(); allMatching = false; return render(); }
+  if ((b = q('[data-bulk]'))) {
+    const k = b.dataset.bulk; if (k === 'export') { const l = targets(); return exportCSV(l, 'orders-selected.csv'); }
+    return runBulk(k, targets());
+  }
+  if (q('#bulkMore')) return showMenu(q('#bulkMore'), [
+    { label: 'Print picking lists', onClick: () => runBulk('print', targets()) },
+    { sep: true }, { label: 'Cancel orders…', danger: true, onClick: () => confirmCancel(targets()) }]);
+  if ((b = q('[data-rowmenu]'))) {
+    const o = ALL.find((x) => x.id === b.dataset.rowmenu);
+    return showMenu(b, [
+      { label: 'Duplicate order', onClick: () => toast(`Draft created from ${o.id}`) },
+      { label: 'Print picking list', onClick: () => runBulk('print', [o]) },
+      { sep: true }, { label: 'Cancel order…', danger: true, onClick: () => confirmCancel([o]) }]);
+  }
+  if ((b = q('[data-mi]'))) { const m = $('menu'); const it = m._items[+b.dataset.mi]; m.hidden = true; m._anchor && m._anchor.focus(); return it.onClick(); }
+  if ((b = q('[data-edit]')) || (b = q('[data-open]'))) { e.preventDefault(); return demo(); }
+  if (q('#btnCols')) { const p = $('colsPanel'); const open = p.hidden; closePops(open ? 'colsPanel' : null); p.hidden = !open; q('#btnCols').setAttribute('aria-expanded', String(open)); if (open) renderColsPanel(); return; }
+  if ((b = q('[data-colmove]'))) {
+    const i = +b.dataset.colmove, d = +b.dataset.dir; const j = i + d; if (j < 0 || j >= COLS.length) return;
+    [COLS[i], COLS[j]] = [COLS[j], COLS[i]]; saveCols(); renderColsPanel(); render(); $('colsPanel').hidden = false;
+    return $('colsPanel').querySelector(`[data-colmove="${j}"][data-dir="${d}"]`)?.focus();
+  }
+  if (q('#btnDensity')) { compact = !compact; localStorage.setItem('orders.compact', compact ? '1' : '0'); return render(); }
+  if (q('#viewFailed')) {
+    const f = banner.failed; const key = banner.key;
+    return openDialog({ title: `Failed orders (${f.length})`, body: `<ul class="max-h-64 divide-y divide-slate-100 overflow-y-auto rounded border border-slate-200">${f.map((x) => `<li class="px-3 py-2"><span class="font-medium">${x.id}</span>: ${esc(x.reason)}</li>`).join('')}</ul><p class="mt-2 text-slate-600">The failed orders stay selected so you can adjust them and try again.</p>`, actions: [{ label: 'Close', autofocus: true }] });
+  }
+  if (q('#dismissBanner')) { banner = null; return renderBanner(); }
+});
+document.addEventListener('change', (e) => {
+  const t = e.target;
+  if (t.id === 'selPage') { window.__pageRows.forEach((o) => (t.checked ? sel.add(o.id) : sel.delete(o.id))); allMatching = false; return render(); }
+  if (t.dataset.row) { t.checked ? sel.add(t.dataset.row) : sel.delete(t.dataset.row); allMatching = false; return render(); }
+  if (t.id === 'pageSize') return setState({ size: +t.value });
+  if (t.dataset.col) { COLS.find((c) => c.id === t.dataset.col).show = t.checked; saveCols(); const keep = t.dataset.col; render(); $('colsPanel').hidden = false; $('btnCols').setAttribute('aria-expanded', 'true'); renderColsPanel(); $('colsPanel').querySelector(`[data-col="${keep}"]`)?.focus(); }
+});
+function saveCols() { localStorage.setItem('orders.cols', JSON.stringify(COLS.map((c) => ({ id: c.id, show: c.show })))); }
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') { const open = !$('morePanel').hidden || !$('colsPanel')?.hidden || !$('menu').hidden; if (open) { const a = !$('menu').hidden ? $('menu')._anchor : (!$('morePanel').hidden ? $('btnMore') : $('btnCols')); closePops(); a && a.focus(); } }
+  if (e.key === '/' && !/^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement.tagName) && !$('dlg').open) { e.preventDefault(); $('q').focus(); }
+});
+addEventListener('scroll', () => { $('menu').hidden = true; }, true);
+addEventListener('popstate', () => { S = parseURL(); sel.clear(); allMatching = false; banner = null; load(0); });
+
+/* ---------- init ---------- */
+S = parseURL(); load(500);
+</script>
+</body>
+</html>

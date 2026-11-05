@@ -1,0 +1,437 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Warehouse operations - Dashboard</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+  [hidden] { display: none !important; }
+  .tabular-nums { font-variant-numeric: tabular-nums; }
+  @keyframes pulse2 { 50% { opacity: .5; } }
+  .sk { background: #e2e8f0; border-radius: 4px; animation: pulse2 1.4s ease-in-out infinite; }
+  :focus-visible { outline: 2px solid #1d4ed8; outline-offset: 2px; }
+</style>
+</head>
+<body class="bg-white text-slate-900 text-sm antialiased">
+<div class="flex min-h-screen">
+
+  <!-- Sidebar -->
+  <aside class="hidden w-60 shrink-0 border-r border-slate-200 bg-slate-50 md:block">
+    <div class="p-2">
+      <button type="button" class="flex h-10 w-full items-center justify-between rounded px-2 text-left hover:bg-slate-100" aria-label="Switch warehouse, current Hanoi DC-01">
+        <span><span class="block text-sm font-medium leading-4">Hanoi DC-01</span><span class="block text-xs text-slate-600">Warehouse manager</span></span>
+        <svg class="size-4 text-slate-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="m7 15 5 5 5-5M7 9l5-5 5 5"/></svg>
+      </button>
+    </div>
+    <nav aria-label="Main" class="flex flex-col gap-4 p-2">
+      <div class="flex flex-col gap-0.5">
+        <p class="px-2 py-1 text-xs font-medium text-slate-600">Operations</p>
+        <a href="/dashboard" aria-current="page" class="flex h-8 items-center gap-2 rounded bg-slate-200 px-2 text-sm font-medium text-slate-900"><svg class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="3" y="3" width="7" height="9"/><rect x="14" y="3" width="7" height="5"/><rect x="14" y="12" width="7" height="9"/><rect x="3" y="16" width="7" height="5"/></svg>Dashboard</a>
+        <a href="/outbound/orders" class="flex h-8 items-center gap-2 rounded px-2 text-sm hover:bg-slate-100"><svg class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg>Outbound orders</a>
+        <a href="/inbound/shipments" class="flex h-8 items-center gap-2 rounded px-2 text-sm hover:bg-slate-100"><svg class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M19 12H5M11 6l-6 6 6 6"/></svg>Inbound shipments</a>
+        <a href="/tasks/pick" class="flex h-8 items-center gap-2 rounded px-2 text-sm hover:bg-slate-100"><svg class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M9 11l3 3 8-8M20 12v7a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h9"/></svg>Pick tasks</a>
+      </div>
+      <div class="flex flex-col gap-0.5">
+        <p class="px-2 py-1 text-xs font-medium text-slate-600">Inventory</p>
+        <a href="/inventory/stock" class="flex h-8 items-center gap-2 rounded px-2 text-sm hover:bg-slate-100"><svg class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M21 8 12 3 3 8v8l9 5 9-5zM3 8l9 5 9-5M12 13v8"/></svg>Stock levels</a>
+        <a href="/inventory/locations" class="flex h-8 items-center gap-2 rounded px-2 text-sm hover:bg-slate-100"><svg class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M12 21s-7-6-7-11a7 7 0 0 1 14 0c0 5-7 11-7 11z"/><circle cx="12" cy="10" r="2"/></svg>Locations</a>
+        <a href="/inventory/cycle-counts" class="flex h-8 items-center gap-2 rounded px-2 text-sm hover:bg-slate-100"><svg class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M21 12a9 9 0 1 1-3-6.7M21 4v5h-5"/></svg>Cycle counts</a>
+      </div>
+      <div class="flex flex-col gap-0.5">
+        <p class="px-2 py-1 text-xs font-medium text-slate-600">Administration</p>
+        <a href="/settings" class="flex h-8 items-center gap-2 rounded px-2 text-sm hover:bg-slate-100"><svg class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M5 5l2 2M17 17l2 2M5 19l2-2M17 7l2-2"/></svg>Settings</a>
+      </div>
+    </nav>
+  </aside>
+
+  <div class="flex min-w-0 flex-1 flex-col">
+    <!-- App header -->
+    <header class="flex h-12 items-center justify-between border-b border-slate-200 bg-white px-4">
+      <div class="text-sm text-slate-600 md:hidden font-medium">Hanoi DC-01</div>
+      <button type="button" class="ml-auto mr-2 hidden h-8 w-72 items-center justify-between rounded border border-slate-300 bg-white px-2 text-sm text-slate-600 hover:bg-slate-50 sm:flex md:ml-0 md:mr-auto">
+        <span>Search or run a command</span><kbd class="rounded border border-slate-300 px-1 text-xs">Ctrl K</kbd>
+      </button>
+      <div class="flex items-center gap-1">
+        <button type="button" aria-label="Notifications, 3 unread" class="relative flex size-8 items-center justify-center rounded hover:bg-slate-100">
+          <svg class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9M10 21h4"/></svg>
+          <span class="absolute -right-0.5 -top-0.5 rounded-full bg-red-700 px-1 text-xs font-medium leading-4 text-white" aria-hidden="true">3</span>
+        </button>
+        <button type="button" aria-label="Account menu" class="flex size-8 items-center justify-center rounded-full bg-slate-200 text-xs font-medium text-slate-900">LH</button>
+      </div>
+    </header>
+
+    <main class="min-w-0 flex-1 p-6">
+      <!-- Page header -->
+      <header class="mb-4 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+        <h1 class="text-xl font-semibold">Warehouse operations</h1>
+        <div class="flex flex-wrap items-center gap-3">
+          <div class="flex items-center gap-2">
+            <label for="range" class="text-sm font-medium">Date range</label>
+            <select id="range" class="h-8 rounded border border-slate-300 bg-white px-2 text-sm">
+              <option value="today">Today</option>
+              <option value="7d">Last 7 days</option>
+              <option value="30d">Last 30 days</option>
+            </select>
+            <span id="range-dates" class="text-sm text-slate-600 tabular-nums"></span>
+          </div>
+          <div class="flex items-center gap-2 text-sm text-slate-600">
+            <span id="updated" class="tabular-nums">Updated --:--</span>
+            <span id="refresh-failed" hidden class="text-red-700">Refresh failed</span>
+            <button id="refresh" type="button" class="inline-flex h-8 items-center gap-1 rounded border border-slate-300 bg-white px-2 text-sm font-medium text-slate-900 hover:bg-slate-50">
+              <svg class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M21 12a9 9 0 1 1-3-6.7M21 4v5h-5"/></svg>Refresh
+            </button>
+          </div>
+        </div>
+      </header>
+
+      <!-- KPI tiles -->
+      <section aria-label="Key numbers" id="w-kpis" class="mb-4"></section>
+
+      <div class="mb-4 grid gap-4 lg:grid-cols-3">
+        <section id="w-trend" aria-labelledby="t-trend" class="rounded-md border border-slate-200 bg-white lg:col-span-2"></section>
+        <section id="w-attn" aria-labelledby="t-attn" class="rounded-md border border-slate-200 bg-white lg:order-first lg:col-span-1 lg:row-start-1 lg:col-start-3"></section>
+      </div>
+
+      <div class="grid gap-4 lg:grid-cols-3">
+        <section id="w-zones" aria-labelledby="t-zones" class="rounded-md border border-slate-200 bg-white lg:col-span-2"></section>
+        <section id="w-docks" aria-labelledby="t-docks" class="rounded-md border border-slate-200 bg-white"></section>
+      </div>
+
+      <p role="status" id="live" class="sr-only"></p>
+    </main>
+  </div>
+</div>
+
+<script>
+(function () {
+  'use strict';
+  var LOCALE = 'en-GB';
+  var nf = new Intl.NumberFormat(LOCALE);
+  var nf1 = new Intl.NumberFormat(LOCALE, { minimumFractionDigits: 1, maximumFractionDigits: 1 });
+  var dfDate = new Intl.DateTimeFormat(LOCALE, { day: '2-digit', month: '2-digit', year: 'numeric' });
+  var dfShort = new Intl.DateTimeFormat(LOCALE, { day: '2-digit', month: '2-digit' });
+  var dfTime = new Intl.DateTimeFormat(LOCALE, { hour: '2-digit', minute: '2-digit', hour12: false });
+  var signed = function (n, digits) {
+    var s = new Intl.NumberFormat(LOCALE, { signDisplay: 'exceptZero', minimumFractionDigits: digits, maximumFractionDigits: digits }).format(n);
+    return s.replace('-', '−');
+  };
+
+  /* ---------- Mock data ---------- */
+  var seed = 7;
+  function rnd() { seed = (seed * 16807) % 2147483647; return (seed - 1) / 2147483646; }
+  var NOW = new Date();
+  var CUR_HOUR = Math.min(Math.max(NOW.getHours(), 9), 21);
+  var HOURS = []; for (var h = 6; h <= 21; h++) HOURS.push(h);
+  var hourlyRate = [18, 55, 105, 150, 142, 118, 86, 98, 132, 152, 140, 112, 74, 42, 22, 10];
+  function cumul(arr, upto) { var out = [], s = 0; for (var i = 0; i < arr.length && HOURS[i] <= upto; i++) { s += arr[i]; out.push(s); } return out; }
+  var todayCum = cumul(hourlyRate.map(function (v, i) { return Math.round(v * (i % 3 === 0 ? 0.96 : 1.02)); }), CUR_HOUR);
+  var yestCum = cumul(hourlyRate.map(function (v, i) { return Math.round(v * (i % 2 === 0 ? 1.05 : 0.99)); }), 21);
+  var DAYS = 60, daily = [];
+  for (var d = 0; d < DAYS; d++) {
+    var dayDate = new Date(NOW.getTime() - (DAYS - 1 - d) * 86400000);
+    var wk = dayDate.getDay() === 0 ? 0.55 : dayDate.getDay() === 6 ? 0.8 : 1;
+    daily.push({ date: dayDate, shipped: Math.round((1280 + rnd() * 220) * wk), onTime: 94 + rnd() * 3.4, acc: 99.2 + rnd() * 0.6, dock: 3.1 + rnd() * 1.4 });
+  }
+  var T = daily[DAYS - 1], Y = daily[DAYS - 2];
+  T.shipped = todayCum[todayCum.length - 1]; Y.shipped = yestCum[todayCum.length - 1];
+  T.onTime = 93.8; Y.onTime = 95.1; T.acc = 99.6; Y.acc = 99.5; T.dock = 3.4; Y.dock = 3.9;
+
+  var ZONES = [
+    { zone: 'A - Fast movers', n: 214 }, { zone: 'B - Bulk racking', n: 163 }, { zone: 'C - Cold storage', n: 98 },
+    { zone: 'D - Small parts', n: 91 }, { zone: 'E - Returns', n: 52 }, { zone: 'F - Oversize', n: 24 }
+  ];
+  var OPEN_PICK = ZONES.reduce(function (a, z) { return a + z.n; }, 0), OPEN_PICK_PREV = 588;
+  var LATE = 7, LATE_PREV = 4;
+
+  var ATTN = [
+    { count: 7, label: 'late shipments', href: '/outbound/orders?status=late', badge: 'Overdue', tone: 'danger' },
+    { count: 4, label: 'inbound trucks behind schedule', href: '/inbound/shipments?status=late', badge: 'Overdue', tone: 'danger' },
+    { count: 3, label: 'orders on damaged-goods hold', href: '/outbound/orders?status=hold', badge: 'Needs attention', tone: 'warning' },
+    { count: 12, label: 'cycle count variances to review', href: '/inventory/cycle-counts?status=variance', badge: 'Needs attention', tone: 'warning' },
+    { count: 9, label: 'pick faces below minimum stock', href: '/inventory/stock?filter=below-min', badge: 'Due soon', tone: 'warning' },
+    { count: 2, label: 'blocked storage locations', href: '/inventory/locations?status=blocked', badge: 'Due soon', tone: 'warning' }
+  ];
+  var DOCKS = [
+    { dock: 'Dock 1', carrier: 'Viettel Post', eta: '14:30', status: 'Unloading', tone: 'info' },
+    { dock: 'Dock 2', carrier: 'GHN Freight', eta: '14:00', status: 'Late 42 min', tone: 'danger' },
+    { dock: 'Dock 3', carrier: 'Vinafco', eta: '15:15', status: 'Checked in', tone: 'info' },
+    { dock: 'Dock 4', carrier: 'Gemadept', eta: '16:00', status: 'Scheduled', tone: 'neutral' },
+    { dock: 'Dock 5', carrier: 'Transimex', eta: '16:45', status: 'Scheduled', tone: 'neutral' },
+    { dock: 'Dock 6', carrier: 'DHL Supply Chain', eta: '12:20', status: 'Completed', tone: 'success' }
+  ];
+
+  var TONE = {
+    danger: 'bg-red-50 text-red-700', warning: 'bg-amber-50 text-amber-800', success: 'bg-green-50 text-green-700',
+    info: 'bg-blue-50 text-blue-700', neutral: 'bg-slate-100 text-slate-700'
+  };
+
+  /* ---------- Range, URL state ---------- */
+  var params = new URLSearchParams(location.search);
+  var range = ['today', '7d', '30d'].indexOf(params.get('range')) >= 0 ? params.get('range') : 'today';
+  var MODE = params.get('state'); // empty | error | loading | null
+  var rangeSel = document.getElementById('range');
+  rangeSel.value = range;
+  rangeSel.addEventListener('change', function () {
+    var p = new URLSearchParams(location.search); p.set('range', rangeSel.value);
+    history.replaceState(null, '', '?' + p.toString());
+    range = rangeSel.value; renderDates(); loadAll(false);
+  });
+  function renderDates() {
+    var n = range === 'today' ? 1 : range === '7d' ? 7 : 30;
+    var from = new Date(NOW.getTime() - (n - 1) * 86400000);
+    document.getElementById('range-dates').textContent = n === 1 ? dfDate.format(NOW) : dfDate.format(from) + ' – ' + dfDate.format(NOW);
+  }
+  function rangeDays() { return range === 'today' ? 1 : range === '7d' ? 7 : 30; }
+  function rangeName() { return range === 'today' ? 'yesterday' : 'previous ' + rangeDays() + ' days'; }
+
+  /* ---------- Metrics ---------- */
+  function slice(from, to) { return daily.slice(from, to); }
+  function avg(arr, k) { return arr.reduce(function (a, x) { return a + x[k]; }, 0) / arr.length; }
+  function sum(arr, k) { return arr.reduce(function (a, x) { return a + x[k]; }, 0); }
+  function metrics() {
+    var n = rangeDays(), cur = slice(DAYS - n, DAYS), prev = slice(DAYS - 2 * n, DAYS - n);
+    var p = rangeName();
+    return [
+      { label: 'Orders shipped', value: sum(cur, 'shipped'), prev: sum(prev, 'shipped'), kind: 'count', period: p, href: '/outbound/orders?status=shipped&range=' + range },
+      { label: 'On-time shipping rate', value: avg(cur, 'onTime'), prev: avg(prev, 'onTime'), kind: 'pct', period: p, target: 'Target 95.0%', below: avg(cur, 'onTime') < 95, href: '/outbound/orders?sla=missed&range=' + range },
+      { label: 'Pick accuracy', value: avg(cur, 'acc'), prev: avg(prev, 'acc'), kind: 'pct2', period: p, target: 'Target 99.5%', below: avg(cur, 'acc') < 99.5, href: '/tasks/pick?status=errors&range=' + range },
+      { label: 'Dock-to-stock time', value: avg(cur, 'dock'), prev: avg(prev, 'dock'), kind: 'hours', period: p, target: 'Target under 4.0 h', below: avg(cur, 'dock') > 4, href: '/inbound/shipments?status=received&range=' + range },
+      { label: 'Open pick tasks', value: OPEN_PICK, prev: OPEN_PICK_PREV, kind: 'count', period: 'this time yesterday', href: '/tasks/pick?status=open' },
+      { label: 'Late shipments', value: LATE, prev: LATE_PREV, kind: 'count', period: 'yesterday', badge: 'Overdue', href: '/outbound/orders?status=late' }
+    ];
+  }
+  function fmtVal(m) {
+    if (m.kind === 'count') return nf.format(m.value);
+    if (m.kind === 'pct') return nf1.format(m.value) + '%';
+    if (m.kind === 'pct2') return new Intl.NumberFormat(LOCALE, { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(m.value) + '%';
+    return nf1.format(m.value) + ' h';
+  }
+  function fmtDelta(m) {
+    var diff = m.value - m.prev;
+    if (m.kind === 'count') {
+      if (m.label === 'Late shipments' || m.label === 'Open pick tasks') return signed(diff, 0) + ' vs ' + m.period;
+      return signed(m.prev ? diff / m.prev * 100 : 0, 1) + '% vs ' + m.period;
+    }
+    if (m.kind === 'hours') return signed(diff, 1) + ' h vs ' + m.period;
+    return signed(diff, m.kind === 'pct2' ? 2 : 1) + ' pt vs ' + m.period;
+  }
+
+  /* ---------- Widget framework ---------- */
+  var W = {}; // name -> {el, state, render, timer}
+  function skBar(w, h) { return '<div class="sk ' + w + ' ' + h + '"></div>'; }
+  function card(id, title, body, extra) {
+    return '<div class="flex items-center justify-between border-b border-slate-200 px-4 py-3"><h2 id="' + id + '" class="text-sm font-semibold">' + title + '</h2>' + (extra || '') + '</div>' + body;
+  }
+  function errorBox(name, what, minH) {
+    return '<div class="flex flex-col items-start gap-2 p-4 ' + minH + '"><p class="text-sm"><span class="font-medium">' + what + '</span> The other widgets are not affected.</p><button type="button" data-retry="' + name + '" class="inline-flex h-8 items-center rounded border border-slate-300 bg-white px-3 text-sm font-medium hover:bg-slate-50">Retry</button></div>';
+  }
+  function emptyBox(msg, action, minH) {
+    return '<div class="flex flex-col items-start gap-2 p-4 ' + minH + '"><p class="text-sm text-slate-600">' + msg + '</p>' + (action || '') + '</div>';
+  }
+  var changeRangeBtn = '<button type="button" data-action="range" class="inline-flex h-8 items-center rounded border border-slate-300 bg-white px-3 text-sm font-medium hover:bg-slate-50">Change date range</button>';
+
+  function register(name, el, render) { W[name] = { el: el, state: 'loading', render: render }; }
+  function setState(name, state) { W[name].state = state; paint(name); }
+  function paint(name) { var w = W[name]; w.el.innerHTML = w.render(w.state); }
+  function resolveState() { return MODE === 'error' ? 'error' : MODE === 'empty' ? 'empty' : 'ready'; }
+  var released = {}; // widgets the user retried successfully
+
+  function loadAll(first) {
+    Object.keys(W).forEach(function (n) { clearTimeout(W[n].timer); setState(n, 'loading'); });
+    if (MODE === 'loading') return;
+    Object.keys(W).forEach(function (n, i) {
+      W[n].timer = setTimeout(function () { setState(n, released[n] ? 'ready' : resolveState()); announce(); }, 350 + i * 40);
+    });
+  }
+  function announce() {
+    if (W.attn.state === 'ready') document.getElementById('live').textContent = ATTN.length + ' items need attention';
+  }
+  document.addEventListener('click', function (e) {
+    var r = e.target.closest('[data-retry]');
+    if (r) {
+      var n = r.getAttribute('data-retry'); released[n] = true; setState(n, 'loading');
+      setTimeout(function () { setState(n, 'ready'); announce(); }, 450);
+      return;
+    }
+    var a = e.target.closest('[data-action="range"]');
+    if (a) { rangeSel.focus(); return; }
+    var t = e.target.closest('[data-toggle-table]');
+    if (t) {
+      var tbl = document.getElementById(t.getAttribute('data-toggle-table'));
+      tbl.hidden = !tbl.hidden; t.setAttribute('aria-expanded', String(!tbl.hidden));
+      t.textContent = tbl.hidden ? 'View as table' : 'Hide table';
+    }
+    var vt = e.target.closest('[data-view-all]');
+    if (vt) { attnAll = true; paint('attn'); }
+  });
+
+  /* ---------- KPI tiles ---------- */
+  var box = 'rounded-md border border-slate-200 bg-white';
+  register('kpis', document.getElementById('w-kpis'), function (s) {
+    var grid = 'grid grid-cols-2 gap-4 md:grid-cols-3 xl:grid-cols-6';
+    if (s === 'loading') {
+      var h = ''; for (var i = 0; i < 6; i++) h += '<div class="' + box + ' h-24 p-4">' + skBar('w-24', 'h-3') + '<div class="mt-3">' + skBar('w-16', 'h-6') + '</div></div>';
+      return '<div class="' + grid + '" aria-busy="true">' + h + '</div>';
+    }
+    if (s === 'error') return '<div class="' + box + '">' + errorBox('kpis', 'Could not load the key numbers.', 'min-h-24') + '</div>';
+    if (s === 'empty') return '<div class="' + box + '">' + emptyBox('No shipments in this range, so there are no key numbers yet.', changeRangeBtn, 'min-h-24') + '</div>';
+    return '<div class="' + grid + '">' + metrics().map(function (m) {
+      var badge = '';
+      if (m.badge) badge = '<span class="rounded-full px-2 text-xs font-medium ' + TONE.danger + '">' + m.badge + '</span>';
+      else if (m.below) badge = '<span class="rounded-full px-2 text-xs font-medium ' + TONE.warning + '">Below target</span>';
+      return '<a href="' + m.href + '" class="' + box + ' block min-h-24 p-4 hover:bg-slate-50">' +
+        '<span class="flex items-start justify-between gap-2"><span class="text-xs font-medium text-slate-600">' + m.label + '</span></span>' +
+        '<span class="mt-1 block text-2xl font-semibold tabular-nums">' + fmtVal(m) + '</span>' +
+        '<span class="block text-xs text-slate-600 tabular-nums">' + fmtDelta(m) + '</span>' +
+        (m.target || badge ? '<span class="mt-1 flex flex-wrap items-center gap-2 text-xs text-slate-600">' + (m.target ? '<span>' + m.target + '</span>' : '') + badge + '</span>' : '') +
+        '</a>';
+    }).join('') + '</div>';
+  });
+
+  /* ---------- SVG charts ---------- */
+  function niceMax(v) { var p = Math.pow(10, Math.floor(Math.log10(v))), f = v / p; return (f <= 1 ? 1 : f <= 2 ? 2 : f <= 2.5 ? 2.5 : f <= 5 ? 5 : 10) * p; }
+  function lineChart(series, xLabels, yTitle, xTitle, yMin) {
+    var Wd = 640, Ht = 270, L = 62, R = 16, Tp = 16, B = 52;
+    var pw = Wd - L - R, ph = Ht - Tp - B, n = xLabels.length;
+    var all = []; series.forEach(function (s) { all = all.concat(s.data); });
+    var lo = yMin == null ? 0 : yMin, hi = Math.max.apply(null, all);
+    var top = yMin == null ? niceMax(hi) : Math.ceil(hi / 100) * 100; if (yMin != null && top === hi) top += 100;
+    var X = function (i) { return L + (n === 1 ? pw / 2 : i * pw / (n - 1)); };
+    var Yp = function (v) { return Tp + ph - (v - lo) / (top - lo) * ph; };
+    var g = '';
+    for (var k = 0; k <= 4; k++) {
+      var v = lo + (top - lo) * k / 4, y = Yp(v);
+      g += '<line x1="' + L + '" x2="' + (Wd - R) + '" y1="' + y + '" y2="' + y + '" stroke="#e2e8f0"/><text x="' + (L - 8) + '" y="' + (y + 4) + '" text-anchor="end" font-size="12" fill="#475569">' + nf.format(Math.round(v)) + '</text>';
+    }
+    var step = Math.ceil(n / 8);
+    xLabels.forEach(function (lb, i) {
+      if (i % step === 0 || i === n - 1) g += '<text x="' + X(i) + '" y="' + (Tp + ph + 18) + '" text-anchor="middle" font-size="12" fill="#475569">' + lb + '</text>';
+    });
+    g += '<text x="' + (L + pw / 2) + '" y="' + (Ht - 6) + '" text-anchor="middle" font-size="12" fill="#475569">' + xTitle + '</text>';
+    g += '<text transform="translate(14 ' + (Tp + ph / 2) + ') rotate(-90)" text-anchor="middle" font-size="12" fill="#475569">' + yTitle + '</text>';
+    series.forEach(function (s) {
+      var pts = s.data.map(function (v, i) { return X(i) + ',' + Yp(v); }).join(' ');
+      g += '<polyline fill="none" stroke="' + s.color + '" stroke-width="2" ' + (s.dash ? 'stroke-dasharray="5 4"' : '') + ' points="' + pts + '"/>';
+      var li = s.data.length - 1, lx = X(li), ly = Yp(s.data[li]);
+      g += '<circle cx="' + lx + '" cy="' + ly + '" r="3.5" fill="' + s.color + '"/>';
+      var atEnd = li === n - 1;
+      g += '<text x="' + (atEnd ? lx : lx - 6) + '" y="' + (ly + (s.labelDy || -10)) + '" text-anchor="end" font-size="12" font-weight="500" fill="' + s.text + '">' + s.label + ' ' + nf.format(Math.round(s.data[li])) + '</text>';
+    });
+    return '<svg viewBox="0 0 ' + Wd + ' ' + Ht + '" class="h-64 w-full" role="img" aria-hidden="true" preserveAspectRatio="xMidYMid meet">' + g + '</svg>';
+  }
+  function barChart(rows, xTitle) {
+    var Wd = 640, rowH = 34, Tp = 8, L = 128, R = 48, B = 44, Ht = Tp + rows.length * rowH + B;
+    var max = niceMax(Math.max.apply(null, rows.map(function (r) { return r.n; }))), pw = Wd - L - R;
+    var g = '';
+    for (var k = 0; k <= 4; k++) {
+      var x = L + pw * k / 4;
+      g += '<line x1="' + x + '" x2="' + x + '" y1="' + Tp + '" y2="' + (Ht - B) + '" stroke="#e2e8f0"/><text x="' + x + '" y="' + (Ht - B + 16) + '" text-anchor="middle" font-size="12" fill="#475569">' + nf.format(Math.round(max * k / 4)) + '</text>';
+    }
+    rows.forEach(function (r, i) {
+      var y = Tp + i * rowH + 6, w = r.n / max * pw;
+      g += '<text x="' + (L - 8) + '" y="' + (y + 14) + '" text-anchor="end" font-size="12" fill="#0f172a">' + r.zone + '</text><rect x="' + L + '" y="' + y + '" width="' + w + '" height="20" rx="2" fill="#1d4ed8"/><text x="' + (L + w + 6) + '" y="' + (y + 14) + '" font-size="12" font-weight="500" fill="#0f172a">' + nf.format(r.n) + '</text>';
+    });
+    g += '<text x="' + (L + pw / 2) + '" y="' + (Ht - 6) + '" text-anchor="middle" font-size="12" fill="#475569">' + xTitle + '</text>';
+    return '<svg viewBox="0 0 ' + Wd + ' ' + Ht + '" class="w-full" style="height:' + Math.round(Ht * 0.97) + 'px" role="img" aria-hidden="true">' + g + '</svg>';
+  }
+  function th(t, right) { return '<th scope="col" class="h-10 px-3 text-' + (right ? 'right' : 'left') + ' text-sm font-medium text-slate-600">' + t + '</th>'; }
+  function td(t, right) { return '<td class="h-10 px-3 text-' + (right ? 'right tabular-nums' : 'left') + '">' + t + '</td>'; }
+  function tableToggle(id, tableHtml) {
+    return '<div class="border-t border-slate-200 px-4 py-2"><button type="button" data-toggle-table="' + id + '" aria-expanded="false" class="h-8 text-sm font-medium text-blue-700 hover:underline">View as table</button>' +
+      '<div id="' + id + '" hidden class="mt-2 max-h-56 overflow-auto">' + tableHtml + '</div></div>';
+  }
+
+  /* ---------- Trend chart ---------- */
+  register('trend', document.getElementById('w-trend'), function (s) {
+    var title = range === 'today' ? 'Orders shipped by hour, today vs yesterday' : 'Orders shipped per day, last ' + rangeDays() + ' days';
+    var H = 'min-h-64';
+    if (s === 'loading') return card('t-trend', title, '<div class="p-4 ' + H + '" aria-busy="true">' + skBar('w-full', 'h-56') + '</div>');
+    if (s === 'error') return card('t-trend', title, errorBox('trend', 'Could not load the shipping trend.', H));
+    if (s === 'empty') return card('t-trend', title, emptyBox('No shipments in this range. Pick a longer period to see a trend.', changeRangeBtn, H));
+    var svg, summary, rows;
+    if (range === 'today') {
+      var xl = HOURS.map(function (h) { return ('0' + h).slice(-2) + ':00'; });
+      svg = lineChart([
+        { label: 'Yesterday', data: yestCum, color: '#64748b', text: '#475569', dash: true, labelDy: -10 },
+        { label: 'Today', data: todayCum, color: '#1d4ed8', text: '#1d4ed8', labelDy: -10 }
+      ], xl, 'Orders shipped (cumulative)', 'Hour of day (local time)');
+      summary = 'Cumulative orders shipped rose to ' + nf.format(todayCum[todayCum.length - 1]) + ' by ' + CUR_HOUR + ':00 today, against ' + nf.format(yestCum[todayCum.length - 1]) + ' at the same hour yesterday.';
+      rows = xl.map(function (l, i) { return '<tr class="border-t border-slate-200">' + td(l) + td(i < todayCum.length ? nf.format(todayCum[i]) : '–', true) + td(nf.format(yestCum[i]), true) + '</tr>'; }).join('');
+      var tbl = '<table class="w-full text-sm"><thead><tr>' + th('Hour') + th('Today (cumulative)', true) + th('Yesterday (cumulative)', true) + '</tr></thead><tbody>' + rows + '</tbody></table>';
+    } else {
+      var n = rangeDays(), cur = daily.slice(DAYS - n), prev = daily.slice(DAYS - 2 * n, DAYS - n);
+      var xs = cur.map(function (d) { return dfShort.format(d.date); });
+      svg = lineChart([
+        { label: 'Previous ' + n + ' days', data: prev.map(function (d) { return d.shipped; }), color: '#64748b', text: '#475569', dash: true, labelDy: 20 },
+        { label: 'This period', data: cur.map(function (d) { return d.shipped; }), color: '#1d4ed8', text: '#1d4ed8', labelDy: -10 }
+      ], xs, 'Orders shipped per day', 'Date (dd/mm)', 600);
+      summary = 'Daily orders shipped over the last ' + n + ' days ranged from ' + nf.format(Math.min.apply(null, cur.map(function (d) { return d.shipped; }))) + ' to ' + nf.format(Math.max.apply(null, cur.map(function (d) { return d.shipped; }))) + ', ending at ' + nf.format(cur[n - 1].shipped) + ' today.';
+      rows = cur.map(function (d, i) { return '<tr class="border-t border-slate-200">' + td(dfDate.format(d.date)) + td(nf.format(d.shipped), true) + td(nf.format(prev[i].shipped), true) + '</tr>'; }).join('');
+      var tbl = '<table class="w-full text-sm"><thead><tr>' + th('Date') + th('Orders shipped', true) + th('Previous period', true) + '</tr></thead><tbody>' + rows + '</tbody></table>';
+    }
+    var note = range === 'today' ? '' : '<p class="px-4 text-xs text-slate-600">The vertical axis starts at 600 to show day-to-day change.</p>';
+    return card('t-trend', title, '<div class="px-4 pt-3" role="img" aria-label="' + summary + '">' + svg + '</div>' + note + '<p class="sr-only">' + summary + '</p>' + tableToggle('tbl-trend', tbl));
+  });
+
+  /* ---------- Zones ---------- */
+  register('zones', document.getElementById('w-zones'), function (s) {
+    var title = 'Open pick tasks by zone';
+    var H = 'min-h-64';
+    if (s === 'loading') return card('t-zones', title, '<div class="space-y-3 p-4 ' + H + '" aria-busy="true">' + [90, 70, 45, 40, 25, 12].map(function (w) { return skBar('', 'h-5') .replace('class="sk  h-5"', 'class="sk h-5" style="width:' + w + '%"'); }).join('') + '</div>');
+    if (s === 'error') return card('t-zones', title, errorBox('zones', 'Could not load pick tasks by zone.', H));
+    if (s === 'empty') return card('t-zones', title, emptyBox('No open pick tasks. New orders will create tasks here.', '', H));
+    var rows = ZONES.slice().sort(function (a, b) { return b.n - a.n; });
+    var summary = nf.format(OPEN_PICK) + ' pick tasks are open. Zone A has the most with ' + rows[0].n + ' and zone F the fewest with ' + rows[rows.length - 1].n + '.';
+    var tbl = '<table class="w-full text-sm"><thead><tr>' + th('Zone') + th('Open pick tasks', true) + '</tr></thead><tbody>' + rows.map(function (r) { return '<tr class="border-t border-slate-200">' + td(r.zone) + td(nf.format(r.n), true) + '</tr>'; }).join('') + '</tbody></table>';
+    return card('t-zones', title, '<div class="px-4 pt-3" role="img" aria-label="' + summary + '">' + barChart(rows, 'Open pick tasks (count)') + '</div>' + tableToggle('tbl-zones', tbl), '<span class="text-xs text-slate-600 tabular-nums">' + nf.format(OPEN_PICK) + ' total, live</span>');
+  });
+
+  /* ---------- Needs attention ---------- */
+  var attnAll = false;
+  register('attn', document.getElementById('w-attn'), function (s) {
+    var title = 'Needs attention';
+    if (s === 'loading') return card('t-attn', title, '<div class="space-y-3 p-4" aria-busy="true">' + [1, 2, 3, 4, 5].map(function () { return skBar('w-full', 'h-6'); }).join('') + '</div>');
+    if (s === 'error') return card('t-attn', title, errorBox('attn', 'Could not load the attention list.', 'min-h-24'));
+    var checked = dfTime.format(NOW);
+    if (s === 'empty') return card('t-attn', title, emptyBox('Nothing needs attention. Checked at ' + checked + '.', '', 'min-h-24'));
+    var items = attnAll ? ATTN : ATTN.slice(0, 5);
+    var li = items.map(function (i) {
+      return '<li class="border-b border-slate-200 last:border-0"><a href="' + i.href + '" class="flex min-h-10 items-center gap-3 px-4 py-2 text-sm hover:bg-slate-50">' +
+        '<span class="w-8 shrink-0 font-semibold tabular-nums">' + nf.format(i.count) + '</span><span class="flex-1">' + i.label + '</span>' +
+        '<span class="shrink-0 rounded-full px-2 text-xs font-medium ' + TONE[i.tone] + '">' + i.badge + '</span></a></li>';
+    }).join('');
+    var more = !attnAll && ATTN.length > 5 ? '<div class="border-t border-slate-200 px-4 py-2"><button type="button" data-view-all class="h-8 text-sm font-medium text-blue-700 hover:underline">View all ' + ATTN.length + '</button></div>' : '';
+    return card('t-attn', title, '<ul>' + li + '</ul>' + more + '<p class="border-t border-slate-200 px-4 py-2 text-xs text-slate-600">Live count, checked at ' + checked + '. Each row opens the list with its filter applied.</p>');
+  });
+
+  /* ---------- Docks ---------- */
+  register('docks', document.getElementById('w-docks'), function (s) {
+    var title = 'Inbound docks today';
+    if (s === 'loading') return card('t-docks', title, '<div class="space-y-3 p-4 min-h-64" aria-busy="true">' + [1, 2, 3, 4, 5, 6].map(function () { return skBar('w-full', 'h-6'); }).join('') + '</div>');
+    if (s === 'error') return card('t-docks', title, errorBox('docks', 'Could not load the dock schedule.', 'min-h-64'));
+    if (s === 'empty') return card('t-docks', title, emptyBox('No inbound trucks are scheduled today.', '<a href="/inbound/shipments" class="inline-flex h-8 items-center rounded border border-slate-300 px-3 text-sm font-medium hover:bg-slate-50">View inbound shipments</a>', 'min-h-64'));
+    var rows = DOCKS.map(function (d) {
+      return '<tr class="border-b border-slate-200 last:border-0">' + td(d.dock) + td(d.carrier) + td(d.eta, true) + '<td class="h-10 px-3"><span class="rounded-full px-2 text-xs font-medium ' + TONE[d.tone] + '">' + d.status + '</span></td></tr>';
+    }).join('');
+    return card('t-docks', title, '<div class="overflow-x-auto"><table class="w-full text-sm"><thead class="border-b border-slate-200"><tr>' + th('Dock') + th('Carrier') + th('ETA', true) + th('Status') + '</tr></thead><tbody>' + rows + '</tbody></table></div>');
+  });
+
+  /* ---------- Header: updated + refresh ---------- */
+  var updatedEl = document.getElementById('updated'), failedEl = document.getElementById('refresh-failed');
+  function stamp() { updatedEl.textContent = 'Updated ' + dfTime.format(new Date()); failedEl.hidden = true; }
+  document.getElementById('refresh').addEventListener('click', function () {
+    NOW = new Date(); renderDates();
+    Object.keys(released).forEach(function (k) { delete released[k]; });
+    loadAll(false); stamp();
+  });
+  setInterval(function () {
+    if (MODE === 'error' || MODE === 'loading') return;
+    stamp(); announce();
+  }, 60000);
+
+  renderDates(); stamp(); Object.keys(W).forEach(paint); loadAll(true);
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,366 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Import Products - Stockroom</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script>tailwind.config={theme:{extend:{fontFamily:{sans:['Inter','system-ui','sans-serif']}}}}</script>
+<style>
+  body{font-family:Inter,system-ui,-apple-system,Segoe UI,sans-serif}
+  .tnum{font-variant-numeric:tabular-nums}
+  :focus-visible{outline:2px solid #4f46e5;outline-offset:2px}
+</style>
+</head>
+<body class="bg-slate-50 text-slate-900 antialiased">
+<div class="flex min-h-screen">
+  <aside class="hidden lg:flex w-56 shrink-0 flex-col bg-slate-900 text-slate-300">
+    <div class="px-5 py-5 text-white font-semibold tracking-tight flex items-center gap-2">
+      <span class="grid h-7 w-7 place-items-center rounded-md bg-indigo-500 text-sm">S</span> Stockroom
+    </div>
+    <nav class="px-3 space-y-1 text-sm" aria-label="Primary">
+      <a href="#" class="block rounded-md px-3 py-2 hover:bg-slate-800">Dashboard</a>
+      <a href="#" class="block rounded-md px-3 py-2 bg-slate-800 text-white" aria-current="page">Products</a>
+      <a href="#" class="block rounded-md px-3 py-2 hover:bg-slate-800">Purchase orders</a>
+      <a href="#" class="block rounded-md px-3 py-2 hover:bg-slate-800">Suppliers</a>
+      <a href="#" class="block rounded-md px-3 py-2 hover:bg-slate-800">Reports</a>
+    </nav>
+  </aside>
+
+  <main class="flex-1 min-w-0">
+    <header class="border-b border-slate-200 bg-white px-4 sm:px-8 py-4">
+      <nav class="text-xs text-slate-500" aria-label="Breadcrumb">Products / <span class="text-slate-700">Import</span></nav>
+      <h1 class="mt-1 text-xl font-semibold tracking-tight">Import products from CSV</h1>
+    </header>
+
+    <div class="mx-auto max-w-6xl px-4 sm:px-8 py-6">
+      <ol id="stepper" class="mb-6 grid grid-cols-2 sm:grid-cols-4 gap-3" aria-label="Import progress"></ol>
+      <div id="view"></div>
+    </div>
+  </main>
+</div>
+<div id="toast" class="fixed bottom-4 right-4 hidden rounded-md bg-slate-900 px-4 py-2 text-sm text-white shadow-lg" role="status"></div>
+
+<script>
+/* ---------- Mock data ---------- */
+const FIELDS = [
+  {key:'sku',label:'SKU',required:true,hint:'Unique product code',alias:['sku','item code','product code','code','part no']},
+  {key:'name',label:'Product name',required:true,hint:'Display name',alias:['name','product name','title','description','item']},
+  {key:'category',label:'Category',hint:'Must match an existing category',alias:['category','cat','group','type']},
+  {key:'cost',label:'Unit cost',num:true,hint:'Purchase cost, USD',alias:['cost','unit cost','buy price','purchase price']},
+  {key:'price',label:'Sell price',num:true,hint:'Retail price, USD',alias:['price','sell price','retail','msrp','retail price']},
+  {key:'stock',label:'Stock on hand',int:true,hint:'Whole units',alias:['stock','qty','quantity','on hand','stock on hand']},
+  {key:'reorder',label:'Reorder point',int:true,hint:'Whole units',alias:['reorder','reorder point','min qty','min stock']},
+  {key:'supplier',label:'Supplier',hint:'Supplier name',alias:['supplier','vendor','manufacturer']},
+];
+const CATEGORIES=['Hardware','Electrical','Plumbing','Tools','Safety','Packaging'];
+const EXISTING_SKUS=new Set(['HW-1002','EL-2210','TL-3301','SF-4100','PK-5007']);
+
+const SAMPLE_CSV=`Item Code,Product Name,Group,Buy Price,Retail Price,Qty,Min Stock,Vendor
+HW-1001,Stainless hex bolt M8 x 40 (box of 100),Hardware,12.40,24.99,340,100,Norfast Supply
+HW-1002,Galvanized wood screw 4.5 x 60 (box of 200),Hardware,8.10,16.50,52,80,Norfast Supply
+EL-2201,Cat6 patch cable 2 m,Electrical,1.15,4.99,610,150,Voltline Co.
+EL-2210,LED driver 24V 60W,Electrical,9.80,19.90,48,30,Voltline Co.
+EL-2215,Surge protector 6-outlet,Electrical,7.25,6.50,85,25,Voltline Co.
+PL-3100,PVC elbow 90 deg 25 mm,Plumbing,0.32,1.10,1800,500,AquaPipe Ltd
+PL-3104,Brass ball valve 1/2",Plumbing,3.60,8.95,,40,AquaPipe Ltd
+TL-3301,Cordless drill 18V kit,Tools,58.00,119.00,22,10,Brightforge
+TL-3305,Torque wrench 1/2" 40-200 Nm,Tools,41.50,89.00,14,6,Brightforge
+TL-3305,Torque wrench 1/2" (duplicate row),Tools,41.50,89.00,9,6,Brightforge
+SF-4100,Safety glasses clear lens,Safety,1.40,4.25,420,200,Guardline
+SF-4102,Nitrile gloves L (box of 100),Safety,4.90,11.99,-12,60,Guardline
+SF-4110,Hi-vis vest class 2,Safety,3.75,abc,95,40,Guardline
+,Hard hat white,Safety,6.10,14.50,60,20,Guardline
+PK-5001,Corrugated box 400x300x200,Packaging,0.58,1.40,2400,800,Pak&Co
+PK-5007,Bubble wrap roll 50 m,Packaging,6.20,13.75,38,30,Pak&Co
+PK-5012,Packing tape 48 mm clear,Packaging,0.95,2.60,310.5,120,Pak&Co
+XX-9001,Mystery widget,Gadgets,2.00,5.00,15,5,Unknown Imports
+PK-5020,"Stretch film 500 mm, 3 kg",Packaging,5.30,10.90,66,25,Pak&Co
+HW-1010,Anchor bolt M10 x 100 (box of 50),Hardware,14.00,29.00,120,40,Norfast Supply`;
+
+/* ---------- State ---------- */
+const S={step:0,file:null,headers:[],rows:[],map:{},dupMode:'update',filter:'all',page:0,edits:{},result:null,importing:false,progress:0};
+const PAGE=10;
+const STEPS=['Upload','Map columns','Review','Import'];
+
+/* ---------- Helpers ---------- */
+const $=s=>document.querySelector(s);
+const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+function toast(m){const t=$('#toast');t.textContent=m;t.classList.remove('hidden');clearTimeout(toast.t);toast.t=setTimeout(()=>t.classList.add('hidden'),3000)}
+function parseCSV(text){
+  const out=[];let row=[],f='',q=false;
+  text=text.replace(/^﻿/,'');
+  for(let i=0;i<text.length;i++){
+    const c=text[i];
+    if(q){ if(c=='"'){ if(text[i+1]=='"'){f+='"';i++} else q=false } else f+=c }
+    else if(c=='"') q=true;
+    else if(c==','){row.push(f);f=''}
+    else if(c=='\n'||c=='\r'){ if(c=='\r'&&text[i+1]=='\n')i++; row.push(f);f='';out.push(row);row=[] }
+    else f+=c;
+  }
+  if(f!==''||row.length){row.push(f);out.push(row)}
+  return out.filter(r=>r.some(x=>x.trim()!==''));
+}
+function fmtSize(b){return b<1024?b+' B':(b/1024).toFixed(1)+' KB'}
+
+/* ---------- Mapping + validation ---------- */
+function autoMap(){
+  S.map={};
+  const used=new Set();
+  FIELDS.forEach(f=>{
+    const idx=S.headers.findIndex((h,i)=>!used.has(i)&&f.alias.includes(h.trim().toLowerCase()));
+    if(idx>=0){S.map[f.key]=idx;used.add(idx)} else S.map[f.key]=-1;
+  });
+}
+function cell(r,key){
+  const e=S.edits[r.n+'.'+key]; if(e!==undefined) return e;
+  const i=S.map[key]; return i>=0?(r.cells[i]??'').trim():'';
+}
+function validate(){
+  const seen={};
+  const res=S.rows.map(r=>{
+    const errors=[],warnings=[],bad={};
+    const add=(arr,key,msg)=>{arr.push(msg);if(arr===errors)bad[key]=msg;};
+    FIELDS.forEach(f=>{
+      const v=cell(r,f.key);
+      if(f.required&&!v) add(errors,f.key,f.label+' is required');
+      else if(v&&f.num&&(isNaN(+v)||+v<0)) add(errors,f.key,f.label+' must be a positive number');
+      else if(v&&f.int&&(!/^-?\d+$/.test(v)||+v<0)) add(errors,f.key,f.label+' must be a whole number, 0 or more');
+    });
+    const cat=cell(r,'category');
+    if(cat&&!CATEGORIES.some(c=>c.toLowerCase()==cat.toLowerCase())) add(errors,'category','Unknown category "'+cat+'"');
+    const sku=cell(r,'sku').toUpperCase();
+    if(sku){
+      if(seen[sku]) add(errors,'sku','Duplicate of row '+seen[sku]+' in this file'); else seen[sku]=r.n;
+    }
+    const cost=+cell(r,'cost'),price=+cell(r,'price');
+    if(!bad.cost&&!bad.price&&cell(r,'cost')&&cell(r,'price')&&price<cost) warnings.push('Sell price is below unit cost');
+    if(sku&&!bad.sku&&EXISTING_SKUS.has(sku)) warnings.push(S.dupMode=='update'?'SKU exists - will be updated':S.dupMode=='skip'?'SKU exists - will be skipped':'SKU exists');
+    if(S.map.stock>=0&&!cell(r,'stock')&&!bad.stock) warnings.push('Stock empty - will default to 0');
+    const exists=sku&&EXISTING_SKUS.has(sku);
+    return {r,errors,warnings,bad,exists,status:errors.length?'error':warnings.length?'warn':'ok'};
+  });
+  return res;
+}
+function importable(v){return v.filter(x=>x.status!='error'&&!(x.exists&&S.dupMode=='skip'))}
+
+/* ---------- Rendering ---------- */
+function renderStepper(){
+  $('#stepper').innerHTML=STEPS.map((s,i)=>{
+    const done=i<S.step,cur=i==S.step;
+    return `<li class="flex items-center gap-3 rounded-lg border px-3 py-2.5 ${cur?'border-indigo-500 bg-white shadow-sm':'border-slate-200 bg-white/60'}" ${cur?'aria-current="step"':''}>
+      <span class="grid h-6 w-6 shrink-0 place-items-center rounded-full text-xs font-semibold ${done?'bg-emerald-600 text-white':cur?'bg-indigo-600 text-white':'bg-slate-200 text-slate-600'}">${done?'&#10003;':i+1}</span>
+      <span class="text-sm ${cur?'font-semibold text-slate-900':'text-slate-600'}">${s}</span></li>`}).join('');
+}
+function render(){renderStepper();[viewUpload,viewMap,viewReview,viewImport][S.step]();window.scrollTo({top:0})}
+function go(n){S.step=n;render()}
+
+function btn(label,id,kind='primary',extra=''){
+  const k={primary:'bg-indigo-600 text-white hover:bg-indigo-700 disabled:bg-slate-300 disabled:cursor-not-allowed',
+           secondary:'bg-white text-slate-700 border border-slate-300 hover:bg-slate-50',
+           ghost:'text-slate-600 hover:bg-slate-100'}[kind];
+  return `<button id="${id}" type="button" class="rounded-md px-4 py-2 text-sm font-medium ${k}" ${extra}>${label}</button>`;
+}
+
+/* Step 1 */
+function viewUpload(){
+  $('#view').innerHTML=`
+  <div class="grid gap-6 lg:grid-cols-3">
+    <section class="lg:col-span-2 rounded-xl border border-slate-200 bg-white p-6">
+      <h2 class="text-base font-semibold">Upload a CSV file</h2>
+      <p class="mt-1 text-sm text-slate-600">The first row must contain column headers. You will map them to product fields in the next step.</p>
+      <label id="drop" for="file" class="mt-5 flex cursor-pointer flex-col items-center justify-center rounded-lg border-2 border-dashed border-slate-300 bg-slate-50 px-6 py-12 text-center transition hover:border-indigo-400 hover:bg-indigo-50/40">
+        <svg class="h-9 w-9 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M12 16V4m0 0L8 8m4-4 4 4M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2"/></svg>
+        <span class="mt-3 text-sm font-medium text-slate-800">Drop your file here, or <span class="text-indigo-600 underline">browse</span></span>
+        <span class="mt-1 text-xs text-slate-500">.csv up to 5 MB, max 5,000 rows</span>
+        <input id="file" type="file" accept=".csv,text/csv" class="sr-only">
+      </label>
+      <div id="uerr" class="mt-3 hidden rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800" role="alert"></div>
+      <div id="ufile" class="mt-4"></div>
+      <div class="mt-6 flex flex-wrap items-center justify-between gap-3">
+        <button id="sample" type="button" class="text-sm font-medium text-indigo-600 hover:underline">Use sample file (20 products)</button>
+        ${btn('Continue to mapping','next','primary',S.file?'':'disabled')}
+      </div>
+    </section>
+    <aside class="rounded-xl border border-slate-200 bg-white p-6 text-sm">
+      <h3 class="font-semibold">Before you start</h3>
+      <ul class="mt-3 space-y-2 text-slate-600">
+        <li><b class="text-slate-800">Required:</b> SKU and product name.</li>
+        <li><b class="text-slate-800">Categories:</b> ${CATEGORIES.join(', ')}.</li>
+        <li><b class="text-slate-800">Existing SKUs</b> can be updated or skipped.</li>
+        <li>Rows with errors are never imported; you can fix them in the preview.</li>
+      </ul>
+      <button id="tpl" type="button" class="mt-4 rounded-md border border-slate-300 px-3 py-1.5 text-sm font-medium hover:bg-slate-50">Download template</button>
+    </aside>
+  </div>`;
+  const drop=$('#drop'),inp=$('#file');
+  ['dragenter','dragover'].forEach(e=>drop.addEventListener(e,ev=>{ev.preventDefault();drop.classList.add('border-indigo-500','bg-indigo-50')}));
+  ['dragleave','drop'].forEach(e=>drop.addEventListener(e,ev=>{ev.preventDefault();drop.classList.remove('border-indigo-500','bg-indigo-50')}));
+  drop.addEventListener('drop',ev=>loadFile(ev.dataTransfer.files[0]));
+  inp.addEventListener('change',()=>loadFile(inp.files[0]));
+  $('#sample').onclick=()=>ingest('inventory_export_nov.csv',SAMPLE_CSV,SAMPLE_CSV.length);
+  $('#tpl').onclick=()=>{const b=new Blob([FIELDS.map(f=>f.label).join(',')+'\n'],{type:'text/csv'});const a=document.createElement('a');a.href=URL.createObjectURL(b);a.download='products_template.csv';a.click()};
+  $('#next').onclick=()=>go(1);
+  showFile();
+}
+function showFile(){
+  const el=$('#ufile'); if(!el)return;
+  el.innerHTML=S.file?`<div class="flex items-center justify-between rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3">
+    <div><div class="text-sm font-medium text-emerald-900">${esc(S.file.name)}</div>
+    <div class="text-xs text-emerald-800 tnum">${fmtSize(S.file.size)} - ${S.rows.length} rows - ${S.headers.length} columns</div></div>
+    <button id="rm" type="button" class="text-sm font-medium text-emerald-900 hover:underline">Remove</button></div>`:'';
+  const rm=$('#rm'); if(rm) rm.onclick=()=>{S.file=null;S.rows=[];S.headers=[];S.edits={};viewUpload()};
+}
+function loadFile(f){
+  if(!f)return;
+  const err=$('#uerr');err.classList.add('hidden');
+  if(!/\.csv$/i.test(f.name)){err.textContent='"'+f.name+'" is not a CSV file. Export your spreadsheet as .csv and try again.';err.classList.remove('hidden');return}
+  if(f.size>5*1024*1024){err.textContent='File is larger than 5 MB.';err.classList.remove('hidden');return}
+  const rd=new FileReader();rd.onload=()=>ingest(f.name,rd.result,f.size);rd.readAsText(f);
+}
+function ingest(name,text,size){
+  const data=parseCSV(text);
+  if(data.length<2){const e=$('#uerr');e.textContent='The file has no data rows.';e.classList.remove('hidden');return}
+  S.file={name,size};S.headers=data[0].map(h=>h.trim());
+  S.rows=data.slice(1).map((c,i)=>({n:i+1,cells:c}));S.edits={};S.page=0;S.filter='all';
+  autoMap();viewUpload();toast('File read: '+S.rows.length+' rows found');
+}
+
+/* Step 2 */
+function viewMap(){
+  const mapped=FIELDS.filter(f=>S.map[f.key]>=0).length;
+  const missing=FIELDS.filter(f=>f.required&&S.map[f.key]<0);
+  $('#view').innerHTML=`
+  <section class="rounded-xl border border-slate-200 bg-white">
+    <div class="border-b border-slate-200 p-6">
+      <h2 class="text-base font-semibold">Map columns</h2>
+      <p class="mt-1 text-sm text-slate-600">We matched <b class="tnum">${mapped}</b> of ${FIELDS.length} product fields to columns in <span class="font-medium">${esc(S.file.name)}</span>. Check each match below.</p>
+      ${missing.length?`<div class="mt-3 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900" role="alert">Map a column to: ${missing.map(f=>'<b>'+f.label+'</b>').join(', ')} to continue.</div>`:''}
+    </div>
+    <div class="overflow-x-auto">
+    <table class="w-full text-sm">
+      <thead class="bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500"><tr>
+        <th class="px-6 py-2.5 font-medium">Product field</th><th class="px-3 py-2.5 font-medium">CSV column</th><th class="px-3 py-2.5 font-medium">Sample values</th></tr></thead>
+      <tbody class="divide-y divide-slate-100">
+      ${FIELDS.map(f=>{const i=S.map[f.key];const samples=i>=0?S.rows.slice(0,3).map(r=>r.cells[i]||'(empty)').map(esc).join(' &middot; '):'<span class="text-slate-400">Not mapped</span>';
+        return `<tr>
+        <td class="px-6 py-3 align-top"><div class="font-medium">${f.label}${f.required?' <span class="text-red-600" title="Required">*</span>':''}</div><div class="text-xs text-slate-500">${f.hint}</div></td>
+        <td class="px-3 py-3 align-top"><select data-k="${f.key}" aria-label="CSV column for ${f.label}" class="w-full min-w-44 rounded-md border border-slate-300 bg-white px-2.5 py-1.5 text-sm ${f.required&&i<0?'border-amber-400':''}">
+          <option value="-1">${f.required?'Select a column...':'Do not import'}</option>
+          ${S.headers.map((h,j)=>`<option value="${j}" ${i==j?'selected':''}>${esc(h)}</option>`).join('')}</select></td>
+        <td class="px-3 py-3 align-top text-slate-600 max-w-xs truncate">${samples}</td></tr>`}).join('')}
+      </tbody></table></div>
+    <div class="flex items-center justify-between border-t border-slate-200 p-4">
+      ${btn('Back','back','secondary')}${btn('Review rows','next','primary',missing.length?'disabled':'')}
+    </div>
+  </section>`;
+  document.querySelectorAll('select[data-k]').forEach(s=>s.onchange=()=>{
+    const v=+s.value;
+    if(v>=0) for(const k in S.map) if(k!==s.dataset.k&&S.map[k]===v) S.map[k]=-1;
+    S.map[s.dataset.k]=v;S.edits={};viewMap();
+  });
+  $('#back').onclick=()=>go(0);$('#next').onclick=()=>{S.page=0;go(2)};
+}
+
+/* Step 3 */
+function viewReview(){
+  const v=validate();
+  const cnt={all:v.length,error:v.filter(x=>x.status=='error').length,warn:v.filter(x=>x.status=='warn').length,ok:v.filter(x=>x.status=='ok').length};
+  const ok=importable(v).length;
+  const list=S.filter=='all'?v:v.filter(x=>x.status==S.filter);
+  const pages=Math.max(1,Math.ceil(list.length/PAGE));S.page=Math.min(S.page,pages-1);
+  const slice=list.slice(S.page*PAGE,S.page*PAGE+PAGE);
+  const tab=(k,l,c)=>`<button data-f="${k}" type="button" class="rounded-md px-3 py-1.5 text-sm ${S.filter==k?'bg-slate-900 text-white':'text-slate-600 hover:bg-slate-100'}">${l} <span class="tnum opacity-80">${c}</span></button>`;
+  const badge=x=>x.status=='error'?'<span class="inline-flex rounded-full bg-red-100 px-2 py-0.5 text-xs font-medium text-red-800">Error</span>':x.status=='warn'?'<span class="inline-flex rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-800">Warning</span>':'<span class="inline-flex rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-medium text-emerald-800">Ready</span>';
+  const td=(x,k,cls='')=>{const val=cell(x.r,k);const b=x.bad[k];
+    return `<td class="px-3 py-2 align-top ${cls}">${b?`<input data-e="${x.r.n}.${k}" value="${esc(val)}" aria-label="${k} row ${x.r.n}" aria-invalid="true" title="${esc(b)}" placeholder="${esc(b)}" class="w-full min-w-24 rounded border border-red-400 bg-red-50 px-2 py-1 text-sm text-red-900 placeholder:text-red-400">
+      <div class="mt-0.5 text-xs text-red-700">${esc(b)}</div>`:esc(val)||'<span class="text-slate-300">-</span>'}</td>`};
+  $('#view').innerHTML=`
+  <section class="rounded-xl border border-slate-200 bg-white">
+    <div class="p-6 pb-4">
+      <h2 class="text-base font-semibold">Review before importing</h2>
+      <div class="mt-4 grid gap-3 sm:grid-cols-4">
+        ${[['Rows in file',cnt.all,'text-slate-900'],['Ready',cnt.ok,'text-emerald-700'],['Warnings',cnt.warn,'text-amber-700'],['Errors',cnt.error,'text-red-700']].map(a=>`<div class="rounded-lg border border-slate-200 px-4 py-3"><div class="text-xs text-slate-500">${a[0]}</div><div class="text-2xl font-semibold tnum ${a[2]}">${a[1]}</div></div>`).join('')}
+      </div>
+      ${cnt.error?`<p class="mt-3 text-sm text-red-800">${cnt.error} row${cnt.error>1?'s have':' has'} errors and will be left out unless you fix them. Edit the highlighted cells below.</p>`:`<p class="mt-3 text-sm text-emerald-800">No errors found.</p>`}
+      <fieldset class="mt-4"><legend class="text-sm font-medium">When a SKU already exists in inventory</legend>
+        <div class="mt-2 flex flex-wrap gap-x-6 gap-y-2 text-sm">
+          ${[['update','Update the existing product'],['skip','Skip the row']].map(o=>`<label class="flex items-center gap-2"><input type="radio" name="dup" value="${o[0]}" ${S.dupMode==o[0]?'checked':''} class="accent-indigo-600"> ${o[1]}</label>`).join('')}
+        </div></fieldset>
+    </div>
+    <div class="flex flex-wrap items-center gap-1 border-y border-slate-200 bg-slate-50 px-4 py-2">
+      ${tab('all','All',cnt.all)}${tab('error','Errors',cnt.error)}${tab('warn','Warnings',cnt.warn)}${tab('ok','Ready',cnt.ok)}
+    </div>
+    <div class="overflow-x-auto">
+    <table class="w-full text-sm">
+      <thead class="bg-white text-left text-xs uppercase tracking-wide text-slate-500"><tr>
+        <th class="px-3 py-2.5 font-medium">Row</th><th class="px-3 py-2.5 font-medium">Status</th>
+        <th class="px-3 py-2.5 font-medium">SKU</th><th class="px-3 py-2.5 font-medium">Name</th><th class="px-3 py-2.5 font-medium">Category</th>
+        <th class="px-3 py-2.5 text-right font-medium">Cost</th><th class="px-3 py-2.5 text-right font-medium">Price</th><th class="px-3 py-2.5 text-right font-medium">Stock</th><th class="px-3 py-2.5 font-medium">Notes</th></tr></thead>
+      <tbody class="divide-y divide-slate-100">
+      ${slice.length?slice.map(x=>`<tr class="${x.status=='error'?'bg-red-50/40':''}">
+        <td class="px-3 py-2 align-top text-slate-500 tnum">${x.r.n}</td><td class="px-3 py-2 align-top">${badge(x)}</td>
+        ${td(x,'sku','font-mono text-xs')}${td(x,'name')}${td(x,'category')}${td(x,'cost','text-right tnum')}${td(x,'price','text-right tnum')}${td(x,'stock','text-right tnum')}
+        <td class="px-3 py-2 align-top text-xs text-amber-800">${x.warnings.map(esc).join('<br>')}</td></tr>`).join(''):`<tr><td colspan="9" class="px-6 py-10 text-center text-slate-500">No rows in this view.</td></tr>`}
+      </tbody></table></div>
+    <div class="flex items-center justify-between px-4 py-3 text-sm text-slate-600">
+      <span class="tnum">${list.length?S.page*PAGE+1:0}-${Math.min(list.length,S.page*PAGE+PAGE)} of ${list.length}</span>
+      <div class="flex gap-2">${btn('Previous','prev','secondary',S.page==0?'disabled style="opacity:.5"':'')}${btn('Next','nx','secondary',S.page>=pages-1?'disabled style="opacity:.5"':'')}</div>
+    </div>
+    <div class="flex flex-wrap items-center justify-between gap-3 border-t border-slate-200 p-4">
+      ${btn('Back','back','secondary')}
+      <div class="flex items-center gap-3"><span class="text-sm text-slate-600 tnum">${ok} of ${cnt.all} rows will be imported</span>${btn('Import '+ok+' products','go','primary',ok?'':'disabled')}</div>
+    </div>
+  </section>`;
+  document.querySelectorAll('[data-f]').forEach(b=>b.onclick=()=>{S.filter=b.dataset.f;S.page=0;viewReview()});
+  document.querySelectorAll('input[name=dup]').forEach(r=>r.onchange=()=>{S.dupMode=r.value;viewReview()});
+  document.querySelectorAll('input[data-e]').forEach(i=>i.onchange=()=>{S.edits[i.dataset.e]=i.value.trim();viewReview();toast('Row updated and re-validated')});
+  $('#prev').onclick=()=>{S.page--;viewReview()};$('#nx').onclick=()=>{S.page++;viewReview()};
+  $('#back').onclick=()=>go(1);$('#go').onclick=()=>{S.result=null;S.progress=0;go(3);runImport()};
+}
+
+/* Step 4 */
+function viewImport(){
+  const r=S.result;
+  if(!r){
+    $('#view').innerHTML=`<section class="rounded-xl border border-slate-200 bg-white p-10 text-center">
+      <h2 class="text-base font-semibold">Importing products...</h2>
+      <p class="mt-1 text-sm text-slate-600">Keep this tab open until the import finishes.</p>
+      <div class="mx-auto mt-6 h-2 max-w-md overflow-hidden rounded-full bg-slate-200" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${S.progress}"><div id="bar" class="h-full bg-indigo-600 transition-all" style="width:${S.progress}%"></div></div>
+      <p id="pct" class="mt-2 text-sm text-slate-500 tnum">${S.progress}%</p></section>`;return}
+  $('#view').innerHTML=`<section class="rounded-xl border border-slate-200 bg-white p-8">
+    <div class="flex items-start gap-4">
+      <span class="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-emerald-100 text-emerald-700 text-lg">&#10003;</span>
+      <div><h2 class="text-lg font-semibold">Import complete</h2>
+      <p class="mt-1 text-sm text-slate-600">${r.created+r.updated} of ${r.total} rows were processed from <span class="font-medium">${esc(S.file.name)}</span>.</p></div></div>
+    <div class="mt-6 grid gap-3 sm:grid-cols-4">
+      ${[['Created',r.created,'text-emerald-700'],['Updated',r.updated,'text-indigo-700'],['Skipped',r.skipped,'text-slate-700'],['Failed validation',r.failed,'text-red-700']].map(a=>`<div class="rounded-lg border border-slate-200 px-4 py-3"><div class="text-xs text-slate-500">${a[0]}</div><div class="text-2xl font-semibold tnum ${a[2]}">${a[1]}</div></div>`).join('')}
+    </div>
+    ${r.failed?`<div class="mt-5 rounded-md border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">${r.failed} row${r.failed>1?'s':''} could not be imported. Download the error report, fix the rows, and import them again.
+      <div class="mt-3">${btn('Download error report','rep','secondary')}</div></div>`:''}
+    <div class="mt-6 flex gap-3">${btn('View products','vp','primary')}${btn('Import another file','again','secondary')}</div>
+  </section>`;
+  const rep=$('#rep'); if(rep) rep.onclick=downloadErrors;
+  $('#vp').onclick=()=>toast('Opening product list (demo)');
+  $('#again').onclick=()=>{Object.assign(S,{file:null,rows:[],headers:[],map:{},edits:{},result:null,filter:'all',page:0});go(0)};
+}
+function runImport(){
+  const v=validate();const run=importable(v);
+  const failed=v.filter(x=>x.status=='error').length;
+  const skipped=v.filter(x=>x.exists&&x.status!='error'&&S.dupMode=='skip').length;
+  const updated=run.filter(x=>x.exists).length;
+  const t=setInterval(()=>{
+    S.progress=Math.min(100,S.progress+Math.ceil(Math.random()*14+6));
+    const bar=$('#bar');if(bar){bar.style.width=S.progress+'%';$('#pct').textContent=S.progress+'%';bar.parentElement.setAttribute('aria-valuenow',S.progress)}
+    if(S.progress>=100){clearInterval(t);S.result={total:v.length,created:run.length-updated,updated,skipped,failed};if(S.step==3)viewImport();toast('Import finished')}
+  },280);
+}
+function downloadErrors(){
+  const v=validate().filter(x=>x.status=='error');
+  const csv=['row,sku,errors',...v.map(x=>[x.r.n,cell(x.r,'sku'),x.errors.join('; ')].map(c=>'"'+String(c).replace(/"/g,'""')+'"').join(','))].join('\n');
+  const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv'}));a.download='import_errors.csv';a.click();
+}
+render();
+</script>
+</body>
+</html>

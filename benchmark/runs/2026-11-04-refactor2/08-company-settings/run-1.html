@@ -1,0 +1,664 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Company settings – Sao Viet Admin</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+  [hidden] { display: none !important; }
+  html { scroll-padding-bottom: 5rem; }
+  :focus-visible { outline: 2px solid #1d4ed8; outline-offset: 2px; }
+  body { font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; font-variant-numeric: normal; }
+  dialog::backdrop { background: rgba(15, 23, 42, .4); }
+  dialog { margin: auto; }
+  @media (prefers-reduced-motion: reduce) { .animate-pulse, .animate-spin { animation: none !important; } }
+</style>
+</head>
+<body class="bg-white text-slate-900 text-sm">
+
+<div class="flex min-h-screen">
+  <!-- App sidebar -->
+  <aside class="hidden lg:flex w-60 shrink-0 flex-col border-r border-slate-200 bg-slate-50">
+    <div class="flex h-12 items-center gap-2 border-b border-slate-200 px-3">
+      <button type="button" class="flex h-8 w-full items-center justify-between rounded px-2 text-left hover:bg-slate-100" aria-label="Switch organization, current Sao Viet Solutions">
+        <span class="truncate font-medium">Sao Viet Solutions</span>
+        <svg class="size-4 shrink-0 text-slate-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m7 15 5 5 5-5M7 9l5-5 5 5"/></svg>
+      </button>
+    </div>
+    <nav aria-label="Main" class="flex flex-col gap-4 p-2" id="appnav"></nav>
+  </aside>
+
+  <div class="flex min-w-0 flex-1 flex-col">
+    <header class="flex h-12 items-center justify-between border-b border-slate-200 bg-white px-4">
+      <span class="text-slate-600 lg:hidden font-medium">Sao Viet Admin</span>
+      <button type="button" class="hidden h-8 w-72 items-center justify-between rounded border border-slate-300 px-2 text-slate-600 lg:flex" aria-label="Search or run a command">
+        <span>Search or run a command</span><kbd class="rounded border border-slate-300 px-1 text-xs">Ctrl K</kbd>
+      </button>
+      <div class="flex items-center gap-2">
+        <button type="button" class="relative flex size-8 items-center justify-center rounded hover:bg-slate-100" aria-label="Notifications, 3 unread">
+          <svg class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg>
+          <span class="absolute right-0 top-0 flex h-4 min-w-4 items-center justify-center rounded-full bg-blue-700 px-1 text-xs font-medium text-white" aria-hidden="true">3</span>
+        </button>
+        <button type="button" class="flex size-8 items-center justify-center rounded-full bg-slate-200 text-xs font-medium text-slate-800" aria-label="Account menu">NH</button>
+      </div>
+    </header>
+
+    <main class="min-w-0 flex-1 p-6" id="main">
+      <header class="mb-4 flex flex-col gap-2">
+        <nav aria-label="Breadcrumb">
+          <ol class="flex flex-wrap items-center gap-1 text-sm text-slate-600">
+            <li><a href="#" data-nav class="inline-flex min-h-6 items-center hover:text-slate-900 hover:underline">Settings</a></li>
+            <li aria-hidden="true">/</li>
+            <li><span aria-current="page" class="text-slate-900" id="crumb">General</span></li>
+          </ol>
+        </nav>
+        <h1 class="text-xl font-semibold">Company settings</h1>
+      </header>
+
+      <div class="flex flex-col gap-6 md:flex-row">
+        <!-- Settings navigation -->
+        <div class="md:w-60 md:shrink-0">
+          <div class="md:hidden">
+            <label for="sectionSelect" class="mb-1 block text-sm font-medium">Settings</label>
+            <select id="sectionSelect" class="h-8 w-full rounded border border-slate-300 bg-white px-2 text-sm"></select>
+          </div>
+          <nav aria-label="Settings sections" id="setnav" class="hidden flex-col gap-4 md:flex"></nav>
+        </div>
+
+        <!-- Section content -->
+        <section class="min-w-0 max-w-3xl flex-1" id="content" aria-live="off"></section>
+      </div>
+    </main>
+  </div>
+</div>
+
+<!-- Toast region -->
+<div class="pointer-events-none fixed right-4 top-14 z-50 flex w-80 flex-col gap-2" role="status" id="toasts"></div>
+
+<!-- Generic dialog -->
+<dialog id="dlg" class="w-full max-w-md rounded-lg border border-slate-200 bg-white p-0 text-slate-900 shadow-lg" aria-labelledby="dlgTitle"></dialog>
+
+<script>
+(function () {
+  'use strict';
+
+  /* ---------- helpers ---------- */
+  var $ = function (s, r) { return (r || document).querySelector(s); };
+  var esc = function (s) { return String(s).replace(/[&<>"']/g, function (c) { return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); };
+  var ICON = {
+    home: 'M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2zM9 22V12h6v10',
+    cart: 'M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4zM3 6h18M16 10a4 4 0 0 1-8 0',
+    users: 'M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75',
+    box: 'M21 8 12 3 3 8v8l9 5 9-5zM3 8l9 5 9-5M12 13v8',
+    file: 'M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8zM14 2v6h6M8 13h8M8 17h8',
+    chart: 'M3 3v18h18M7 14l4-4 4 4 5-6',
+    cog: 'M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z',
+    alert: 'M12 8v4M12 16h.01M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20',
+    check: 'M20 6 9 17l-5-5'
+  };
+  function ic(name, cls) {
+    return '<svg class="' + (cls || 'size-4') + ' shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="' + ICON[name] + '"/></svg>';
+  }
+  var SPIN = '<svg class="size-4 animate-spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M21 12a9 9 0 1 1-6.2-8.55" stroke-linecap="round"/></svg>';
+  var wait = function (ms) { return new Promise(function (r) { setTimeout(r, ms); }); };
+
+  var BTN = 'inline-flex h-8 items-center justify-center gap-2 rounded px-3 text-sm font-medium ';
+  var BTN_PRIMARY = BTN + 'bg-blue-700 text-white hover:bg-blue-800';
+  var BTN_OUTLINE = BTN + 'border border-slate-300 bg-white text-slate-900 hover:bg-slate-50';
+  var BTN_DANGER = BTN + 'bg-red-600 text-white hover:bg-red-700 disabled:opacity-60 disabled:cursor-not-allowed';
+  var BTN_DANGER_OUT = BTN + 'border border-red-300 bg-white text-red-700 hover:bg-red-50';
+  var INPUT = 'h-8 rounded border border-slate-300 bg-white px-2 text-sm text-slate-900 placeholder:text-slate-500 aria-[invalid=true]:border-red-600';
+
+  /* ---------- mock data ---------- */
+  var COMPANY = 'Sao Viet Solutions';
+  var saved = {
+    general: {
+      name: 'Sao Viet Solutions', legalName: 'Công ty TNHH Giải pháp Sao Việt', taxCode: '0312345678',
+      email: 'accounting@saoviet.example', phone: '028 3822 4410', website: 'https://saoviet.example',
+      address: '45 Nguyễn Huệ, Phường Bến Nghé, Quận 1', city: 'TP. Hồ Chí Minh', postal: '700000'
+    },
+    localization: { currency: 'VND', timezone: 'Asia/Ho_Chi_Minh', dateFormat: 'DD/MM/YYYY', numberFormat: 'vi-VN', fiscalStart: '1' },
+    notifications: {
+      'order-new': true, 'payment-in': true, 'invoice-late': true, 'stock-low': false,
+      'user-join': true, 'weekly': false, 'security': true
+    },
+    meta: {
+      general: { by: 'Trần Minh Quân', at: '28/10/2026 09:14' },
+      localization: { by: 'Nguyễn Thu Hà', at: '12/09/2026 16:40' },
+      notifications: { by: 'Lê Hoàng Nam', at: '03/11/2026 11:02' }
+    }
+  };
+  var HISTORY = {
+    general: [
+      ['28/10/2026 09:14', 'Trần Minh Quân', 'Phone', '028 3822 4400', '028 3822 4410'],
+      ['02/10/2026 14:26', 'Nguyễn Thu Hà', 'Postal code', '710000', '700000'],
+      ['17/08/2026 10:05', 'Nguyễn Thu Hà', 'Website', '(empty)', 'https://saoviet.example']
+    ],
+    localization: [
+      ['12/09/2026 16:40', 'Nguyễn Thu Hà', 'Date format', 'MM/DD/YYYY', 'DD/MM/YYYY'],
+      ['12/09/2026 16:40', 'Nguyễn Thu Hà', 'Time zone', 'UTC', 'Asia/Ho_Chi_Minh']
+    ],
+    notifications: [
+      ['03/11/2026 11:02', 'Lê Hoàng Nam', 'Low stock alert', 'On', 'Off'],
+      ['21/10/2026 08:48', 'Trần Minh Quân', 'Weekly summary', 'On', 'Off']
+    ]
+  };
+  var IMPACT = { users: 48, customers: 1286, orders: 12430, invoices: 9871 };
+
+  var NAV_APP = [
+    ['Work', [['Dashboard', 'home'], ['Orders', 'cart'], ['Customers', 'users'], ['Products', 'box']]],
+    ['Finance', [['Invoices', 'file'], ['Reports', 'chart']]],
+    ['Admin', [['Settings', 'cog']]]
+  ];
+  var SECTIONS = [
+    ['Company', [['general', 'General'], ['localization', 'Localization'], ['notifications', 'Notifications']]],
+    ['Account', [['danger', 'Danger zone']]]
+  ];
+  var TITLES = { general: 'General', localization: 'Localization', notifications: 'Notifications', danger: 'Danger zone' };
+
+  var NOTIFS = [
+    ['Orders and payments', [
+      ['order-new', 'New order placed', 'Email the finance team when a customer places an order.'],
+      ['payment-in', 'Payment received', 'Email when an invoice is marked as paid.'],
+      ['invoice-late', 'Invoice overdue', 'Daily email listing invoices past their due date.']
+    ]],
+    ['Inventory and team', [
+      ['stock-low', 'Low stock alert', 'Email when a product falls below its reorder level.'],
+      ['user-join', 'New user joins the company', 'Email company owners when someone accepts an invitation.']
+    ]],
+    ['Reports and security', [
+      ['weekly', 'Weekly summary report', 'Revenue, orders and late invoices, sent on Mondays at 08:00.'],
+      ['security', 'Sign-in from a new device', 'Email owners about sign-ins from unrecognised devices.', 'Required for owners and cannot be turned off.']
+    ]]
+  ];
+
+  /* ---------- URL state ---------- */
+  var params = new URLSearchParams(location.search);
+  var MOCK = params.get('state'); // empty | error | loading | null
+  var section = TITLES[params.get('section')] ? params.get('section') : 'general';
+  var loadState = 'loading'; // loading | ready | empty | error
+  var profileSetUp = true;
+
+  function urlFor(sec) {
+    var p = new URLSearchParams(location.search);
+    p.set('section', sec);
+    return '?' + p.toString();
+  }
+
+  /* ---------- shell nav ---------- */
+  function renderNavs() {
+    $('#appnav').innerHTML = NAV_APP.map(function (g) {
+      return '<div class="flex flex-col gap-0.5"><p class="px-2 py-1 text-xs font-medium text-slate-600">' + g[0] + '</p>' +
+        g[1].map(function (i) {
+          var on = i[0] === 'Settings';
+          return '<a href="#" data-nav ' + (on ? 'aria-current="page"' : '') + ' class="flex h-8 items-center gap-2 rounded px-2 text-sm hover:bg-slate-100 ' + (on ? 'bg-slate-200 font-medium text-slate-900' : 'text-slate-700') + '">' + ic(i[1]) + '<span class="truncate">' + i[0] + '</span></a>';
+        }).join('') + '</div>';
+    }).join('');
+
+    $('#setnav').innerHTML = SECTIONS.map(function (g, gi) {
+      return '<div class="flex flex-col gap-0.5' + (gi > 0 ? ' border-t border-slate-200 pt-3' : '') + '"><p class="px-2 py-1 text-xs font-medium text-slate-600">' + g[0] + '</p>' +
+        g[1].map(function (i) {
+          var on = i[0] === section;
+          var danger = i[0] === 'danger';
+          return '<a href="' + urlFor(i[0]) + '" data-section="' + i[0] + '" ' + (on ? 'aria-current="page"' : '') + ' class="flex h-8 items-center rounded px-2 text-sm hover:bg-slate-100 ' + (on ? 'bg-slate-200 font-medium text-slate-900' : (danger ? 'text-red-700' : 'text-slate-700')) + '">' + i[1] + '</a>';
+        }).join('') + '</div>';
+    }).join('');
+
+    var sel = $('#sectionSelect');
+    sel.innerHTML = SECTIONS.map(function (g) {
+      return '<optgroup label="' + g[0] + '">' + g[1].map(function (i) { return '<option value="' + i[0] + '"' + (i[0] === section ? ' selected' : '') + '>' + i[1] + '</option>'; }).join('') + '</optgroup>';
+    }).join('');
+    $('#crumb').textContent = TITLES[section];
+    document.title = TITLES[section] + ' – Company settings – Sao Viet Admin';
+  }
+
+  /* ---------- toast ---------- */
+  function toast(msg, action) {
+    var el = document.createElement('div');
+    el.className = 'pointer-events-auto flex items-center gap-2 rounded-md border border-slate-200 bg-white p-3 text-sm shadow-md';
+    el.innerHTML = '<span class="text-green-700">' + ic('check') + '</span><span class="flex-1">' + esc(msg) + '</span>' +
+      (action ? '<button type="button" class="rounded px-2 py-1 font-medium text-blue-700 hover:underline" data-act>' + esc(action.label) + '</button>' : '') +
+      '<button type="button" class="flex size-6 items-center justify-center rounded text-slate-600 hover:bg-slate-100" aria-label="Dismiss notification"><svg class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg></button>';
+    $('#toasts').appendChild(el);
+    var t, remaining = action ? 10000 : 5000, started;
+    function start() { started = Date.now(); t = setTimeout(function () { el.remove(); }, remaining); }
+    function pause() { clearTimeout(t); remaining -= Date.now() - started; }
+    el.addEventListener('mouseenter', pause); el.addEventListener('mouseleave', start);
+    el.addEventListener('focusin', pause); el.addEventListener('focusout', start);
+    el.querySelector('[aria-label="Dismiss notification"]').onclick = function () { clearTimeout(t); el.remove(); };
+    if (action) el.querySelector('[data-act]').onclick = function () { clearTimeout(t); el.remove(); action.fn(); };
+    start();
+  }
+
+  /* ---------- dialogs ---------- */
+  var dlg = $('#dlg');
+  function openDialog(html, onClose) {
+    dlg.innerHTML = html;
+    dlg.onclose = function () { if (onClose) onClose(); };
+    dlg.showModal();
+  }
+  function confirmLeave(onLeave) {
+    var leave = false;
+    openDialog(
+      '<div class="p-6"><h2 id="dlgTitle" class="text-base font-semibold">You have unsaved changes. Leave without saving?</h2>' +
+      '<p class="mt-2 text-slate-600">Your edits to ' + esc(TITLES[section]) + ' will be lost.</p>' +
+      '<div class="mt-6 flex justify-end gap-2"><button type="button" id="dLeave" class="' + BTN_DANGER_OUT + '">Leave</button><button type="button" id="dStay" class="' + BTN_PRIMARY + '" autofocus>Stay</button></div></div>',
+      function () { if (leave) onLeave(); else if ($('#sectionSelect')) $('#sectionSelect').value = section; }
+    );
+    $('#dStay').onclick = function () { dlg.close(); };
+    $('#dLeave').onclick = function () { leave = true; dlg.close(); };
+    $('#dStay').focus();
+  }
+  function showHistory(sec) {
+    var rows = HISTORY[sec] || [];
+    openDialog(
+      '<div class="p-6"><h2 id="dlgTitle" class="text-base font-semibold">Change history: ' + esc(TITLES[sec]) + '</h2>' +
+      '<ul class="mt-3 divide-y divide-slate-200 border-y border-slate-200">' + rows.map(function (r) {
+        return '<li class="py-2"><p class="font-medium">' + esc(r[2]) + ': <span class="font-normal text-slate-600">' + esc(r[3]) + '</span> &rarr; ' + esc(r[4]) + '</p><p class="text-xs text-slate-600">' + esc(r[1]) + ' · ' + esc(r[0]) + '</p></li>';
+      }).join('') + '</ul>' +
+      '<div class="mt-6 flex justify-end"><button type="button" id="dClose" class="' + BTN_OUTLINE + '">Close</button></div></div>'
+    );
+    $('#dClose').onclick = function () { dlg.close(); };
+  }
+
+  /* ---------- section header ---------- */
+  function sectionHeader(sec, purpose) {
+    var m = saved.meta[sec];
+    return '<div class="mb-6 border-b border-slate-200 pb-4"><h2 class="text-lg font-semibold">' + TITLES[sec] + '</h2>' +
+      '<p class="mt-1 text-slate-600">' + purpose + '</p>' +
+      (m ? '<p class="mt-2 text-xs text-slate-600" id="lastChanged">Last changed by ' + esc(m.by) + ' on ' + esc(m.at) + ' · <button type="button" class="font-medium text-blue-700 underline" data-history="' + sec + '">View history</button></p>' : '') +
+      '</div>';
+  }
+
+  /* ---------- states ---------- */
+  function skeleton() {
+    var bar = function (w) { return '<div class="h-8 ' + w + ' rounded bg-slate-200 animate-pulse"></div>'; };
+    return '<div aria-busy="true" aria-label="Loading settings"><div aria-hidden="true">' +
+      '<div class="mb-6 border-b border-slate-200 pb-4"><div class="h-6 w-40 rounded bg-slate-200 animate-pulse"></div><div class="mt-3 h-4 w-72 rounded bg-slate-200 animate-pulse"></div></div>' +
+      '<div class="space-y-6">' +
+      [0, 1, 2, 3, 4].map(function () { return '<div class="space-y-2"><div class="h-4 w-28 rounded bg-slate-200 animate-pulse"></div>' + bar('max-w-xl w-full') + '</div>'; }).join('') +
+      '</div></div></div>';
+  }
+  function errorState() {
+    return '<div class="rounded-md border border-red-200 bg-red-50 p-4 text-red-800" role="alert">' +
+      '<div class="flex items-start gap-2">' + ic('alert') + '<div><p class="font-medium">Couldn\'t load ' + esc(TITLES[section].toLowerCase()) + ' settings.</p>' +
+      '<p class="mt-1">Check your connection and try again. Your saved settings were not changed.</p>' +
+      '<button type="button" id="retry" class="mt-3 ' + BTN_OUTLINE + '">Retry</button></div></div></div>';
+  }
+  function emptyState() {
+    return '<div class="flex flex-col items-center gap-3 rounded-md border border-slate-200 px-6 py-12 text-center">' +
+      '<p class="text-base font-medium">No company profile yet</p>' +
+      '<p class="max-w-sm text-slate-600">Your company name, tax code and address appear on invoices and emails. Set them up to get started.</p>' +
+      '<button type="button" id="setup" class="' + BTN_PRIMARY + '">Set up company profile</button></div>';
+  }
+
+  /* ---------- form engine ---------- */
+  function field(o) {
+    var id = o.id, w = o.w || 'max-w-xl';
+    var desc = (o.help ? id + '-help ' : '') + id + '-error';
+    return '<div class="' + w + ' w-full">' +
+      '<label for="' + id + '" class="mb-1 block text-sm font-medium">' + o.label + (o.req ? ' <span aria-hidden="true">*</span>' : '') + '</label>' +
+      (o.select
+        ? '<select id="' + id + '" name="' + id + '" class="' + INPUT + ' w-full" aria-describedby="' + desc + '">' + o.select.map(function (op) { return '<option value="' + esc(op[0]) + '"' + (op[0] === o.value ? ' selected' : '') + '>' + esc(op[1]) + '</option>'; }).join('') + '</select>'
+        : '<input id="' + id + '" name="' + id + '" type="' + (o.type || 'text') + '" value="' + esc(o.value) + '" ' + (o.req ? 'aria-required="true" ' : '') + (o.ph ? 'placeholder="' + esc(o.ph) + '" ' : '') + (o.inputmode ? 'inputmode="' + o.inputmode + '" ' : '') + 'autocomplete="off" aria-describedby="' + desc + '" class="' + INPUT + ' w-full">') +
+      (o.help ? '<p id="' + id + '-help" class="mt-1 text-sm text-slate-600">' + o.help + '</p>' : '') +
+      '<p id="' + id + '-error" class="mt-1 flex items-center gap-1 text-sm text-red-700" hidden>' + ic('alert') + '<span></span></p></div>';
+  }
+  function subsection(title, inner) {
+    return '<fieldset class="mb-8"><legend class="mb-4 w-full border-b border-slate-200 pb-2 text-base font-semibold">' + title + '</legend><div class="space-y-6">' + inner + '</div></fieldset>';
+  }
+  function formShell(sec, inner) {
+    return '<form id="form" novalidate data-section="' + sec + '">' +
+      '<div role="status" id="summaryRegion" class="mb-6"></div>' +
+      '<div role="alert" id="bannerRegion" class="mb-6"></div>' +
+      '<p class="mb-6 text-sm text-slate-600">* Required</p>' + inner +
+      '<div class="sticky bottom-0 -mx-1 flex items-center justify-end gap-3 border-t border-slate-200 bg-white px-1 py-3">' +
+      '<span role="status" id="dirtyRegion" class="mr-auto text-sm text-slate-600"></span>' +
+      '<button type="button" id="cancel" class="' + BTN_OUTLINE + '">Cancel</button>' +
+      '<button type="submit" id="save" class="' + BTN_PRIMARY + '"><span id="saveSpin" hidden>' + SPIN + '</span>Save</button>' +
+      '</div></form>';
+  }
+
+  var RULES = {
+    name: function (v) { return v.trim() ? '' : 'Enter the company name'; },
+    taxCode: function (v) { return /^\d{10}(-\d{3})?$/.test(v.trim()) ? '' : 'Enter 10 digits, or 13 with a branch code like 0312345678-001'; },
+    email: function (v) { return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v.trim()) ? '' : 'Enter an email like name@company.com'; },
+    phone: function (v) { return !v.trim() || /^[\d\s().+-]{8,16}$/.test(v.trim()) ? '' : 'Enter a phone number like 028 3822 4410'; },
+    website: function (v) { return !v.trim() || /^https?:\/\/[^\s.]+\.[^\s]+$/.test(v.trim()) ? '' : 'Enter a web address starting with https://'; },
+    address: function (v) { return v.trim() ? '' : 'Enter the street address shown on invoices'; },
+    city: function (v) { return v.trim() ? '' : 'Enter the city'; },
+    postal: function (v) { return !v.trim() || /^\d{5,6}$/.test(v.trim()) ? '' : 'Enter 5 or 6 digits'; }
+  };
+  var LABELS = { name: 'Company name', taxCode: 'Tax code', email: 'Billing email', phone: 'Phone', website: 'Website', address: 'Address', city: 'City', postal: 'Postal code' };
+
+  function setError(id, msg) {
+    var inp = $('#' + id), p = $('#' + id + '-error');
+    if (!inp || !p) return;
+    if (msg) { inp.setAttribute('aria-invalid', 'true'); p.hidden = false; p.lastChild.textContent = msg; }
+    else { inp.removeAttribute('aria-invalid'); p.hidden = true; p.lastChild.textContent = ''; }
+  }
+  function values(form) {
+    var o = {};
+    Array.prototype.forEach.call(form.elements, function (e) { if (e.name) o[e.name] = e.value; });
+    return o;
+  }
+  function isDirty() {
+    var f = $('#form');
+    if (!f) return false;
+    return JSON.stringify(values(f)) !== f._snap;
+  }
+  function refreshDirty() {
+    var r = $('#dirtyRegion');
+    if (!r) return;
+    r.innerHTML = isDirty() ? '<span aria-hidden="true" class="mr-1.5 inline-block size-1.5 rounded-full bg-amber-500"></span>Unsaved changes' : '';
+  }
+
+  function wireForm(sec, onSaved) {
+    var f = $('#form');
+    f._snap = JSON.stringify(values(f));
+    var fieldIds = Array.prototype.map.call(f.elements, function (e) { return e.name; }).filter(function (n) { return n && RULES[n]; });
+    f.addEventListener('focusout', function (e) {
+      var n = e.target.name;
+      if (n && RULES[n]) setError(n, RULES[n](e.target.value));
+    });
+    f.addEventListener('input', function (e) {
+      var n = e.target.name;
+      if (n && RULES[n] && e.target.getAttribute('aria-invalid') === 'true') setError(n, RULES[n](e.target.value));
+      refreshDirty();
+      if (sec === 'localization') updatePreview();
+    });
+    f.addEventListener('change', function () { refreshDirty(); if (sec === 'localization') updatePreview(); });
+    $('#cancel').onclick = function () {
+      if (!isDirty()) { toast('No changes to discard'); return; }
+      confirmLeave(function () { render(); });
+    };
+    f.addEventListener('submit', async function (e) {
+      e.preventDefault();
+      var v = values(f), errs = [];
+      $('#bannerRegion').innerHTML = '';
+      fieldIds.forEach(function (n) { var m = RULES[n](v[n] || ''); setError(n, m); if (m) errs.push([n, m]); });
+      $('#summaryRegion').innerHTML = errs.length >= 3
+        ? '<div class="rounded-md border border-red-200 bg-red-50 p-4 text-red-800"><p class="font-medium">' + errs.length + ' fields need attention</p><ul class="mt-2 list-disc pl-5">' +
+          errs.map(function (x) { return '<li><a href="#' + x[0] + '" data-jump="' + x[0] + '" class="inline-flex min-h-6 items-center underline">' + esc(LABELS[x[0]]) + ': ' + esc(x[1]) + '</a></li>'; }).join('') + '</ul></div>'
+        : '';
+      if (errs.length) { $('#' + errs[0][0]).focus(); return; }
+      var btn = $('#save'); btn.disabled = true; $('#saveSpin').hidden = false;
+      await wait(900);
+      btn.disabled = false; $('#saveSpin').hidden = true;
+      // server-side check
+      if (sec === 'general' && v.taxCode.trim() === '0100109106') {
+        setError('taxCode', 'Tax code already used by Công ty Cổ phần Minh Phát');
+        $('#bannerRegion').innerHTML = '<div class="flex items-start gap-2 rounded-md border border-red-200 bg-red-50 p-4 text-red-800">' + ic('alert') + '<p>Couldn\'t save company profile. Fix the tax code and save again. Your other changes are kept.</p></div>';
+        $('#taxCode').focus();
+        return;
+      }
+      Object.keys(v).forEach(function (k) { saved[sec][k] = v[k]; });
+      saved.meta[sec] = { by: 'Nguyễn Thu Hà', at: '04/11/2026 15:58' };
+      f._snap = JSON.stringify(values(f));
+      $('#summaryRegion').innerHTML = '';
+      refreshDirty();
+      var lc = $('#lastChanged');
+      if (lc) lc.innerHTML = 'Last changed by Nguyễn Thu Hà on 04/11/2026 15:58 · <button type="button" class="font-medium text-blue-700 underline" data-history="' + sec + '">View history</button>';
+      toast(onSaved);
+    });
+    f.addEventListener('click', function (e) {
+      var a = e.target.closest('[data-jump]');
+      if (a) { e.preventDefault(); $('#' + a.getAttribute('data-jump')).focus(); }
+    });
+  }
+
+  /* ---------- section: general ---------- */
+  function viewGeneral() {
+    var d = saved.general;
+    return sectionHeader('general', 'Shown on invoices, quotes and emails sent to your customers.') +
+      formShell('general',
+        subsection('Company identity',
+          field({ id: 'name', label: 'Company name', req: true, value: d.name, help: 'Displayed in the app and on documents.' }) +
+          field({ id: 'legalName', label: 'Legal name', value: d.legalName, help: 'Printed on invoices when it differs from the company name.' }) +
+          field({ id: 'taxCode', label: 'Tax code', req: true, value: d.taxCode, w: 'max-w-xs', inputmode: 'numeric', help: '10 digits, or 13 with a branch code.' })) +
+        subsection('Contact',
+          field({ id: 'email', label: 'Billing email', req: true, type: 'email', value: d.email, ph: 'name@company.com' }) +
+          '<div class="flex flex-wrap gap-6">' +
+          field({ id: 'phone', label: 'Phone', value: d.phone, w: 'max-w-xs sm:w-56' }) +
+          field({ id: 'website', label: 'Website', value: d.website, w: 'max-w-xs sm:w-72', ph: 'https://company.com' }) + '</div>') +
+        subsection('Address',
+          field({ id: 'address', label: 'Address', req: true, value: d.address }) +
+          '<div class="flex flex-wrap gap-6">' +
+          field({ id: 'city', label: 'City', req: true, value: d.city, w: 'max-w-xs sm:w-64' }) +
+          field({ id: 'postal', label: 'Postal code', value: d.postal, w: 'max-w-xs sm:w-28', inputmode: 'numeric' }) + '</div>')
+      );
+  }
+
+  /* ---------- section: localization ---------- */
+  var CURRENCIES = [['VND', 'VND – Vietnamese dong (₫)'], ['USD', 'USD – US dollar ($)'], ['EUR', 'EUR – Euro (€)'], ['SGD', 'SGD – Singapore dollar (S$)'], ['JPY', 'JPY – Japanese yen (¥)']];
+  var ZONES = [['Asia/Ho_Chi_Minh', '(UTC+07:00) Ho Chi Minh City'], ['Asia/Singapore', '(UTC+08:00) Singapore'], ['Asia/Tokyo', '(UTC+09:00) Tokyo'], ['Europe/Berlin', '(UTC+01:00) Berlin'], ['America/New_York', '(UTC-05:00) New York'], ['UTC', '(UTC+00:00) UTC']];
+  var DATES = [['DD/MM/YYYY', 'DD/MM/YYYY'], ['MM/DD/YYYY', 'MM/DD/YYYY'], ['YYYY-MM-DD', 'YYYY-MM-DD'], ['DD.MM.YYYY', 'DD.MM.YYYY']];
+  var NUMS = [['vi-VN', '1.234.567,89'], ['en-US', '1,234,567.89'], ['fr-FR', '1 234 567,89']];
+  var MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+
+  function viewLocalization() {
+    var d = saved.localization;
+    return sectionHeader('localization', 'Defaults for amounts, dates and times across the company. Each user can still pick their own language.') +
+      formShell('localization',
+        subsection('Regional formats',
+          field({ id: 'currency', label: 'Currency', select: CURRENCIES, value: d.currency, w: 'max-w-sm', help: 'Used for new products, orders and invoices. Existing documents keep their currency.' }) +
+          field({ id: 'timezone', label: 'Time zone', select: ZONES, value: d.timezone, w: 'max-w-sm' }) +
+          field({ id: 'dateFormat', label: 'Date format', select: DATES, value: d.dateFormat, w: 'max-w-xs' }) +
+          field({ id: 'numberFormat', label: 'Number format', select: NUMS, value: d.numberFormat, w: 'max-w-xs' }) +
+          field({ id: 'fiscalStart', label: 'Fiscal year starts in', select: MONTHS.map(function (m, i) { return [String(i + 1), m]; }), value: d.fiscalStart, w: 'max-w-xs' })) +
+        '<div class="mb-8 rounded-md border border-slate-200 bg-slate-50 p-4"><h3 class="text-base font-semibold">Preview</h3>' +
+        '<dl class="mt-3 grid grid-cols-[8rem_1fr] gap-x-4 gap-y-2" id="preview"></dl></div>'
+      );
+  }
+  var SAMPLE = new Date('2026-11-04T08:58:00Z');
+  function fmtDate(date, tz, pattern) {
+    var parts = {};
+    new Intl.DateTimeFormat('en-GB', { timeZone: tz, year: 'numeric', month: '2-digit', day: '2-digit' }).formatToParts(date).forEach(function (p) { parts[p.type] = p.value; });
+    return pattern.replace('DD', parts.day).replace('MM', parts.month).replace('YYYY', parts.year);
+  }
+  function updatePreview() {
+    var f = $('#form'); if (!f || f.dataset.section !== 'localization') return;
+    var v = values(f);
+    var money, num;
+    try {
+      money = new Intl.NumberFormat(v.numberFormat, { style: 'currency', currency: v.currency }).format(1250000);
+      num = new Intl.NumberFormat(v.numberFormat, { maximumFractionDigits: 2 }).format(1234567.89);
+    } catch (e) { money = num = '—'; }
+    var time = new Intl.DateTimeFormat('en-GB', { timeZone: v.timezone, hour: '2-digit', minute: '2-digit', hour12: false }).format(SAMPLE);
+    var rows = [['Date', fmtDate(SAMPLE, v.timezone, v.dateFormat)], ['Date and time', fmtDate(SAMPLE, v.timezone, v.dateFormat) + ' ' + time], ['Amount', money], ['Number', num], ['Fiscal year', '01 ' + MONTHS[+v.fiscalStart - 1].slice(0, 3) + ' – ' + (+v.fiscalStart === 1 ? '31 Dec' : 'end of ' + MONTHS[(+v.fiscalStart + 10) % 12].slice(0, 3))]];
+    $('#preview').innerHTML = rows.map(function (r) { return '<dt class="text-slate-600">' + r[0] + '</dt><dd class="font-medium tabular-nums">' + esc(r[1]) + '</dd>'; }).join('');
+  }
+
+  /* ---------- section: notifications (instant toggles) ---------- */
+  function viewNotifications() {
+    return sectionHeader('notifications', 'Choose which emails the company sends. Changes apply as soon as you switch them.') +
+      NOTIFS.map(function (g) {
+        return '<fieldset class="mb-8"><legend class="mb-2 w-full border-b border-slate-200 pb-2 text-base font-semibold">' + g[0] + '</legend><ul class="divide-y divide-slate-100">' +
+          g[1].map(function (n) {
+            var on = saved.notifications[n[0]], locked = !!n[3];
+            return '<li class="flex items-start justify-between gap-4 py-3">' +
+              '<div class="min-w-0"><p id="nl-' + n[0] + '" class="font-medium">' + n[1] + '</p>' +
+              '<p id="nd-' + n[0] + '" class="text-slate-600">' + n[2] + '</p>' +
+              (locked ? '<p class="mt-1 text-xs text-slate-600">' + n[3] + '</p>' : '') + '</div>' +
+              '<div class="flex shrink-0 items-center gap-3"><span role="status" id="ns-' + n[0] + '" class="text-sm text-green-700"></span>' +
+              '<button type="button" role="switch" data-toggle="' + n[0] + '" aria-checked="' + on + '" aria-labelledby="nl-' + n[0] + '" aria-describedby="nd-' + n[0] + '" ' + (locked ? 'aria-disabled="true" title="' + esc(n[3]) + '"' : '') + ' class="relative inline-flex h-6 w-11 items-center rounded-full ' + (on ? 'bg-blue-700' : 'bg-slate-600') + (locked ? ' opacity-60 cursor-not-allowed' : '') + '">' +
+              '<span class="inline-block size-5 rounded-full bg-white transition-transform ' + (on ? 'translate-x-5' : 'translate-x-0.5') + '"></span></button></div></li>';
+          }).join('') + '</ul></fieldset>';
+      }).join('');
+  }
+  function wireNotifications() {
+    $('#content').addEventListener('click', async function (e) {
+      var b = e.target.closest('[data-toggle]');
+      if (!b) return;
+      var k = b.getAttribute('data-toggle');
+      var status = $('#ns-' + k);
+      if (b.getAttribute('aria-disabled') === 'true') { status.className = 'text-sm text-slate-700'; status.textContent = 'Always on'; return; }
+      var next = b.getAttribute('aria-checked') !== 'true';
+      paintSwitch(b, next);
+      status.className = 'text-sm text-slate-600'; status.textContent = 'Saving…';
+      try {
+        await wait(500);
+        saved.notifications[k] = next;
+        saved.meta.notifications = { by: 'Nguyễn Thu Hà', at: '04/11/2026 15:58' };
+        var lc = $('#lastChanged');
+        if (lc) lc.innerHTML = 'Last changed by Nguyễn Thu Hà on 04/11/2026 15:58 · <button type="button" class="font-medium text-blue-700 underline" data-history="notifications">View history</button>';
+        status.className = 'text-sm text-green-700'; status.textContent = 'Saved';
+        setTimeout(function () { if (status.textContent === 'Saved') status.textContent = ''; }, 2000);
+      } catch (err) {
+        paintSwitch(b, !next);
+        status.className = 'text-sm text-red-700'; status.textContent = 'Couldn\'t save. Try again.';
+      }
+    });
+  }
+  function paintSwitch(b, on) {
+    b.setAttribute('aria-checked', on);
+    b.classList.toggle('bg-blue-700', on); b.classList.toggle('bg-slate-600', !on);
+    var knob = b.firstElementChild; knob.classList.toggle('translate-x-5', on); knob.classList.toggle('translate-x-0.5', !on);
+  }
+
+  /* ---------- section: danger zone ---------- */
+  var scheduledDeletion = false;
+  function viewDanger() {
+    var card = function (title, body, btn) {
+      return '<div class="flex flex-col gap-3 border-b border-red-200 p-4 last:border-b-0 sm:flex-row sm:items-center sm:justify-between"><div class="min-w-0"><p class="font-medium">' + title + '</p><p class="mt-1 text-slate-600">' + body + '</p></div>' + btn + '</div>';
+    };
+    return '<div class="mb-6 border-b border-slate-200 pb-4"><h2 class="text-lg font-semibold text-red-700">Danger zone</h2>' +
+      '<p class="mt-1 text-slate-600">These actions affect the whole company and every user in it. Only company owners can run them.</p></div>' +
+      (scheduledDeletion ? '<div role="status" class="mb-4 flex items-center justify-between gap-3 rounded-md border border-amber-200 bg-amber-50 p-4 text-amber-900"><p>Deletion of ' + COMPANY + ' is scheduled for 04/12/2026 15:58. All data will be removed then.</p><button type="button" id="cancelDelete" class="' + BTN_OUTLINE + '">Cancel deletion</button></div>' : '') +
+      '<div class="rounded-md border border-red-300">' +
+      card('Export all company data', 'Download customers, orders and invoices as CSV files. We email a link when the export is ready.', '<button type="button" id="exportBtn" class="' + BTN_OUTLINE + ' shrink-0">Request export</button>') +
+      card('Transfer ownership', 'Make another admin the company owner. You become an admin. They must accept within 7 days.', '<button type="button" id="transferBtn" class="' + BTN_OUTLINE + ' shrink-0">Transfer ownership</button>') +
+      card('Archive company', 'Make the company read-only for all ' + IMPACT.users + ' users. You can restore it at any time.', '<button type="button" id="archiveBtn" class="' + BTN_DANGER_OUT + ' shrink-0">Archive company</button>') +
+      card('Delete company', 'Permanently delete ' + COMPANY + ', its ' + IMPACT.users + ' users and all records. This can\'t be undone.', '<button type="button" id="deleteBtn" class="' + BTN_DANGER + ' shrink-0"' + (scheduledDeletion ? ' disabled' : '') + '>Delete company</button>') +
+      '</div>';
+  }
+  function typedConfirm(o) {
+    var done = false;
+    openDialog(
+      '<div class="p-6"><h2 id="dlgTitle" class="text-base font-semibold">' + o.title + '</h2>' +
+      '<p class="mt-2 text-slate-700">' + o.body + '</p>' +
+      '<label for="typed" class="mt-4 block text-sm font-medium">Type <code class="rounded bg-slate-100 px-1 font-semibold select-all">' + esc(COMPANY) + '</code> to confirm</label>' +
+      '<input id="typed" type="text" autocomplete="off" class="' + INPUT + ' mt-1 w-full" aria-describedby="typedHelp">' +
+      '<p id="typedHelp" class="mt-1 text-sm text-slate-600">The name must match exactly.</p>' +
+      '<div class="mt-6 flex justify-end gap-2"><button type="button" id="dCancel" class="' + BTN_OUTLINE + '" autofocus>Cancel</button>' +
+      '<button type="button" id="dGo" class="' + BTN_DANGER + '" disabled><span id="goSpin" hidden>' + SPIN + '</span>' + o.verb + '</button></div></div>'
+    );
+    $('#dCancel').focus();
+    $('#typed').addEventListener('input', function (e) { $('#dGo').disabled = e.target.value !== COMPANY; });
+    $('#dCancel').onclick = function () { dlg.close(); };
+    $('#dGo').onclick = async function () {
+      if ($('#typed').value !== COMPANY || done) return;
+      done = true; $('#dGo').disabled = true; $('#goSpin').hidden = false;
+      await wait(900);
+      dlg.close();
+      o.after();
+    };
+  }
+  function wireDanger() {
+    $('#exportBtn').onclick = function () { toast('Export requested. We\'ll email accounting@saoviet.example when it\'s ready.'); };
+    $('#transferBtn').onclick = function () {
+      openDialog('<div class="p-6"><h2 id="dlgTitle" class="text-base font-semibold">Transfer ownership</h2>' +
+        '<label for="newOwner" class="mt-4 block text-sm font-medium">New owner <span aria-hidden="true">*</span></label>' +
+        '<select id="newOwner" class="' + INPUT + ' mt-1 w-full"><option>Trần Minh Quân (Finance manager)</option><option>Lê Hoàng Nam (Operations admin)</option><option>Phạm Khánh Linh (Sales admin)</option></select>' +
+        '<p class="mt-2 text-sm text-slate-600">You will become an admin once they accept.</p>' +
+        '<div class="mt-6 flex justify-end gap-2"><button type="button" id="dCancel" class="' + BTN_OUTLINE + '" autofocus>Cancel</button><button type="button" id="dGo" class="' + BTN_PRIMARY + '">Send transfer request</button></div></div>');
+      $('#dCancel').focus();
+      $('#dCancel').onclick = function () { dlg.close(); };
+      $('#dGo').onclick = function () { var n = $('#newOwner').value.split(' (')[0]; dlg.close(); toast('Transfer request sent to ' + n); };
+    };
+    $('#archiveBtn').onclick = function () {
+      typedConfirm({
+        title: 'Archive company ' + esc(COMPANY) + '?',
+        body: 'All ' + IMPACT.users + ' users will lose write access, and ' + IMPACT.orders.toLocaleString('en-US') + ' orders and ' + IMPACT.invoices.toLocaleString('en-US') + ' invoices become read-only. You can restore the company later.',
+        verb: 'Archive company',
+        after: function () { toast('Company ' + COMPANY + ' archived', { label: 'Undo', fn: function () { toast('Company ' + COMPANY + ' restored'); } }); }
+      });
+    };
+    $('#deleteBtn').onclick = function () {
+      typedConfirm({
+        title: 'Delete company ' + esc(COMPANY) + '?',
+        body: '<strong>' + IMPACT.users + ' users</strong> will lose access, and <strong>' + IMPACT.customers.toLocaleString('en-US') + ' customers</strong>, <strong>' + IMPACT.orders.toLocaleString('en-US') + ' orders</strong> and <strong>' + IMPACT.invoices.toLocaleString('en-US') + ' invoices</strong> will be permanently deleted after 30 days. This can\'t be undone.',
+        verb: 'Delete company',
+        after: function () { scheduledDeletion = true; render(); toast('Deletion of ' + COMPANY + ' scheduled'); }
+      });
+    };
+    var cd = $('#cancelDelete');
+    if (cd) cd.onclick = function () { scheduledDeletion = false; render(); toast('Deletion cancelled'); };
+  }
+
+  /* ---------- render ---------- */
+  var token = 0;
+  function render() {
+    renderNavs();
+    var c = $('#content');
+    var my = ++token;
+    if (MOCK === 'loading') { c.innerHTML = skeleton(); return; }
+    if (loadState === 'loading') {
+      c.innerHTML = skeleton();
+      setTimeout(function () {
+        if (my !== token) return;
+        loadState = MOCK === 'error' ? 'error' : 'ready';
+        if (MOCK === 'empty') profileSetUp = false;
+        render();
+      }, 450);
+      return;
+    }
+    var needsData = section !== 'danger';
+    if (needsData && loadState === 'error') {
+      c.innerHTML = errorState();
+      $('#retry').onclick = function () { MOCK = null; loadState = 'loading'; render(); };
+      return;
+    }
+    if (section === 'general' && !profileSetUp) {
+      c.innerHTML = emptyState();
+      $('#setup').onclick = function () { profileSetUp = true; Object.keys(saved.general).forEach(function (k) { saved.general[k] = ''; }); render(); $('#name').focus(); };
+      return;
+    }
+    if (section === 'general') { c.innerHTML = viewGeneral(); wireForm('general', 'Company profile saved'); }
+    else if (section === 'localization') { c.innerHTML = viewLocalization(); wireForm('localization', 'Localization settings saved'); updatePreview(); }
+    else if (section === 'notifications') { c.innerHTML = viewNotifications(); }
+    else { c.innerHTML = viewDanger(); wireDanger(); }
+  }
+
+  /* ---------- navigation with guard ---------- */
+  function go(sec, push) {
+    var proceed = function () {
+      section = sec;
+      if (push) history.pushState({}, '', urlFor(sec));
+      render();
+      window.scrollTo(0, 0);
+    };
+    if (sec === section) return;
+    if (isDirty()) confirmLeave(proceed); else proceed();
+  }
+  document.addEventListener('click', function (e) {
+    var h = e.target.closest('[data-history]');
+    if (h) { showHistory(h.getAttribute('data-history')); return; }
+    var s = e.target.closest('a[data-section]');
+    if (s) { e.preventDefault(); go(s.getAttribute('data-section'), true); return; }
+    var n = e.target.closest('a[data-nav]');
+    if (n) {
+      e.preventDefault();
+      if (isDirty()) confirmLeave(function () { toast('This mock opens only company settings'); });
+      else toast('This mock opens only company settings');
+    }
+  });
+  $('#sectionSelect').addEventListener('change', function (e) { go(e.target.value, true); });
+  window.addEventListener('popstate', function () {
+    var p = new URLSearchParams(location.search).get('section');
+    var sec = TITLES[p] ? p : 'general';
+    if (isDirty()) {
+      history.pushState({}, '', urlFor(section));
+      confirmLeave(function () { section = sec; history.replaceState({}, '', urlFor(sec)); render(); });
+    } else { section = sec; render(); }
+  });
+  window.addEventListener('beforeunload', function (e) {
+    if (isDirty()) { e.preventDefault(); e.returnValue = ''; }
+  });
+
+  render();
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lịch sử xuất nhập kho</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+tailwind.config = { theme: { extend: { fontFamily: { sans: ['Inter','Segoe UI','system-ui','sans-serif'] } } } }
+</script>
+<style>
+  body { font-family: Inter, 'Segoe UI', system-ui, sans-serif; }
+  .num { font-variant-numeric: tabular-nums; }
+  tbody tr:hover { background:#f8fafc; }
+  .drawer { transition: transform .2s ease; }
+</style>
+</head>
+<body class="bg-slate-50 text-slate-800 text-sm">
+<div class="flex min-h-screen">
+  <aside class="hidden lg:flex w-56 shrink-0 flex-col bg-slate-900 text-slate-300">
+    <div class="h-14 flex items-center px-4 text-white font-semibold border-b border-slate-800">Kho Trung Tâm</div>
+    <nav class="p-2 space-y-1 text-[13px]">
+      <a class="block px-3 py-2 rounded hover:bg-slate-800" href="#">Tổng quan</a>
+      <a class="block px-3 py-2 rounded hover:bg-slate-800" href="#">Hàng hóa</a>
+      <a class="block px-3 py-2 rounded hover:bg-slate-800" href="#">Tồn kho</a>
+      <a class="block px-3 py-2 rounded bg-slate-800 text-white" href="#">Lịch sử xuất nhập</a>
+      <a class="block px-3 py-2 rounded hover:bg-slate-800" href="#">Kiểm kê</a>
+      <a class="block px-3 py-2 rounded hover:bg-slate-800" href="#">Báo cáo</a>
+    </nav>
+  </aside>
+
+  <main class="flex-1 min-w-0">
+    <header class="bg-white border-b border-slate-200 px-4 md:px-6 py-4 flex flex-wrap items-center justify-between gap-3">
+      <div>
+        <h1 class="text-lg font-semibold text-slate-900">Lịch sử xuất nhập kho</h1>
+        <p class="text-xs text-slate-500">Phiếu nhập, xuất, chuyển kho và điều chỉnh tồn của tất cả kho</p>
+      </div>
+      <div class="flex gap-2">
+        <button id="btnExport" class="px-3 py-2 rounded-md border border-slate-300 bg-white hover:bg-slate-50">Xuất CSV</button>
+        <button class="px-3 py-2 rounded-md bg-indigo-600 text-white hover:bg-indigo-700">Tạo phiếu</button>
+      </div>
+    </header>
+
+    <section class="px-4 md:px-6 py-4 space-y-4">
+      <div class="grid grid-cols-2 lg:grid-cols-4 gap-3" id="kpis"></div>
+
+      <div class="bg-white border border-slate-200 rounded-lg p-3 flex flex-wrap gap-2 items-end">
+        <label class="flex-1 min-w-[200px]"><span class="block text-xs text-slate-500 mb-1">Tìm kiếm</span>
+          <input id="q" type="search" placeholder="Mã phiếu, sản phẩm, SKU, người tạo" class="w-full border border-slate-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500"></label>
+        <label><span class="block text-xs text-slate-500 mb-1">Loại phiếu</span>
+          <select id="type" class="border border-slate-300 rounded-md px-3 py-2 bg-white">
+            <option value="">Tất cả loại</option><option value="in">Nhập kho</option><option value="out">Xuất kho</option><option value="transfer">Chuyển kho</option><option value="adjust">Điều chỉnh tồn</option>
+          </select></label>
+        <label><span class="block text-xs text-slate-500 mb-1">Kho</span>
+          <select id="wh" class="border border-slate-300 rounded-md px-3 py-2 bg-white"><option value="">Tất cả kho</option></select></label>
+        <label><span class="block text-xs text-slate-500 mb-1">Trạng thái</span>
+          <select id="status" class="border border-slate-300 rounded-md px-3 py-2 bg-white">
+            <option value="">Tất cả</option><option>Hoàn tất</option><option>Đang xử lý</option><option>Chờ duyệt</option><option>Đã hủy</option>
+          </select></label>
+        <label><span class="block text-xs text-slate-500 mb-1">Từ ngày</span><input id="from" type="date" class="border border-slate-300 rounded-md px-3 py-2"></label>
+        <label><span class="block text-xs text-slate-500 mb-1">Đến ngày</span><input id="to" type="date" class="border border-slate-300 rounded-md px-3 py-2"></label>
+        <button id="reset" class="px-3 py-2 text-slate-600 hover:text-slate-900">Xóa bộ lọc</button>
+      </div>
+
+      <div class="bg-white border border-slate-200 rounded-lg overflow-hidden">
+        <div class="overflow-x-auto">
+          <table class="w-full text-left">
+            <thead class="bg-slate-50 text-xs uppercase tracking-wide text-slate-500 border-b border-slate-200">
+              <tr>
+                <th class="px-4 py-3 font-medium cursor-pointer" data-sort="date">Thời gian <span class="sort-ind"></span></th>
+                <th class="px-4 py-3 font-medium cursor-pointer" data-sort="code">Mã phiếu <span class="sort-ind"></span></th>
+                <th class="px-4 py-3 font-medium">Loại</th>
+                <th class="px-4 py-3 font-medium">Kho</th>
+                <th class="px-4 py-3 font-medium">Đối tác / Lý do</th>
+                <th class="px-4 py-3 font-medium text-right cursor-pointer" data-sort="lines">Số dòng <span class="sort-ind"></span></th>
+                <th class="px-4 py-3 font-medium text-right cursor-pointer" data-sort="qty">Số lượng <span class="sort-ind"></span></th>
+                <th class="px-4 py-3 font-medium text-right cursor-pointer" data-sort="value">Giá trị (₫) <span class="sort-ind"></span></th>
+                <th class="px-4 py-3 font-medium">Trạng thái</th>
+                <th class="px-4 py-3 font-medium">Người tạo</th>
+              </tr>
+            </thead>
+            <tbody id="rows" class="divide-y divide-slate-100"></tbody>
+          </table>
+        </div>
+        <div id="empty" class="hidden p-10 text-center text-slate-500">Không có phiếu nào khớp bộ lọc hiện tại.</div>
+        <div class="flex flex-wrap items-center justify-between gap-2 px-4 py-3 border-t border-slate-200 text-xs text-slate-500">
+          <span id="count"></span>
+          <div class="flex items-center gap-2">
+            <select id="size" class="border border-slate-300 rounded px-2 py-1 bg-white"><option>10</option><option>20</option><option>50</option></select>
+            <button id="prev" class="px-3 py-1 border border-slate-300 rounded disabled:opacity-40">Trước</button>
+            <span id="page"></span>
+            <button id="next" class="px-3 py-1 border border-slate-300 rounded disabled:opacity-40">Sau</button>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+</div>
+
+<div id="overlay" class="fixed inset-0 bg-slate-900/40 hidden z-30"></div>
+<aside id="drawer" class="drawer fixed top-0 right-0 h-full w-full max-w-lg bg-white shadow-xl z-40 translate-x-full overflow-y-auto" aria-hidden="true">
+  <div id="dbody"></div>
+</aside>
+
+<script>
+const WH = ['Kho Tổng Bình Dương','Kho Hà Nội','Kho Đà Nẵng','Kho Cần Thơ','Kho Hải Phòng'];
+const TYPES = { in:{l:'Nhập kho',c:'bg-emerald-50 text-emerald-700 ring-emerald-600/20',s:'+'}, out:{l:'Xuất kho',c:'bg-rose-50 text-rose-700 ring-rose-600/20',s:'−'}, transfer:{l:'Chuyển kho',c:'bg-sky-50 text-sky-700 ring-sky-600/20',s:'⇄'}, adjust:{l:'Điều chỉnh',c:'bg-amber-50 text-amber-800 ring-amber-600/20',s:'±'} };
+const STC = { 'Hoàn tất':'bg-emerald-50 text-emerald-700','Đang xử lý':'bg-blue-50 text-blue-700','Chờ duyệt':'bg-amber-50 text-amber-800','Đã hủy':'bg-slate-100 text-slate-500' };
+const PRODUCTS = [['SP-1001','Sữa tươi Vinamilk 1L','thùng',185000],['SP-1002','Gạo ST25 5kg',"bao",142000],['SP-1003','Dầu ăn Simply 2L','chai',98000],['SP-1004','Mì Hảo Hảo (thùng 30)','thùng',112000],['SP-1005','Nước mắm Nam Ngư 750ml','chai',46000],['SP-1006','Đường tinh luyện 1kg','gói',24500],['SP-1007','Cà phê G7 hộp 18 gói','hộp',58000],['SP-1008','Bột giặt OMO 3kg','túi',165000],['SP-1009','Nước suối Aquafina 500ml (thùng 24)','thùng',72000],['SP-1010','Trà xanh 0 độ (thùng 24)','thùng',168000]];
+const PARTNERS_IN = ['Công ty CP Vinamilk','Công ty TNHH Masan Consumer','NPP Hoàng Long','Công ty Unilever VN','Tân Hiệp Phát','Công ty Lương thực Miền Nam'];
+const PARTNERS_OUT = ['Siêu thị CoopSmile Q7','Đại lý Minh Phát','Chuỗi cửa hàng Bách Hóa Xanh','Nhà phân phối Thái Sơn','Cửa hàng Tạp hóa An Khang','Đại lý Phương Nam'];
+const ADJ = ['Kiểm kê chênh lệch','Hàng hỏng vỡ','Hết hạn sử dụng','Nhập sót số liệu','Hao hụt vận chuyển'];
+const USERS = ['Nguyễn Văn An','Trần Thị Bình','Lê Hoàng Cường','Phạm Minh Dũng','Võ Thu Hà'];
+let seed = 7; const rnd = () => (seed = (seed*9301+49297)%233280)/233280;
+const pick = a => a[Math.floor(rnd()*a.length)];
+const fmt = n => n.toLocaleString('vi-VN');
+const data = [];
+const base = new Date('2026-11-04T17:00:00');
+for (let i=0;i<86;i++){
+  const type = pick(['in','in','out','out','out','transfer','adjust']);
+  const d = new Date(base.getTime() - i*rnd()*3.2*3600e3 - i*2.2*3600e3);
+  const wh = pick(WH); let to = null;
+  if (type==='transfer'){ do { to = pick(WH);} while(to===wh); }
+  const nl = 1+Math.floor(rnd()*4); const lines=[];
+  for (let k=0;k<nl;k++){ const p = pick(PRODUCTS); let q = 5+Math.floor(rnd()*95); if(type==='adjust') q = (rnd()<.6?-1:1)*(1+Math.floor(rnd()*12)); lines.push({sku:p[0],name:p[1],unit:p[2],qty:q,price:p[3]}); }
+  const qty = lines.reduce((s,l)=>s+Math.abs(l.qty),0);
+  const value = lines.reduce((s,l)=>s+Math.abs(l.qty)*l.price,0);
+  let status = pick(['Hoàn tất','Hoàn tất','Hoàn tất','Hoàn tất','Đang xử lý','Chờ duyệt','Đã hủy']);
+  if (i<3 && status==='Hoàn tất') status='Đang xử lý';
+  const prefix = {in:'PN',out:'PX',transfer:'PC',adjust:'DC'}[type];
+  data.push({ id:i, code:`${prefix}-2611-${String(1200-i).padStart(4,'0')}`, date:d, type, wh, to, lines, qty, value, status,
+    user: pick(USERS), partner: type==='in'?pick(PARTNERS_IN):type==='out'?pick(PARTNERS_OUT):type==='transfer'?`Chuyển đến ${to}`:pick(ADJ),
+    note: type==='adjust'?'Điều chỉnh theo biên bản kiểm kê, đã có chữ ký quản lý kho.':'' });
+}
+const st = { q:'',type:'',wh:'',status:'',from:'',to:'',sort:'date',dir:-1,page:1,size:10 };
+const $ = id => document.getElementById(id);
+WH.forEach(w=>{ const o=document.createElement('option'); o.textContent=w; o.value=w; $('wh').appendChild(o); });
+const esc = s => String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const dt = d => d.toLocaleString('vi-VN',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'});
+
+function filtered(){
+  const q = st.q.trim().toLowerCase();
+  const f = data.filter(r=>{
+    if (st.type && r.type!==st.type) return false;
+    if (st.wh && r.wh!==st.wh && r.to!==st.wh) return false;
+    if (st.status && r.status!==st.status) return false;
+    if (st.from && r.date < new Date(st.from+'T00:00:00')) return false;
+    if (st.to && r.date > new Date(st.to+'T23:59:59')) return false;
+    if (q && !(r.code+r.user+r.partner+r.lines.map(l=>l.name+l.sku).join(' ')).toLowerCase().includes(q)) return false;
+    return true;
+  });
+  f.sort((a,b)=>{ let x=a[st.sort], y=b[st.sort]; if (x instanceof Date){x=+x;y=+y;} if (st.sort==='lines'){x=a.lines.length;y=b.lines.length;} return (x>y?1:x<y?-1:0)*st.dir; });
+  return f;
+}
+function render(){
+  const f = filtered();
+  const pages = Math.max(1, Math.ceil(f.length/st.size)); if (st.page>pages) st.page=pages;
+  const slice = f.slice((st.page-1)*st.size, st.page*st.size);
+  $('rows').innerHTML = slice.map(r=>{
+    const t = TYPES[r.type];
+    const whCell = r.type==='transfer' ? `${esc(r.wh)} <span class="text-slate-400">→</span> ${esc(r.to)}` : esc(r.wh);
+    const sign = r.type==='in'?'+':r.type==='out'?'−':'';
+    return `<tr class="cursor-pointer" data-id="${r.id}" tabindex="0">
+      <td class="px-4 py-3 whitespace-nowrap text-slate-600 num">${dt(r.date)}</td>
+      <td class="px-4 py-3 font-medium text-indigo-700 whitespace-nowrap">${r.code}</td>
+      <td class="px-4 py-3"><span class="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium ring-1 ring-inset ${t.c}">${t.l}</span></td>
+      <td class="px-4 py-3 whitespace-nowrap">${whCell}</td>
+      <td class="px-4 py-3 text-slate-600 max-w-[220px] truncate" title="${esc(r.partner)}">${esc(r.partner)}</td>
+      <td class="px-4 py-3 text-right num">${r.lines.length}</td>
+      <td class="px-4 py-3 text-right num">${sign}${fmt(r.qty)}</td>
+      <td class="px-4 py-3 text-right num">${fmt(r.value)}</td>
+      <td class="px-4 py-3"><span class="rounded px-2 py-0.5 text-xs font-medium ${STC[r.status]}">${r.status}</span></td>
+      <td class="px-4 py-3 whitespace-nowrap text-slate-600">${esc(r.user)}</td></tr>`;
+  }).join('');
+  $('empty').classList.toggle('hidden', f.length>0);
+  $('count').textContent = f.length ? `Hiển thị ${(st.page-1)*st.size+1}–${(st.page-1)*st.size+slice.length} trên ${f.length} phiếu` : '0 phiếu';
+  $('page').textContent = `Trang ${st.page}/${pages}`;
+  $('prev').disabled = st.page<=1; $('next').disabled = st.page>=pages;
+  document.querySelectorAll('[data-sort]').forEach(th=>{ th.querySelector('.sort-ind').textContent = th.dataset.sort===st.sort ? (st.dir>0?'▲':'▼') : ''; });
+  kpis(f);
+}
+function kpis(f){
+  const ok = f.filter(r=>r.status!=='Đã hủy');
+  const sum = t => ok.filter(r=>r.type===t);
+  const card = (l,v,sub,c)=>`<div class="bg-white border border-slate-200 rounded-lg p-4"><div class="text-xs text-slate-500">${l}</div><div class="mt-1 text-xl font-semibold num ${c}">${v}</div><div class="text-xs text-slate-400 mt-0.5">${sub}</div></div>`;
+  $('kpis').innerHTML =
+    card('Nhập kho', fmt(sum('in').reduce((s,r)=>s+r.qty,0)), `${sum('in').length} phiếu · ${fmt(sum('in').reduce((s,r)=>s+r.value,0))} ₫`,'text-emerald-700') +
+    card('Xuất kho', fmt(sum('out').reduce((s,r)=>s+r.qty,0)), `${sum('out').length} phiếu · ${fmt(sum('out').reduce((s,r)=>s+r.value,0))} ₫`,'text-rose-700') +
+    card('Chuyển kho', sum('transfer').length+' phiếu', `${fmt(sum('transfer').reduce((s,r)=>s+r.qty,0))} đơn vị luân chuyển`,'text-sky-700') +
+    card('Chờ xử lý', f.filter(r=>r.status==='Chờ duyệt'||r.status==='Đang xử lý').length+' phiếu', `${sum('adjust').length} phiếu điều chỉnh tồn`,'text-amber-700');
+}
+function openDrawer(id){
+  const r = data[id]; const t = TYPES[r.type];
+  $('dbody').innerHTML = `
+  <div class="flex items-start justify-between p-5 border-b border-slate-200">
+    <div><div class="text-xs text-slate-500">${t.l}</div><h2 class="text-lg font-semibold text-slate-900">${r.code}</h2></div>
+    <button id="dclose" class="text-slate-500 hover:text-slate-900 px-2 py-1 rounded" aria-label="Đóng">Đóng ✕</button>
+  </div>
+  <div class="p-5 space-y-5">
+    <dl class="grid grid-cols-2 gap-3 text-sm">
+      <div><dt class="text-xs text-slate-500">Thời gian</dt><dd>${dt(r.date)}</dd></div>
+      <div><dt class="text-xs text-slate-500">Trạng thái</dt><dd><span class="rounded px-2 py-0.5 text-xs font-medium ${STC[r.status]}">${r.status}</span></dd></div>
+      <div><dt class="text-xs text-slate-500">${r.type==='transfer'?'Kho đi':'Kho'}</dt><dd>${esc(r.wh)}</dd></div>
+      <div><dt class="text-xs text-slate-500">${r.type==='transfer'?'Kho đến':'Đối tác / Lý do'}</dt><dd>${esc(r.type==='transfer'?r.to:r.partner)}</dd></div>
+      <div><dt class="text-xs text-slate-500">Người tạo</dt><dd>${esc(r.user)}</dd></div>
+      <div><dt class="text-xs text-slate-500">Tổng giá trị</dt><dd class="num">${fmt(r.value)} ₫</dd></div>
+    </dl>
+    ${r.note?`<p class="text-sm text-slate-600 bg-slate-50 rounded p-3">${esc(r.note)}</p>`:''}
+    <table class="w-full text-left text-sm border border-slate-200 rounded">
+      <thead class="bg-slate-50 text-xs text-slate-500"><tr><th class="px-3 py-2">Sản phẩm</th><th class="px-3 py-2 text-right">SL</th><th class="px-3 py-2 text-right">Đơn giá</th></tr></thead>
+      <tbody class="divide-y divide-slate-100">${r.lines.map(l=>`<tr><td class="px-3 py-2"><div class="font-medium">${esc(l.name)}</div><div class="text-xs text-slate-500">${l.sku}</div></td><td class="px-3 py-2 text-right num">${l.qty>0&&r.type==='adjust'?'+':''}${fmt(l.qty)} ${l.unit}</td><td class="px-3 py-2 text-right num">${fmt(l.price)}</td></tr>`).join('')}</tbody>
+    </table>
+  </div>`;
+  $('drawer').classList.remove('translate-x-full'); $('overlay').classList.remove('hidden'); $('drawer').setAttribute('aria-hidden','false');
+  $('dclose').focus(); $('dclose').onclick = closeDrawer;
+}
+function closeDrawer(){ $('drawer').classList.add('translate-x-full'); $('overlay').classList.add('hidden'); $('drawer').setAttribute('aria-hidden','true'); }
+$('overlay').onclick = closeDrawer;
+document.addEventListener('keydown',e=>{ if(e.key==='Escape') closeDrawer(); if((e.key==='Enter')&&e.target.matches('tr[data-id]')) openDrawer(+e.target.dataset.id); });
+$('rows').addEventListener('click',e=>{ const tr=e.target.closest('tr[data-id]'); if(tr) openDrawer(+tr.dataset.id); });
+[['q','q'],['type','type'],['wh','wh'],['status','status'],['from','from'],['to','to']].forEach(([id,k])=>$(id).addEventListener('input',e=>{ st[k]=e.target.value; st.page=1; render(); }));
+$('size').onchange = e=>{ st.size=+e.target.value; st.page=1; render(); };
+$('prev').onclick = ()=>{ st.page--; render(); }; $('next').onclick = ()=>{ st.page++; render(); };
+$('reset').onclick = ()=>{ ['q','type','wh','status','from','to'].forEach(k=>{ st[k]=''; $(k).value=''; }); st.page=1; render(); };
+document.querySelectorAll('[data-sort]').forEach(th=>th.onclick=()=>{ const k=th.dataset.sort; if(st.sort===k) st.dir*=-1; else { st.sort=k; st.dir=-1; } render(); });
+$('btnExport').onclick = ()=>{
+  const rows = [['Thời gian','Mã phiếu','Loại','Kho','Đối tác/Lý do','Số lượng','Giá trị','Trạng thái','Người tạo']].concat(filtered().map(r=>[dt(r.date),r.code,TYPES[r.type].l,r.wh+(r.to?' -> '+r.to:''),r.partner,r.qty,r.value,r.status,r.user]));
+  const csv = '﻿'+rows.map(r=>r.map(c=>`"${String(c).replace(/"/g,'""')}"`).join(',')).join('\n');
+  const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8'})); a.download='lich-su-xuat-nhap-kho.csv'; a.click();
+};
+render();
+</script>
+</body>
+</html>

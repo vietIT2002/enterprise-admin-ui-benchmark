@@ -1,0 +1,575 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Roles and permissions · Minh Phát ERP</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+  body { font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; }
+  html { scroll-padding-bottom: 72px; }
+  @keyframes sk { 0%,100% { opacity: .55 } 50% { opacity: 1 } }
+  .sk { animation: sk 1.4s ease-in-out infinite; background: #e2e8f0; border-radius: 4px; }
+  dialog::backdrop { background: rgba(15,23,42,.4); }
+  @keyframes spin { to { transform: rotate(360deg) } }
+  .spin { animation: spin .8s linear infinite; }
+</style>
+</head>
+<body class="bg-white text-sm text-slate-900 antialiased">
+<a href="#main" class="sr-only focus:not-sr-only focus:absolute focus:left-2 focus:top-2 focus:z-50 focus:rounded focus:bg-white focus:px-3 focus:py-2 focus:text-blue-700">Skip to content</a>
+
+<div class="flex min-h-screen">
+  <aside class="hidden w-60 shrink-0 border-r border-slate-200 bg-slate-50 md:block">
+    <div class="sticky top-0 max-h-screen overflow-y-auto">
+      <div class="flex h-12 items-center border-b border-slate-200 px-4 font-semibold">Minh Phát ERP</div>
+      <nav aria-label="Main" class="flex flex-col gap-4 p-2" id="sideNav"></nav>
+    </div>
+  </aside>
+
+  <div class="flex min-w-0 flex-1 flex-col">
+    <header class="flex h-12 items-center justify-between border-b border-slate-200 bg-white px-4">
+      <span class="text-slate-600">Công ty TNHH Minh Phát</span>
+      <button type="button" aria-label="Account menu" class="flex h-8 items-center gap-2 rounded px-2 hover:bg-slate-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-700">
+        <span class="flex h-6 w-6 items-center justify-center rounded-full bg-slate-200 text-xs font-medium text-slate-800" aria-hidden="true">NA</span>
+        <span class="text-slate-800">Nguyễn An</span>
+      </button>
+    </header>
+
+    <main id="main" class="flex-1 space-y-6 p-6">
+      <header class="flex flex-col gap-2">
+        <nav aria-label="Breadcrumb">
+          <ol class="flex items-center gap-1 text-slate-600">
+            <li><a href="#settings" class="inline-flex min-h-6 items-center hover:text-slate-900 hover:underline">Settings</a></li>
+            <li aria-hidden="true">/</li>
+            <li><a href="#users" class="inline-flex min-h-6 items-center hover:text-slate-900 hover:underline">Users and roles</a></li>
+            <li aria-hidden="true">/</li>
+            <li><span aria-current="page" class="text-slate-900">Roles and permissions</span></li>
+          </ol>
+        </nav>
+        <div class="flex flex-wrap items-center justify-between gap-2">
+          <div>
+            <h1 class="text-xl font-semibold">Roles and permissions</h1>
+            <p class="mt-1 text-slate-600">Choose a role to see and edit what its users can do in each module.</p>
+          </div>
+          <button type="button" id="createBtn" class="inline-flex h-8 items-center gap-1 rounded bg-blue-700 px-3 font-medium text-white hover:bg-blue-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-700 focus-visible:ring-offset-2">
+            <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
+            Create role
+          </button>
+        </div>
+      </header>
+
+      <section aria-labelledby="rolesTitle" id="roleSection"></section>
+      <section aria-labelledby="detailTitle" id="detailSection"></section>
+    </main>
+
+    <div id="bar" class="sticky bottom-0 z-10 flex min-h-14 flex-wrap items-center justify-between gap-3 border-t border-slate-200 bg-white px-6 py-2"></div>
+  </div>
+</div>
+
+<div id="toast" role="status" aria-live="polite" class="pointer-events-none fixed bottom-20 right-6 z-50"></div>
+<div id="menu" role="menu" hidden class="fixed z-40 w-44 rounded-md border border-slate-200 bg-white py-1 shadow-lg"></div>
+<dialog id="dlg" class="m-auto w-[480px] max-w-[calc(100vw-32px)] rounded-lg bg-white p-0 text-slate-900 shadow-xl"></dialog>
+
+<script>
+/* ---------- helpers ---------- */
+const $ = (s, r = document) => r.querySelector(s);
+const esc = s => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+const TZ = 'Asia/Ho_Chi_Minh';
+function stamp(iso) {
+  const d = new Date(iso);
+  const date = new Intl.DateTimeFormat('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric', timeZone: TZ }).format(d);
+  const time = new Intl.DateTimeFormat('en-GB', { hour: '2-digit', minute: '2-digit', hourCycle: 'h23', timeZone: TZ }).format(d);
+  return `${date} ${time}`;
+}
+const nf = new Intl.NumberFormat('en-US');
+const ico = {
+  more: '<svg class="h-4 w-4" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="5" cy="12" r="1.8"/><circle cx="12" cy="12" r="1.8"/><circle cx="19" cy="12" r="1.8"/></svg>',
+  lock: '<svg class="h-4 w-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>',
+  search: '<svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>',
+  alert: '<svg class="h-4 w-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 8v5M12 16h.01"/></svg>',
+  spin: '<svg class="spin h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" aria-hidden="true"><path d="M12 3a9 9 0 1 0 9 9" /></svg>',
+};
+
+/* ---------- mock data ---------- */
+const ACTIONS = [['view','View'],['create','Create'],['edit','Edit'],['delete','Delete'],['approve','Approve']];
+const LETTER = { v:'view', c:'create', e:'edit', d:'delete', a:'approve' };
+const GROUPS = [
+  { name:'Sales', mods:[['orders','Orders','vceda'],['customers','Customers','vced'],['quotations','Quotations','vceda']] },
+  { name:'Finance', mods:[['invoices','Invoices','vceda'],['payments','Payments','vcea'],['expenses','Expense reports','vceda']] },
+  { name:'Inventory', mods:[['products','Products','vced'],['transfers','Stock transfers','vceda']] },
+  { name:'People', mods:[['employees','Employees','vced'],['payroll','Payroll','vea']] },
+  { name:'Administration', mods:[['users','Users','vced'],['roles','Roles and permissions','vced'],['audit','Audit log','v']] },
+];
+const MODS = [], APPL = new Set(), MODNAME = {};
+GROUPS.forEach(g => g.mods.forEach(([id, name, l]) => {
+  const acts = [...l].map(x => LETTER[x]);
+  MODS.push({ id, name, group: g.name, acts });
+  MODNAME[id] = name;
+  acts.forEach(a => APPL.add(id + ':' + a));
+}));
+const ACTNAME = Object.fromEntries(ACTIONS);
+const keyLabel = k => { const [m, a] = k.split(':'); return `${MODNAME[m]} – ${ACTNAME[a]}`; };
+const ALLKEYS = [...APPL];
+const modKeys = m => m.acts.map(a => m.id + ':' + a);
+const colKeys = a => MODS.filter(m => m.acts.includes(a)).map(m => m.id + ':' + a);
+const grpMods = g => MODS.filter(m => m.group === g);
+const grpKeys = g => grpMods(g).flatMap(modKeys);
+const grpColKeys = (g, a) => grpMods(g).filter(m => m.acts.includes(a)).map(m => m.id + ':' + a);
+function mk(spec) {
+  const s = new Set();
+  if (spec === 'ALL') ALLKEYS.forEach(k => s.add(k));
+  else for (const [m, l] of Object.entries(spec)) [...l].forEach(x => s.add(m + ':' + LETTER[x]));
+  return s;
+}
+const allView = {}; MODS.forEach(m => allView[m.id] = 'v');
+const T = (d, h, m) => `2026-${d}T${h}:${m}:00Z`;
+
+let roles = [
+  { id:'owner', name:'Owner', type:'System', users:1, desc:'Full control of the account, billing and security.', by:'System', at:T('01-05','02','00'),
+    locked:'Owner is a system role. Its permissions are fixed so the account always has an administrator.', perms: mk('ALL'),
+    hist:[{ at:T('01-05','02','00'), by:'System', what:'Created', diffs:[] }] },
+  { id:'admin', name:'Administrator', type:'System', users:3, desc:'Manages users, roles and settings across every module.', by:'System', at:T('01-05','02','00'),
+    locked:'Administrator is a system role. Its permissions are fixed so every workspace keeps a role that can manage users and settings.', perms: mk('ALL'),
+    hist:[{ at:T('01-05','02','00'), by:'System', what:'Created', diffs:[] }] },
+  { id:'finmgr', name:'Finance manager', type:'Custom', users:4, desc:'Approves invoices, payments and expense reports.', by:'Lê Hoa', at:T('11-04','08','58'),
+    perms: mk({ orders:'v', customers:'v', invoices:'vceda', payments:'vcea', expenses:'vceda', payroll:'v', audit:'v' }),
+    hist:[
+      { at:T('11-04','08','58'), by:'Lê Hoa', what:'Updated 2 permissions', diffs:[['Payments – Approve','off','on'],['Payroll – View','off','on']] },
+      { at:T('09-17','03','12'), by:'Trần Minh Quân', what:'Updated 1 permission', diffs:[['Expense reports – Delete','on','off']] },
+      { at:T('03-02','07','40'), by:'Nguyễn An', what:'Created', diffs:[] } ] },
+  { id:'acct', name:'Accountant', type:'Custom', users:9, desc:'Records invoices, payments and expenses; cannot approve.', by:'Trần Minh Quân', at:T('10-21','09','15'),
+    perms: mk({ orders:'v', customers:'v', invoices:'vce', payments:'vc', expenses:'vce' }),
+    hist:[{ at:T('10-21','09','15'), by:'Trần Minh Quân', what:'Updated 1 permission', diffs:[['Invoices – Edit','off','on']] },{ at:T('03-02','07','45'), by:'Nguyễn An', what:'Created', diffs:[] }] },
+  { id:'sales', name:'Sales staff', type:'Custom', users:12, desc:'Creates quotations and orders and manages customers.', by:'Nguyễn An', at:T('10-02','04','30'),
+    perms: mk({ orders:'vce', customers:'vce', quotations:'vce', products:'v', invoices:'v' }),
+    hist:[{ at:T('10-02','04','30'), by:'Nguyễn An', what:'Updated 3 permissions', diffs:[['Quotations – View','off','on'],['Quotations – Create','off','on'],['Quotations – Edit','off','on']] },{ at:T('03-02','07','50'), by:'Nguyễn An', what:'Created', diffs:[] }] },
+  { id:'wh', name:'Warehouse operator', type:'Custom', users:7, desc:'Handles products and stock transfers in the warehouse.', by:'Lê Hoa', at:T('08-11','10','05'),
+    perms: mk({ orders:'v', products:'vce', transfers:'vce' }),
+    hist:[{ at:T('08-11','10','05'), by:'Lê Hoa', what:'Created', diffs:[] }] },
+  { id:'auditor', name:'Auditor', type:'Custom', users:2, desc:'Read-only access to every module for external reviews.', by:'Nguyễn An', at:T('06-30','02','20'),
+    perms: mk(allView), hist:[{ at:T('06-30','02','20'), by:'Nguyễn An', what:'Created', diffs:[] }] },
+];
+
+/* ---------- state ---------- */
+const qs = new URLSearchParams(location.search);
+const S = {
+  loading: true, error: qs.get('state') === 'error', query: '', selected: 'finmgr',
+  draft: null, saving: false, saveError: false, depMsg: '', failNext: qs.get('state') === 'savefail',
+};
+if (qs.get('state') === 'empty') { roles = []; S.selected = null; }
+const role = () => roles.find(r => r.id === S.selected);
+const resetDraft = () => { S.draft = role() ? new Set(role().perms) : null; };
+function diff() {
+  const r = role(); if (!r) return { added: [], removed: [] };
+  return { added: [...S.draft].filter(k => !r.perms.has(k)), removed: [...r.perms].filter(k => !S.draft.has(k)) };
+}
+const changeCount = () => { const d = diff(); return d.added.length + d.removed.length; };
+const isDirty = () => !!role() && !role().locked && changeCount() > 0;
+
+/* ---------- side navigation ---------- */
+const NAV = [
+  ['Sales', ['Orders','Customers','Quotations']],
+  ['Finance', ['Invoices','Payments','Expense reports']],
+  ['Inventory', ['Products','Stock transfers']],
+  ['Administration', ['Users','Roles and permissions','Settings']],
+];
+$('#sideNav').innerHTML = NAV.map(([g, items]) => `
+  <div class="flex flex-col gap-0.5">
+    <p class="px-2 py-1 text-xs font-medium text-slate-600">${g}</p>
+    ${items.map(i => i === 'Roles and permissions'
+      ? `<a href="#roles" data-nav aria-current="page" class="flex h-8 items-center rounded bg-slate-200 px-2 font-medium text-slate-900">${i}</a>`
+      : `<a href="#${i.toLowerCase().replace(/ /g,'-')}" data-nav class="flex h-8 items-center rounded px-2 text-slate-700 hover:bg-slate-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-700">${i}</a>`).join('')}
+  </div>`).join('');
+
+/* ---------- toast ---------- */
+let toastT;
+function toast(msg) {
+  const t = $('#toast');
+  t.innerHTML = `<div class="rounded-md border border-slate-200 bg-white px-4 py-3 text-slate-900 shadow-lg">${esc(msg)}</div>`;
+  clearTimeout(toastT); toastT = setTimeout(() => t.innerHTML = '', 4000);
+}
+
+/* ---------- role list ---------- */
+const typeBadge = t => `<span class="inline-flex h-6 items-center gap-1 rounded-full bg-slate-100 px-2 text-xs font-medium text-slate-700"><span class="h-2 w-2 rounded-full bg-slate-500" aria-hidden="true"></span>${t}</span>`;
+function filteredRoles() {
+  const q = S.query.trim().toLowerCase();
+  return roles.filter(r => !q || r.name.toLowerCase().includes(q) || r.desc.toLowerCase().includes(q));
+}
+function renderList() {
+  const el = $('#roleSection');
+  const head = `<h2 id="rolesTitle" class="sr-only">Roles</h2>`;
+  if (S.loading) {
+    el.innerHTML = head + `<div class="overflow-hidden rounded-md border border-slate-200" aria-busy="true" aria-label="Loading roles">${Array.from({length:6}, () => `<div class="flex h-10 items-center gap-6 border-b border-slate-100 px-3 last:border-0"><div class="sk h-3 w-40"></div><div class="sk h-3 w-72"></div><div class="sk ml-auto h-3 w-10"></div><div class="sk h-3 w-16"></div><div class="sk h-3 w-28"></div></div>`).join('')}</div>`;
+    return;
+  }
+  if (S.error) {
+    el.innerHTML = head + `<div role="alert" class="flex flex-wrap items-center gap-3 rounded-md border border-red-200 bg-red-50 p-4 text-red-800">${ico.alert}<span>Couldn't load roles. Check your connection and try again.</span><button type="button" data-retry class="h-8 rounded border border-red-300 bg-white px-3 font-medium text-red-800 hover:bg-red-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-700">Retry</button></div>`;
+    return;
+  }
+  if (!roles.length) {
+    el.innerHTML = head + `<div class="rounded-md border border-dashed border-slate-300 p-8 text-center"><p class="font-medium">No roles yet</p><p class="mt-1 text-slate-600">Roles decide which modules and actions each group of users can use.</p><button type="button" data-create class="mt-3 h-8 rounded bg-blue-700 px-3 font-medium text-white hover:bg-blue-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-700 focus-visible:ring-offset-2">Create role</button></div>`;
+    return;
+  }
+  const list = filteredRoles();
+  const total = roles.reduce((a, r) => a + r.users, 0);
+  let body;
+  if (!list.length) {
+    body = `<div class="p-8 text-center"><p class="font-medium">No roles match “${esc(S.query)}”</p><p class="mt-1 text-slate-600">Try a different name or clear the search.</p><button type="button" data-clear class="mt-3 h-8 rounded border border-slate-300 bg-white px-3 font-medium hover:bg-slate-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-700">Clear search</button></div>`;
+  } else {
+    body = `<table class="w-full text-left" aria-label="Roles"><thead class="border-b border-slate-200 bg-slate-50 text-slate-700"><tr class="h-10">
+      <th scope="col" class="px-3 font-medium">Role</th><th scope="col" class="px-3 font-medium">Description</th>
+      <th scope="col" class="px-3 text-right font-medium">Users</th><th scope="col" class="px-3 font-medium">Type</th>
+      <th scope="col" class="px-3 font-medium">Last changed</th><th scope="col" class="w-12 px-3"><span class="sr-only">Actions</span></th></tr></thead><tbody>
+      ${list.map(r => { const sel = r.id === S.selected; return `
+      <tr data-row="${r.id}" class="h-10 cursor-pointer border-b border-slate-100 last:border-0 ${sel ? 'bg-blue-50' : 'hover:bg-slate-50'}">
+        <td class="px-3"><button type="button" data-select="${r.id}" ${sel ? 'aria-current="true"' : ''} class="rounded font-medium hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-700 ${sel ? 'text-blue-800' : ''}">${esc(r.name)}</button></td>
+        <td class="max-w-[360px] truncate px-3 text-slate-600" title="${esc(r.desc)}">${esc(r.desc)}</td>
+        <td class="px-3 text-right tabular-nums"><a href="#users?role=${r.id}" class="text-blue-700 hover:underline" aria-label="${r.users} users with role ${esc(r.name)}">${nf.format(r.users)}</a></td>
+        <td class="px-3">${typeBadge(r.type)}</td>
+        <td class="whitespace-nowrap px-3 tabular-nums text-slate-600">${stamp(r.at)}</td>
+        <td class="px-1 text-right"><button type="button" data-menu="${r.id}" aria-haspopup="menu" aria-label="Actions for role ${esc(r.name)}" class="inline-flex h-8 w-8 items-center justify-center rounded text-slate-600 hover:bg-slate-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-700">${ico.more}</button></td>
+      </tr>`; }).join('')}</tbody></table>`;
+  }
+  el.innerHTML = head + `
+    <div class="mb-2 flex flex-wrap items-center justify-between gap-2">
+      <p class="text-slate-600">${roles.length} roles · ${nf.format(total)} users</p>
+      <label class="relative block"><span class="sr-only">Search roles</span>
+        <span class="pointer-events-none absolute left-2 top-2 text-slate-500">${ico.search}</span>
+        <input id="roleSearch" type="search" value="${esc(S.query)}" placeholder="Search roles" class="h-8 w-64 rounded border border-slate-300 bg-white pl-8 pr-2 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-700"></label>
+    </div>
+    <div class="overflow-x-auto rounded-md border border-slate-200">${body}</div>`;
+}
+
+/* ---------- detail + matrix ---------- */
+const auditStamp = r => `Last changed by <a href="#users?name=${encodeURIComponent(r.by)}" class="font-medium text-slate-900 hover:underline">${esc(r.by)}</a> on <time datetime="${r.at}">${stamp(r.at)}</time> · <button type="button" data-history class="inline-flex min-h-6 items-center text-blue-700 hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-700">View history</button>`;
+
+function cb(keys, name, cls = '') {
+  return `<label class="flex h-10 w-full cursor-pointer items-center justify-center ${cls}"><input type="checkbox" data-keys="${keys.join(',')}" aria-label="${esc(name)}" class="h-4 w-4 accent-blue-700"></label>`;
+}
+function renderDetail() {
+  const el = $('#detailSection');
+  const r = role();
+  if (S.loading) {
+    el.innerHTML = `<h2 id="detailTitle" class="sr-only">Permissions</h2><div class="space-y-3" aria-busy="true" aria-label="Loading permissions"><div class="sk h-6 w-56"></div><div class="sk h-4 w-96"></div><div class="overflow-hidden rounded-md border border-slate-200">${Array.from({length:8}, () => `<div class="flex h-10 items-center gap-8 border-b border-slate-100 px-3"><div class="sk h-3 w-44"></div><div class="sk ml-auto h-3 w-8"></div><div class="sk h-3 w-8"></div><div class="sk h-3 w-8"></div></div>`).join('')}</div></div>`;
+    return;
+  }
+  if (S.error) { el.innerHTML = `<h2 id="detailTitle" class="sr-only">Permissions</h2>`; return; }
+  if (!r) {
+    el.innerHTML = `<h2 id="detailTitle" class="sr-only">Permissions</h2>` + (roles.length
+      ? `<div class="rounded-md border border-dashed border-slate-300 p-8 text-center text-slate-600">Select a role to see its permissions.</div>` : '');
+    return;
+  }
+  const locked = !!r.locked;
+  el.innerHTML = `
+    <div class="mb-4 flex flex-wrap items-start justify-between gap-3">
+      <div class="min-w-0">
+        <div class="flex flex-wrap items-center gap-2">
+          <h2 id="detailTitle" class="text-lg font-semibold">${esc(r.name)}</h2>${typeBadge(r.type)}
+          <a href="#users?role=${r.id}" class="text-blue-700 hover:underline tabular-nums">${nf.format(r.users)} users</a>
+        </div>
+        <p class="mt-1 text-slate-600">${esc(r.desc)}</p>
+        <p class="mt-1 text-slate-600">${auditStamp(r)}</p>
+      </div>
+      <button type="button" data-duplicate="${r.id}" class="h-8 rounded border border-slate-300 bg-white px-3 font-medium hover:bg-slate-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-700">Duplicate role</button>
+    </div>
+    ${locked ? `<div class="mb-3 flex items-start gap-2 rounded-md border border-slate-200 bg-slate-50 p-3 text-slate-700">${ico.lock}<p>${esc(r.locked)} Use <strong class="font-medium">Duplicate role</strong> to make an editable copy.</p></div>` : ''}
+    <p id="depMsg" role="status" aria-live="polite" class="mb-2 min-h-5 text-slate-700"></p>
+    <div class="overflow-x-auto rounded-md border border-slate-200">
+      <table class="w-full min-w-[640px] text-left" aria-label="Permissions for role ${esc(r.name)}">
+        <thead class="border-b border-slate-200 bg-slate-50 text-slate-700">
+          <tr>
+            <th scope="col" class="h-12 px-3 font-medium">Module</th>
+            <th scope="col" class="w-24 px-0 font-medium"><label class="flex h-12 cursor-pointer items-center justify-center gap-2"><input type="checkbox" data-keys="${ALLKEYS.join(',')}" aria-label="All modules – all actions" class="h-4 w-4 accent-blue-700"><span>All</span></label></th>
+            ${ACTIONS.map(([a, n]) => `<th scope="col" class="w-24 px-0 font-medium"><label class="flex h-12 cursor-pointer items-center justify-center gap-2"><input type="checkbox" data-keys="${colKeys(a).join(',')}" aria-label="${n} – all modules" class="h-4 w-4 accent-blue-700"><span>${n}</span></label></th>`).join('')}
+          </tr>
+        </thead>
+        <tbody>
+        ${GROUPS.map(g => `
+          <tr class="h-10 border-y border-slate-200 bg-slate-50">
+            <th scope="row" class="px-3 font-semibold">${g.name}</th>
+            <td class="p-0">${cb(grpKeys(g.name), `${g.name} – all actions`)}</td>
+            ${ACTIONS.map(([a, n]) => `<td class="p-0">${cb(grpColKeys(g.name, a), `${g.name} – ${n} (all ${g.name} modules)`)}</td>`).join('')}
+          </tr>
+          ${grpMods(g.name).map(m => `
+          <tr class="h-10 border-b border-slate-100 hover:bg-slate-50">
+            <th scope="row" class="px-3 pl-6 font-normal">${esc(m.name)}</th>
+            <td class="p-0">${cb(modKeys(m), `${m.name} – all actions`)}</td>
+            ${ACTIONS.map(([a, n]) => m.acts.includes(a)
+              ? `<td class="p-0">${cb([m.id + ':' + a], `${m.name} – ${n}`)}</td>`
+              : `<td class="text-center text-slate-500"><span aria-hidden="true">–</span><span class="sr-only">${esc(m.name)} – ${n} not applicable</span></td>`).join('')}
+          </tr>`).join('')}`).join('')}
+        </tbody>
+      </table>
+    </div>
+    <p class="mt-2 text-slate-600">A dash means the action does not exist for that module. Edit, Create, Delete and Approve need View.</p>`;
+  syncMatrix();
+}
+function stateOf(keys) {
+  const on = keys.filter(k => S.draft.has(k)).length;
+  return on === 0 ? 'none' : on === keys.length ? 'all' : 'mixed';
+}
+function syncMatrix() {
+  const r = role(); if (!r || !S.draft) return;
+  document.querySelectorAll('#detailSection input[data-keys]').forEach(i => {
+    const st = stateOf(i.dataset.keys.split(','));
+    i.checked = st === 'all';
+    i.indeterminate = st === 'mixed';
+    i.disabled = !!r.locked;
+  });
+}
+function applyToggle(keys, on) {
+  const touched = new Set(), cleared = new Set();
+  if (on) {
+    keys.forEach(k => {
+      S.draft.add(k);
+      const [m, a] = k.split(':');
+      if (a !== 'view' && !S.draft.has(m + ':view')) { S.draft.add(m + ':view'); touched.add(MODNAME[m]); }
+    });
+  } else {
+    keys.forEach(k => {
+      const [m, a] = k.split(':');
+      S.draft.delete(k);
+      if (a === 'view') MODS.find(x => x.id === m).acts.forEach(x => {
+        if (x !== 'view' && S.draft.has(m + ':' + x)) { S.draft.delete(m + ':' + x); cleared.add(MODNAME[m]); }
+      });
+    });
+  }
+  const msgs = [];
+  if (touched.size) msgs.push(`Edit, Create, Delete and Approve need View, so View is on for ${[...touched].join(', ')}.`);
+  if (cleared.size) msgs.push(`Turning off View also turned off the other actions for ${[...cleared].join(', ')}.`);
+  S.depMsg = msgs.join(' ');
+  const dm = $('#depMsg'); if (dm) dm.textContent = S.depMsg;
+  syncMatrix(); renderBar();
+}
+
+/* ---------- sticky bar ---------- */
+function renderBar() {
+  const r = role(), bar = $('#bar');
+  if (S.loading || S.error || !r) { bar.innerHTML = `<span class="text-slate-600">Select a role to edit its permissions.</span>`; return; }
+  const n = changeCount();
+  let left;
+  if (r.locked) left = `<span class="flex items-center gap-2 text-slate-700" id="barNote">${ico.lock}${esc(r.name)} is a system role, so its permissions can't be changed.</span>`;
+  else if (S.saveError) left = `<span role="alert" class="flex items-center gap-2 font-medium text-red-700">${ico.alert}Couldn't save ${esc(r.name)}. Your changes are kept. Try again.</span>`;
+  else if (n) left = `<span role="status" class="flex items-center gap-2 font-medium text-slate-900"><span class="h-2 w-2 rounded-full bg-amber-600" aria-hidden="true"></span>Unsaved changes<span class="font-normal text-slate-600">· ${n} ${n === 1 ? 'change' : 'changes'}</span></span>`;
+  else left = `<span role="status" class="text-slate-600">No unsaved changes</span>`;
+  bar.innerHTML = `<div class="min-w-0">${left}</div>
+    <div class="flex items-center gap-2">
+      <button type="button" id="cancelBtn" ${r.locked || S.saving ? 'disabled' : ''} class="h-8 rounded border border-slate-300 bg-white px-3 font-medium hover:bg-slate-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-700 disabled:cursor-not-allowed disabled:text-slate-500 disabled:hover:bg-white">Cancel</button>
+      <button type="button" id="saveBtn" ${r.locked ? 'aria-describedby="barNote"' : ''} ${r.locked || S.saving ? 'disabled' : ''} class="inline-flex h-8 min-w-20 items-center justify-center gap-2 rounded bg-blue-700 px-3 font-medium text-white hover:bg-blue-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-700 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:bg-slate-600 disabled:hover:bg-slate-600">${S.saving ? ico.spin + 'Saving' : 'Save'}</button>
+    </div>`;
+}
+
+/* ---------- dialogs ---------- */
+const dlg = $('#dlg');
+let afterClose = null;
+dlg.addEventListener('close', () => { const f = afterClose; afterClose = null; if (f) f(); });
+function openDlg(html) { dlg.innerHTML = html; dlg.showModal(); }
+const btnOutline = 'h-8 rounded border border-slate-300 bg-white px-3 font-medium hover:bg-slate-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-700';
+const btnPrimary = 'h-8 rounded bg-blue-700 px-3 font-medium text-white hover:bg-blue-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-700 focus-visible:ring-offset-2';
+const btnDanger = 'h-8 rounded bg-red-700 px-3 font-medium text-white hover:bg-red-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-red-700 focus-visible:ring-offset-2';
+function confirmDlg({ title, body, confirmLabel, cancelLabel, danger, onConfirm }) {
+  openDlg(`<div class="p-5"><h2 class="text-base font-semibold">${title}</h2><div class="mt-2 text-slate-700">${body}</div></div>
+    <div class="flex justify-end gap-2 border-t border-slate-200 px-5 py-3"><button type="button" id="dCancel" autofocus class="${btnOutline}">${cancelLabel}</button><button type="button" id="dOk" class="${danger ? btnDanger : btnPrimary}">${confirmLabel}</button></div>`);
+  $('#dCancel').onclick = () => dlg.close();
+  $('#dOk').onclick = () => { dlg.close(); onConfirm(); };
+}
+function guardDirty(proceed) {
+  if (!isDirty()) return proceed();
+  const n = changeCount();
+  confirmDlg({ title: `Discard ${n} unsaved ${n === 1 ? 'change' : 'changes'} to ${esc(role().name)}?`, body: 'Your edits to this role will be lost.',
+    confirmLabel: 'Discard changes', cancelLabel: 'Keep editing', danger: true, onConfirm: () => { resetDraft(); proceed(); } });
+}
+function selectRole(id) {
+  if (id === S.selected) return;
+  guardDirty(() => { S.selected = id; S.saveError = false; S.depMsg = ''; resetDraft(); renderList(); renderDetail(); renderBar(); });
+}
+
+/* create / duplicate */
+function roleForm(prefill = {}) {
+  openDlg(`<form id="rf" novalidate>
+    <div class="p-5"><h2 class="text-base font-semibold">${prefill.title || 'Create role'}</h2>
+      <div class="mt-4 space-y-4">
+        <div><label for="rName" class="mb-1 block font-medium">Name <span aria-hidden="true">*</span><span class="sr-only">(required)</span></label>
+          <input id="rName" value="${esc(prefill.name || '')}" maxlength="40" aria-describedby="rNameErr" class="h-8 w-full rounded border border-slate-300 px-2 focus:outline-none focus:ring-2 focus:ring-blue-700">
+          <p id="rNameErr" class="mt-1 min-h-4 text-xs text-red-700"></p></div>
+        <div><label for="rDesc" class="mb-1 block font-medium">Description</label>
+          <input id="rDesc" value="${esc(prefill.desc || '')}" maxlength="90" class="h-8 w-full rounded border border-slate-300 px-2 focus:outline-none focus:ring-2 focus:ring-blue-700"></div>
+        <div><label for="rCopy" class="mb-1 block font-medium">Copy permissions from</label>
+          <select id="rCopy" class="h-8 w-64 rounded border border-slate-300 bg-white px-2 focus:outline-none focus:ring-2 focus:ring-blue-700"><option value="">No permissions</option>
+          ${roles.map(r => `<option value="${r.id}" ${prefill.from === r.id ? 'selected' : ''}>${esc(r.name)}</option>`).join('')}</select></div>
+      </div></div>
+    <div class="flex justify-end gap-2 border-t border-slate-200 px-5 py-3"><button type="button" id="rCancel" class="${btnOutline}">Cancel</button><button type="submit" class="${btnPrimary}">${prefill.cta || 'Create role'}</button></div></form>`);
+  const input = $('#rName'), err = $('#rNameErr');
+  const validate = () => {
+    const v = input.value.trim(); let m = '';
+    if (!v) m = 'Enter a role name.';
+    else if (roles.some(r => r.name.toLowerCase() === v.toLowerCase())) m = `A role named “${v}” already exists.`;
+    err.textContent = m; input.setAttribute('aria-invalid', m ? 'true' : 'false');
+    input.classList.toggle('border-red-600', !!m);
+    return !m;
+  };
+  input.addEventListener('blur', validate);
+  $('#rCancel').onclick = () => dlg.close();
+  $('#rf').onsubmit = e => {
+    e.preventDefault();
+    if (!validate()) { input.focus(); return; }
+    const from = roles.find(r => r.id === $('#rCopy').value);
+    const nr = { id: 'r' + Date.now(), name: input.value.trim(), desc: $('#rDesc').value.trim() || 'No description', type: 'Custom', users: 0,
+      by: 'Nguyễn An', at: new Date().toISOString(), perms: new Set(from ? from.perms : []),
+      hist: [{ at: new Date().toISOString(), by: 'Nguyễn An', what: from ? `Created from ${from.name}` : 'Created', diffs: [] }] };
+    guardDirty(() => {
+      roles.push(nr); S.selected = nr.id; S.query = ''; resetDraft(); dlg.close();
+      renderList(); renderDetail(); renderBar(); toast(`Role ${nr.name} created`);
+    });
+  };
+  setTimeout(() => input.focus(), 0);
+}
+
+/* delete */
+function deleteDlg(id) {
+  const r = roles.find(x => x.id === id); if (!r || r.type === 'System') return;
+  const others = roles.filter(x => x.id !== id);
+  const hasUsers = r.users > 0;
+  openDlg(`<div class="p-5"><h2 class="text-base font-semibold">Delete role ${esc(r.name)}?</h2>
+    <p class="mt-2 text-slate-700">${hasUsers ? `<a href="#users?role=${r.id}" class="text-blue-700 hover:underline">${nf.format(r.users)} users</a> will lose these permissions.` : 'No users have this role.'} This can't be undone.</p>
+    ${hasUsers ? `<div class="mt-4"><label for="dRepl" class="mb-1 block font-medium">Move these users to <span aria-hidden="true">*</span><span class="sr-only">(required)</span></label>
+      <select id="dRepl" aria-describedby="dReplErr" class="h-8 w-full rounded border border-slate-300 bg-white px-2 focus:outline-none focus:ring-2 focus:ring-blue-700"><option value="">Choose a role</option>
+      ${others.map(o => `<option value="${o.id}">${esc(o.name)}</option>`).join('')}<option value="none">No role (users will have no permissions)</option></select>
+      <p id="dReplErr" class="mt-1 min-h-4 text-xs text-red-700"></p></div>` : ''}</div>
+    <div class="flex justify-end gap-2 border-t border-slate-200 px-5 py-3"><button type="button" id="dKeep" autofocus class="${btnOutline}">Keep role</button><button type="button" id="dDel" class="${btnDanger}">Delete role</button></div>`);
+  $('#dKeep').onclick = () => dlg.close();
+  $('#dDel').onclick = () => {
+    let target = null;
+    if (hasUsers) {
+      const v = $('#dRepl').value;
+      if (!v) { $('#dReplErr').textContent = 'Choose a replacement role, or confirm that users will have none.'; $('#dRepl').setAttribute('aria-invalid', 'true'); $('#dRepl').focus(); return; }
+      target = roles.find(x => x.id === v);
+    }
+    const wasSelected = S.selected === id;
+    roles = roles.filter(x => x.id !== id);
+    if (target) target.users += r.users;
+    if (wasSelected) { S.selected = roles[0] ? roles[0].id : null; resetDraft(); S.depMsg = ''; }
+    dlg.close(); renderList(); renderDetail(); renderBar();
+    toast(`Role ${r.name} deleted${target ? `. ${r.users} users moved to ${target.name}` : ''}`);
+  };
+}
+
+/* history */
+function historyDlg() {
+  const r = role(); if (!r) return;
+  openDlg(`<div class="p-5"><h2 class="text-base font-semibold">History of role ${esc(r.name)}</h2>
+    <div class="mt-3 max-h-[50vh] overflow-auto rounded-md border border-slate-200"><table class="w-full text-left">
+      <thead class="border-b border-slate-200 bg-slate-50 text-slate-700"><tr class="h-10"><th scope="col" class="px-3 font-medium">When</th><th scope="col" class="px-3 font-medium">Who</th><th scope="col" class="px-3 font-medium">What</th></tr></thead>
+      <tbody>${r.hist.map(h => `<tr class="border-b border-slate-100 align-top last:border-0"><td class="whitespace-nowrap px-3 py-2.5 tabular-nums">${stamp(h.at)}</td><td class="whitespace-nowrap px-3 py-2.5">${esc(h.by)}</td>
+        <td class="px-3 py-2.5">${esc(h.what)}${h.diffs.length ? `<details class="mt-1"><summary class="cursor-pointer text-blue-700">Show changes</summary><ul class="mt-1 space-y-0.5 text-slate-700">${h.diffs.map(d => `<li>${esc(d[0])}: ${d[1]} → ${d[2]}</li>`).join('')}</ul></details>` : ''}</td></tr>`).join('')}</tbody></table></div>
+    <p class="mt-2 text-xs text-slate-600">History is kept for 7 years and can't be edited.</p></div>
+    <div class="flex justify-end border-t border-slate-200 px-5 py-3"><button type="button" id="hClose" autofocus class="${btnOutline}">Close</button></div>`);
+  $('#hClose').onclick = () => dlg.close();
+}
+
+/* save */
+const SENSITIVE = new Set(['payments', 'payroll', 'employees']);
+function trySave() {
+  const r = role(); if (!r || r.locked || S.saving) return;
+  const d = diff(), n = d.added.length + d.removed.length;
+  if (!n) { toast(`No changes to save for ${r.name}`); return; }
+  const risky = d.added.some(k => k.endsWith(':approve') || SENSITIVE.has(k.split(':')[0]));
+  if (!risky) return doSave();
+  const rows = [...d.added.map(k => [k, 'off', 'on']), ...d.removed.map(k => [k, 'on', 'off'])];
+  openDlg(`<div class="p-5"><h2 class="text-base font-semibold">Review changes to ${esc(r.name)}</h2>
+    <p class="mt-2 text-slate-700">This gives access to approvals, money or personal data. ${nf.format(r.users)} users will be affected.</p>
+    <ul class="mt-3 max-h-56 space-y-1 overflow-auto rounded-md border border-slate-200 bg-slate-50 p-3">${rows.map(x => `<li>${esc(keyLabel(x[0]))}: ${x[1]} → <strong class="font-semibold">${x[2]}</strong></li>`).join('')}</ul></div>
+    <div class="flex justify-end gap-2 border-t border-slate-200 px-5 py-3"><button type="button" id="vCancel" autofocus class="${btnOutline}">Back to editing</button><button type="button" id="vOk" class="${btnPrimary}">Save changes</button></div>`);
+  $('#vCancel').onclick = () => dlg.close();
+  $('#vOk').onclick = () => { dlg.close(); doSave(); };
+}
+async function doSave() {
+  const r = role(); S.saving = true; S.saveError = false; renderBar();
+  await sleep(700);
+  if (S.failNext) { S.failNext = false; S.saving = false; S.saveError = true; renderBar(); return; }
+  const d = diff();
+  const nr = d.added.length + d.removed.length;
+  r.hist.unshift({ at: new Date().toISOString(), by: 'Nguyễn An', what: `Updated ${nr} ${nr === 1 ? 'permission' : 'permissions'}`,
+    diffs: [...d.added.map(k => [keyLabel(k), 'off', 'on']), ...d.removed.map(k => [keyLabel(k), 'on', 'off'])] });
+  r.perms = new Set(S.draft); r.by = 'Nguyễn An'; r.at = new Date().toISOString();
+  S.saving = false; S.depMsg = '';
+  renderList(); renderDetail(); renderBar(); toast(`Role ${r.name} saved`);
+}
+
+/* overflow menu */
+const menu = $('#menu'); let menuFor = null, menuBtn = null;
+function closeMenu(focus) { menu.hidden = true; if (focus && menuBtn) menuBtn.focus(); menuFor = null; }
+function openMenu(id, btn) {
+  const r = roles.find(x => x.id === id); if (!r) return;
+  menuFor = id; menuBtn = btn;
+  const item = (act, label, cls = '') => `<button type="button" role="menuitem" data-act="${act}" class="flex h-8 w-full items-center px-3 text-left hover:bg-slate-100 focus:bg-slate-100 focus:outline-none ${cls}">${label}</button>`;
+  menu.innerHTML = item('dup', 'Duplicate role') + (r.type === 'Custom' ? item('del', 'Delete role', 'text-red-700') : '');
+  const b = btn.getBoundingClientRect();
+  menu.style.top = (b.bottom + 4) + 'px'; menu.style.left = Math.max(8, b.right - 176) + 'px';
+  menu.hidden = false; menu.querySelector('button').focus();
+}
+menu.addEventListener('click', e => {
+  const b = e.target.closest('[data-act]'); if (!b) return;
+  const id = menuFor; closeMenu(false);
+  if (b.dataset.act === 'dup') duplicate(id); else deleteDlg(id);
+});
+menu.addEventListener('keydown', e => {
+  const items = [...menu.querySelectorAll('button')], i = items.indexOf(document.activeElement);
+  if (e.key === 'Escape') { e.preventDefault(); closeMenu(true); }
+  else if (e.key === 'ArrowDown') { e.preventDefault(); items[(i + 1) % items.length].focus(); }
+  else if (e.key === 'ArrowUp') { e.preventDefault(); items[(i - 1 + items.length) % items.length].focus(); }
+  else if (e.key === 'Tab') closeMenu(false);
+});
+document.addEventListener('click', e => { if (!menu.hidden && !menu.contains(e.target) && !e.target.closest('[data-menu]')) closeMenu(false); });
+function duplicate(id) {
+  const r = roles.find(x => x.id === id); if (!r) return;
+  roleForm({ title: `Duplicate role ${r.name}`, name: `${r.name} (copy)`, desc: r.desc, from: r.id, cta: 'Duplicate role' });
+}
+
+/* ---------- events ---------- */
+const main = $('#main');
+main.addEventListener('click', e => {
+  const t = e.target;
+  if (t.closest('[data-retry]')) { S.error = false; S.loading = true; renderAll(); setTimeout(() => { S.loading = false; renderAll(); }, 500); return; }
+  if (t.closest('[data-create]')) return roleForm();
+  if (t.closest('[data-clear]')) { S.query = ''; renderList(); return; }
+  if (t.closest('[data-history]')) return historyDlg();
+  const dup = t.closest('[data-duplicate]'); if (dup) return duplicate(dup.dataset.duplicate);
+  const mb = t.closest('[data-menu]'); if (mb) { if (!menu.hidden && menuFor === mb.dataset.menu) closeMenu(false); else openMenu(mb.dataset.menu, mb); return; }
+  if (t.closest('a, input')) return;
+  const sb = t.closest('[data-select]'); if (sb) return selectRole(sb.dataset.select);
+  const row = t.closest('[data-row]'); if (row) selectRole(row.dataset.row);
+});
+main.addEventListener('input', e => {
+  if (e.target.id === 'roleSearch') {
+    S.query = e.target.value; const pos = e.target.selectionStart; renderList();
+    const i = $('#roleSearch'); i.focus(); i.setSelectionRange(pos, pos);
+  }
+});
+main.addEventListener('change', e => {
+  const i = e.target.closest('input[data-keys]'); if (!i || role().locked) return;
+  applyToggle(i.dataset.keys.split(','), i.checked);
+});
+$('#createBtn').onclick = () => roleForm();
+$('#bar').addEventListener('click', e => {
+  if (e.target.closest('#saveBtn')) trySave();
+  if (e.target.closest('#cancelBtn')) {
+    if (!isDirty() && !S.saveError) return;
+    resetDraft(); S.saveError = false; S.depMsg = ''; const dm = $('#depMsg'); if (dm) dm.textContent = '';
+    syncMatrix(); renderBar(); toast('Changes discarded');
+  }
+});
+$('#sideNav').addEventListener('click', e => {
+  const a = e.target.closest('[data-nav]'); if (!a) return;
+  if (isDirty()) { e.preventDefault(); guardDirty(() => { location.hash = a.getAttribute('href'); }); }
+});
+window.addEventListener('beforeunload', e => { if (isDirty()) { e.preventDefault(); e.returnValue = ''; } });
+
+/* ---------- boot ---------- */
+function renderAll() { renderList(); renderDetail(); renderBar(); }
+resetDraft(); renderAll();
+setTimeout(() => { S.loading = false; renderAll(); }, 500);
+</script>
+</body>
+</html>

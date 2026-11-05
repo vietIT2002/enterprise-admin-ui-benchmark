@@ -1,0 +1,546 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>EXP-2041 Expense request – Minh Phát JSC</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+  body { font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; }
+  dialog::backdrop { background: rgba(15, 23, 42, .4); }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .spin { animation: spin .8s linear infinite; }
+  @keyframes pulse2 { 50% { opacity: .5; } }
+  .skel { animation: pulse2 1.4s ease-in-out infinite; }
+  @media (prefers-reduced-motion: reduce) { .spin, .skel { animation: none; } }
+</style>
+</head>
+<body class="bg-white text-slate-900 text-sm antialiased">
+
+<div class="flex min-h-screen">
+  <!-- Sidebar -->
+  <aside class="hidden md:flex w-60 shrink-0 flex-col border-r border-slate-200 bg-slate-50">
+    <div class="h-12 flex items-center gap-2 px-4 border-b border-slate-200 font-semibold">Minh Phát JSC</div>
+    <nav aria-label="Main" class="flex flex-col gap-4 p-2">
+      <div class="flex flex-col gap-0.5">
+        <p class="px-2 py-1 text-xs font-medium text-slate-600">Overview</p>
+        <a href="#" class="flex h-8 items-center gap-2 rounded px-2 text-slate-700 hover:bg-slate-200/60"><svg class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="3" y="3" width="7" height="9"/><rect x="14" y="3" width="7" height="5"/><rect x="14" y="12" width="7" height="9"/><rect x="3" y="16" width="7" height="5"/></svg>Dashboard</a>
+      </div>
+      <div class="flex flex-col gap-0.5">
+        <p class="px-2 py-1 text-xs font-medium text-slate-600">Finance</p>
+        <a href="#" class="flex h-8 items-center gap-2 rounded px-2 text-slate-700 hover:bg-slate-200/60"><svg class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M8 13h8M8 17h8"/></svg>Invoices</a>
+        <a href="#" aria-current="page" class="flex h-8 items-center gap-2 rounded bg-slate-200 px-2 font-medium text-slate-900"><svg class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>Expense approvals<span class="ml-auto rounded-full bg-white px-1.5 text-xs font-medium text-slate-700 border border-slate-300">4</span></a>
+        <a href="#" class="flex h-8 items-center gap-2 rounded px-2 text-slate-700 hover:bg-slate-200/60"><svg class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20"/></svg>Payments</a>
+      </div>
+      <div class="flex flex-col gap-0.5">
+        <p class="px-2 py-1 text-xs font-medium text-slate-600">People</p>
+        <a href="#" class="flex h-8 items-center gap-2 rounded px-2 text-slate-700 hover:bg-slate-200/60"><svg class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>Employees</a>
+      </div>
+    </nav>
+  </aside>
+
+  <div class="flex min-w-0 flex-1 flex-col">
+    <header class="flex h-12 items-center justify-between gap-3 border-b border-slate-200 bg-white px-4">
+      <div class="flex items-center gap-2 text-slate-600">
+        <button type="button" class="hidden h-8 w-64 items-center gap-2 rounded border border-slate-300 px-2 text-left text-slate-600 sm:flex" aria-label="Search or run a command"><svg class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.3-4.3"/></svg><span class="truncate">Search or run a command</span><kbd class="ml-auto text-xs">Ctrl K</kbd></button>
+      </div>
+      <div class="flex items-center gap-3">
+        <label for="viewer" class="text-xs font-medium text-slate-600">Preview as</label>
+        <select id="viewer" class="h-8 rounded border border-slate-300 bg-white px-2 text-sm text-slate-900">
+          <option value="approver">Trần Minh Quân (current approver)</option>
+          <option value="requester">Nguyễn Văn Khoa (requester)</option>
+          <option value="other">Lê Hoa (not involved)</option>
+        </select>
+        <span class="flex size-8 items-center justify-center rounded-full bg-slate-200 text-xs font-medium text-slate-800" role="img" aria-label="Account menu" id="avatar">QM</span>
+      </div>
+    </header>
+
+    <main id="main" class="min-w-0 flex-1 p-6" style="scroll-padding-bottom:4rem">
+      <div class="mx-auto max-w-[1280px]" id="root"></div>
+    </main>
+  </div>
+</div>
+
+<!-- Toasts -->
+<div id="toasts" class="pointer-events-none fixed bottom-4 right-4 z-50 flex flex-col gap-2" role="status" aria-live="polite"></div>
+
+<!-- Reject dialog -->
+<dialog id="rejectDlg" class="w-[min(30rem,92vw)] rounded-lg border border-slate-200 bg-white p-0 text-slate-900 shadow-xl" aria-labelledby="rejectTitle">
+  <form id="rejectForm" novalidate class="p-6">
+    <h2 id="rejectTitle" class="text-lg font-semibold">Reject expense request EXP-2041?</h2>
+    <p class="mt-1 text-slate-600">Nguyễn Văn Khoa will see your reason and can edit and resubmit the request. The flow restarts at step 1.</p>
+    <label for="rejectReason" class="mt-4 block text-xs font-medium text-slate-700">Reason for rejection <span aria-hidden="true">*</span></label>
+    <textarea id="rejectReason" rows="4" required aria-describedby="rejectErr" class="mt-1 w-full rounded border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-700"></textarea>
+    <p id="rejectErr" class="mt-1 hidden text-xs font-medium text-red-700"></p>
+    <div class="mt-4 flex justify-end gap-2">
+      <button type="button" id="rejectCancel" class="h-8 rounded border border-slate-300 bg-white px-3 font-medium text-slate-800 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-blue-700">Cancel</button>
+      <button type="submit" id="rejectSubmit" class="inline-flex h-8 items-center gap-2 rounded bg-red-600 px-3 font-medium text-white hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-700 focus:ring-offset-1 disabled:opacity-70">Reject request</button>
+    </div>
+  </form>
+</dialog>
+
+<!-- Confirm dialog (withdraw) -->
+<dialog id="withdrawDlg" class="w-[min(28rem,92vw)] rounded-lg border border-slate-200 bg-white p-0 text-slate-900 shadow-xl" aria-labelledby="wdTitle">
+  <div class="p-6">
+    <h2 id="wdTitle" class="text-lg font-semibold">Withdraw expense request EXP-2041?</h2>
+    <p class="mt-1 text-slate-600">The request leaves the approval flow at step 2 of 3 and cannot be reopened. You can duplicate it to submit a new one.</p>
+    <div class="mt-4 flex justify-end gap-2">
+      <button type="button" id="wdCancel" class="h-8 rounded border border-slate-300 bg-white px-3 font-medium text-slate-800 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-blue-700">Keep request</button>
+      <button type="button" id="wdOk" class="h-8 rounded bg-red-600 px-3 font-medium text-white hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-700 focus:ring-offset-1">Withdraw request</button>
+    </div>
+  </div>
+</dialog>
+
+<!-- Preview dialog -->
+<dialog id="previewDlg" class="w-[min(40rem,94vw)] rounded-lg border border-slate-200 bg-white p-0 text-slate-900 shadow-xl" aria-labelledby="pvTitle">
+  <div class="p-6">
+    <div class="flex items-start justify-between gap-4">
+      <h2 id="pvTitle" class="min-w-0 truncate text-lg font-semibold"></h2>
+      <button type="button" id="pvClose" class="h-8 shrink-0 rounded border border-slate-300 bg-white px-3 font-medium text-slate-800 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-blue-700">Close</button>
+    </div>
+    <div id="pvBody" class="mt-4"></div>
+  </div>
+</dialog>
+
+<script>
+(function () {
+  'use strict';
+
+  /* ---------- Formatting ---------- */
+  const LOCALE = 'vi-VN';
+  const TZ = 'Asia/Ho_Chi_Minh';
+  const vnd = new Intl.NumberFormat(LOCALE, { style: 'currency', currency: 'VND' });
+  const num1 = new Intl.NumberFormat(LOCALE, { maximumFractionDigits: 1, minimumFractionDigits: 1 });
+  function stamp(iso) {
+    const d = new Date(iso);
+    const date = new Intl.DateTimeFormat('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric', timeZone: TZ }).format(d);
+    const time = new Intl.DateTimeFormat('en-GB', { hour: '2-digit', minute: '2-digit', hourCycle: 'h23', timeZone: TZ }).format(d);
+    return date + ' ' + time;
+  }
+  function dateOnly(iso) { return stamp(iso).slice(0, 10); }
+  function size(b) { return b >= 1048576 ? num1.format(b / 1048576) + ' MB' : num1.format(b / 1024) + ' KB'; }
+  function esc(s) { return String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
+
+  /* ---------- Status vocabulary: five tones, always with text ---------- */
+  const TONES = {
+    neutral: 'bg-slate-100 text-slate-700',
+    info: 'bg-blue-50 text-blue-800',
+    success: 'bg-emerald-50 text-emerald-800',
+    warning: 'bg-amber-50 text-amber-800',
+    danger: 'bg-red-50 text-red-800'
+  };
+  const ICONS = {
+    neutral: '<circle cx="12" cy="12" r="9"/>',
+    info: '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',
+    success: '<circle cx="12" cy="12" r="9"/><path d="M8 12l3 3 5-6"/>',
+    warning: '<path d="M12 3l10 18H2z"/><path d="M12 10v5M12 18h.01"/>',
+    danger: '<circle cx="12" cy="12" r="9"/><path d="M9 9l6 6M15 9l-6 6"/>'
+  };
+  const STATUS_TONE = {
+    'Draft': 'neutral', 'Withdrawn': 'neutral', 'Not started': 'neutral', 'Skipped': 'neutral',
+    'Submitted': 'info', 'In approval': 'info', 'Waiting': 'info', 'Current step': 'info',
+    'Approved': 'success', 'Rejected': 'danger'
+  };
+  function badge(label) {
+    const t = STATUS_TONE[label] || 'neutral';
+    return '<span class="inline-flex h-6 max-w-[200px] items-center gap-1 rounded-full px-2 text-xs font-medium ' + TONES[t] + '">' +
+      '<svg class="size-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">' + ICONS[t] + '</svg>' +
+      '<span class="truncate" title="' + esc(label) + '">' + esc(label) + '</span></span>';
+  }
+
+  /* ---------- Mock data ---------- */
+  const PEOPLE = {
+    khoa: { name: 'Nguyễn Văn Khoa', role: 'Sales executive' },
+    ha: { name: 'Phạm Thu Hà', role: 'Sales director' },
+    quan: { name: 'Trần Minh Quân', role: 'Finance manager' },
+    bao: { name: 'Lê Quốc Bảo', role: 'Chief financial officer' }
+  };
+  const VIEWERS = {
+    approver: { id: 'quan', name: 'Trần Minh Quân', initials: 'QM' },
+    requester: { id: 'khoa', name: 'Nguyễn Văn Khoa', initials: 'VK' },
+    other: { id: 'hoa', name: 'Lê Hoa', initials: 'LH' }
+  };
+
+  function freshRequest() {
+    return {
+      id: 'EXP-2041',
+      title: 'Client visit in Đà Nẵng – flights, hotel and local transport',
+      status: 'In approval',
+      requester: 'khoa',
+      department: 'Sales – Central region',
+      category: 'Travel',
+      costCenter: 'CC-310 Sales Central',
+      project: 'PRJ-218 Hải Châu retail rollout',
+      payment: 'Reimburse to personal account',
+      expenseDate: '2026-10-27T00:00:00+07:00',
+      submittedAt: '2026-11-02T09:12:00+07:00',
+      changedBy: 'Nguyễn Văn Khoa',
+      changedAt: '2026-11-02T09:12:00+07:00',
+      note: 'Two-day visit to sign the Q4 supply agreement with Hải Châu Retail. Receipts attached; taxi fares are summarised in one statement.',
+      lines: [
+        { item: 'Return flights HCMC – Đà Nẵng (2 tickets)', cat: 'Airfare', qty: 2, unit: 2850000 },
+        { item: 'Hotel Mường Thanh, Đà Nẵng', cat: 'Lodging', qty: 2, unit: 2400000 },
+        { item: 'Client dinner, Bà Nà restaurant', cat: 'Meals', qty: 1, unit: 3650000 },
+        { item: 'Taxi and airport transfers', cat: 'Local transport', qty: 6, unit: 175000 }
+      ],
+      files: [
+        { name: 've-may-bay-HCM-DAD.pdf', type: 'PDF', bytes: 412000, by: 'Nguyễn Văn Khoa', at: '2026-11-02T09:05:00+07:00', preview: true },
+        { name: 'hoa-don-khach-san-muong-thanh.pdf', type: 'PDF', bytes: 1258291, by: 'Nguyễn Văn Khoa', at: '2026-11-02T09:07:00+07:00', preview: true },
+        { name: 'bien-lai-nha-hang-ba-na.jpg', type: 'JPG', bytes: 2306867, by: 'Nguyễn Văn Khoa', at: '2026-11-02T09:09:00+07:00', preview: true },
+        { name: 'bang-ke-taxi-thang-10.zip', type: 'ZIP', bytes: 96300, by: 'Nguyễn Văn Khoa', at: '2026-11-02T09:10:00+07:00', preview: false }
+      ],
+      steps: [
+        { name: 'Line manager', who: 'ha', decision: 'Approved', at: '2026-11-02T14:40:00+07:00', comment: 'Visit matches the Hải Châu rollout plan. Costs are within the travel policy.' },
+        { name: 'Finance review', who: 'quan', decision: 'Waiting', at: null, comment: '' },
+        { name: 'Director approval (over 10.000.000 ₫)', who: 'bao', decision: 'Not started', at: null, comment: '' }
+      ],
+      activity: [
+        { at: '2026-11-02T14:40:00+07:00', who: 'Phạm Thu Hà', what: 'Approved step 1 – Line manager', comment: 'Visit matches the Hải Châu rollout plan. Costs are within the travel policy.' },
+        { at: '2026-11-02T09:12:00+07:00', who: 'Nguyễn Văn Khoa', what: 'Submitted the request with 4 attachments', comment: '' },
+        { at: '2026-11-02T09:02:00+07:00', who: 'Nguyễn Văn Khoa', what: 'Created the request', comment: '' }
+      ],
+      outcome: null // { kind, by, at, comment }
+    };
+  }
+
+  /* ---------- State ---------- */
+  const S = {
+    phase: 'loading',     // loading | error | ready
+    viewer: 'approver',
+    req: null,
+    forceError: false,
+    comment: '',
+    commentErr: '',
+    busy: false,
+    menuOpen: false,
+    previewFor: null
+  };
+  const total = r => r.lines.reduce((a, l) => a + l.qty * l.unit, 0);
+  const currentIdx = r => r.steps.findIndex(s => s.decision === 'Waiting');
+  const dirty = () => S.comment.trim().length > 0 && !!S.req && !S.req.outcome;
+
+  /* ---------- Load ---------- */
+  function load() {
+    S.phase = 'loading';
+    render();
+    setTimeout(function () {
+      if (S.forceError) { S.forceError = false; S.phase = 'error'; }
+      else { S.phase = 'ready'; if (!S.req) S.req = freshRequest(); }
+      render();
+    }, 500);
+  }
+
+  /* ---------- Render ---------- */
+  const root = document.getElementById('root');
+
+  function sk(w, h) { return '<div class="skel rounded bg-slate-200 ' + (h || 'h-4') + ' ' + (w || 'w-full') + '"></div>'; }
+
+  function skeleton() {
+    return '<div aria-busy="true" aria-label="Loading expense request">' +
+      '<div class="mb-4 flex flex-col gap-3">' + sk('w-56') + sk('w-96', 'h-6') + sk('w-80') + '</div>' +
+      '<div class="grid gap-6 lg:grid-cols-[minmax(0,1fr)_380px]">' +
+      '<div class="flex flex-col gap-6">' +
+        '<div class="rounded-md border border-slate-200 p-4 flex flex-col gap-3">' + sk('w-40') + sk() + sk() + sk('w-2/3') + '</div>' +
+        '<div class="rounded-md border border-slate-200 p-4 flex flex-col gap-3">' + sk('w-32') + sk('w-full', 'h-10') + sk('w-full', 'h-10') + sk('w-full', 'h-10') + '</div>' +
+      '</div>' +
+      '<div class="flex flex-col gap-6">' +
+        '<div class="rounded-md border border-slate-200 p-4 flex flex-col gap-3">' + sk('w-40') + sk('w-full', 'h-16') + sk('w-full', 'h-16') + '</div>' +
+      '</div></div></div>';
+  }
+
+  function errorState() {
+    return '<div class="rounded-md border border-red-200 bg-white p-6" role="alert">' +
+      '<h1 class="text-base font-semibold text-slate-900">Could not load expense request EXP-2041</h1>' +
+      '<p class="mt-1 text-slate-600">The approvals service did not respond. Nothing was changed. Check your connection and try again.</p>' +
+      '<button type="button" data-act="retry" class="mt-4 h-8 rounded bg-blue-700 px-3 font-medium text-white hover:bg-blue-800 focus:outline-none focus:ring-2 focus:ring-blue-700 focus:ring-offset-1">Retry</button></div>';
+  }
+
+  function header(r) {
+    const requester = PEOPLE[r.requester];
+    return '<header class="mb-4 flex flex-col gap-2">' +
+      '<nav aria-label="Breadcrumb"><ol class="flex flex-wrap items-center gap-1 text-slate-600">' +
+        '<li><a href="#" class="inline-flex min-h-6 items-center hover:text-slate-900 hover:underline">Finance</a></li><li aria-hidden="true">/</li>' +
+        '<li><a href="#" class="inline-flex min-h-6 items-center hover:text-slate-900 hover:underline">Expense approvals</a></li><li aria-hidden="true">/</li>' +
+        '<li><span aria-current="page" class="text-slate-900">EXP-2041</span></li></ol></nav>' +
+      '<div class="flex flex-wrap items-start justify-between gap-2">' +
+        '<div class="min-w-0"><h1 class="text-xl font-semibold">' + esc(r.title) + '</h1></div>' +
+        '<div class="relative flex items-center gap-2">' +
+          '<button type="button" data-act="menu" aria-haspopup="menu" aria-expanded="' + S.menuOpen + '" aria-label="More actions for expense request EXP-2041" class="flex size-8 items-center justify-center rounded border border-slate-300 bg-white text-slate-700 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-blue-700"><svg class="size-4" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="5" cy="12" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="19" cy="12" r="1.6"/></svg></button>' +
+          (S.menuOpen ? '<div role="menu" class="absolute right-0 top-9 z-20 w-56 rounded-md border border-slate-200 bg-white py-1 shadow-lg">' +
+            '<button role="menuitem" type="button" data-act="print" class="flex h-8 w-full items-center px-3 text-left hover:bg-slate-100">Print request</button>' +
+            '<button role="menuitem" type="button" data-act="duplicate" class="flex h-8 w-full items-center px-3 text-left hover:bg-slate-100">Duplicate request</button>' +
+            '<button role="menuitem" type="button" data-act="simerr" class="flex h-8 w-full items-center px-3 text-left hover:bg-slate-100">Reload and simulate an error</button></div>' : '') +
+        '</div></div>' +
+      '<div class="flex flex-wrap items-center gap-x-3 gap-y-1">' + badge(r.status) +
+        '<span class="text-slate-600">Last changed by <a href="#" class="font-medium text-slate-900 hover:underline">' + esc(r.changedBy) + '</a> on <time datetime="' + r.changedAt + '">' + stamp(r.changedAt) + '</time> · <a href="#activity" class="text-blue-700 hover:underline">View history</a></span></div>' +
+      '<dl class="mt-2 grid grid-cols-2 gap-x-6 gap-y-2 rounded-md border border-slate-200 p-4 md:grid-cols-4">' +
+        kf('Requester', esc(requester.name) + '<span class="block text-xs font-normal text-slate-600">' + esc(requester.role) + ' · ' + esc(r.department) + '</span>') +
+        kf('Total amount', '<span class="tabular-nums">' + vnd.format(total(r)) + '</span>') +
+        kf('Submitted', stamp(r.submittedAt)) +
+        kf('Approval progress', progressText(r)) +
+      '</dl></header>';
+  }
+  function kf(l, v) { return '<div><dt class="text-xs font-medium text-slate-600">' + l + '</dt><dd class="mt-0.5 font-medium text-slate-900">' + v + '</dd></div>'; }
+  function progressText(r) {
+    if (r.status === 'Approved') return 'Step 3 of 3 – complete';
+    if (r.status === 'Rejected') return 'Stopped at step ' + (r.steps.findIndex(s => s.decision === 'Rejected') + 1) + ' of 3';
+    if (r.status === 'Withdrawn') return 'Withdrawn';
+    return 'Step ' + (currentIdx(r) + 1) + ' of 3';
+  }
+
+  function detailsCard(r) {
+    return '<section aria-labelledby="h-details" class="rounded-md border border-slate-200 bg-white">' +
+      '<h2 id="h-details" class="border-b border-slate-200 px-4 py-3 text-base font-semibold">Request details</h2>' +
+      '<dl class="grid gap-x-6 gap-y-3 p-4 sm:grid-cols-2">' +
+        kf('Category', esc(r.category)) + kf('Expense date', dateOnly(r.expenseDate)) +
+        kf('Cost center', esc(r.costCenter)) + kf('Project', esc(r.project)) +
+        kf('Payment method', esc(r.payment)) +
+        '<div class="sm:col-span-2"><dt class="text-xs font-medium text-slate-600">Business purpose</dt><dd class="mt-0.5 text-slate-900">' + esc(r.note) + '</dd></div>' +
+      '</dl>' +
+      '<div class="overflow-x-auto border-t border-slate-200"><table class="w-full min-w-[640px] text-left">' +
+        '<caption class="sr-only">Expense line items</caption>' +
+        '<thead class="border-b border-slate-200 bg-slate-50 text-xs font-medium text-slate-700"><tr>' +
+          '<th scope="col" class="px-4 py-2.5">Item</th><th scope="col" class="px-4 py-2.5">Category</th>' +
+          '<th scope="col" class="px-4 py-2.5 text-right">Qty</th><th scope="col" class="px-4 py-2.5 text-right">Unit price</th><th scope="col" class="px-4 py-2.5 text-right">Amount</th></tr></thead><tbody>' +
+        r.lines.map(function (l) {
+          return '<tr class="border-b border-slate-100"><td class="h-10 whitespace-nowrap px-4 py-2.5 text-slate-900">' + esc(l.item) + '</td><td class="whitespace-nowrap px-4 py-2.5 text-slate-700">' + esc(l.cat) + '</td>' +
+            '<td class="px-4 py-2.5 text-right tabular-nums">' + l.qty + '</td><td class="whitespace-nowrap px-4 py-2.5 text-right tabular-nums">' + vnd.format(l.unit) + '</td><td class="whitespace-nowrap px-4 py-2.5 text-right tabular-nums font-medium">' + vnd.format(l.qty * l.unit) + '</td></tr>';
+        }).join('') +
+        '</tbody><tfoot><tr><th scope="row" colspan="4" class="px-4 py-2.5 text-right font-medium text-slate-700">Total (VAT included)</th><td class="whitespace-nowrap px-4 py-2.5 text-right text-base font-semibold tabular-nums">' + vnd.format(total(r)) + '</td></tr></tfoot></table></div>' +
+      '<p class="border-t border-slate-200 px-4 py-3 text-slate-600">Policy: claims over ' + vnd.format(10000000) + ' need Director approval as a third step.</p>' +
+    '</section>';
+  }
+
+  function attachmentsCard(r) {
+    const body = r.files.length === 0
+      ? '<div class="px-4 py-6 text-center"><p class="text-slate-700">No attachments on this request.</p><p class="text-slate-600">Receipts are required for claims over ' + vnd.format(500000) + '.</p></div>'
+      : '<div class="overflow-x-auto"><table class="w-full min-w-[680px] text-left"><caption class="sr-only">Attachments</caption>' +
+        '<thead class="border-b border-slate-200 bg-slate-50 text-xs font-medium text-slate-700"><tr><th scope="col" class="px-4 py-2.5">File name</th><th scope="col" class="px-4 py-2.5">Type</th><th scope="col" class="px-4 py-2.5 text-right">Size</th><th scope="col" class="px-4 py-2.5">Uploaded</th><th scope="col" class="px-4 py-2.5"><span class="sr-only">Actions</span></th></tr></thead><tbody>' +
+        r.files.map(function (f, i) {
+          return '<tr class="border-b border-slate-100"><td class="h-10 max-w-[260px] truncate px-4 py-1 font-medium text-slate-900" title="' + esc(f.name) + '">' + esc(f.name) + '</td>' +
+            '<td class="px-4 py-1 text-slate-700">' + f.type + '</td><td class="whitespace-nowrap px-4 py-1 text-right tabular-nums">' + size(f.bytes) + '</td>' +
+            '<td class="whitespace-nowrap px-4 py-1 text-slate-700">' + esc(f.by) + ' · ' + stamp(f.at) + '</td>' +
+            '<td class="whitespace-nowrap px-4 py-1 text-right">' +
+              (f.preview ? '<button type="button" data-act="preview" data-i="' + i + '" aria-label="Preview ' + esc(f.name) + '" class="h-8 rounded px-2 font-medium text-blue-700 hover:bg-blue-50 focus:outline-none focus:ring-2 focus:ring-blue-700">Preview</button>' : '') +
+              '<button type="button" data-act="download" data-i="' + i + '" aria-label="Download ' + esc(f.name) + '" class="h-8 rounded px-2 font-medium text-blue-700 hover:bg-blue-50 focus:outline-none focus:ring-2 focus:ring-blue-700">Download</button></td></tr>';
+        }).join('') + '</tbody></table></div>';
+    return '<section aria-labelledby="h-att" class="rounded-md border border-slate-200 bg-white"><h2 id="h-att" class="border-b border-slate-200 px-4 py-3 text-base font-semibold">Attachments <span class="font-normal text-slate-600">(' + r.files.length + ')</span></h2>' + body + '</section>';
+  }
+
+  function stepsCard(r) {
+    const ci = currentIdx(r);
+    const items = r.steps.map(function (s, i) {
+      const p = PEOPLE[s.who];
+      const isCurrent = i === ci && r.status === 'In approval';
+      const label = isCurrent ? 'Current step' : s.decision;
+      return '<li class="relative flex gap-3 pb-5 last:pb-0">' +
+        (i < r.steps.length - 1 ? '<span class="absolute left-[11px] top-6 bottom-0 w-px bg-slate-200" aria-hidden="true"></span>' : '') +
+        '<span class="relative z-10 mt-0.5 flex size-6 shrink-0 items-center justify-center rounded-full border text-xs font-semibold ' +
+          (s.decision === 'Approved' ? 'border-emerald-700 bg-emerald-700 text-white' : s.decision === 'Rejected' ? 'border-red-700 bg-red-700 text-white' : isCurrent ? 'border-blue-700 bg-white text-blue-700' : 'border-slate-300 bg-white text-slate-600') + '">' + (i + 1) + '</span>' +
+        '<div class="min-w-0 flex-1">' +
+          '<div class="flex flex-wrap items-center justify-between gap-x-2 gap-y-1"><p class="font-medium text-slate-900">Step ' + (i + 1) + ' · ' + esc(s.name) + '</p>' + badge(label) + '</div>' +
+          '<p class="text-slate-700">' + esc(p.name) + ' · ' + esc(p.role) + '</p>' +
+          (s.at ? '<p class="text-xs text-slate-600">' + s.decision + ' on <time datetime="' + s.at + '">' + stamp(s.at) + '</time></p>' : (isCurrent ? '<p class="text-xs text-slate-600">Waiting for a decision</p>' : '<p class="text-xs text-slate-600">Opens after step ' + i + '</p>')) +
+          (s.comment ? '<p class="mt-1 rounded border border-slate-200 bg-slate-50 px-3 py-2 text-slate-800">' + (s.decision === 'Rejected' ? '<span class="font-medium">Reason: </span>' : '') + esc(s.comment) + '</p>' : '') +
+        '</div></li>';
+    }).join('');
+    return '<section aria-labelledby="h-steps" class="rounded-md border border-slate-200 bg-white"><h2 id="h-steps" class="border-b border-slate-200 px-4 py-3 text-base font-semibold">Approval steps</h2><ol class="p-4">' + items + '</ol></section>';
+  }
+
+  function actionCard(r) {
+    const v = VIEWERS[S.viewer];
+    const ci = currentIdx(r);
+    let inner = '';
+    if (r.outcome) {
+      const o = r.outcome;
+      inner = '<p class="font-medium text-slate-900">' + (o.kind === 'Approved' ? 'Approved' : o.kind === 'Rejected' ? 'Rejected' : 'Withdrawn') + ' by ' + esc(o.by) + ' on ' + stamp(o.at) + '</p>' +
+        (o.comment ? '<p class="mt-1 text-slate-700">' + (o.kind === 'Rejected' ? '<span class="font-medium">Reason: </span>' : '<span class="font-medium">Comment: </span>') + esc(o.comment) + '</p>' : '') +
+        (r.status === 'In approval' ? '<p class="mt-1 text-slate-600">Next: waiting for ' + esc(PEOPLE[r.steps[ci].who].name) + ' (' + esc(PEOPLE[r.steps[ci].who].role) + ').</p>' : '') +
+        (r.status === 'Approved' ? '<p class="mt-1 text-slate-600">Payment of ' + vnd.format(total(r)) + ' is scheduled for the next payout run.</p>' : '') +
+        (r.status === 'Rejected' ? '<p class="mt-1 text-slate-600">' + esc(PEOPLE[r.requester].name) + ' can edit and resubmit the request.</p>' : '');
+    } else if (S.viewer === 'approver') {
+      inner = '<label for="comment" class="block text-xs font-medium text-slate-700">Comment <span class="font-normal text-slate-600">(optional for approval, required for rejection)</span></label>' +
+        '<textarea id="comment" rows="4" placeholder="Add a note for the requester and the next approver" aria-describedby="commentHint' + (S.commentErr ? ' commentErr' : '') + '" ' + (S.commentErr ? 'aria-invalid="true"' : '') + ' class="mt-1 w-full rounded border ' + (S.commentErr ? 'border-red-600' : 'border-slate-300') + ' px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-700" ' + (S.busy ? 'disabled' : '') + '>' + esc(S.comment) + '</textarea>' +
+        '<p id="commentHint" class="sr-only">Your comment is saved in the approval history.</p>' +
+        (S.commentErr ? '<p id="commentErr" class="mt-1 text-xs font-medium text-red-700">' + esc(S.commentErr) + '</p>' : '') +
+        '<div class="mt-3 flex items-center justify-between gap-2"><span class="text-xs text-slate-600">' + (dirty() ? 'Unsaved comment' : '') + '</span>' +
+        '<div class="flex gap-2">' +
+          '<button type="button" data-act="reject" ' + (S.busy ? 'disabled' : '') + ' class="h-8 rounded border border-slate-300 bg-white px-3 font-medium text-red-700 hover:bg-red-50 focus:outline-none focus:ring-2 focus:ring-blue-700 disabled:opacity-60">Reject</button>' +
+          '<button type="button" data-act="approve" ' + (S.busy ? 'disabled' : '') + ' class="inline-flex h-8 items-center gap-2 rounded bg-blue-700 px-3 font-medium text-white hover:bg-blue-800 focus:outline-none focus:ring-2 focus:ring-blue-700 focus:ring-offset-1 disabled:opacity-70">' +
+          (S.busy ? '<svg class="spin size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" aria-hidden="true"><path d="M12 3a9 9 0 1 0 9 9" /></svg>Approving…' : 'Approve') + '</button></div></div>';
+    } else {
+      const cur = PEOPLE[r.steps[ci].who];
+      inner = '<p class="font-medium text-slate-900">Waiting for ' + esc(cur.name) + ' (' + esc(cur.role) + ')</p>' +
+        '<p class="mt-1 text-slate-700">Only the current approver can approve or reject this request.' + (S.viewer === 'requester' ? '' : ' You are not part of its approval flow.') + '</p>';
+      if (S.viewer === 'requester') {
+        inner += '<button type="button" data-act="withdraw" class="mt-3 h-8 rounded border border-slate-300 bg-white px-3 font-medium text-slate-800 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-blue-700">Withdraw request</button>';
+      }
+    }
+    return '<section aria-labelledby="h-act" class="rounded-md border border-slate-200 bg-white"><h2 id="h-act" class="border-b border-slate-200 px-4 py-3 text-base font-semibold">' + (r.outcome ? 'Decision' : 'Your decision') + '</h2><div class="p-4">' + inner + '</div></section>';
+  }
+
+  function activityCard(r) {
+    return '<section id="activity" aria-labelledby="h-activity" class="rounded-md border border-slate-200 bg-white"><h2 id="h-activity" class="border-b border-slate-200 px-4 py-3 text-base font-semibold">Activity and comments</h2>' +
+      '<ul class="divide-y divide-slate-100">' + r.activity.map(function (a) {
+        return '<li class="px-4 py-3"><p><span class="font-medium text-slate-900">' + esc(a.who) + '</span> <span class="text-slate-700">' + esc(a.what) + '</span></p>' +
+          '<p class="text-xs text-slate-600"><time datetime="' + a.at + '">' + stamp(a.at) + '</time></p>' +
+          (a.comment ? '<p class="mt-1 rounded border border-slate-200 bg-slate-50 px-3 py-2 text-slate-800">' + esc(a.comment) + '</p>' : '') + '</li>';
+      }).join('') + '</ul></section>';
+  }
+
+  function render() {
+    if (S.phase === 'loading') { root.innerHTML = skeleton(); return; }
+    if (S.phase === 'error') { root.innerHTML = errorState(); return; }
+    const r = S.req;
+    // keep focus/caret in the comment box across re-renders
+    const hadFocus = document.activeElement && document.activeElement.id === 'comment';
+    root.innerHTML = header(r) +
+      '<div class="grid gap-6 lg:grid-cols-[minmax(0,1fr)_380px]">' +
+        '<div class="flex min-w-0 flex-col gap-6">' + detailsCard(r) + attachmentsCard(r) + activityCard(r) + '</div>' +
+        '<div class="flex min-w-0 flex-col gap-6 lg:sticky lg:top-4 lg:self-start">' + actionCard(r) + stepsCard(r) + '</div>' +
+      '</div>';
+    if (hadFocus) { const c = document.getElementById('comment'); if (c) { c.focus(); c.setSelectionRange(c.value.length, c.value.length); } }
+  }
+
+  /* ---------- Toasts ---------- */
+  function toast(msg, tone) {
+    const el = document.createElement('div');
+    el.className = 'pointer-events-auto max-w-sm rounded-md border bg-white px-4 py-3 shadow-lg ' + (tone === 'error' ? 'border-red-300 text-red-800' : 'border-slate-200 text-slate-900');
+    el.textContent = msg;
+    document.getElementById('toasts').appendChild(el);
+    setTimeout(function () { el.remove(); }, 4500);
+  }
+
+  /* ---------- Actions ---------- */
+  function now() { return new Date().toISOString(); }
+
+  function approve() {
+    if (S.busy) return;
+    S.busy = true; render();
+    setTimeout(function () {
+      const r = S.req, ci = currentIdx(r), step = r.steps[ci], at = now(), comment = S.comment.trim();
+      step.decision = 'Approved'; step.at = at; step.comment = comment;
+      r.activity.unshift({ at: at, who: VIEWERS.approver.name, what: 'Approved step ' + (ci + 1) + ' – ' + step.name, comment: comment });
+      if (ci + 1 < r.steps.length) { r.steps[ci + 1].decision = 'Waiting'; r.status = 'In approval'; }
+      else r.status = 'Approved';
+      r.outcome = { kind: 'Approved', by: VIEWERS.approver.name, at: at, comment: comment };
+      r.changedBy = VIEWERS.approver.name; r.changedAt = at;
+      S.comment = ''; S.commentErr = ''; S.busy = false;
+      render();
+      toast('Expense request EXP-2041 approved');
+    }, 700);
+  }
+
+  const rejectDlg = document.getElementById('rejectDlg');
+  const rejectReason = document.getElementById('rejectReason');
+  const rejectErr = document.getElementById('rejectErr');
+  function openReject() {
+    rejectReason.value = S.comment;
+    rejectErr.classList.add('hidden'); rejectReason.removeAttribute('aria-invalid');
+    rejectDlg.showModal();
+    document.getElementById('rejectCancel').focus(); // Cancel receives initial focus
+  }
+  rejectReason.addEventListener('blur', function () { if (rejectDlg.open && document.activeElement !== document.getElementById('rejectCancel')) validateReject(); });
+  function validateReject() {
+    const ok = rejectReason.value.trim().length > 0;
+    rejectErr.textContent = ok ? '' : 'Enter a reason. The requester needs it to fix and resubmit.';
+    rejectErr.classList.toggle('hidden', ok);
+    if (ok) rejectReason.removeAttribute('aria-invalid'); else rejectReason.setAttribute('aria-invalid', 'true');
+    return ok;
+  }
+  document.getElementById('rejectCancel').addEventListener('click', function () { S.comment = rejectReason.value; rejectDlg.close(); render(); });
+  document.getElementById('rejectForm').addEventListener('submit', function (e) {
+    e.preventDefault();
+    if (!validateReject()) { rejectReason.focus(); return; }
+    const btn = document.getElementById('rejectSubmit');
+    btn.disabled = true;
+    btn.innerHTML = '<svg class="spin size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" aria-hidden="true"><path d="M12 3a9 9 0 1 0 9 9"/></svg>Rejecting…';
+    setTimeout(function () {
+      const r = S.req, ci = currentIdx(r), step = r.steps[ci], at = now(), reason = rejectReason.value.trim();
+      step.decision = 'Rejected'; step.at = at; step.comment = reason;
+      r.status = 'Rejected';
+      r.activity.unshift({ at: at, who: VIEWERS.approver.name, what: 'Rejected at step ' + (ci + 1) + ' – ' + step.name, comment: reason });
+      r.outcome = { kind: 'Rejected', by: VIEWERS.approver.name, at: at, comment: reason };
+      r.changedBy = VIEWERS.approver.name; r.changedAt = at;
+      S.comment = ''; S.commentErr = '';
+      btn.disabled = false; btn.textContent = 'Reject request';
+      rejectDlg.close(); render();
+      toast('Expense request EXP-2041 rejected');
+    }, 700);
+  });
+  rejectDlg.addEventListener('click', function (e) { if (e.target === rejectDlg) document.getElementById('rejectCancel').click(); });
+
+  const wdDlg = document.getElementById('withdrawDlg');
+  document.getElementById('wdCancel').addEventListener('click', function () { wdDlg.close(); });
+  document.getElementById('wdOk').addEventListener('click', function () {
+    const r = S.req, at = now();
+    r.status = 'Withdrawn';
+    r.steps.forEach(function (s) { if (s.decision === 'Waiting') s.decision = 'Skipped'; if (s.decision === 'Not started') s.decision = 'Skipped'; });
+    r.activity.unshift({ at: at, who: PEOPLE.khoa.name, what: 'Withdrew the request', comment: '' });
+    r.outcome = { kind: 'Withdrawn', by: PEOPLE.khoa.name, at: at, comment: '' };
+    r.changedBy = PEOPLE.khoa.name; r.changedAt = at;
+    wdDlg.close(); render();
+    toast('Expense request EXP-2041 withdrawn');
+  });
+
+  const pvDlg = document.getElementById('previewDlg');
+  document.getElementById('pvClose').addEventListener('click', function () { pvDlg.close(); });
+  function openPreview(i) {
+    const f = S.req.files[i];
+    document.getElementById('pvTitle').textContent = f.name;
+    const body = f.type === 'JPG'
+      ? '<div class="flex h-72 items-center justify-center rounded border border-slate-200 bg-slate-100 text-slate-700">Image preview – ' + esc(f.name) + '</div>'
+      : '<div class="flex h-72 flex-col items-center justify-center gap-1 rounded border border-slate-200 bg-slate-100 text-slate-700"><span class="font-medium">PDF preview – page 1 of 2</span><span>' + esc(f.name) + '</span></div>';
+    document.getElementById('pvBody').innerHTML = body + '<p class="mt-3 text-slate-600">' + f.type + ' · ' + size(f.bytes) + ' · uploaded by ' + esc(f.by) + ' on ' + stamp(f.at) + '</p>';
+    pvDlg.showModal();
+  }
+
+  /* ---------- Events ---------- */
+  document.addEventListener('click', function (e) {
+    const t = e.target.closest('[data-act]');
+    if (S.menuOpen && !(t && t.dataset.act === 'menu') && !e.target.closest('[role="menu"]')) { S.menuOpen = false; if (S.phase === 'ready') render(); }
+    if (!t) return;
+    const a = t.dataset.act;
+    if (a === 'retry') load();
+    else if (a === 'menu') { S.menuOpen = !S.menuOpen; render(); }
+    else if (a === 'simerr') { S.menuOpen = false; S.forceError = true; load(); }
+    else if (a === 'print') { S.menuOpen = false; render(); window.print(); }
+    else if (a === 'duplicate') { S.menuOpen = false; render(); toast('Draft copy created from EXP-2041'); }
+    else if (a === 'approve') { S.commentErr = ''; approve(); }
+    else if (a === 'reject') {
+      openReject();
+    }
+    else if (a === 'withdraw') wdDlg.showModal();
+    else if (a === 'preview') openPreview(+t.dataset.i);
+    else if (a === 'download') toast('Downloading ' + S.req.files[+t.dataset.i].name);
+  });
+
+  document.addEventListener('input', function (e) {
+    if (e.target.id === 'comment') { S.comment = e.target.value; S.commentErr = ''; }
+  });
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape' && S.menuOpen) { S.menuOpen = false; render(); }
+  });
+
+  document.getElementById('viewer').addEventListener('change', function (e) {
+    S.viewer = e.target.value;
+    document.getElementById('avatar').textContent = VIEWERS[S.viewer].initials;
+    if (S.phase === 'ready') render();
+  });
+
+  // Leaving with an unsaved comment
+  window.addEventListener('beforeunload', function (e) {
+    if (dirty()) { e.preventDefault(); e.returnValue = ''; }
+  });
+  document.addEventListener('click', function (e) {
+    const a = e.target.closest('a[href]');
+    if (!a || a.getAttribute('href').charAt(0) === '#' && a.getAttribute('href').length > 1) return;
+    if (dirty() && !confirm('You have an unsaved comment. Leave this page and discard it?')) e.preventDefault();
+    else if (a.getAttribute('href') === '#') e.preventDefault();
+  });
+
+  load();
+})();
+</script>
+</body>
+</html>

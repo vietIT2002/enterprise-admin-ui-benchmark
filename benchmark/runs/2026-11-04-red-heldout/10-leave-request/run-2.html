@@ -1,0 +1,342 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Xin nghỉ phép - Cổng Nhân sự</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+tailwind.config = { theme: { extend: { fontFamily: { sans: ['Inter','Segoe UI','system-ui','sans-serif'] } } } }
+</script>
+<style>
+  :focus-visible { outline: 2px solid #4338ca; outline-offset: 2px; }
+  .field-error { border-color: #dc2626 !important; }
+</style>
+</head>
+<body class="bg-slate-50 text-slate-800 font-sans antialiased">
+
+<div class="min-h-screen flex">
+  <!-- Sidebar -->
+  <aside class="hidden lg:flex w-60 shrink-0 flex-col bg-slate-900 text-slate-300">
+    <div class="h-16 flex items-center gap-2 px-5 border-b border-slate-800">
+      <div class="w-8 h-8 rounded-lg bg-indigo-500 text-white grid place-items-center font-bold">H</div>
+      <span class="font-semibold text-white">Cổng Nhân sự</span>
+    </div>
+    <nav class="flex-1 p-3 space-y-1 text-sm" aria-label="Điều hướng chính">
+      <a href="#" class="block px-3 py-2 rounded-md hover:bg-slate-800">Tổng quan</a>
+      <a href="#" class="block px-3 py-2 rounded-md bg-slate-800 text-white font-medium" aria-current="page">Nghỉ phép</a>
+      <a href="#" class="block px-3 py-2 rounded-md hover:bg-slate-800">Chấm công</a>
+      <a href="#" class="block px-3 py-2 rounded-md hover:bg-slate-800">Bảng lương</a>
+      <a href="#" class="block px-3 py-2 rounded-md hover:bg-slate-800">Hồ sơ cá nhân</a>
+    </nav>
+    <div class="p-4 border-t border-slate-800 flex items-center gap-3">
+      <div class="w-9 h-9 rounded-full bg-indigo-400 text-slate-900 grid place-items-center text-sm font-semibold">NH</div>
+      <div class="text-xs leading-tight"><div class="text-white font-medium text-sm">Nguyễn Minh Hạnh</div>Chuyên viên Marketing</div>
+    </div>
+  </aside>
+
+  <main class="flex-1 min-w-0">
+    <header class="h-16 bg-white border-b border-slate-200 flex items-center px-6">
+      <nav aria-label="Breadcrumb" class="text-sm text-slate-500">
+        <a href="#" class="hover:text-slate-800">Nghỉ phép</a> <span class="mx-1">/</span> <span class="text-slate-800 font-medium">Tạo đơn xin nghỉ</span>
+      </nav>
+    </header>
+
+    <div class="max-w-6xl mx-auto px-4 sm:px-6 py-8">
+      <div class="mb-6">
+        <h1 class="text-2xl font-semibold text-slate-900">Đơn xin nghỉ phép</h1>
+        <p class="text-sm text-slate-500 mt-1">Điền thông tin bên dưới. Đơn sẽ được gửi đến người duyệt qua email và thông báo trong hệ thống.</p>
+      </div>
+
+      <!-- Success -->
+      <div id="success" class="hidden bg-white border border-emerald-200 rounded-xl p-8 text-center max-w-xl mx-auto" role="status">
+        <div class="w-12 h-12 mx-auto rounded-full bg-emerald-100 text-emerald-700 grid place-items-center text-xl">✓</div>
+        <h2 class="mt-4 text-lg font-semibold">Đã gửi đơn thành công</h2>
+        <p class="text-sm text-slate-600 mt-1">Mã đơn <span id="sCode" class="font-mono font-medium"></span> đang chờ <span id="sApprover" class="font-medium"></span> phê duyệt.</p>
+        <dl id="sDetail" class="mt-5 text-sm text-left bg-slate-50 rounded-lg p-4 grid grid-cols-3 gap-y-2"></dl>
+        <button id="newBtn" class="mt-6 px-4 py-2 rounded-md bg-indigo-600 text-white text-sm font-medium hover:bg-indigo-700">Tạo đơn khác</button>
+      </div>
+
+      <div id="layout" class="grid lg:grid-cols-3 gap-6 items-start">
+        <form id="form" class="lg:col-span-2 bg-white border border-slate-200 rounded-xl shadow-sm" novalidate>
+
+          <section class="p-6 border-b border-slate-100">
+            <h2 class="text-base font-semibold text-slate-900">1. Loại nghỉ</h2>
+            <fieldset class="mt-4">
+              <legend class="sr-only">Chọn loại nghỉ</legend>
+              <div id="types" class="grid sm:grid-cols-2 gap-3"></div>
+            </fieldset>
+            <p id="err-type" class="hidden mt-2 text-sm text-red-600"></p>
+          </section>
+
+          <section class="p-6 border-b border-slate-100">
+            <h2 class="text-base font-semibold text-slate-900">2. Thời gian nghỉ</h2>
+            <div class="grid sm:grid-cols-2 gap-4 mt-4">
+              <div>
+                <label for="from" class="block text-sm font-medium mb-1">Từ ngày <span class="text-red-600">*</span></label>
+                <input id="from" type="date" class="w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-indigo-600">
+                <p id="err-from" class="hidden mt-1 text-sm text-red-600"></p>
+              </div>
+              <div>
+                <label for="to" class="block text-sm font-medium mb-1">Đến ngày <span class="text-red-600">*</span></label>
+                <input id="to" type="date" class="w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-indigo-600">
+                <p id="err-to" class="hidden mt-1 text-sm text-red-600"></p>
+              </div>
+            </div>
+            <div class="mt-4 flex flex-wrap items-center gap-4 text-sm">
+              <label class="inline-flex items-center gap-2"><input id="half" type="checkbox" class="rounded border-slate-300 text-indigo-600"> Nghỉ nửa ngày</label>
+              <label id="halfWrap" class="hidden items-center gap-2">Buổi
+                <select id="halfPart" class="rounded-md border border-slate-300 px-2 py-1 text-sm">
+                  <option value="am">Sáng</option><option value="pm">Chiều</option>
+                </select>
+              </label>
+            </div>
+            <div id="daysBox" class="mt-4 rounded-lg bg-indigo-50 border border-indigo-100 px-4 py-3 text-sm text-indigo-900" aria-live="polite">Chọn ngày để xem số ngày nghỉ.</div>
+          </section>
+
+          <section class="p-6 border-b border-slate-100">
+            <h2 class="text-base font-semibold text-slate-900">3. Người duyệt và lý do</h2>
+            <div class="mt-4 space-y-4">
+              <div>
+                <label for="approver" class="block text-sm font-medium mb-1">Người duyệt <span class="text-red-600">*</span></label>
+                <select id="approver" class="w-full rounded-md border border-slate-300 px-3 py-2 text-sm bg-white focus:border-indigo-600"></select>
+                <p id="approverHint" class="mt-1 text-xs text-slate-500"></p>
+                <p id="err-approver" class="hidden mt-1 text-sm text-red-600"></p>
+              </div>
+              <div>
+                <label for="handover" class="block text-sm font-medium mb-1">Người bàn giao công việc <span class="text-slate-400 font-normal">(không bắt buộc)</span></label>
+                <select id="handover" class="w-full rounded-md border border-slate-300 px-3 py-2 text-sm bg-white focus:border-indigo-600"></select>
+              </div>
+              <div>
+                <label for="reason" class="block text-sm font-medium mb-1">Lý do <span id="reasonReq" class="text-red-600">*</span></label>
+                <textarea id="reason" rows="3" maxlength="300" class="w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-indigo-600" placeholder="Ví dụ: Đưa con đi tiêm phòng, về quê dự đám cưới..."></textarea>
+                <div class="flex justify-between mt-1">
+                  <p id="err-reason" class="hidden text-sm text-red-600"></p>
+                  <span id="cnt" class="ml-auto text-xs text-slate-400">0/300</span>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <section class="p-6">
+            <h2 class="text-base font-semibold text-slate-900">4. Giấy tờ đính kèm <span id="attReq" class="hidden text-sm font-normal text-red-600">(bắt buộc với loại nghỉ này)</span></h2>
+            <p class="text-xs text-slate-500 mt-1">PDF, JPG, PNG, tối đa 5 MB mỗi tệp, tối đa 3 tệp.</p>
+            <label for="file" id="drop" class="mt-3 block cursor-pointer rounded-lg border-2 border-dashed border-slate-300 hover:border-indigo-500 hover:bg-indigo-50/40 px-4 py-6 text-center text-sm text-slate-600">
+              <span class="font-medium text-indigo-700">Chọn tệp</span> hoặc kéo thả vào đây
+              <input id="file" type="file" class="sr-only" multiple accept=".pdf,.jpg,.jpeg,.png">
+            </label>
+            <p id="err-file" class="hidden mt-2 text-sm text-red-600"></p>
+            <ul id="files" class="mt-3 space-y-2"></ul>
+          </section>
+
+          <div class="px-6 py-4 bg-slate-50 border-t border-slate-200 rounded-b-xl flex flex-wrap items-center gap-3 justify-between">
+            <p id="draftMsg" class="text-xs text-slate-500" aria-live="polite"></p>
+            <div class="flex gap-3">
+              <button type="button" id="draftBtn" class="px-4 py-2 rounded-md border border-slate-300 bg-white text-sm font-medium hover:bg-slate-100">Lưu nháp</button>
+              <button type="submit" id="submitBtn" class="px-5 py-2 rounded-md bg-indigo-600 text-white text-sm font-medium hover:bg-indigo-700 disabled:opacity-60">Gửi đơn</button>
+            </div>
+          </div>
+        </form>
+
+        <!-- Side -->
+        <aside class="space-y-6">
+          <section class="bg-white border border-slate-200 rounded-xl shadow-sm p-5" aria-labelledby="balTitle">
+            <h2 id="balTitle" class="text-base font-semibold text-slate-900">Số dư phép năm 2026</h2>
+            <div id="balances" class="mt-4 space-y-4"></div>
+          </section>
+          <section class="bg-white border border-slate-200 rounded-xl shadow-sm p-5">
+            <h2 class="text-base font-semibold text-slate-900">Đơn gần đây</h2>
+            <ul id="recent" class="mt-3 divide-y divide-slate-100 text-sm"></ul>
+          </section>
+        </aside>
+      </div>
+    </div>
+  </main>
+</div>
+
+<script>
+const TYPES = [
+  { id:'annual', name:'Phép năm', desc:'Nghỉ có lương theo quỹ phép', total:12, used:5, att:false },
+  { id:'sick', name:'Nghỉ ốm', desc:'Cần giấy xác nhận nếu từ 2 ngày', total:30, used:2, att:'auto' },
+  { id:'unpaid', name:'Nghỉ không lương', desc:'Không trừ quỹ phép', total:null, used:0, att:false },
+  { id:'wedding', name:'Nghỉ cưới', desc:'3 ngày, cần giấy đăng ký kết hôn', total:3, used:0, att:true },
+  { id:'maternity', name:'Thai sản', desc:'Cần giấy chứng nhận y tế', total:180, used:0, att:true },
+  { id:'bereave', name:'Nghỉ tang', desc:'3 ngày, cần giấy xác nhận', total:3, used:0, att:true },
+];
+const PEOPLE = [
+  { id:'p1', name:'Trần Quốc Bảo', role:'Trưởng phòng Marketing', note:'Người quản lý trực tiếp', away:null },
+  { id:'p2', name:'Lê Thị Thu Hà', role:'Giám đốc Khối Thương mại', note:'Cấp trên 2 cấp', away:null },
+  { id:'p3', name:'Phạm Đức Long', role:'Phó phòng Marketing', note:'Người duyệt thay', away:'2026-11-10' },
+];
+const COLLEAGUES = ['Vũ Thanh Mai','Đặng Hoài Nam','Ngô Khánh Linh','Bùi Anh Tuấn'];
+const HOLIDAYS = { '2026-12-25':'Giáng sinh (công ty cho nghỉ)', '2027-01-01':'Tết Dương lịch', '2026-11-20':'Ngày Nhà giáo Việt Nam (làm việc bình thường)' };
+const OFFICIAL = new Set(['2026-12-25','2027-01-01']);
+const RECENT = [
+  { code:'LV-2026-0412', t:'Phép năm', d:'14–16/09/2026', s:'Đã duyệt' },
+  { code:'LV-2026-0388', t:'Nghỉ ốm', d:'02/09/2026', s:'Đã duyệt' },
+  { code:'LV-2026-0301', t:'Phép năm', d:'21/07/2026', s:'Từ chối' },
+];
+
+const $ = id => document.getElementById(id);
+const state = { type:null, files:[] };
+const MAX = 5*1024*1024;
+
+// Types
+$('types').innerHTML = TYPES.map(t => `
+  <label class="flex gap-3 items-start rounded-lg border border-slate-300 p-3 cursor-pointer hover:border-indigo-400 has-[:checked]:border-indigo-600 has-[:checked]:bg-indigo-50 has-[:checked]:ring-1 has-[:checked]:ring-indigo-600">
+    <input type="radio" name="type" value="${t.id}" class="mt-1 text-indigo-600">
+    <span><span class="block text-sm font-medium">${t.name}</span><span class="block text-xs text-slate-500">${t.desc}</span></span>
+  </label>`).join('');
+
+// Balances
+$('balances').innerHTML = TYPES.filter(t=>t.total && t.total<=30).map(t => {
+  const left = t.total - t.used, pct = Math.round(t.used/t.total*100);
+  return `<div><div class="flex justify-between text-sm"><span>${t.name}</span><span class="font-medium">${left}/${t.total} ngày</span></div>
+  <div class="mt-1.5 h-2 rounded-full bg-slate-100" role="progressbar" aria-label="${t.name} đã dùng" aria-valuenow="${pct}" aria-valuemin="0" aria-valuemax="100"><div class="h-2 rounded-full bg-indigo-500" style="width:${pct}%"></div></div>
+  <p class="text-xs text-slate-500 mt-1">Đã dùng ${t.used} ngày</p></div>`;
+}).join('');
+
+// Recent
+const badge = { 'Đã duyệt':'bg-emerald-100 text-emerald-800', 'Từ chối':'bg-red-100 text-red-800' };
+$('recent').innerHTML = RECENT.map(r => `<li class="py-2.5 flex justify-between gap-2"><div><div class="font-medium">${r.t}</div><div class="text-xs text-slate-500">${r.d} · ${r.code}</div></div><span class="self-start px-2 py-0.5 rounded-full text-xs font-medium ${badge[r.s]}">${r.s}</span></li>`).join('');
+
+// Approvers
+$('approver').innerHTML = '<option value="">Chọn người duyệt</option>' + PEOPLE.map(p => `<option value="${p.id}">${p.name} - ${p.role}</option>`).join('');
+$('handover').innerHTML = '<option value="">Không chọn</option>' + COLLEAGUES.map(c => `<option>${c}</option>`).join('');
+
+const fmt = d => d.split('-').reverse().join('/');
+const iso = d => d.toISOString().slice(0,10);
+const today = iso(new Date());
+$('from').min = today; $('to').min = today;
+
+function calc() {
+  const f = $('from').value, t = $('to').value;
+  if (!f || !t || t < f) return null;
+  let days = 0, skipped = [];
+  for (let d = new Date(f+'T00:00:00'); iso(d) <= t; d.setDate(d.getDate()+1)) {
+    const k = iso(d), wd = d.getDay();
+    if (wd === 0 || wd === 6) continue;
+    if (OFFICIAL.has(k)) { skipped.push(HOLIDAYS[k]); continue; }
+    days++;
+  }
+  if ($('half').checked && f === t && days === 1) days = 0.5;
+  return { days, skipped };
+}
+
+function selectedType() { return TYPES.find(t => t.id === state.type); }
+
+function needsAtt() {
+  const t = selectedType(); if (!t) return false;
+  if (t.att === true) return true;
+  if (t.att === 'auto') { const c = calc(); return !!c && c.days >= 2; }
+  return false;
+}
+
+function refresh() {
+  const c = calc(), t = selectedType();
+  const box = $('daysBox');
+  $('halfWrap').classList.toggle('hidden', !$('half').checked);
+  $('halfWrap').classList.toggle('inline-flex', $('half').checked);
+  if (!c) {
+    box.className = 'mt-4 rounded-lg bg-indigo-50 border border-indigo-100 px-4 py-3 text-sm text-indigo-900';
+    box.textContent = 'Chọn ngày để xem số ngày nghỉ.';
+  } else {
+    let msg = `Tổng cộng <strong>${c.days} ngày làm việc</strong> (đã loại trừ thứ Bảy, Chủ nhật${c.skipped.length ? ' và ngày lễ' : ''}).`;
+    let warn = false;
+    if (t && t.total && t.total <= 30) {
+      const left = t.total - t.used;
+      if (c.days > left) { msg += ` Vượt quá số dư còn lại (${left} ngày).`; warn = true; }
+      else msg += ` Sau đơn này, ${t.name} còn ${left - c.days} ngày.`;
+    }
+    if (c.skipped.length) msg += `<br><span class="text-xs">Bỏ qua: ${c.skipped.join(', ')}</span>`;
+    box.className = 'mt-4 rounded-lg border px-4 py-3 text-sm ' + (warn ? 'bg-amber-50 border-amber-200 text-amber-900' : 'bg-indigo-50 border-indigo-100 text-indigo-900');
+    box.innerHTML = msg;
+  }
+  const req = needsAtt();
+  $('attReq').classList.toggle('hidden', !req);
+  $('reasonReq').classList.toggle('hidden', t && t.id === 'annual' ? true : false);
+  // approver hint
+  const p = PEOPLE.find(x => x.id === $('approver').value);
+  let h = p ? p.note : '';
+  if (p && p.away && $('from').value && $('from').value <= p.away) h += `. Lưu ý: vắng mặt đến ${fmt(p.away)}, đơn có thể bị chậm.`;
+  $('approverHint').textContent = h;
+}
+
+function setErr(id, msg) {
+  const e = $('err-'+id); if (!e) return;
+  e.textContent = msg || ''; e.classList.toggle('hidden', !msg);
+  const inp = $(id); if (inp && inp.tagName !== 'DIV') inp.classList.toggle('field-error', !!msg);
+}
+
+function validate() {
+  let first = null; const bad = (id, m) => { setErr(id, m); if (m && !first) first = $(id) || document.querySelector('input[name=type]'); };
+  const f = $('from').value, t = $('to').value, c = calc();
+  bad('type', state.type ? '' : 'Vui lòng chọn loại nghỉ.');
+  bad('from', !f ? 'Chọn ngày bắt đầu.' : f < today ? 'Không thể chọn ngày trong quá khứ.' : '');
+  bad('to', !t ? 'Chọn ngày kết thúc.' : (f && t < f) ? 'Ngày kết thúc phải sau hoặc bằng ngày bắt đầu.' : (c && c.days === 0 && !$('half').checked) ? 'Khoảng thời gian này không có ngày làm việc.' : '');
+  bad('approver', $('approver').value ? '' : 'Vui lòng chọn người duyệt.');
+  const needReason = state.type !== 'annual';
+  bad('reason', needReason && $('reason').value.trim().length < 5 ? 'Vui lòng nhập lý do (tối thiểu 5 ký tự).' : '');
+  const t0 = selectedType();
+  if (c && t0 && t0.total && t0.total <= 30 && c.days > t0.total - t0.used && !$('err-to').textContent) bad('to', `Vượt quá số dư ${t0.name} còn lại.`);
+  bad('file', needsAtt() && !state.files.length ? 'Loại nghỉ này yêu cầu giấy tờ đính kèm.' : '');
+  if (first) first.focus();
+  return !first;
+}
+
+function renderFiles() {
+  $('files').innerHTML = state.files.map((f,i) => `
+    <li class="flex items-center justify-between rounded-md border border-slate-200 px-3 py-2 text-sm">
+      <span class="truncate"><span class="font-medium">${f.name}</span> <span class="text-xs text-slate-500">${(f.size/1024).toFixed(0)} KB</span></span>
+      <button type="button" data-i="${i}" class="rm ml-3 text-red-600 text-xs font-medium hover:underline" aria-label="Xóa ${f.name}">Xóa</button>
+    </li>`).join('');
+}
+
+function addFiles(list) {
+  setErr('file','');
+  for (const f of list) {
+    const ext = f.name.split('.').pop().toLowerCase();
+    if (!['pdf','jpg','jpeg','png'].includes(ext)) { setErr('file', `"${f.name}" không đúng định dạng (PDF, JPG, PNG).`); continue; }
+    if (f.size > MAX) { setErr('file', `"${f.name}" vượt quá 5 MB.`); continue; }
+    if (state.files.length >= 3) { setErr('file','Tối đa 3 tệp.'); break; }
+    state.files.push(f);
+  }
+  renderFiles(); refresh();
+}
+
+$('file').addEventListener('change', e => { addFiles([...e.target.files]); e.target.value=''; });
+$('files').addEventListener('click', e => { const b = e.target.closest('.rm'); if (b) { state.files.splice(+b.dataset.i,1); renderFiles(); refresh(); } });
+const drop = $('drop');
+['dragover','dragenter'].forEach(ev => drop.addEventListener(ev, e => { e.preventDefault(); drop.classList.add('border-indigo-500','bg-indigo-50'); }));
+['dragleave','drop'].forEach(ev => drop.addEventListener(ev, e => { e.preventDefault(); drop.classList.remove('border-indigo-500','bg-indigo-50'); }));
+drop.addEventListener('drop', e => addFiles([...e.dataTransfer.files]));
+
+document.querySelectorAll('input[name=type]').forEach(r => r.addEventListener('change', () => { state.type = r.value; setErr('type',''); refresh(); }));
+$('from').addEventListener('change', () => { if ($('to').value < $('from').value) $('to').value = $('from').value; $('to').min = $('from').value; setErr('from',''); setErr('to',''); refresh(); });
+['to','half','halfPart','approver'].forEach(id => $(id).addEventListener('change', () => { setErr(id,''); refresh(); }));
+$('reason').addEventListener('input', () => { $('cnt').textContent = $('reason').value.length + '/300'; setErr('reason',''); });
+
+$('draftBtn').addEventListener('click', () => {
+  $('draftMsg').textContent = 'Đã lưu nháp lúc ' + new Date().toLocaleTimeString('vi-VN',{hour:'2-digit',minute:'2-digit'});
+});
+
+$('form').addEventListener('submit', e => {
+  e.preventDefault();
+  if (!validate()) return;
+  const btn = $('submitBtn'); btn.disabled = true; btn.textContent = 'Đang gửi...';
+  setTimeout(() => {
+    const p = PEOPLE.find(x => x.id === $('approver').value), c = calc(), t = selectedType();
+    $('sCode').textContent = 'LV-2026-' + String(413 + Math.floor(Math.random()*20)).padStart(4,'0');
+    $('sApprover').textContent = p.name;
+    const rows = [['Loại nghỉ', t.name], ['Thời gian', $('from').value === $('to').value ? fmt($('from').value) : fmt($('from').value)+' – '+fmt($('to').value)], ['Số ngày', c.days + ' ngày'], ['Tệp đính kèm', state.files.length ? state.files.length + ' tệp' : 'Không']];
+    $('sDetail').innerHTML = rows.map(r => `<dt class="text-slate-500">${r[0]}</dt><dd class="col-span-2 font-medium">${r[1]}</dd>`).join('');
+    $('layout').classList.add('hidden'); $('success').classList.remove('hidden');
+    $('success').scrollIntoView({behavior:'smooth'});
+  }, 700);
+});
+
+$('newBtn').addEventListener('click', () => location.reload());
+refresh();
+</script>
+</body>
+</html>

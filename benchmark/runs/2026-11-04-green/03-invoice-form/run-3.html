@@ -1,0 +1,757 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>New invoice · Ledgerline</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+  body { font-size: 14px; color: #0f172a; font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; }
+  .field { height: 32px; width: 100%; border: 1px solid #cbd5e1; border-radius: 4px; background: #fff; padding: 0 8px; font-size: 14px; color: #0f172a; }
+  .field::placeholder { color: #64748b; }
+  .field:focus, button:focus-visible, a:focus-visible, select:focus { outline: 2px solid #1d4ed8; outline-offset: 1px; }
+  .field[aria-invalid="true"] { border-color: #b91c1c; }
+  .num { text-align: right; font-variant-numeric: tabular-nums; }
+  textarea.field { height: auto; padding: 6px 8px; }
+  @keyframes sk { 0%,100% { opacity: 1 } 50% { opacity: .5 } }
+  .sk { background: #e2e8f0; border-radius: 4px; animation: sk 1.4s ease-in-out infinite; }
+</style>
+</head>
+<body class="bg-slate-50">
+<div class="flex h-screen overflow-hidden">
+
+  <!-- Sidebar -->
+  <aside class="hidden w-56 shrink-0 flex-col border-r border-slate-200 bg-white lg:flex" aria-label="Main">
+    <div class="flex h-14 items-center gap-2 border-b border-slate-200 px-4">
+      <span class="flex h-7 w-7 items-center justify-center rounded-md bg-blue-700 text-sm font-semibold text-white" aria-hidden="true">L</span>
+      <span class="text-base font-semibold">Ledgerline</span>
+    </div>
+    <nav class="flex-1 space-y-0.5 p-2 text-sm">
+      <a data-nav href="#" class="flex h-8 items-center gap-2 rounded px-2 text-slate-700 hover:bg-slate-100">Dashboard</a>
+      <a data-nav href="#" class="flex h-8 items-center gap-2 rounded bg-blue-50 px-2 font-medium text-blue-800" aria-current="page">Invoices</a>
+      <a data-nav href="#" class="flex h-8 items-center gap-2 rounded px-2 text-slate-700 hover:bg-slate-100">Customers</a>
+      <a data-nav href="#" class="flex h-8 items-center gap-2 rounded px-2 text-slate-700 hover:bg-slate-100">Products and services</a>
+      <a data-nav href="#" class="flex h-8 items-center gap-2 rounded px-2 text-slate-700 hover:bg-slate-100">Payments</a>
+      <a data-nav href="#" class="flex h-8 items-center gap-2 rounded px-2 text-slate-700 hover:bg-slate-100">Bills</a>
+      <a data-nav href="#" class="flex h-8 items-center gap-2 rounded px-2 text-slate-700 hover:bg-slate-100">Reports</a>
+      <a data-nav href="#" class="flex h-8 items-center gap-2 rounded px-2 text-slate-700 hover:bg-slate-100">Settings</a>
+    </nav>
+    <div class="border-t border-slate-200 p-3 text-xs text-slate-600">
+      <p class="font-medium text-slate-800">Linh Tran</p>
+      <p>Accountant · Northwind Trading Co.</p>
+    </div>
+  </aside>
+
+  <!-- Main -->
+  <main id="scroller" class="relative min-w-0 flex-1 scroll-pb-24 overflow-y-auto">
+    <div id="app"></div>
+  </main>
+</div>
+
+<!-- Toast -->
+<div id="toast" role="status" aria-live="polite" class="pointer-events-none fixed right-4 top-4 z-50"></div>
+
+<!-- Leave dialog -->
+<div id="leave" class="fixed inset-0 z-50 hidden items-center justify-center bg-slate-900/40 p-4">
+  <div role="alertdialog" aria-modal="true" aria-labelledby="leave-title" aria-describedby="leave-desc" class="w-full max-w-md rounded-lg bg-white p-6 shadow-xl">
+    <h2 id="leave-title" class="text-base font-semibold">You have unsaved changes. Leave without saving?</h2>
+    <p id="leave-desc" class="mt-2 text-sm text-slate-600">The draft of this invoice will be discarded.</p>
+    <div class="mt-6 flex justify-end gap-3">
+      <button id="leave-leave" type="button" class="h-8 rounded border border-slate-300 bg-white px-3 text-sm font-medium text-red-700 hover:bg-red-50">Leave</button>
+      <button id="leave-stay" type="button" class="h-8 rounded bg-blue-700 px-3 text-sm font-medium text-white hover:bg-blue-800">Stay</button>
+    </div>
+  </div>
+</div>
+
+<!-- New customer dialog -->
+<div id="newcust" class="fixed inset-0 z-50 hidden items-center justify-center bg-slate-900/40 p-4">
+  <form id="newcust-form" novalidate role="dialog" aria-modal="true" aria-labelledby="nc-title" class="w-full max-w-md rounded-lg bg-white p-6 shadow-xl">
+    <h2 id="nc-title" class="text-base font-semibold">Create customer</h2>
+    <div class="mt-4 space-y-4">
+      <div>
+        <label for="nc-name" class="mb-1 block text-sm font-medium">Customer name <span aria-hidden="true">*</span></label>
+        <input id="nc-name" class="field" autocomplete="off">
+        <p id="nc-err" class="mt-1 hidden text-sm text-red-700"></p>
+      </div>
+      <div>
+        <label for="nc-email" class="mb-1 block text-sm font-medium">Billing email</label>
+        <input id="nc-email" class="field" placeholder="accounts@company.com" autocomplete="off">
+      </div>
+    </div>
+    <div class="mt-6 flex justify-end gap-3">
+      <button id="nc-cancel" type="button" class="h-8 rounded border border-slate-300 bg-white px-3 text-sm font-medium hover:bg-slate-50">Cancel</button>
+      <button type="submit" class="h-8 rounded bg-blue-700 px-3 text-sm font-medium text-white hover:bg-blue-800">Create customer</button>
+    </div>
+  </form>
+</div>
+
+<script>
+/* ---------- Mock data ---------- */
+const customers = [
+  { id: 'c01', name: 'Acme Industrial Supply', email: 'ap@acme-industrial.com', city: 'Portland, OR', terms: 30, recent: true },
+  { id: 'c02', name: 'Blue Harbor Logistics', email: 'billing@blueharbor.io', city: 'Seattle, WA', terms: 15, recent: true },
+  { id: 'c03', name: 'Cedar & Pine Furnishings', email: 'finance@cedarpine.com', city: 'Boise, ID', terms: 30, recent: true },
+  { id: 'c04', name: 'Delta Medical Group', email: 'payables@deltamed.org', city: 'Denver, CO', terms: 45 },
+  { id: 'c05', name: 'Evergreen Landscaping', email: 'office@evergreenland.com', city: 'Eugene, OR', terms: 15 },
+  { id: 'c06', name: 'Fulton Architects LLP', email: 'accounts@fultonarch.com', city: 'Chicago, IL', terms: 30 },
+  { id: 'c07', name: 'Granite Peak Outfitters', email: 'ap@granitepeak.co', city: 'Bozeman, MT', terms: 30 },
+  { id: 'c08', name: 'Harbor Light Bakery', email: 'hello@harborlightbakery.com', city: 'Portland, ME', terms: 7 },
+  { id: 'c09', name: 'Ironwood Construction', email: 'invoices@ironwoodbuilds.com', city: 'Spokane, WA', terms: 45 },
+  { id: 'c10', name: 'Juniper Health Partners', email: 'ap@juniperhealth.org', city: 'Austin, TX', terms: 30 },
+  { id: 'c11', name: 'Keystone Printing Co.', email: 'billing@keystoneprint.com', city: 'Pittsburgh, PA', terms: 30 },
+  { id: 'c12', name: 'Lakeside Dental Clinic', email: 'office@lakesidedental.com', city: 'Madison, WI', terms: 15 },
+  { id: 'c13', name: 'Meridian Freight Systems', email: 'ap@meridianfreight.com', city: 'Memphis, TN', terms: 60 },
+  { id: 'c14', name: 'Northgate Realty', email: 'accounting@northgaterealty.com', city: 'Minneapolis, MN', terms: 30 },
+  { id: 'c15', name: 'Orchard Hill Farms', email: 'books@orchardhill.farm', city: 'Yakima, WA', terms: 30 },
+  { id: 'c16', name: 'Pioneer Electric Cooperative', email: 'ap@pioneerelectric.coop', city: 'Billings, MT', terms: 45 },
+  { id: 'c17', name: 'Quarry Street Coffee', email: 'owner@quarrystreet.coffee', city: 'Portland, OR', terms: 7 },
+  { id: 'c18', name: 'Redwood Legal Services', email: 'billing@redwoodlegal.com', city: 'San Francisco, CA', terms: 30 },
+  { id: 'c19', name: 'Summit Education Trust', email: 'finance@summitedu.org', city: 'Salt Lake City, UT', terms: 60 },
+  { id: 'c20', name: 'Tidewater Marine Supply', email: 'ap@tidewatermarine.com', city: 'Norfolk, VA', terms: 30 },
+  { id: 'c21', name: 'Union Square Dental', email: 'office@usdental.com', city: 'New York, NY', terms: 15 },
+  { id: 'c22', name: 'Valley Forge Machining', email: 'ap@valleyforge.com', city: 'Reading, PA', terms: 30 },
+  { id: 'c23', name: 'Willow Creek Veterinary', email: 'accounts@willowcreekvet.com', city: 'Boulder, CO', terms: 15 },
+  { id: 'c24', name: 'Yarrow Design Studio', email: 'studio@yarrowdesign.com', city: 'Portland, OR', terms: 30 },
+];
+const products = [
+  { id: 'p01', name: 'Consulting - senior hour', sku: 'SVC-101', price: 165.00, tax: 0 },
+  { id: 'p02', name: 'Consulting - standard hour', sku: 'SVC-102', price: 120.00, tax: 0 },
+  { id: 'p03', name: 'Monthly bookkeeping retainer', sku: 'SVC-210', price: 850.00, tax: 0 },
+  { id: 'p04', name: 'Payroll processing (per run)', sku: 'SVC-220', price: 95.00, tax: 0 },
+  { id: 'p05', name: 'Ergonomic office chair', sku: 'FUR-310', price: 289.99, tax: 8 },
+  { id: 'p06', name: 'Standing desk, 60 in', sku: 'FUR-320', price: 549.00, tax: 8 },
+  { id: 'p07', name: 'Laser printer toner (black)', sku: 'SUP-410', price: 74.50, tax: 8 },
+  { id: 'p08', name: 'A4 copy paper, 5 reams', sku: 'SUP-415', price: 38.25, tax: 8 },
+  { id: 'p09', name: 'Annual software license', sku: 'LIC-500', price: 1200.00, tax: 10 },
+  { id: 'p10', name: 'Onsite installation', sku: 'SVC-330', price: 210.00, tax: 5 },
+];
+const taxRates = [0, 5, 8, 10];
+const takenNumbers = { 'INV-1040': 'Delta Medical Group' };
+const today = '2026-11-04';
+
+/* ---------- Helpers ---------- */
+const money = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' });
+const plain = new Intl.NumberFormat('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const $ = (s, r = document) => r.querySelector(s);
+const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const cents = n => Math.round(n * 100);
+const parseNum = v => { const n = parseFloat(String(v).replace(/[^0-9.\-]/g, '')); return isNaN(n) ? NaN : n; };
+const addDays = (iso, d) => { const dt = new Date(iso + 'T00:00:00Z'); dt.setUTCDate(dt.getUTCDate() + d); return dt.toISOString().slice(0, 10); };
+const fmtDate = iso => iso ? new Intl.DateTimeFormat('en-US', { year: 'numeric', month: '2-digit', day: '2-digit', timeZone: 'UTC' }).format(new Date(iso + 'T00:00:00Z')) : '';
+const icon = {
+  alert: '<svg class="h-4 w-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/></svg>',
+  plus: '<svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>',
+  trash: '<svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6M10 11v6M14 11v6"/></svg>',
+  x: '<svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg>',
+  chev: '<svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>',
+  spin: '<svg class="h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="12" cy="12" r="9" stroke="currentColor" stroke-opacity=".3" stroke-width="3"/><path d="M21 12a9 9 0 0 0-9-9" stroke="currentColor" stroke-width="3" stroke-linecap="round"/></svg>',
+};
+const params = new URLSearchParams(location.search);
+
+/* ---------- State ---------- */
+let seq = 0;
+const newLine = () => ({ id: ++seq, product: '', qty: '', price: '', tax: '' });
+let state;
+function freshState() {
+  return {
+    customer: null, number: 'INV-1043', ref: '', date: today, due: addDays(today, 30), dueTouched: false,
+    notes: 'Payment by ACH or check. Please quote the invoice number on your remittance.',
+    lines: [newLine()],
+  };
+}
+let baseline = '';
+let errors = {};          // key -> message
+let saving = false;
+let banner = null;        // {text}
+let failOnce = params.get('fail') === '1';
+let pendingLeave = null;
+
+const snapshot = () => JSON.stringify({ ...state, lines: state.lines.map(({ id, ...l }) => l) });
+const isDirty = () => snapshot() !== baseline;
+
+/* ---------- Calculations ---------- */
+function lineCalc(l) {
+  const q = parseNum(l.qty), p = parseNum(l.price), t = parseNum(l.tax);
+  if (isNaN(q) || isNaN(p)) return { amount: 0, tax: 0, ok: false };
+  const amount = cents(q * p);
+  const tax = isNaN(t) ? 0 : Math.round(amount * t / 100);
+  return { amount, tax, ok: true };
+}
+function totals() {
+  let sub = 0; const byRate = {};
+  state.lines.forEach(l => {
+    const c = lineCalc(l); sub += c.amount;
+    const r = isNaN(parseNum(l.tax)) ? 0 : parseNum(l.tax);
+    if (c.tax) byRate[r] = (byRate[r] || 0) + c.tax;
+  });
+  const tax = Object.values(byRate).reduce((a, b) => a + b, 0);
+  return { sub, byRate, tax, total: sub + tax };
+}
+
+/* ---------- Validation ---------- */
+function validateField(key) {
+  const s = state; let m = '';
+  if (key === 'customer') { if (!s.customer) m = 'Choose a customer for this invoice'; }
+  else if (key === 'number') {
+    if (!s.number.trim()) m = 'Enter an invoice number like INV-1043';
+    else if (!/^[A-Za-z0-9\-\/]+$/.test(s.number.trim())) m = 'Use letters, numbers and dashes only, like INV-1043';
+  }
+  else if (key === 'date') { if (!s.date) m = 'Enter the invoice date'; }
+  else if (key === 'due') {
+    if (!s.due) m = 'Enter the due date';
+    else if (s.date && s.due < s.date) m = 'Choose a due date on or after the invoice date (' + fmtDate(s.date) + ')';
+  }
+  else if (key === 'lines') { if (!s.lines.some(l => l.product || l.qty || l.price)) m = 'Add at least one line'; }
+  else if (key.startsWith('l:')) {
+    const [, id, f] = key.split(':'); const l = s.lines.find(x => x.id == id); if (!l) return '';
+    if (f === 'product' && !l.product) m = 'Choose a product';
+    if (f === 'qty') { const q = parseNum(l.qty); if (l.qty === '' || isNaN(q)) m = 'Enter a quantity'; else if (q <= 0) m = 'Enter a quantity above 0'; }
+    if (f === 'price') { const p = parseNum(l.price); if (l.price === '' || isNaN(p)) m = 'Enter a unit price'; else if (p < 0) m = 'Enter a price of 0 or more'; }
+    if (f === 'tax' && l.tax === '') m = 'Choose a tax rate';
+  }
+  return m;
+}
+function allKeys() {
+  const k = ['customer', 'number', 'date', 'due', 'lines'];
+  state.lines.forEach(l => ['product', 'qty', 'price', 'tax'].forEach(f => k.push(`l:${l.id}:${f}`)));
+  return k;
+}
+function labelFor(key) {
+  if (key.startsWith('l:')) { const [, id] = key.split(':'); const i = state.lines.findIndex(x => x.id == id); return 'Line ' + (i + 1); }
+  return { customer: 'Customer', number: 'Invoice number', date: 'Invoice date', due: 'Due date', lines: 'Line items' }[key];
+}
+function setErr(key, msg) {
+  if (msg) errors[key] = msg; else delete errors[key];
+  paintErr(key);
+}
+function paintErr(key) {
+  if (key.startsWith('l:')) { paintLineErrors(); const el = document.querySelector(`[data-key="${key}"]`); if (el) { if (errors[key]) el.setAttribute('aria-invalid', 'true'); else el.removeAttribute('aria-invalid'); } return; }
+  const el = document.querySelector(`[data-key="${key}"]`), p = $(`#err-${key}`);
+  if (el) { if (errors[key]) { el.setAttribute('aria-invalid', 'true'); } else el.removeAttribute('aria-invalid'); }
+  if (p) { p.innerHTML = errors[key] ? icon.alert + '<span>' + esc(errors[key]) + '</span>' : ''; p.classList.toggle('hidden', !errors[key]); p.classList.toggle('flex', !!errors[key]); }
+  paintSummary();
+}
+function paintLineErrors() {
+  const box = $('#line-errors'); if (!box) return;
+  const items = state.lines.map((l, i) => {
+    const msgs = ['product', 'qty', 'price', 'tax'].map(f => errors[`l:${l.id}:${f}`] ? { f, m: errors[`l:${l.id}:${f}`] } : null).filter(Boolean);
+    return msgs.map(x => `<li class="flex items-center gap-1.5">${icon.alert}<span>Line ${i + 1}: ${esc(x.m)}</span></li>`).join('');
+  }).join('');
+  box.innerHTML = items;
+  box.classList.toggle('hidden', !items);
+  paintSummary();
+}
+function paintSummary() {
+  const box = $('#summary'); if (!box) return;
+  const keys = allKeys().filter(k => errors[k]);
+  if (keys.length < 3 || !submitted) { box.innerHTML = ''; return; }
+  box.innerHTML = `<div class="rounded-md border border-red-200 bg-red-50 p-4 text-red-900">
+    <p class="font-medium">${keys.length} fields need attention</p>
+    <ul class="mt-2 list-disc pl-5">${keys.map(k => `<li><a href="#" data-jump="${k}" class="inline-flex min-h-6 items-center underline">${esc(labelFor(k))}: ${esc(errors[k])}</a></li>`).join('')}</ul></div>`;
+}
+let submitted = false;
+function focusKey(key) {
+  const el = document.querySelector(`[data-key="${key}"]`);
+  if (el) { el.scrollIntoView({ block: 'center' }); el.focus(); }
+}
+function validateAll() {
+  errors = {};
+  allKeys().forEach(k => { const m = validateField(k); if (m) errors[k] = m; });
+  // A blank first line is covered by the general message
+  if (errors.lines) state.lines.forEach(l => ['product', 'qty', 'price', 'tax'].forEach(f => delete errors[`l:${l.id}:${f}`]));
+  return Object.keys(errors).length === 0;
+}
+function repaintAllErrors() { allKeys().forEach(paintErrQuiet); paintLineErrors(); paintSummary(); }
+function paintErrQuiet(key) {
+  if (key.startsWith('l:')) { const el = document.querySelector(`[data-key="${key}"]`); if (el) { if (errors[key]) el.setAttribute('aria-invalid', 'true'); else el.removeAttribute('aria-invalid'); } return; }
+  const el = document.querySelector(`[data-key="${key}"]`), p = $(`#err-${key}`);
+  if (el) { if (errors[key]) el.setAttribute('aria-invalid', 'true'); else el.removeAttribute('aria-invalid'); }
+  if (p) { p.innerHTML = errors[key] ? icon.alert + '<span>' + esc(errors[key]) + '</span>' : ''; p.classList.toggle('hidden', !errors[key]); p.classList.toggle('flex', !!errors[key]); }
+}
+
+/* ---------- Rendering ---------- */
+const app = $('#app');
+const errP = key => `<p id="err-${key}" class="mt-1 hidden items-center gap-1 text-sm text-red-700"></p>`;
+
+function header(crumb) {
+  return `<div class="border-b border-slate-200 bg-white px-6 py-4">
+    <nav aria-label="Breadcrumb" class="text-sm text-slate-600">
+      <a data-nav href="#" class="hover:underline">Invoices</a> <span aria-hidden="true">/</span> <span class="text-slate-900">${crumb}</span>
+    </nav>`;
+}
+
+function renderSkeleton() {
+  app.innerHTML = `${header('New invoice')}
+    <h1 class="mt-2 text-xl font-semibold">New invoice</h1></div>
+    <div class="mx-auto max-w-5xl space-y-6 p-6" aria-busy="true" aria-label="Loading invoice form">
+      <div class="rounded-md border border-slate-200 bg-white p-6 space-y-4">
+        <div class="sk h-5 w-48"></div>
+        <div class="sk h-8 max-w-xl"></div>
+        <div class="flex gap-4"><div class="sk h-8 w-40"></div><div class="sk h-8 w-40"></div><div class="sk h-8 w-40"></div></div>
+      </div>
+      <div class="rounded-md border border-slate-200 bg-white p-6 space-y-3">
+        <div class="sk h-5 w-32"></div>
+        ${'<div class="sk h-10"></div>'.repeat(4)}
+      </div>
+    </div>`;
+}
+
+function renderError() {
+  app.innerHTML = `${header('New invoice')}
+    <h1 class="mt-2 text-xl font-semibold">New invoice</h1></div>
+    <div class="mx-auto max-w-5xl p-6">
+      <div role="alert" class="rounded-md border border-red-200 bg-red-50 p-6 text-red-900">
+        <p class="font-medium">Could not load customers and products</p>
+        <p class="mt-1 text-sm">The server did not respond, so the invoice form cannot be filled in yet. Nothing has been lost.</p>
+        <button id="retry" type="button" class="mt-4 h-8 rounded bg-blue-700 px-3 text-sm font-medium text-white hover:bg-blue-800">Retry</button>
+      </div>
+    </div>`;
+  $('#retry').onclick = () => { params.delete('state'); boot(); };
+}
+
+function renderForm() {
+  app.innerHTML = `${header('New invoice')}
+    <div class="mt-2 flex items-center gap-3"><h1 class="text-xl font-semibold">New invoice</h1>
+      <span class="inline-flex items-center rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-700">Draft</span></div>
+    <p class="mt-1 text-sm text-slate-600">* Required</p></div>
+  <form id="form" novalidate class="flex flex-col">
+    <div class="mx-auto w-full max-w-5xl space-y-6 p-6 pb-8">
+      <div id="banner"></div>
+      <div id="summary" role="status"></div>
+
+      <section aria-labelledby="h-cust" class="rounded-md border border-slate-200 bg-white p-6">
+        <h2 id="h-cust" class="mb-4 border-b border-slate-200 pb-2 text-base font-semibold">Customer and dates</h2>
+        <div class="space-y-6">
+          <div class="max-w-xl">
+            <label for="customer" class="mb-1 block text-sm font-medium">Customer <span aria-hidden="true">*</span></label>
+            <div class="relative" id="cbwrap">
+              <input id="customer" data-key="customer" role="combobox" aria-expanded="false" aria-controls="cblist" aria-autocomplete="list" aria-required="true" aria-describedby="err-customer cust-detail" autocomplete="off" class="field pr-16" placeholder="Search customers by name">
+              <button type="button" id="cbclear" class="absolute right-8 top-1 hidden h-6 w-6 items-center justify-center rounded text-slate-600 hover:bg-slate-100" aria-label="Clear customer">${icon.x}</button>
+              <span class="pointer-events-none absolute right-2 top-2 text-slate-600">${icon.chev}</span>
+              <ul id="cblist" role="listbox" aria-label="Customers" class="absolute z-20 mt-1 hidden max-h-72 w-full overflow-auto rounded-md border border-slate-200 bg-white py-1 shadow-lg"></ul>
+            </div>
+            ${errP('customer')}
+            <div id="cust-detail" class="mt-2 text-sm text-slate-600"></div>
+          </div>
+          <div class="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
+            <div>
+              <label for="number" class="mb-1 block text-sm font-medium">Invoice number <span aria-hidden="true">*</span></label>
+              <input id="number" data-key="number" class="field" value="${esc(state.number)}" aria-required="true" aria-describedby="err-number" autocomplete="off">
+              ${errP('number')}
+            </div>
+            <div>
+              <label for="date" class="mb-1 block text-sm font-medium">Invoice date <span aria-hidden="true">*</span></label>
+              <input id="date" data-key="date" type="date" class="field w-40" value="${state.date}" aria-required="true" aria-describedby="err-date">
+              ${errP('date')}
+            </div>
+            <div>
+              <label for="due" class="mb-1 block text-sm font-medium">Due date <span aria-hidden="true">*</span></label>
+              <input id="due" data-key="due" type="date" class="field w-40" value="${state.due}" aria-required="true" aria-describedby="err-due due-help">
+              <p id="due-help" class="mt-1 text-xs text-slate-600"></p>
+              ${errP('due')}
+            </div>
+            <div>
+              <label for="ref" class="mb-1 block text-sm font-medium">Customer PO number</label>
+              <input id="ref" class="field" value="${esc(state.ref)}" placeholder="PO-88213" autocomplete="off">
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section aria-labelledby="h-lines" class="rounded-md border border-slate-200 bg-white p-6">
+        <h2 id="h-lines" class="mb-4 border-b border-slate-200 pb-2 text-base font-semibold">Line items</h2>
+        <div class="overflow-x-auto">
+          <table class="w-full min-w-[760px] text-sm">
+            <thead>
+              <tr class="border-b border-slate-200 text-xs font-medium text-slate-600">
+                <th scope="col" class="h-8 px-2 text-left font-medium">Product <span aria-hidden="true">*</span></th>
+                <th scope="col" class="h-8 w-24 px-2 text-right font-medium">Quantity</th>
+                <th scope="col" class="h-8 w-32 px-2 text-right font-medium">Unit price (USD)</th>
+                <th scope="col" class="h-8 w-28 px-2 text-right font-medium">Tax rate</th>
+                <th scope="col" class="h-8 w-32 px-2 text-right font-medium">Amount (USD)</th>
+                <th scope="col" class="h-8 w-10 px-2"><span class="sr-only">Remove</span></th>
+              </tr>
+            </thead>
+            <tbody id="rows"></tbody>
+          </table>
+        </div>
+        <ul id="line-errors" class="mt-3 hidden space-y-1 text-sm text-red-700"></ul>
+        ${errP('lines')}
+        <button type="button" id="addline" class="mt-3 inline-flex h-8 items-center gap-1.5 rounded px-2 text-sm font-medium text-blue-700 hover:bg-blue-50">${icon.plus} Add line</button>
+
+        <div class="mt-6 flex justify-end">
+          <dl id="totals" class="w-72 space-y-1.5 text-sm" aria-label="Invoice totals"></dl>
+        </div>
+      </section>
+
+      <section aria-labelledby="h-notes" class="rounded-md border border-slate-200 bg-white p-6">
+        <h2 id="h-notes" class="mb-4 border-b border-slate-200 pb-2 text-base font-semibold">Notes to customer</h2>
+        <div class="max-w-xl">
+          <label for="notes" class="mb-1 block text-sm font-medium">Message on invoice</label>
+          <textarea id="notes" rows="3" class="field" aria-describedby="notes-help">${esc(state.notes)}</textarea>
+          <p id="notes-help" class="mt-1 text-xs text-slate-600">Printed at the bottom of the invoice PDF.</p>
+        </div>
+      </section>
+    </div>
+
+    <div class="sticky bottom-0 z-10 flex items-center justify-end gap-3 border-t border-slate-200 bg-white px-6 py-3">
+      <span id="dirty" role="status" class="mr-auto flex items-center text-sm text-slate-600"></span>
+      <button type="button" id="cancel" class="h-8 rounded border border-slate-300 bg-white px-3 text-sm font-medium hover:bg-slate-50">Cancel</button>
+      <button type="submit" id="save" class="inline-flex h-8 items-center gap-2 rounded bg-blue-700 px-3 text-sm font-medium text-white hover:bg-blue-800 disabled:cursor-not-allowed disabled:opacity-70">Save invoice</button>
+    </div>
+  </form>`;
+  renderRows(); renderTotals(); renderCustomerDetail(); updateDueHelp(); paintBanner();
+  if (state.customer) { $('#customer').value = state.customer.name; $('#cbclear').classList.replace('hidden', 'flex'); }
+  wireForm(); paintDirty();
+}
+
+function productOptions(sel) {
+  return '<option value="">Select product</option>' + products.map(p => `<option value="${p.id}" ${p.id === sel ? 'selected' : ''}>${esc(p.name)} (${p.sku})</option>`).join('');
+}
+function renderRows() {
+  $('#rows').innerHTML = state.lines.map((l, i) => {
+    const c = lineCalc(l);
+    return `<tr data-row="${l.id}" class="border-b border-slate-100">
+      <td class="px-2 py-1"><select aria-label="Product, line ${i + 1}" data-key="l:${l.id}:product" data-f="product" class="field">${productOptions(l.product)}</select></td>
+      <td class="px-2 py-1"><input aria-label="Quantity, line ${i + 1}" data-key="l:${l.id}:qty" data-f="qty" inputmode="decimal" class="field num" value="${esc(l.qty)}" placeholder="0"></td>
+      <td class="px-2 py-1"><input aria-label="Unit price, line ${i + 1}" data-key="l:${l.id}:price" data-f="price" inputmode="decimal" class="field num" value="${esc(l.price)}" placeholder="0.00"></td>
+      <td class="px-2 py-1"><select aria-label="Tax rate, line ${i + 1}" data-key="l:${l.id}:tax" data-f="tax" class="field num" style="text-align-last:right"><option value="">Select</option>${taxRates.map(r => `<option value="${r}" ${String(r) === String(l.tax) ? 'selected' : ''}>${r}%</option>`).join('')}</select></td>
+      <td class="amount h-10 px-2 text-right tabular-nums font-medium">${c.ok ? plain.format(c.amount / 100) : '<span class="font-normal text-slate-600">0.00</span>'}</td>
+      <td class="px-2 py-1 text-center"><button type="button" data-remove="${l.id}" class="inline-flex h-7 w-7 items-center justify-center rounded text-slate-600 hover:bg-slate-100 hover:text-red-700" aria-label="Remove line ${i + 1}">${icon.trash}</button></td>
+    </tr>`;
+  }).join('');
+  Object.keys(errors).forEach(k => k.startsWith('l:') && paintErrQuiet(k));
+  paintLineErrors();
+}
+function renderTotals() {
+  const t = totals();
+  const rates = Object.keys(t.byRate).sort((a, b) => a - b);
+  const taxRows = rates.length
+    ? rates.map(r => `<div class="flex justify-between"><dt class="text-slate-600">Tax ${r}%</dt><dd class="tabular-nums">${money.format(t.byRate[r] / 100)}</dd></div>`).join('')
+    : `<div class="flex justify-between"><dt class="text-slate-600">Tax</dt><dd class="tabular-nums">${money.format(0)}</dd></div>`;
+  $('#totals').innerHTML = `
+    <div class="flex justify-between"><dt class="text-slate-600">Subtotal</dt><dd class="tabular-nums">${money.format(t.sub / 100)}</dd></div>
+    ${taxRows}
+    <div class="flex justify-between border-t border-slate-200 pt-2 font-semibold"><dt>Total due</dt><dd class="tabular-nums">${money.format(t.total / 100)}</dd></div>`;
+}
+function renderCustomerDetail() {
+  const c = state.customer;
+  $('#cust-detail').innerHTML = c ? `${esc(c.email)} · ${esc(c.city)} · Payment terms: Net ${c.terms}` : '';
+}
+function updateDueHelp() {
+  const c = state.customer; const el = $('#due-help'); if (!el) return;
+  el.textContent = c && !state.dueTouched ? `Net ${c.terms} from invoice date` : '';
+}
+function paintDirty() {
+  const el = $('#dirty'); if (!el) return;
+  el.innerHTML = isDirty() ? '<span aria-hidden="true" class="mr-1.5 inline-block h-1.5 w-1.5 rounded-full bg-amber-500"></span>Unsaved changes' : '';
+}
+function paintBanner() {
+  const b = $('#banner'); if (!b) return;
+  b.innerHTML = banner ? `<div role="alert" class="flex items-start gap-3 rounded-md border border-red-200 bg-red-50 p-4 text-red-900">
+    ${icon.alert}<div class="flex-1"><p class="font-medium">${esc(banner.title)}</p><p class="mt-0.5 text-sm">${esc(banner.text)}</p></div>
+    <button type="button" id="banner-retry" class="h-8 rounded border border-red-300 bg-white px-3 text-sm font-medium text-red-800 hover:bg-red-100">Retry</button></div>` : '';
+  const r = $('#banner-retry'); if (r) r.onclick = () => $('#form').requestSubmit();
+}
+function toast(msg) {
+  const t = $('#toast');
+  t.innerHTML = `<div class="pointer-events-auto rounded-md border border-slate-200 bg-white px-4 py-3 text-sm shadow-lg">${esc(msg)}</div>`;
+  clearTimeout(toast.t); toast.t = setTimeout(() => t.innerHTML = '', 4000);
+}
+
+/* ---------- Form wiring ---------- */
+function touch() { paintDirty(); }
+function revalidateIf(key) { if (errors[key]) setErr(key, validateField(key)); }
+
+function wireForm() {
+  const f = $('#form');
+  // static fields
+  const bind = (id, key, prop, extra) => {
+    const el = $('#' + id);
+    el.addEventListener('input', () => { state[prop] = el.value; extra && extra(); revalidateIf(key); touch(); });
+    el.addEventListener('blur', () => setErr(key, validateField(key)));
+  };
+  bind('number', 'number', 'number');
+  bind('date', 'date', 'date', () => {
+    if (!state.dueTouched && state.customer && state.date) { state.due = addDays(state.date, state.customer.terms); $('#due').value = state.due; revalidateIf('due'); }
+  });
+  $('#date').addEventListener('blur', () => { if (state.due) setErr('due', validateField('due')); });
+  $('#due').addEventListener('input', () => { state.dueTouched = true; updateDueHelp(); });
+  bind('due', 'due', 'due');
+  $('#ref').addEventListener('input', e => { state.ref = e.target.value; touch(); });
+  $('#notes').addEventListener('input', e => { state.notes = e.target.value; touch(); });
+
+  // lines
+  const rows = $('#rows');
+  rows.addEventListener('input', e => {
+    const el = e.target, tr = el.closest('tr'); if (!tr) return;
+    const l = state.lines.find(x => x.id == tr.dataset.row), fld = el.dataset.f;
+    l[fld] = el.value;
+    if (fld === 'product') {
+      const p = products.find(x => x.id === el.value);
+      if (p) {
+        l.price = String(p.price); l.tax = String(p.tax); if (!l.qty) l.qty = '1';
+        tr.querySelector('[data-f=price]').value = plain.format(p.price);
+        tr.querySelector('[data-f=tax]').value = l.tax;
+        tr.querySelector('[data-f=qty]').value = l.qty;
+        ['price', 'tax', 'qty'].forEach(k => revalidateIf(`l:${l.id}:${k}`));
+      }
+    }
+    revalidateIf(el.dataset.key);
+    if (errors.lines) setErr('lines', validateField('lines'));
+    updateAmount(tr, l); renderTotals(); touch();
+  });
+  rows.addEventListener('focusout', e => {
+    const el = e.target, tr = el.closest('tr'); if (!tr || !el.dataset.f) return;
+    const l = state.lines.find(x => x.id == tr.dataset.row);
+    if (el.dataset.f === 'qty' || el.dataset.f === 'price') {
+      const n = parseNum(el.value);
+      if (!isNaN(n)) { l[el.dataset.f] = String(n); el.value = el.dataset.f === 'price' ? plain.format(n) : String(n); }
+    }
+    // validate the field once the user leaves the row's control; skip when blank row never touched
+    setErr(el.dataset.key, validateField(el.dataset.key));
+    updateAmount(tr, l); renderTotals();
+  });
+  rows.addEventListener('keydown', e => {
+    const el = e.target; if (e.key !== 'Enter' || !el.dataset.f) return;
+    e.preventDefault();
+    const tr = el.closest('tr'); let next = tr.nextElementSibling;
+    if (!next) { addLine(false); next = $('#rows').lastElementChild; }
+    const same = next.querySelector(`[data-f=${el.dataset.f}]`); same && same.focus();
+  });
+  rows.addEventListener('click', e => {
+    const b = e.target.closest('[data-remove]'); if (!b) return;
+    removeLine(+b.dataset.remove);
+  });
+  $('#addline').onclick = () => addLine(true);
+
+  // submit / cancel
+  f.addEventListener('submit', e => { e.preventDefault(); save(); });
+  $('#cancel').onclick = () => requestLeave(() => resetForm());
+  f.addEventListener('click', e => {
+    const a = e.target.closest('[data-jump]'); if (!a) return;
+    e.preventDefault(); focusKey(a.dataset.jump);
+  });
+  wireCombobox();
+}
+function updateAmount(tr, l) {
+  const c = lineCalc(l);
+  tr.querySelector('.amount').innerHTML = c.ok ? plain.format(c.amount / 100) : '<span class="font-normal text-slate-600">0.00</span>';
+}
+function addLine(focus) {
+  const l = newLine(); state.lines.push(l); renderRows(); renderTotals(); touch();
+  if (errors.lines) setErr('lines', '');
+  if (focus) { const s = document.querySelector(`[data-key="l:${l.id}:product"]`); s && s.focus(); }
+}
+let undo = null;
+function removeLine(id) {
+  const i = state.lines.findIndex(x => x.id === id), l = state.lines[i];
+  const filled = l.product || l.qty || l.price;
+  if (state.lines.length === 1) { state.lines = [newLine()]; Object.keys(errors).filter(k => k.startsWith('l:')).forEach(k => delete errors[k]); }
+  else { state.lines.splice(i, 1); Object.keys(errors).filter(k => k.startsWith(`l:${id}:`)).forEach(k => delete errors[k]); }
+  renderRows(); renderTotals(); touch();
+  if (filled) {
+    undo = { l, i };
+    const t = $('#toast');
+    t.innerHTML = `<div class="pointer-events-auto flex items-center gap-4 rounded-md border border-slate-200 bg-white px-4 py-3 text-sm shadow-lg">Line ${i + 1} removed <button type="button" id="undo" class="font-medium text-blue-700 underline">Undo</button></div>`;
+    $('#undo').onclick = () => {
+      if (state.lines.length === 1 && !(state.lines[0].product || state.lines[0].qty || state.lines[0].price)) state.lines = [];
+      state.lines.splice(Math.min(undo.i, state.lines.length), 0, undo.l); undo = null;
+      t.innerHTML = ''; renderRows(); renderTotals(); touch();
+    };
+    clearTimeout(toast.t); toast.t = setTimeout(() => t.innerHTML = '', 6000);
+  }
+}
+
+/* ---------- Customer combobox ---------- */
+function wireCombobox() {
+  const input = $('#customer'), list = $('#cblist'), clear = $('#cbclear');
+  let items = [], active = -1, debounce, opts = [];
+  const open = () => { list.classList.remove('hidden'); input.setAttribute('aria-expanded', 'true'); };
+  const close = () => { list.classList.add('hidden'); input.setAttribute('aria-expanded', 'false'); active = -1; input.removeAttribute('aria-activedescendant'); };
+  const select = c => {
+    state.customer = c; input.value = c.name; clear.classList.replace('hidden', 'flex');
+    if (!state.dueTouched && state.date) { state.due = addDays(state.date, c.terms); $('#due').value = state.due; setErr('due', validateField('due')); }
+    renderCustomerDetail(); updateDueHelp(); setErr('customer', ''); close(); touch();
+  };
+  const paint = (html) => { list.innerHTML = html; opts = [...list.querySelectorAll('[role=option]')]; };
+  const optHtml = (c, i) => `<li role="option" id="opt-${i}" data-id="${c.id}" class="flex cursor-pointer items-center justify-between gap-3 px-3 py-1.5 hover:bg-slate-100 aria-selected:bg-blue-50"><span>${esc(c.name)}</span><span class="text-xs text-slate-600">${esc(c.city)}</span></li>`;
+  const show = q => {
+    open();
+    if (!q) {
+      const rec = customers.filter(c => c.recent);
+      items = rec;
+      paint(`<li role="presentation" class="px-3 py-1 text-xs font-medium text-slate-600">Recent</li>` + rec.map(optHtml).join('') + `<li role="presentation" class="border-t border-slate-100 px-3 py-1.5 text-xs text-slate-600">Type to search all ${customers.length} customers</li>`);
+      return;
+    }
+    paint(`<li role="presentation" aria-busy="true" class="px-3 py-2 text-slate-600">Searching…</li>`);
+    clearTimeout(debounce);
+    debounce = setTimeout(() => {
+      const ql = q.toLowerCase();
+      items = customers.filter(c => c.name.toLowerCase().includes(ql) || c.city.toLowerCase().includes(ql)).slice(0, 10);
+      const create = `<li role="option" id="opt-create" data-create="1" class="flex cursor-pointer items-center gap-2 border-t border-slate-100 px-3 py-1.5 font-medium text-blue-700 hover:bg-slate-100 aria-selected:bg-blue-50">${icon.plus}<span>Create "${esc(q)}"</span></li>`;
+      paint(items.length ? items.map(optHtml).join('') + create : `<li role="presentation" class="px-3 py-2 text-slate-600">No customers match "${esc(q)}"</li>` + create);
+      active = -1;
+    }, 250);
+  };
+  const setActive = i => {
+    opts.forEach((o, k) => o.setAttribute('aria-selected', k === i ? 'true' : 'false'));
+    active = i; if (opts[i]) { input.setAttribute('aria-activedescendant', opts[i].id); opts[i].scrollIntoView({ block: 'nearest' }); }
+  };
+  const choose = o => {
+    if (!o) return;
+    if (o.dataset.create) { close(); openNewCustomer(input.value.trim()); }
+    else select(customers.find(c => c.id === o.dataset.id));
+  };
+  input.addEventListener('focus', () => { if (!state.customer) show(input.value.trim()); });
+  input.addEventListener('input', () => {
+    if (state.customer) { state.customer = null; clear.classList.replace('flex', 'hidden'); renderCustomerDetail(); updateDueHelp(); touch(); }
+    show(input.value.trim()); if (errors.customer) setErr('customer', '');
+  });
+  input.addEventListener('keydown', e => {
+    if (e.key === 'ArrowDown') { e.preventDefault(); if (list.classList.contains('hidden')) show(input.value.trim()); else setActive(Math.min(active + 1, opts.length - 1)); }
+    else if (e.key === 'ArrowUp') { e.preventDefault(); setActive(Math.max(active - 1, 0)); }
+    else if (e.key === 'Enter') { if (!list.classList.contains('hidden') && active >= 0) { e.preventDefault(); choose(opts[active]); } else if (!list.classList.contains('hidden')) e.preventDefault(); }
+    else if (e.key === 'Escape') { if (!list.classList.contains('hidden')) { e.preventDefault(); e.stopPropagation(); close(); } }
+  });
+  input.addEventListener('blur', () => { setTimeout(() => { close(); if (!state.customer) { setErr('customer', validateField('customer')); } else input.value = state.customer.name; }, 150); });
+  list.addEventListener('mousedown', e => { e.preventDefault(); const o = e.target.closest('[role=option]'); choose(o); });
+  clear.addEventListener('click', () => {
+    state.customer = null; input.value = ''; clear.classList.replace('flex', 'hidden'); renderCustomerDetail(); updateDueHelp(); touch(); input.focus();
+  });
+  newCustomerSelect = select;
+}
+let newCustomerSelect = null;
+
+/* ---------- New customer dialog ---------- */
+function openNewCustomer(name) {
+  const d = $('#newcust'); d.classList.replace('hidden', 'flex');
+  $('#nc-name').value = name; $('#nc-email').value = ''; $('#nc-err').classList.add('hidden');
+  setTimeout(() => $('#nc-name').focus(), 0);
+}
+function closeNewCustomer() { $('#newcust').classList.replace('flex', 'hidden'); const c = $('#customer'); c && c.focus(); }
+$('#nc-cancel').onclick = closeNewCustomer;
+$('#newcust').addEventListener('keydown', e => { if (e.key === 'Escape') closeNewCustomer(); });
+$('#newcust-form').addEventListener('submit', e => {
+  e.preventDefault();
+  const name = $('#nc-name').value.trim();
+  if (!name) { const p = $('#nc-err'); p.textContent = 'Enter the customer name'; p.classList.remove('hidden'); $('#nc-name').setAttribute('aria-invalid', 'true'); $('#nc-name').focus(); return; }
+  const dup = customers.find(c => c.name.toLowerCase() === name.toLowerCase());
+  if (dup) { const p = $('#nc-err'); p.textContent = 'A customer named ' + dup.name + ' already exists. Choose it from the list.'; p.classList.remove('hidden'); return; }
+  const c = { id: 'c' + (customers.length + 1), name, email: $('#nc-email').value.trim() || 'No email on file', city: 'Address not set', terms: 30 };
+  customers.push(c);
+  $('#newcust').classList.replace('flex', 'hidden');
+  newCustomerSelect(c); $('#customer').focus();
+  toast('Customer ' + name + ' created');
+});
+
+/* ---------- Save ---------- */
+function save() {
+  if (saving) return;
+  submitted = true;
+  banner = null; paintBanner();
+  const ok = validateAll();
+  repaintAllErrors();
+  if (!ok) {
+    const first = allKeys().find(k => errors[k]);
+    focusKey(first === 'lines' ? 'lines' : first);
+    if (first === 'lines') $('#addline').focus();
+    return;
+  }
+  saving = true;
+  const btn = $('#save'); btn.disabled = true; btn.innerHTML = icon.spin + 'Save invoice';
+  setTimeout(() => {
+    saving = false;
+    const num = state.number.trim().toUpperCase();
+    if (failOnce) {
+      failOnce = false;
+      btn.disabled = false; btn.textContent = 'Save invoice';
+      banner = { title: 'Invoice not saved', text: 'The accounting service is not responding. Your input is kept; try saving again.' };
+      paintBanner(); $('#scroller').scrollTo({ top: 0 }); return;
+    }
+    if (takenNumbers[num]) {
+      btn.disabled = false; btn.textContent = 'Save invoice';
+      errors.number = 'Invoice number ' + num + ' is already used by an invoice for ' + takenNumbers[num] + '. Enter a new number.';
+      paintErr('number'); focusKey('number'); return;
+    }
+    state.number = num;
+    renderSaved();
+  }, 900);
+}
+
+/* ---------- Saved (read mode) ---------- */
+function renderSaved() {
+  const t = totals();
+  baseline = snapshot();
+  const savedAt = new Intl.DateTimeFormat('en-US', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hour12: false }).format(new Date('2026-11-04T15:58:00'));
+  app.innerHTML = `${header(esc(state.number))}
+    <div class="mt-2 flex flex-wrap items-center gap-3">
+      <h1 class="text-xl font-semibold">${esc(state.number)}</h1>
+      <span class="inline-flex items-center rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-700">Draft</span>
+      <div class="ml-auto flex gap-2">
+        <button type="button" id="another" class="h-8 rounded border border-slate-300 bg-white px-3 text-sm font-medium hover:bg-slate-50">New invoice</button>
+        <button type="button" class="h-8 rounded bg-blue-700 px-3 text-sm font-medium text-white hover:bg-blue-800">Send invoice</button>
+      </div>
+    </div>
+    <dl class="mt-3 grid max-w-3xl grid-cols-2 gap-x-6 gap-y-2 text-sm sm:grid-cols-4">
+      <div><dt class="text-xs font-medium text-slate-600">Customer</dt><dd>${esc(state.customer.name)}</dd></div>
+      <div><dt class="text-xs font-medium text-slate-600">Invoice date</dt><dd>${fmtDate(state.date)}</dd></div>
+      <div><dt class="text-xs font-medium text-slate-600">Due date</dt><dd>${fmtDate(state.due)}</dd></div>
+      <div><dt class="text-xs font-medium text-slate-600">Total due</dt><dd class="font-semibold tabular-nums">${money.format(t.total / 100)}</dd></div>
+    </dl></div>
+    <div class="mx-auto max-w-5xl space-y-6 p-6">
+      <section class="rounded-md border border-slate-200 bg-white p-6">
+        <h2 class="mb-4 border-b border-slate-200 pb-2 text-base font-semibold">Line items</h2>
+        <table class="w-full text-sm">
+          <thead><tr class="border-b border-slate-200 text-xs font-medium text-slate-600">
+            <th scope="col" class="h-8 px-2 text-left font-medium">Product</th><th scope="col" class="h-8 px-2 text-right font-medium">Quantity</th>
+            <th scope="col" class="h-8 px-2 text-right font-medium">Unit price</th><th scope="col" class="h-8 px-2 text-right font-medium">Tax rate</th><th scope="col" class="h-8 px-2 text-right font-medium">Amount</th></tr></thead>
+          <tbody>${state.lines.map(l => { const p = products.find(x => x.id === l.product), c = lineCalc(l); return `<tr class="h-10 border-b border-slate-100"><td class="px-2">${esc(p ? p.name : '')}</td><td class="px-2 text-right tabular-nums">${esc(l.qty)}</td><td class="px-2 text-right tabular-nums">${money.format(parseNum(l.price))}</td><td class="px-2 text-right tabular-nums">${esc(l.tax)}%</td><td class="px-2 text-right tabular-nums">${money.format(c.amount / 100)}</td></tr>`; }).join('')}</tbody>
+        </table>
+        <div class="mt-4 flex justify-end"><dl class="w-72 space-y-1.5 text-sm">
+          <div class="flex justify-between"><dt class="text-slate-600">Subtotal</dt><dd class="tabular-nums">${money.format(t.sub / 100)}</dd></div>
+          ${Object.keys(t.byRate).sort((a, b) => a - b).map(r => `<div class="flex justify-between"><dt class="text-slate-600">Tax ${r}%</dt><dd class="tabular-nums">${money.format(t.byRate[r] / 100)}</dd></div>`).join('')}
+          <div class="flex justify-between border-t border-slate-200 pt-2 font-semibold"><dt>Total due</dt><dd class="tabular-nums">${money.format(t.total / 100)}</dd></div>
+        </dl></div>
+      </section>
+      <p class="text-sm text-slate-600">Last changed by Linh Tran on ${savedAt}</p>
+    </div>`;
+  toast('Invoice ' + state.number + ' saved');
+  $('#another').onclick = () => { const n = parseInt(state.number.replace(/\D/g, ''), 10) + 1; resetForm('INV-' + n); };
+}
+
+/* ---------- Navigation guard ---------- */
+function requestLeave(fn) {
+  if (!isDirty()) { fn(); return; }
+  pendingLeave = fn;
+  const d = $('#leave'); d.classList.replace('hidden', 'flex'); $('#leave-stay').focus();
+}
+$('#leave-stay').onclick = () => { $('#leave').classList.replace('flex', 'hidden'); pendingLeave = null; };
+$('#leave-leave').onclick = () => { $('#leave').classList.replace('flex', 'hidden'); const f = pendingLeave; pendingLeave = null; f && f(); };
+$('#leave').addEventListener('keydown', e => { if (e.key === 'Escape') $('#leave-stay').click(); });
+document.addEventListener('click', e => {
+  const a = e.target.closest('a[data-nav]'); if (!a) return;
+  e.preventDefault();
+  requestLeave(() => { if (isDirty() || document.querySelector('#form')) resetForm(); });
+});
+window.addEventListener('beforeunload', e => { if (isDirty()) { e.preventDefault(); e.returnValue = ''; } });
+
+function resetForm(num) {
+  state = freshState(); if (num) state.number = num;
+  errors = {}; banner = null; submitted = false; baseline = snapshot();
+  renderForm(); window.scrollTo(0, 0); $('#scroller').scrollTo({ top: 0 });
+}
+
+/* ---------- Boot ---------- */
+function boot() {
+  state = freshState(); baseline = snapshot();
+  renderSkeleton();
+  setTimeout(() => {
+    if (params.get('state') === 'error') renderError();
+    else renderForm();
+  }, 500);
+}
+boot();
+</script>
+</body>
+</html>

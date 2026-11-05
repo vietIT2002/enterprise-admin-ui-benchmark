@@ -1,0 +1,787 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Orders – Sales – Meridian ERP</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+  [hidden] { display: none !important; }
+  html { font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; }
+  body { color: #0f172a; }
+  .tnum { font-variant-numeric: tabular-nums; }
+  @keyframes pulse2 { 0%,100% { opacity: 1 } 50% { opacity: .45 } }
+  .skel { animation: pulse2 1.2s ease-in-out infinite; background: #e2e8f0; border-radius: 4px; height: 12px; }
+  .sr-only-live { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+  :focus-visible { outline: 2px solid #1d4ed8; outline-offset: 1px; }
+  input[type=checkbox] { accent-color: #1d4ed8; width: 16px; height: 16px; }
+</style>
+</head>
+<body class="bg-white text-sm text-slate-900">
+<p id="live" role="status" class="sr-only-live"></p>
+
+<div class="flex min-h-screen">
+  <!-- Sidebar -->
+  <aside class="hidden w-60 shrink-0 border-r border-slate-200 bg-slate-50 lg:block" aria-label="Sidebar">
+    <div class="flex h-12 items-center gap-2 border-b border-slate-200 px-4">
+      <span class="flex size-6 items-center justify-center rounded bg-blue-700 text-xs font-semibold text-white">M</span>
+      <span class="font-semibold">Meridian ERP</span>
+    </div>
+    <nav aria-label="Main" class="flex flex-col gap-4 p-2">
+      <div class="flex flex-col gap-0.5">
+        <p class="px-2 py-1 text-xs font-medium text-slate-600">Sales</p>
+        <a href="#" class="flex h-8 items-center gap-2 rounded px-2 text-slate-700 hover:bg-slate-200/60"><svg class="size-4" data-i="quote"></svg>Quotations</a>
+        <a href="#" aria-current="page" class="flex h-8 items-center gap-2 rounded bg-slate-200 px-2 font-medium text-slate-900"><svg class="size-4" data-i="cart"></svg>Orders</a>
+        <a href="#" class="flex h-8 items-center gap-2 rounded px-2 text-slate-700 hover:bg-slate-200/60"><svg class="size-4" data-i="users"></svg>Customers</a>
+        <a href="#" class="flex h-8 items-center gap-2 rounded px-2 text-slate-700 hover:bg-slate-200/60"><svg class="size-4" data-i="truck"></svg>Shipments</a>
+      </div>
+      <div class="flex flex-col gap-0.5">
+        <p class="px-2 py-1 text-xs font-medium text-slate-600">Inventory</p>
+        <a href="#" class="flex h-8 items-center gap-2 rounded px-2 text-slate-700 hover:bg-slate-200/60"><svg class="size-4" data-i="box"></svg>Products</a>
+        <a href="#" class="flex h-8 items-center gap-2 rounded px-2 text-slate-700 hover:bg-slate-200/60"><svg class="size-4" data-i="warehouse"></svg>Stock levels</a>
+      </div>
+      <div class="flex flex-col gap-0.5">
+        <p class="px-2 py-1 text-xs font-medium text-slate-600">Finance</p>
+        <a href="#" class="flex h-8 items-center gap-2 rounded px-2 text-slate-700 hover:bg-slate-200/60"><svg class="size-4" data-i="file"></svg>Invoices</a>
+        <a href="#" class="flex h-8 items-center gap-2 rounded px-2 text-slate-700 hover:bg-slate-200/60"><svg class="size-4" data-i="wallet"></svg>Payments</a>
+      </div>
+    </nav>
+  </aside>
+
+  <div class="flex min-w-0 flex-1 flex-col">
+    <header class="flex h-12 shrink-0 items-center justify-between border-b border-slate-200 bg-white px-4">
+      <button type="button" class="inline-flex h-8 w-72 items-center gap-2 rounded border border-slate-300 px-2 text-slate-600 hover:bg-slate-50" aria-label="Search or run a command">
+        <svg class="size-4" data-i="search"></svg><span>Search or run a command</span><kbd class="ml-auto rounded border border-slate-300 px-1 text-xs text-slate-600">Ctrl K</kbd>
+      </button>
+      <div class="flex items-center gap-2">
+        <button type="button" class="inline-flex size-8 items-center justify-center rounded text-slate-700 hover:bg-slate-100" aria-label="Notifications, 3 unread"><svg class="size-4" data-i="bell"></svg></button>
+        <button type="button" class="inline-flex size-8 items-center justify-center rounded text-slate-700 hover:bg-slate-100" aria-label="Help"><svg class="size-4" data-i="help"></svg></button>
+        <button type="button" class="inline-flex size-8 items-center justify-center rounded-full bg-slate-200 text-xs font-semibold text-slate-800" aria-label="Account menu">LH</button>
+      </div>
+    </header>
+
+    <main class="min-w-0 flex-1 p-6">
+      <!-- Page header -->
+      <div class="mb-4 flex flex-col gap-2">
+        <nav aria-label="Breadcrumb">
+          <ol class="flex items-center gap-1 text-sm text-slate-600">
+            <li><a href="#" class="inline-flex min-h-6 items-center hover:text-slate-900 hover:underline">Sales</a></li>
+            <li aria-hidden="true">/</li>
+            <li><span aria-current="page" class="text-slate-900">Orders</span></li>
+          </ol>
+        </nav>
+        <div class="flex flex-wrap items-center justify-between gap-2">
+          <h1 class="text-xl font-semibold">Orders</h1>
+          <div class="flex items-center gap-2">
+            <button type="button" id="btnImport" class="inline-flex h-8 items-center gap-1.5 rounded border border-slate-300 bg-white px-3 font-medium text-slate-800 hover:bg-slate-50"><svg class="size-4" data-i="upload"></svg>Import</button>
+            <button type="button" id="btnExport" class="inline-flex h-8 items-center gap-1.5 rounded border border-slate-300 bg-white px-3 font-medium text-slate-800 hover:bg-slate-50"><svg class="size-4" data-i="download"></svg>Export</button>
+            <button type="button" id="btnCreate" class="inline-flex h-8 items-center gap-1.5 rounded bg-blue-700 px-3 font-medium text-white hover:bg-blue-800"><svg class="size-4" data-i="plus"></svg>Create order</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Partial failure banner -->
+      <div id="banner" hidden class="mb-3 flex items-center gap-3 rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-amber-900" role="alert">
+        <span id="bannerText"></span>
+        <button type="button" id="bannerView" class="font-medium text-blue-700 underline">View failed</button>
+        <button type="button" id="bannerClose" class="ml-auto inline-flex size-6 items-center justify-center rounded hover:bg-amber-100" aria-label="Dismiss"><svg class="size-4" data-i="x"></svg></button>
+      </div>
+
+      <!-- Status tabs -->
+      <div id="tabs" role="tablist" aria-label="Order status" class="flex gap-1 overflow-x-auto border-b border-slate-200"></div>
+
+      <!-- Filter row -->
+      <div class="relative flex flex-wrap items-center gap-2 py-3">
+        <div class="relative">
+          <svg class="pointer-events-none absolute left-2 top-2 size-4 text-slate-500" data-i="search"></svg>
+          <input id="q" type="search" aria-label="Search orders" placeholder="Search order no., customer, phone" autocomplete="off"
+            class="h-8 w-80 rounded border border-slate-300 bg-white pl-8 pr-8 placeholder:text-slate-500 [&::-webkit-search-cancel-button]:hidden">
+          <button type="button" id="qClear" hidden aria-label="Clear search" class="absolute right-1 top-1 inline-flex size-6 items-center justify-center rounded text-slate-600 hover:bg-slate-100"><svg class="size-4" data-i="x"></svg></button>
+        </div>
+        <select id="fPayment" aria-label="Payment" class="h-8 rounded border border-slate-300 bg-white px-2 text-slate-800">
+          <option value="">Payment: All</option><option>Unpaid</option><option>Paid</option><option>Refunded</option>
+        </select>
+        <select id="fChannel" aria-label="Channel" class="h-8 rounded border border-slate-300 bg-white px-2 text-slate-800">
+          <option value="">Channel: All</option><option>Website</option><option>Marketplace</option><option>Direct sales</option><option>Distributor</option>
+        </select>
+        <select id="fRange" aria-label="Created date" class="h-8 rounded border border-slate-300 bg-white px-2 text-slate-800">
+          <option value="">Created: Any time</option><option value="today">Today</option><option value="7d">Last 7 days</option><option value="30d">Last 30 days</option><option value="month">This month</option>
+        </select>
+        <div class="relative">
+          <button type="button" id="btnMore" aria-expanded="false" aria-controls="morePanel" class="inline-flex h-8 items-center gap-1.5 rounded border border-slate-300 bg-white px-3 font-medium text-slate-800 hover:bg-slate-50"><svg class="size-4" data-i="filter"></svg><span id="moreLabel">More filters</span></button>
+          <div id="morePanel" hidden class="absolute left-0 top-9 z-30 w-72 rounded-lg border border-slate-200 bg-white p-4 shadow-lg" role="dialog" aria-label="More filters">
+            <div class="mb-3">
+              <label for="pOwner" class="mb-1 block text-sm font-medium">Owner</label>
+              <select id="pOwner" class="h-8 w-full rounded border border-slate-300 bg-white px-2"></select>
+            </div>
+            <div class="mb-4">
+              <span class="mb-1 block text-sm font-medium" id="amtLbl">Total (VND)</span>
+              <div class="flex items-center gap-2" role="group" aria-labelledby="amtLbl">
+                <input id="pMin" inputmode="numeric" aria-label="Minimum total" placeholder="Min" class="tnum h-8 w-full rounded border border-slate-300 px-2 text-right placeholder:text-slate-500">
+                <span class="text-slate-600">–</span>
+                <input id="pMax" inputmode="numeric" aria-label="Maximum total" placeholder="Max" class="tnum h-8 w-full rounded border border-slate-300 px-2 text-right placeholder:text-slate-500">
+              </div>
+            </div>
+            <div class="flex justify-end gap-2 border-t border-slate-200 pt-3">
+              <button type="button" id="pReset" class="inline-flex h-8 items-center rounded border border-slate-300 px-3 font-medium hover:bg-slate-50">Reset</button>
+              <button type="button" id="pApply" class="inline-flex h-8 items-center rounded bg-blue-700 px-3 font-medium text-white hover:bg-blue-800">Apply</button>
+            </div>
+          </div>
+        </div>
+        <div class="ml-auto flex items-center gap-2">
+          <div class="relative">
+            <button type="button" id="btnCols" aria-expanded="false" class="inline-flex h-8 items-center gap-1.5 rounded border border-slate-300 bg-white px-3 font-medium text-slate-800 hover:bg-slate-50"><svg class="size-4" data-i="columns"></svg><span id="colsLabel">Columns</span></button>
+            <div id="colsPanel" hidden class="absolute right-0 top-9 z-30 w-52 rounded-lg border border-slate-200 bg-white p-2 shadow-lg" role="group" aria-label="Visible columns"></div>
+          </div>
+          <button type="button" id="btnDensity" aria-pressed="false" class="inline-flex h-8 items-center gap-1.5 rounded border border-slate-300 bg-white px-3 font-medium text-slate-800 hover:bg-slate-50"><svg class="size-4" data-i="rows"></svg>Compact</button>
+        </div>
+      </div>
+
+      <!-- Chips -->
+      <div id="chips" class="flex flex-wrap items-center gap-2 pb-3" hidden></div>
+
+      <!-- Summary line -->
+      <p id="summary" class="mb-2 text-slate-700"></p>
+
+      <!-- Table card -->
+      <div class="rounded-md border border-slate-200 bg-white">
+        <div id="bulk" hidden class="flex h-10 items-center gap-3 border-b border-slate-200 bg-blue-50 px-3 text-blue-900">
+          <span id="bulkCount" class="font-medium tnum"></span>
+          <button type="button" id="bulkAll" hidden class="font-medium text-blue-700 underline"></button>
+          <div class="ml-2 flex items-center gap-2">
+            <button type="button" data-bulk="confirm" class="inline-flex h-8 items-center gap-1.5 rounded bg-blue-700 px-3 font-medium text-white hover:bg-blue-800"><svg class="size-4" data-i="check"></svg>Confirm orders</button>
+            <button type="button" data-bulk="export" class="inline-flex h-8 items-center gap-1.5 rounded border border-slate-300 bg-white px-3 font-medium text-slate-800 hover:bg-slate-50"><svg class="size-4" data-i="download"></svg>Export selected</button>
+            <button type="button" data-bulk="print" class="inline-flex h-8 items-center gap-1.5 rounded border border-slate-300 bg-white px-3 font-medium text-slate-800 hover:bg-slate-50"><svg class="size-4" data-i="printer"></svg>Print picking lists</button>
+            <div class="relative">
+              <button type="button" id="bulkMoreBtn" aria-expanded="false" class="inline-flex h-8 items-center gap-1 rounded border border-slate-300 bg-white px-3 font-medium text-slate-800 hover:bg-slate-50">More<svg class="size-4" data-i="chevron"></svg></button>
+              <div id="bulkMore" hidden class="absolute left-0 top-9 z-30 w-48 rounded-lg border border-slate-200 bg-white p-1 shadow-lg">
+                <button type="button" data-bulk="cancel" class="flex h-8 w-full items-center rounded px-2 text-left font-medium text-red-700 hover:bg-red-50">Cancel orders</button>
+              </div>
+            </div>
+          </div>
+          <button type="button" id="bulkCancel" class="ml-auto inline-flex h-8 items-center rounded px-3 font-medium text-blue-800 hover:bg-blue-100">Clear selection</button>
+        </div>
+
+        <div class="overflow-x-auto">
+          <table id="tbl" class="w-full border-collapse text-left" aria-label="Orders" aria-busy="false">
+            <thead id="thead" class="bg-slate-50"></thead>
+            <tbody id="tbody"></tbody>
+          </table>
+        </div>
+
+        <div id="pager" class="flex h-12 flex-wrap items-center justify-between gap-3 border-t border-slate-200 px-3"></div>
+      </div>
+    </main>
+  </div>
+</div>
+
+<!-- Row action menu -->
+<div id="rowMenu" hidden class="fixed z-40 w-48 rounded-lg border border-slate-200 bg-white p-1 shadow-lg" role="menu"></div>
+
+<!-- Dialog -->
+<div id="dlg" hidden class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4">
+  <div role="dialog" aria-modal="true" aria-labelledby="dlgTitle" class="w-full max-w-md rounded-lg bg-white p-5 shadow-xl">
+    <h2 id="dlgTitle" class="text-base font-semibold"></h2>
+    <p id="dlgBody" class="mt-2 text-slate-700"></p>
+    <div class="mt-5 flex justify-end gap-2">
+      <button type="button" id="dlgNo" class="inline-flex h-8 items-center rounded border border-slate-300 px-3 font-medium hover:bg-slate-50">Keep orders</button>
+      <button type="button" id="dlgYes" class="inline-flex h-8 items-center rounded px-3 font-medium text-white"></button>
+    </div>
+  </div>
+</div>
+
+<!-- Toasts -->
+<div id="toasts" class="fixed bottom-4 right-4 z-50 flex flex-col gap-2" role="status" aria-live="polite"></div>
+
+<script>
+(function () {
+  'use strict';
+
+  /* ---------- Icons (16px, one stroke set) ---------- */
+  var ICONS = {
+    search: '<circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/>',
+    x: '<path d="M18 6 6 18M6 6l12 12"/>',
+    plus: '<path d="M12 5v14M5 12h14"/>',
+    upload: '<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12"/>',
+    download: '<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/>',
+    filter: '<path d="M22 3H2l8 9.5V19l4 2v-8.5z"/>',
+    columns: '<rect x="3" y="3" width="18" height="18" rx="2"/><path d="M9 3v18M15 3v18"/>',
+    rows: '<rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M3 15h18"/>',
+    check: '<path d="M20 6 9 17l-5-5"/>',
+    printer: '<path d="M6 9V2h12v7M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/>',
+    chevron: '<path d="m6 9 6 6 6-6"/>',
+    chevronUp: '<path d="m18 15-6-6-6 6"/>',
+    chevL: '<path d="m15 18-6-6 6-6"/>',
+    chevR: '<path d="m9 18 6-6-6-6"/>',
+    more: '<circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/>',
+    pencil: '<path d="M17 3a2.8 2.8 0 0 1 4 4L7.5 20.5 2 22l1.5-5.5z"/>',
+    sort: '<path d="m7 15 5 5 5-5M7 9l5-5 5 5"/>',
+    bell: '<path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9M10.3 21a1.9 1.9 0 0 0 3.4 0"/>',
+    help: '<circle cx="12" cy="12" r="10"/><path d="M9.1 9a3 3 0 0 1 5.8 1c0 2-3 3-3 3M12 17h.01"/>',
+    quote: '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8zM14 2v6h6M8 13h8M8 17h5"/>',
+    cart: '<circle cx="8" cy="21" r="1"/><circle cx="19" cy="21" r="1"/><path d="M2 3h3l2.7 12.4a2 2 0 0 0 2 1.6h8.7a2 2 0 0 0 2-1.6L22 7H6"/>',
+    users: '<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM22 21v-2a4 4 0 0 0-3-3.9M16 3.1a4 4 0 0 1 0 7.8"/>',
+    truck: '<path d="M14 18V6a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v11h2M14 18h1M15 8h4l3 4v5h-2M9 18h5"/><circle cx="7" cy="18" r="2"/><circle cx="17" cy="18" r="2"/>',
+    box: '<path d="M21 8 12 3 3 8v8l9 5 9-5zM3.3 7 12 12l8.7-5M12 22V12"/>',
+    warehouse: '<path d="M22 8.4 12 2 2 8.4V22h4V12h12v10h4zM6 18h12M6 22h12"/>',
+    file: '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8zM14 2v6h6"/>',
+    wallet: '<path d="M19 7V4a1 1 0 0 0-1-1H5a2 2 0 0 0 0 4h15a1 1 0 0 1 1 1v4h-3a2 2 0 0 0 0 4h3a1 1 0 0 0 1-1v-2a1 1 0 0 0-1-1M3 5v14a2 2 0 0 0 2 2h15a1 1 0 0 0 1-1v-4"/>',
+    alert: '<circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/>',
+    inbox: '<path d="M22 12h-6l-2 3h-4l-2-3H2M5.5 5.1 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.5-6.9A2 2 0 0 0 16.8 4H7.2a2 2 0 0 0-1.7 1.1z"/>',
+    searchx: '<circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3M8.5 8.5l5 5M13.5 8.5l-5 5"/>'
+  };
+  function icon(name, cls) {
+    return '<svg class="' + (cls || 'size-4') + ' shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + (ICONS[name] || '') + '</svg>';
+  }
+  function hydrateIcons(root) {
+    (root || document).querySelectorAll('svg[data-i]').forEach(function (s) {
+      s.setAttribute('viewBox', '0 0 24 24'); s.setAttribute('fill', 'none'); s.setAttribute('stroke', 'currentColor');
+      s.setAttribute('stroke-width', '2'); s.setAttribute('stroke-linecap', 'round'); s.setAttribute('stroke-linejoin', 'round');
+      s.setAttribute('aria-hidden', 'true'); s.classList.add('shrink-0');
+      s.innerHTML = ICONS[s.getAttribute('data-i')] || ''; s.removeAttribute('data-i');
+    });
+  }
+
+  /* ---------- Formatting ---------- */
+  var nfVND = new Intl.NumberFormat('vi-VN');
+  var nfInt = new Intl.NumberFormat('en-US');
+  var vnd = function (n) { return nfVND.format(n); };
+  var vndC = function (n) { return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(n); };
+  function pad(n) { return String(n).padStart(2, '0'); }
+  function fmtDate(d) { return pad(d.getDate()) + '/' + pad(d.getMonth() + 1) + '/' + d.getFullYear() + ' ' + pad(d.getHours()) + ':' + pad(d.getMinutes()); }
+  function esc(s) { return String(s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
+  function norm(s) { return String(s).normalize('NFD').replace(/\p{Diacritic}/gu, '').replace(/đ/gi, 'd').toLowerCase(); }
+
+  /* ---------- Mock data ---------- */
+  var NOW = new Date(2026, 10, 4, 15, 58);
+  var CUSTOMERS = [
+    ['Công ty TNHH Minh Phát', '0912 345 678'], ['Công ty CP Thương mại Đại Dương', '0938 221 904'], ['Nguyễn Văn Hùng', '0976 118 233'],
+    ['Công ty TNHH Xây dựng An Khang', '0903 774 512'], ['Siêu thị Bách Hóa Xanh Q7', '0286 270 1100'], ['Trần Thị Mai Hương', '0988 402 761'],
+    ['Công ty CP Dược Hậu Phương', '0243 856 2290'], ['Cửa hàng Điện máy Hoàng Gia', '0914 663 090'], ['Lê Quang Dương', '0935 887 124'],
+    ['Công ty TNHH Nội thất Đông Á', '0901 245 337'], ['Đại lý Phân phối Tân Long', '0272 384 7701'], ['Phạm Ngọc Ánh', '0966 530 218'],
+    ['Công ty CP Logistics Sao Việt', '0283 910 4455'], ['Nhà sách Phương Nam', '0283 822 0166']
+  ];
+  var OWNERS = ['Nguyễn Thanh Tùng', 'Trần Minh Quân', 'Lê Thu Hà', 'Phạm Đức Anh', 'Võ Ngọc Lan'];
+  var CHANNELS = ['Website', 'Marketplace', 'Direct sales', 'Distributor'];
+  var STATUS = {
+    'Draft': 'neutral', 'Pending': 'info', 'Shipping': 'info', 'Delivered': 'success', 'Late': 'danger', 'Cancelled': 'neutral'
+  };
+  var STATUS_ORDER = ['Pending', 'Shipping', 'Late', 'Delivered', 'Draft', 'Cancelled'];
+  var STATUS_LABEL = { Late: 'Late delivery' };
+  var PAY = { 'Unpaid': 'warning', 'Paid': 'success', 'Refunded': 'neutral' };
+  var TONE = {
+    neutral: 'bg-slate-100 text-slate-700', info: 'bg-blue-50 text-blue-800', success: 'bg-green-50 text-green-800',
+    warning: 'bg-amber-50 text-amber-800', danger: 'bg-red-50 text-red-800'
+  };
+  function badge(label, tone) { return '<span class="inline-flex h-6 items-center whitespace-nowrap rounded-full px-2 text-xs font-medium ' + TONE[tone] + '">' + esc(label) + '</span>'; }
+
+  var seed = 20261104;
+  function rnd() { seed = (seed * 1664525 + 1013904223) % 4294967296; return seed / 4294967296; }
+  var ORDERS = (function () {
+    var arr = [], t = NOW.getTime();
+    for (var i = 96; i >= 1; i--) {
+      var idx = 96 - i; // 0 = newest
+      t -= Math.round((2 + rnd() * 26) * 3600 * 1000);
+      if (idx === 0) t = NOW.getTime();
+      var c = CUSTOMERS[Math.floor(rnd() * CUSTOMERS.length)];
+      var st, pay;
+      if (idx < 3) st = 'Pending';
+      else if (idx < 6) st = 'Draft';
+      else if (idx < 12) st = 'Shipping';
+      else if (idx < 14) st = 'Late';
+      else st = rnd() < 0.08 ? 'Cancelled' : 'Delivered';
+      if (st === 'Delivered') pay = rnd() < 0.9 ? 'Paid' : 'Unpaid';
+      else if (st === 'Cancelled') pay = rnd() < 0.5 ? 'Refunded' : 'Unpaid';
+      else pay = rnd() < 0.55 ? 'Paid' : 'Unpaid';
+      var total = Math.round((1200000 + Math.pow(rnd(), 2.2) * 84000000) / 1000) * 1000;
+      arr.push({
+        id: 'DH-' + (1000 + i), customer: c[0], phone: c[1], status: st, payment: pay,
+        channel: CHANNELS[Math.floor(rnd() * CHANNELS.length)], owner: OWNERS[Math.floor(rnd() * OWNERS.length)],
+        created: new Date(t), total: total
+      });
+    }
+    return arr.sort(function (a, b) { return b.created - a.created; });
+  })();
+
+  /* ---------- State (kept in the URL) ---------- */
+  var DEFAULTS = { sort: '-created', size: 25 };
+  var params = new URLSearchParams(location.search);
+  var S = {
+    q: params.get('q') || '', status: STATUS_ORDER.indexOf(params.get('status')) >= 0 ? params.get('status') : '',
+    payment: PAY[params.get('payment')] ? params.get('payment') : '', channel: CHANNELS.indexOf(params.get('channel')) >= 0 ? params.get('channel') : '',
+    range: ['today', '7d', '30d', 'month'].indexOf(params.get('range')) >= 0 ? params.get('range') : '',
+    owner: OWNERS.indexOf(params.get('owner')) >= 0 ? params.get('owner') : '',
+    min: Number(params.get('min')) > 0 ? Number(params.get('min')) : 0, max: Number(params.get('max')) > 0 ? Number(params.get('max')) : 0,
+    sort: ['created', '-created', 'id', '-id', 'customer', '-customer', 'total', '-total'].indexOf(params.get('sort')) >= 0 ? params.get('sort') : DEFAULTS.sort,
+    page: Math.max(1, parseInt(params.get('page'), 10) || 1),
+    size: [25, 50, 100].indexOf(Number(params.get('size'))) >= 0 ? Number(params.get('size')) : DEFAULTS.size
+  };
+  var MODE = params.get('state') || ''; // '', 'empty', 'error', 'loading'
+  var loaded = false;
+  var selected = new Set();
+  var allMatching = false;
+  var failedOnly = null; // Set of ids when viewing failed rows
+  var compact = false;
+  var COLS = [
+    { k: 'customer', label: 'Customer' }, { k: 'status', label: 'Status' }, { k: 'payment', label: 'Payment' },
+    { k: 'channel', label: 'Channel' }, { k: 'created', label: 'Created' }, { k: 'owner', label: 'Owner' }
+  ];
+  var hiddenCols = new Set(['owner']);
+  var data = MODE === 'empty' ? [] : ORDERS.slice();
+
+  function syncURL() {
+    var p = new URLSearchParams();
+    if (MODE) p.set('state', MODE);
+    if (S.q) p.set('q', S.q);
+    ['status', 'payment', 'channel', 'range', 'owner'].forEach(function (k) { if (S[k]) p.set(k, S[k]); });
+    if (S.min) p.set('min', S.min); if (S.max) p.set('max', S.max);
+    if (S.sort !== DEFAULTS.sort) p.set('sort', S.sort);
+    if (S.size !== DEFAULTS.size) p.set('size', S.size);
+    if (S.page > 1) p.set('page', S.page);
+    var qs = p.toString();
+    try { history.replaceState(null, '', location.pathname + (qs ? '?' + qs : '')); } catch (e) {}
+  }
+
+  /* ---------- Filtering ---------- */
+  function rangeStart(r) {
+    var d = new Date(NOW.getFullYear(), NOW.getMonth(), NOW.getDate());
+    if (r === 'today') return d;
+    if (r === '7d') { d.setDate(d.getDate() - 6); return d; }
+    if (r === '30d') { d.setDate(d.getDate() - 29); return d; }
+    if (r === 'month') return new Date(NOW.getFullYear(), NOW.getMonth(), 1);
+    return null;
+  }
+  function matches(o, skipStatus) {
+    if (S.q) {
+      var hay = norm(o.id + ' ' + o.customer + ' ' + o.phone + ' ' + o.phone.replace(/\s/g, ''));
+      var needle = norm(S.q);
+      if (hay.indexOf(needle) < 0 && hay.indexOf(needle.replace(/\s/g, '')) < 0) return false;
+    }
+    if (!skipStatus && S.status && o.status !== S.status) return false;
+    if (S.payment && o.payment !== S.payment) return false;
+    if (S.channel && o.channel !== S.channel) return false;
+    if (S.owner && o.owner !== S.owner) return false;
+    if (S.min && o.total < S.min) return false;
+    if (S.max && o.total > S.max) return false;
+    var rs = rangeStart(S.range); if (rs && o.created < rs) return false;
+    if (failedOnly && !failedOnly.has(o.id)) return false;
+    return true;
+  }
+  function sorted(list) {
+    var dir = S.sort.charAt(0) === '-' ? -1 : 1, key = S.sort.replace('-', '');
+    return list.slice().sort(function (a, b) {
+      var r;
+      if (key === 'created') r = a.created - b.created;
+      else if (key === 'total') r = a.total - b.total;
+      else if (key === 'customer') r = a.customer.localeCompare(b.customer, 'vi');
+      else r = a.id.localeCompare(b.id, 'en', { numeric: true });
+      return r * dir;
+    });
+  }
+  function filtered() { return sorted(data.filter(function (o) { return matches(o, false); })); }
+
+  /* ---------- Render ---------- */
+  var $ = function (id) { return document.getElementById(id); };
+  function live(msg) { $('live').textContent = msg; }
+
+  function visibleCols() { return COLS.filter(function (c) { return !hiddenCols.has(c.k); }); }
+  function colCount() { return 2 + visibleCols().length + 1 + 1; } // checkbox, id, cols, total, actions
+
+  function renderTabs() {
+    var showCounts = loaded && MODE !== 'error' && data.length > 0;
+    var base = data.filter(function (o) { return matches(o, true); });
+    var items = [{ v: '', label: 'All', n: base.length }].concat(STATUS_ORDER.map(function (s) {
+      return { v: s, label: STATUS_LABEL[s] || s, n: base.filter(function (o) { return o.status === s; }).length };
+    }));
+    $('tabs').innerHTML = items.map(function (t) {
+      var on = S.status === t.v;
+      return '<button type="button" role="tab" aria-selected="' + on + '" data-tab="' + t.v + '" class="-mb-px inline-flex h-10 shrink-0 items-center gap-1.5 border-b-2 px-3 font-medium ' +
+        (on ? 'border-blue-700 text-blue-700' : 'border-transparent text-slate-700 hover:text-slate-900') + '">' + esc(t.label) +
+        (showCounts ? '<span class="tnum font-normal ' + (on ? 'text-blue-700' : 'text-slate-600') + '">' + t.n + '</span>' : '') + '</button>';
+    }).join('');
+  }
+
+  function chipList() {
+    var c = [];
+    if (S.q) c.push({ k: 'q', label: 'Search: ' + S.q });
+    if (S.status) c.push({ k: 'status', label: 'Status: ' + (STATUS_LABEL[S.status] || S.status) });
+    if (S.payment) c.push({ k: 'payment', label: 'Payment: ' + S.payment });
+    if (S.channel) c.push({ k: 'channel', label: 'Channel: ' + S.channel });
+    if (S.range) c.push({ k: 'range', label: 'Created: ' + $('fRange').querySelector('option[value="' + S.range + '"]').textContent });
+    if (S.owner) c.push({ k: 'owner', label: 'Owner: ' + S.owner });
+    if (S.min || S.max) c.push({ k: 'amount', label: 'Total: ' + (S.min ? vnd(S.min) : '0') + ' – ' + (S.max ? vnd(S.max) : 'any') + ' ₫' });
+    if (failedOnly) c.push({ k: 'failed', label: 'Failed rows only' });
+    return c;
+  }
+  function renderChips() {
+    var c = chipList(), el = $('chips');
+    el.hidden = c.length === 0;
+    el.innerHTML = c.map(function (x) {
+      return '<span class="inline-flex h-6 items-center gap-1 rounded-full border border-slate-300 bg-slate-50 pl-2.5 pr-0.5 text-xs font-medium text-slate-800">' + esc(x.label) +
+        '<button type="button" data-chip="' + x.k + '" aria-label="Remove filter ' + esc(x.label) + '" class="inline-flex size-6 items-center justify-center rounded-full text-slate-700 hover:bg-slate-200">' + icon('x') + '</button></span>';
+    }).join('') + '<button type="button" id="clearAll" class="inline-flex h-6 items-center px-1 font-medium text-blue-700 hover:underline">Clear all</button>';
+    var n = 0; if (S.owner) n++; if (S.min || S.max) n++;
+    $('moreLabel').textContent = n ? 'More filters (' + n + ')' : 'More filters';
+    $('fPayment').value = S.payment; $('fChannel').value = S.channel; $('fRange').value = S.range;
+    $('colsLabel').textContent = hiddenCols.size ? 'Columns (' + hiddenCols.size + ' hidden)' : 'Columns';
+  }
+
+  function sortTh(key, label, right) {
+    var on = S.sort.replace('-', '') === key, dir = S.sort.charAt(0) === '-' ? 'descending' : 'ascending';
+    var ic = on ? icon(dir === 'ascending' ? 'chevronUp' : 'chevron') : '<span class="opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 text-slate-500">' + icon('sort') + '</span>';
+    return '<th scope="col" class="group h-10 px-3 font-medium text-slate-700 ' + (right ? 'text-right' : 'text-left') + '"' + (on ? ' aria-sort="' + dir + '"' : '') + '>' +
+      '<button type="button" data-sort="' + key + '" class="inline-flex ' + (right ? 'flex-row-reverse ' : '') + 'items-center gap-1 font-medium hover:text-slate-900">' + esc(label) + ic + '</button></th>';
+  }
+  function plainTh(label, extra) { return '<th scope="col" class="h-10 px-3 text-left font-medium text-slate-700 ' + (extra || '') + '">' + esc(label) + '</th>'; }
+
+  function renderHead() {
+    var h = '<tr class="border-b border-slate-200">' +
+      '<th scope="col" class="h-10 w-10 pl-3"><label class="inline-flex size-6 items-center justify-center"><input type="checkbox" id="selAll" aria-label="Select all rows on this page"></label></th>' +
+      sortTh('id', 'Order no.', false);
+    visibleCols().forEach(function (c) {
+      if (c.k === 'customer') h += sortTh('customer', 'Customer', false);
+      else if (c.k === 'created') h += sortTh('created', 'Created', false);
+      else h += plainTh(c.label);
+    });
+    h += sortTh('total', 'Total (VND)', true) + '<th scope="col" class="h-10 w-28 px-3 text-right"><span class="sr-only">Actions</span></th></tr>';
+    $('thead').innerHTML = h;
+  }
+
+  function msgRow(inner) { return '<tr><td colspan="' + colCount() + '" class="px-3 py-16 text-center">' + inner + '</td></tr>'; }
+  function skelRows() {
+    var out = '';
+    for (var i = 0; i < 9; i++) {
+      out += '<tr class="h-10 border-b border-slate-100"><td class="pl-3"><div class="skel size-4"></div></td>';
+      for (var j = 0; j < colCount() - 2; j++) out += '<td class="px-3"><div class="skel" style="width:' + (j === colCount() - 3 ? 60 : 55 + ((i * 7 + j * 13) % 40)) + '%"></div></td>';
+      out += '<td class="px-3"><div class="skel ml-auto" style="width:48px"></div></td></tr>';
+    }
+    return out;
+  }
+
+  function pageRows() {
+    var list = filtered(), start = (S.page - 1) * S.size;
+    return { all: list, rows: list.slice(start, start + S.size) };
+  }
+
+  function render() {
+    renderTabs(); renderChips(); renderHead();
+    var tb = $('tbody'), tbl = $('tbl');
+    var pager = $('pager'), summary = $('summary');
+    var busy = !loaded || MODE === 'loading';
+    tbl.setAttribute('aria-busy', busy ? 'true' : 'false');
+    $('q').value = S.q; $('qClear').hidden = !S.q;
+    $('btnDensity').setAttribute('aria-pressed', compact);
+
+    if (busy) {
+      tb.innerHTML = skelRows(); pager.innerHTML = ''; pager.style.visibility = 'hidden';
+      summary.innerHTML = '<span class="skel inline-block" style="width:180px"></span>'; updateBulk(); return;
+    }
+    pager.style.visibility = '';
+    if (MODE === 'error') {
+      tb.innerHTML = msgRow('<div class="mx-auto flex max-w-sm flex-col items-center gap-2"><span class="text-red-700">' + icon('alert', 'size-6') + '</span>' +
+        '<p class="font-semibold">Couldn\'t load orders</p><p class="text-slate-600">The server did not respond. Your filters are kept.</p>' +
+        '<button type="button" id="retry" class="mt-2 inline-flex h-8 items-center rounded bg-blue-700 px-3 font-medium text-white hover:bg-blue-800">Retry</button></div>');
+      pager.innerHTML = ''; summary.textContent = ''; updateBulk(); return;
+    }
+    if (data.length === 0) {
+      tb.innerHTML = msgRow('<div class="mx-auto flex max-w-sm flex-col items-center gap-2"><span class="text-slate-600">' + icon('inbox', 'size-6') + '</span>' +
+        '<p class="font-semibold">No orders yet</p><p class="text-slate-600">Orders from your website, marketplaces and sales team appear here.</p>' +
+        '<button type="button" id="emptyCreate" class="mt-2 inline-flex h-8 items-center gap-1.5 rounded bg-blue-700 px-3 font-medium text-white hover:bg-blue-800">' + icon('plus') + 'Create order</button></div>');
+      pager.innerHTML = ''; summary.textContent = '0 orders'; updateBulk(); return;
+    }
+    var pr = pageRows(), list = pr.all, rows = pr.rows;
+    var maxPage = Math.max(1, Math.ceil(list.length / S.size));
+    if (S.page > maxPage) { S.page = maxPage; rows = list.slice((S.page - 1) * S.size, S.page * S.size); }
+    var sum = list.reduce(function (a, o) { return a + o.total; }, 0);
+    summary.innerHTML = '<span class="tnum font-medium">' + nfInt.format(list.length) + '</span> ' + (list.length === 1 ? 'order' : 'orders') + ' · <span class="tnum">' + vndC(sum) + '</span>';
+    live(list.length ? nfInt.format(list.length) + ' orders match' : 'No orders match');
+
+    if (list.length === 0) {
+      var term = S.q ? 'No orders match "' + esc(S.q) + '"' : 'No orders match these filters';
+      tb.innerHTML = msgRow('<div class="mx-auto flex max-w-sm flex-col items-center gap-2"><span class="text-slate-600">' + icon('searchx', 'size-6') + '</span>' +
+        '<p class="font-semibold">' + term + '</p><p class="text-slate-600">Check the spelling or widen the date range.</p>' +
+        '<button type="button" id="clearFilters" class="mt-2 inline-flex h-8 items-center rounded border border-slate-300 bg-white px-3 font-medium hover:bg-slate-50">Clear filters</button></div>');
+      pager.innerHTML = ''; updateBulk(); return;
+    }
+
+    var bulkOpen = selected.size > 0 || allMatching;
+    var vc = visibleCols();
+    tb.innerHTML = rows.map(function (o) {
+      var sel = selected.has(o.id) || allMatching;
+      var cells = '<td class="pl-3"><label class="inline-flex size-6 items-center justify-center"><input type="checkbox" data-sel="' + o.id + '" aria-label="Select order ' + o.id + '"' + (sel ? ' checked' : '') + '></label></td>' +
+        '<td class="whitespace-nowrap px-3"><a href="#" class="font-medium text-blue-700 hover:underline" data-open="' + o.id + '">' + o.id + '</a></td>';
+      vc.forEach(function (c) {
+        if (c.k === 'customer') cells += '<td class="whitespace-nowrap px-3">' + esc(o.customer) + '</td>';
+        else if (c.k === 'status') cells += '<td class="px-3">' + badge(STATUS_LABEL[o.status] || o.status, STATUS[o.status]) + '</td>';
+        else if (c.k === 'payment') cells += '<td class="px-3">' + badge(o.payment, PAY[o.payment]) + '</td>';
+        else if (c.k === 'channel') cells += '<td class="whitespace-nowrap px-3">' + esc(o.channel) + '</td>';
+        else if (c.k === 'created') cells += '<td class="tnum whitespace-nowrap px-3 text-slate-700">' + fmtDate(o.created) + '</td>';
+        else if (c.k === 'owner') cells += '<td class="whitespace-nowrap px-3">' + esc(o.owner) + '</td>';
+      });
+      cells += '<td class="tnum whitespace-nowrap px-3 text-right">' + vnd(o.total) + '</td>' +
+        '<td class="px-3 py-1"><div class="flex items-center justify-end gap-1">' +
+        '<button type="button" data-edit="' + o.id + '" aria-label="Edit order ' + o.id + '"' + (bulkOpen ? ' disabled' : '') + ' class="inline-flex h-8 items-center gap-1 rounded px-2 font-medium text-slate-800 hover:bg-slate-100 disabled:cursor-not-allowed disabled:text-slate-500 disabled:hover:bg-transparent">' + icon('pencil') + 'Edit</button>' +
+        '<button type="button" data-menu="' + o.id + '" aria-haspopup="menu" aria-label="Actions for order ' + o.id + '"' + (bulkOpen ? ' disabled' : '') + ' class="inline-flex size-8 items-center justify-center rounded text-slate-700 hover:bg-slate-100 disabled:cursor-not-allowed disabled:text-slate-500 disabled:hover:bg-transparent">' + icon('more') + '</button>' +
+        '</div></td>';
+      return '<tr class="' + (compact ? 'h-8' : 'h-10') + ' border-b border-slate-100 last:border-b-0 ' + (sel ? 'bg-blue-50 hover:bg-blue-50' : 'hover:bg-slate-50') + '">' + cells + '</tr>';
+    }).join('');
+
+    // header checkbox
+    var ids = rows.map(function (o) { return o.id; });
+    var nSel = ids.filter(function (id) { return selected.has(id); }).length;
+    var sa = $('selAll'); if (sa) { sa.checked = allMatching || (nSel === ids.length && ids.length > 0); sa.indeterminate = !allMatching && nSel > 0 && nSel < ids.length; }
+
+    // pager
+    var total = list.length, from = (S.page - 1) * S.size + 1, to = Math.min(total, S.page * S.size), pages = Math.ceil(total / S.size);
+    var pb = '', btn = 'inline-flex h-8 min-w-8 items-center justify-center rounded px-2 font-medium ';
+    for (var p = 1; p <= pages; p++) {
+      pb += '<button type="button" data-page="' + p + '" ' + (p === S.page ? 'aria-current="page" ' : '') + 'aria-label="Page ' + p + '" class="' + btn + (p === S.page ? 'bg-blue-700 text-white' : 'text-slate-800 hover:bg-slate-100') + ' tnum">' + p + '</button>';
+    }
+    pager.innerHTML = '<p class="tnum text-slate-700">' + nfInt.format(from) + '–' + nfInt.format(to) + ' of ' + nfInt.format(total) + '</p>' +
+      '<div class="flex items-center gap-3"><label class="flex items-center gap-2 text-slate-700">Rows per page<select id="pageSize" class="h-8 rounded border border-slate-300 bg-white px-2 text-slate-900">' +
+      [25, 50, 100].map(function (n) { return '<option' + (n === S.size ? ' selected' : '') + '>' + n + '</option>'; }).join('') + '</select></label>' +
+      '<div class="flex items-center gap-1"><button type="button" data-page="' + (S.page - 1) + '" aria-label="Previous page"' + (S.page === 1 ? ' disabled' : '') + ' class="' + btn + 'text-slate-800 hover:bg-slate-100 disabled:text-slate-500 disabled:hover:bg-transparent">' + icon('chevL') + '</button>' + pb +
+      '<button type="button" data-page="' + (S.page + 1) + '" aria-label="Next page"' + (S.page === pages ? ' disabled' : '') + ' class="' + btn + 'text-slate-800 hover:bg-slate-100 disabled:text-slate-500 disabled:hover:bg-transparent">' + icon('chevR') + '</button></div></div>';
+    updateBulk();
+  }
+
+  function updateBulk() {
+    var list = loaded && MODE !== 'error' && data.length ? filtered() : [];
+    var n = allMatching ? list.length : selected.size;
+    var bar = $('bulk');
+    bar.hidden = n === 0;
+    if (n === 0) return;
+    $('bulkCount').textContent = nfInt.format(n) + ' selected';
+    var rows = pageRows().rows, pageAll = rows.length > 0 && rows.every(function (o) { return selected.has(o.id); });
+    var ba = $('bulkAll');
+    if (allMatching) { ba.hidden = false; ba.textContent = 'All ' + nfInt.format(list.length) + ' matching selected'; ba.disabled = true; ba.className = 'font-normal text-blue-900 no-underline'; }
+    else if (pageAll && list.length > rows.length) { ba.hidden = false; ba.disabled = false; ba.className = 'font-medium text-blue-700 underline'; ba.textContent = 'Select all ' + nfInt.format(list.length) + ' matching'; }
+    else ba.hidden = true;
+  }
+
+  /* ---------- Actions ---------- */
+  function toast(msg, tone) {
+    var t = document.createElement('div');
+    t.className = 'flex items-center gap-2 rounded-lg border bg-white px-3 py-2 shadow-lg ' + (tone === 'error' ? 'border-red-300 text-red-800' : 'border-slate-200 text-slate-900');
+    t.innerHTML = (tone === 'error' ? icon('alert') : '<span class="text-green-700">' + icon('check') + '</span>') + '<span>' + esc(msg) + '</span>';
+    $('toasts').appendChild(t); setTimeout(function () { t.remove(); }, 4000);
+  }
+  function setFilter(patch, mode) {
+    Object.keys(patch).forEach(function (k) { S[k] = patch[k]; });
+    S.page = 1; if (mode !== 'keepSel') { selected.clear(); allMatching = false; }
+    syncURL(); render();
+  }
+  function clearFilters() {
+    S.q = ''; S.status = ''; S.payment = ''; S.channel = ''; S.range = ''; S.owner = ''; S.min = 0; S.max = 0; failedOnly = null; S.page = 1;
+    selected.clear(); allMatching = false; syncURL(); render();
+    $('q').focus();
+  }
+  function targetIds() { return allMatching ? filtered().map(function (o) { return o.id; }) : Array.from(selected); }
+
+  var dlgCb = null, lastFocus = null;
+  function openDialog(o) {
+    lastFocus = document.activeElement;
+    $('dlgTitle').textContent = o.title; $('dlgBody').textContent = o.body;
+    $('dlgNo').textContent = o.cancel || 'Cancel';
+    var y = $('dlgYes'); y.textContent = o.confirm; y.className = 'inline-flex h-8 items-center rounded px-3 font-medium text-white ' + (o.danger ? 'bg-red-700 hover:bg-red-800' : 'bg-blue-700 hover:bg-blue-800');
+    dlgCb = o.onConfirm; $('dlg').hidden = false; $('dlgNo').focus();
+  }
+  function closeDialog() { $('dlg').hidden = true; dlgCb = null; if (lastFocus) lastFocus.focus(); }
+
+  function bulkRun(kind) {
+    var ids = targetIds(), n = ids.length;
+    if (kind === 'export') { toast('Exporting ' + nfInt.format(n) + ' orders to CSV'); return; }
+    if (kind === 'print') { toast('Picking lists for ' + nfInt.format(n) + ' orders sent to the printer'); return; }
+    if (kind === 'confirm') {
+      var ok = [], fail = [];
+      ids.forEach(function (id) { var o = data.find(function (x) { return x.id === id; }); (o.status === 'Pending' || o.status === 'Draft' ? ok : fail).push(id); });
+      ok.forEach(function (id) { data.find(function (x) { return x.id === id; }).status = 'Shipping'; });
+      selected = new Set(fail); allMatching = false;
+      if (fail.length) showBanner(ok.length + ' updated, ' + fail.length + ' failed. Only Pending and Draft orders can be confirmed.', fail);
+      else toast(nfInt.format(ok.length) + ' orders confirmed');
+      render(); return;
+    }
+    if (kind === 'cancel') {
+      var paid = ids.filter(function (id) { return data.find(function (x) { return x.id === id; }).payment === 'Paid'; }).length;
+      openDialog({
+        title: 'Cancel ' + nfInt.format(n) + ' orders?', danger: true, confirm: 'Cancel ' + nfInt.format(n) + ' orders', cancel: 'Keep orders',
+        body: 'Customers will be notified and stock is released. ' + (paid ? nfInt.format(paid) + ' paid orders will be marked for refund. ' : '') + 'Delivered orders cannot be cancelled and will be skipped.',
+        onConfirm: function () {
+          var ok = 0, fail = [];
+          ids.forEach(function (id) { var o = data.find(function (x) { return x.id === id; }); if (o.status === 'Delivered' || o.status === 'Cancelled') fail.push(id); else { o.status = 'Cancelled'; if (o.payment === 'Paid') o.payment = 'Refunded'; ok++; } });
+          selected = new Set(fail); allMatching = false;
+          if (fail.length) showBanner(ok + ' updated, ' + fail.length + ' failed. Delivered or already cancelled orders were skipped.', fail); else toast(nfInt.format(ok) + ' orders cancelled');
+          render();
+        }
+      });
+    }
+  }
+  var failedIds = null;
+  function showBanner(text, ids) {
+    failedIds = new Set(ids); $('bannerText').textContent = text; $('bannerView').textContent = 'View failed (' + ids.length + ')'; $('banner').hidden = false;
+  }
+
+  /* ---------- Menus ---------- */
+  function closeMenus(except) {
+    ['morePanel', 'colsPanel', 'bulkMore', 'rowMenu'].forEach(function (id) { if (id !== except) $(id).hidden = true; });
+    $('btnMore').setAttribute('aria-expanded', !$('morePanel').hidden);
+    $('btnCols').setAttribute('aria-expanded', !$('colsPanel').hidden);
+    $('bulkMoreBtn').setAttribute('aria-expanded', !$('bulkMore').hidden);
+  }
+  function fillMore() {
+    $('pOwner').innerHTML = '<option value="">All owners</option>' + OWNERS.map(function (o) { return '<option' + (o === S.owner ? ' selected' : '') + '>' + o + '</option>'; }).join('');
+    $('pMin').value = S.min ? vnd(S.min) : ''; $('pMax').value = S.max ? vnd(S.max) : '';
+  }
+  function fillCols() {
+    $('colsPanel').innerHTML = COLS.map(function (c, i) {
+      return '<div class="flex h-8 items-center gap-1 px-1"><label class="flex flex-1 items-center gap-2"><input type="checkbox" data-col="' + c.k + '"' + (hiddenCols.has(c.k) ? '' : ' checked') + '>' + esc(c.label) + '</label>' +
+        '<button type="button" data-colmove="' + i + ':-1" aria-label="Move ' + esc(c.label) + ' up"' + (i === 0 ? ' disabled' : '') + ' class="inline-flex size-6 items-center justify-center rounded text-slate-700 hover:bg-slate-100 disabled:text-slate-500">' + icon('chevronUp') + '</button>' +
+        '<button type="button" data-colmove="' + i + ':1" aria-label="Move ' + esc(c.label) + ' down"' + (i === COLS.length - 1 ? ' disabled' : '') + ' class="inline-flex size-6 items-center justify-center rounded text-slate-700 hover:bg-slate-100 disabled:text-slate-500">' + icon('chevron') + '</button></div>';
+    }).join('');
+  }
+  function parseAmt(s) { var n = parseInt(String(s).replace(/\D/g, ''), 10); return n > 0 ? n : 0; }
+
+  /* ---------- Events ---------- */
+  var qTimer;
+  $('q').addEventListener('input', function (e) {
+    var v = e.target.value; $('qClear').hidden = !v;
+    clearTimeout(qTimer); qTimer = setTimeout(function () { if (v.trim().length === 0 || v.trim().length >= 2) setFilter({ q: v.trim() }); }, 300);
+  });
+  $('q').addEventListener('keydown', function (e) { if (e.key === 'Enter') { clearTimeout(qTimer); setFilter({ q: e.target.value.trim() }); } });
+  $('qClear').addEventListener('click', function () { setFilter({ q: '' }); $('q').focus(); });
+  $('fPayment').addEventListener('change', function (e) { setFilter({ payment: e.target.value }); });
+  $('fChannel').addEventListener('change', function (e) { setFilter({ channel: e.target.value }); });
+  $('fRange').addEventListener('change', function (e) { setFilter({ range: e.target.value }); });
+
+  $('btnMore').addEventListener('click', function (e) { e.stopPropagation(); var open = $('morePanel').hidden; closeMenus('morePanel'); if (open) fillMore(); $('morePanel').hidden = !open; $('btnMore').setAttribute('aria-expanded', open); });
+  $('morePanel').addEventListener('click', function (e) { e.stopPropagation(); });
+  $('pApply').addEventListener('click', function () {
+    var mn = parseAmt($('pMin').value), mx = parseAmt($('pMax').value);
+    if (mn && mx && mn > mx) { var t = mn; mn = mx; mx = t; }
+    setFilter({ owner: $('pOwner').value, min: mn, max: mx }); closeMenus(); $('btnMore').focus();
+  });
+  $('pReset').addEventListener('click', function () { $('pOwner').value = ''; $('pMin').value = ''; $('pMax').value = ''; });
+
+  $('btnCols').addEventListener('click', function (e) { e.stopPropagation(); var open = $('colsPanel').hidden; closeMenus('colsPanel'); if (open) fillCols(); $('colsPanel').hidden = !open; $('btnCols').setAttribute('aria-expanded', open); });
+  $('colsPanel').addEventListener('click', function (e) { e.stopPropagation(); });
+  $('colsPanel').addEventListener('change', function (e) {
+    var k = e.target.getAttribute('data-col'); if (!k) return;
+    if (e.target.checked) hiddenCols.delete(k); else hiddenCols.add(k); render();
+  });
+  $('colsPanel').addEventListener('click', function (e) {
+    var b = e.target.closest('[data-colmove]'); if (!b) return;
+    var p = b.getAttribute('data-colmove').split(':'), i = +p[0], j = i + +p[1];
+    var tmp = COLS[i]; COLS[i] = COLS[j]; COLS[j] = tmp; fillCols(); render();
+  });
+  $('btnDensity').addEventListener('click', function () { compact = !compact; render(); });
+
+  $('tabs').addEventListener('click', function (e) { var b = e.target.closest('[data-tab]'); if (b) setFilter({ status: b.getAttribute('data-tab') }); });
+  $('chips').addEventListener('click', function (e) {
+    if (e.target.closest('#clearAll')) { clearFilters(); return; }
+    var b = e.target.closest('[data-chip]'); if (!b) return;
+    var k = b.getAttribute('data-chip');
+    if (k === 'amount') setFilter({ min: 0, max: 0 }); else if (k === 'failed') { failedOnly = null; setFilter({}); } else { var p = {}; p[k] = ''; setFilter(p); }
+    var next = $('chips').querySelector('[data-chip]'); (next || $('q')).focus();
+  });
+
+  $('thead').addEventListener('click', function (e) {
+    var b = e.target.closest('[data-sort]');
+    if (b) {
+      var k = b.getAttribute('data-sort'), cur = S.sort, next;
+      var firstDir = (k === 'total' || k === 'created') ? '-' : '';
+      // first click: default direction for the column, next: reverse, third: back to default order
+      if (cur.replace('-', '') !== k) next = firstDir + k;
+      else if (cur === firstDir + k) next = (firstDir ? '' : '-') + k;
+      else next = DEFAULTS.sort;
+      S.sort = next; S.page = 1; syncURL(); render(); return;
+    }
+    if (e.target.id === 'selAll') {
+      var rows = pageRows().rows;
+      if (e.target.checked) rows.forEach(function (o) { selected.add(o.id); }); else { rows.forEach(function (o) { selected.delete(o.id); }); allMatching = false; }
+      render();
+    }
+  });
+
+  $('tbody').addEventListener('change', function (e) {
+    var id = e.target.getAttribute('data-sel'); if (!id) return;
+    if (allMatching) { allMatching = false; filtered().forEach(function (o) { selected.add(o.id); }); }
+    if (e.target.checked) selected.add(id); else selected.delete(id);
+    render();
+  });
+  $('tbody').addEventListener('click', function (e) {
+    if (e.target.closest('#retry')) { MODE = ''; loaded = false; syncURL(); render(); setTimeout(function () { loaded = true; render(); }, 500); return; }
+    if (e.target.closest('#clearFilters')) { clearFilters(); return; }
+    if (e.target.closest('#emptyCreate')) { toast('Create order form would open here'); return; }
+    var a = e.target.closest('[data-open]'); if (a) { e.preventDefault(); toast('Opening order ' + a.getAttribute('data-open')); return; }
+    var ed = e.target.closest('[data-edit]'); if (ed && !ed.disabled) { toast('Editing order ' + ed.getAttribute('data-edit')); return; }
+    var m = e.target.closest('[data-menu]');
+    if (m && !m.disabled) {
+      e.stopPropagation();
+      var id = m.getAttribute('data-menu'), menu = $('rowMenu');
+      if (!menu.hidden && menu.getAttribute('data-for') === id) { closeMenus(); return; }
+      closeMenus('rowMenu');
+      var o = data.find(function (x) { return x.id === id; });
+      var item = 'flex h-8 w-full items-center rounded px-2 text-left text-slate-800 hover:bg-slate-100';
+      menu.setAttribute('aria-label', 'Actions for order ' + id); menu.setAttribute('data-for', id);
+      menu.innerHTML = '<button type="button" role="menuitem" data-ra="view" class="' + item + '">View order</button>' +
+        '<button type="button" role="menuitem" data-ra="dup" class="' + item + '">Duplicate</button>' +
+        '<button type="button" role="menuitem" data-ra="invoice" class="' + item + '">Print invoice</button>' +
+        '<div class="my-1 border-t border-slate-200"></div>' +
+        (o.status === 'Delivered' || o.status === 'Cancelled'
+          ? '<button type="button" role="menuitem" disabled title="' + o.status + ' orders cannot be cancelled" class="flex h-8 w-full items-center rounded px-2 text-left text-slate-500">Cancel order</button>'
+          : '<button type="button" role="menuitem" data-ra="cancel" class="flex h-8 w-full items-center rounded px-2 text-left font-medium text-red-700 hover:bg-red-50">Cancel order</button>');
+      var r = m.getBoundingClientRect();
+      menu.style.top = Math.min(r.bottom + 4, window.innerHeight - 190) + 'px'; menu.style.left = Math.max(8, r.right - 192) + 'px';
+      menu.hidden = false; menu.querySelector('button').focus();
+    }
+  });
+  $('rowMenu').addEventListener('click', function (e) {
+    var b = e.target.closest('[data-ra]'); if (!b) return;
+    var id = $('rowMenu').getAttribute('data-for'), o = data.find(function (x) { return x.id === id; }), act = b.getAttribute('data-ra');
+    closeMenus();
+    if (act === 'view') toast('Opening order ' + id);
+    else if (act === 'dup') toast('Draft copy of ' + id + ' created');
+    else if (act === 'invoice') toast('Invoice for ' + id + ' sent to the printer');
+    else if (act === 'cancel') openDialog({
+      title: 'Cancel order ' + id + '?', danger: true, confirm: 'Cancel order', cancel: 'Keep order',
+      body: o.customer + ' will be notified and stock is released.' + (o.payment === 'Paid' ? ' The paid amount of ' + vndC(o.total) + ' will be marked for refund.' : ''),
+      onConfirm: function () { o.status = 'Cancelled'; if (o.payment === 'Paid') o.payment = 'Refunded'; toast('Order ' + id + ' cancelled'); render(); }
+    });
+  });
+
+  $('pager').addEventListener('click', function (e) { var b = e.target.closest('[data-page]'); if (b && !b.disabled) { S.page = +b.getAttribute('data-page'); syncURL(); render(); } });
+  $('pager').addEventListener('change', function (e) { if (e.target.id === 'pageSize') { S.size = +e.target.value; S.page = 1; syncURL(); render(); } });
+
+  $('bulkAll').addEventListener('click', function () { allMatching = true; render(); });
+  $('bulkCancel').addEventListener('click', function () { selected.clear(); allMatching = false; render(); });
+  $('bulk').addEventListener('click', function (e) { var b = e.target.closest('[data-bulk]'); if (b) { closeMenus(); bulkRun(b.getAttribute('data-bulk')); } });
+  $('bulkMoreBtn').addEventListener('click', function (e) { e.stopPropagation(); var open = $('bulkMore').hidden; closeMenus('bulkMore'); $('bulkMore').hidden = !open; $('bulkMoreBtn').setAttribute('aria-expanded', open); });
+
+  $('bannerClose').addEventListener('click', function () { $('banner').hidden = true; });
+  $('bannerView').addEventListener('click', function () { failedOnly = new Set(failedIds); $('banner').hidden = true; S.status = ''; S.page = 1; render(); });
+
+  $('dlgYes').addEventListener('click', function () { var cb = dlgCb; $('dlg').hidden = true; dlgCb = null; if (cb) cb(); });
+  $('dlgNo').addEventListener('click', closeDialog);
+  $('dlg').addEventListener('click', function (e) { if (e.target === $('dlg')) closeDialog(); });
+
+  $('btnImport').addEventListener('click', function () { toast('Import: download the template, then upload your CSV'); });
+  $('btnExport').addEventListener('click', function () { toast('Exporting ' + nfInt.format(filtered().length) + ' orders to CSV'); });
+  $('btnCreate').addEventListener('click', function () { toast('Create order form would open here'); });
+
+  document.addEventListener('click', function () { closeMenus(); });
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape') { if (!$('dlg').hidden) closeDialog(); else closeMenus(); }
+    if (e.key === '/' && !/INPUT|TEXTAREA|SELECT/.test((document.activeElement || {}).tagName || '') && $('dlg').hidden) { e.preventDefault(); $('q').focus(); }
+  });
+
+  /* ---------- Boot ---------- */
+  hydrateIcons();
+  render();
+  if (MODE === 'loading') { /* held skeleton */ }
+  else if (MODE === 'error') { loaded = true; render(); }
+  else if (MODE === 'empty') { loaded = true; render(); }
+  else setTimeout(function () { loaded = true; render(); }, 450);
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,532 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Vai trò và phân quyền – Công ty Minh Phát</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+  body { font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; font-size: 14px; }
+  input[type=checkbox] { accent-color: #1d4ed8; }
+  :focus-visible { outline: 2px solid #1d4ed8; outline-offset: 2px; }
+  dialog::backdrop { background: rgba(15,23,42,.4); }
+  @media (prefers-reduced-motion: reduce) { .animate-pulse, .animate-spin { animation: none; } }
+</style>
+</head>
+<body class="bg-white text-slate-900">
+
+<div class="flex h-screen">
+  <!-- Sidebar -->
+  <aside class="hidden w-60 shrink-0 flex-col border-r border-slate-200 bg-slate-50 md:flex">
+    <div class="flex h-12 items-center border-b border-slate-200 px-4 font-semibold">Minh Phát ERP</div>
+    <nav aria-label="Menu chính" class="flex flex-1 flex-col gap-4 overflow-y-auto p-2" id="sideNav"></nav>
+  </aside>
+
+  <div class="flex min-w-0 flex-1 flex-col">
+    <header class="flex h-12 shrink-0 items-center justify-between gap-3 border-b border-slate-200 bg-white px-4">
+      <button type="button" class="flex h-8 w-72 max-w-full items-center gap-2 rounded border border-slate-300 px-2 text-left text-slate-600 hover:bg-slate-50">
+        <span data-icon="search"></span><span class="flex-1 truncate">Tìm kiếm hoặc chạy lệnh</span><kbd class="rounded border border-slate-300 px-1 text-xs">Ctrl K</kbd>
+      </button>
+      <button type="button" aria-label="Menu tài khoản" class="flex h-8 w-8 items-center justify-center rounded-full bg-slate-200 text-xs font-medium text-slate-800">NA</button>
+    </header>
+
+    <main id="main" class="relative min-w-0 flex-1 overflow-y-auto p-6">
+      <nav aria-label="Breadcrumb" class="mb-2">
+        <ol class="flex items-center gap-1 text-sm text-slate-600">
+          <li><a href="#" class="inline-flex min-h-6 items-center hover:text-slate-900 hover:underline">Quản trị</a></li>
+          <li aria-hidden="true">/</li>
+          <li><span aria-current="page" class="text-slate-900">Vai trò và phân quyền</span></li>
+        </ol>
+      </nav>
+      <div class="mb-4 flex flex-wrap items-center justify-between gap-2">
+        <div>
+          <h1 class="text-xl font-semibold">Vai trò và phân quyền</h1>
+          <p id="summaryLine" class="mt-1 text-sm text-slate-600">&nbsp;</p>
+        </div>
+        <button type="button" data-action="create-role" class="inline-flex h-8 items-center gap-1 rounded bg-blue-700 px-3 font-medium text-white hover:bg-blue-800"><span data-icon="plus"></span>Tạo vai trò</button>
+      </div>
+
+      <div class="grid gap-6 xl:grid-cols-[minmax(0,5fr)_minmax(0,6fr)]">
+        <!-- Role list -->
+        <section aria-labelledby="rolesTitle" class="min-w-0">
+          <h2 id="rolesTitle" class="sr-only">Danh sách vai trò</h2>
+          <div class="mb-2 flex flex-wrap items-center gap-2">
+            <div class="relative">
+              <label for="roleSearch" class="sr-only">Tìm vai trò</label>
+              <span class="pointer-events-none absolute left-2 top-2 text-slate-500" data-icon="search"></span>
+              <input id="roleSearch" type="search" placeholder="Tìm vai trò" class="h-8 w-56 rounded border border-slate-300 pl-8 pr-2 placeholder:text-slate-500">
+            </div>
+            <label for="typeFilter" class="sr-only">Loại vai trò</label>
+            <select id="typeFilter" class="h-8 rounded border border-slate-300 bg-white px-2">
+              <option value="">Tất cả loại</option><option value="system">Hệ thống</option><option value="custom">Tùy chỉnh</option>
+            </select>
+          </div>
+          <div id="chips" class="mb-2 flex flex-wrap items-center gap-2"></div>
+          <div id="listBody" class="rounded-md border border-slate-200 bg-white"></div>
+        </section>
+
+        <!-- Matrix -->
+        <section id="detail" aria-labelledby="roleName" class="min-w-0"></section>
+      </div>
+
+      <!-- Sticky action bar -->
+      <div id="bar" class="sticky bottom-0 -mx-6 -mb-6 mt-6 flex flex-wrap items-center justify-between gap-3 border-t border-slate-200 bg-white px-6 py-3"></div>
+    </main>
+  </div>
+</div>
+
+<div id="toasts" role="status" aria-live="polite" class="pointer-events-none fixed bottom-20 right-6 z-50 flex flex-col gap-2"></div>
+
+<script>
+/* ---------- Data ---------- */
+const ACTIONS = [
+  { id: 'v', label: 'Xem' }, { id: 'c', label: 'Tạo' }, { id: 'e', label: 'Sửa' },
+  { id: 'd', label: 'Xóa' }, { id: 'a', label: 'Duyệt' },
+];
+const ACT = Object.fromEntries(ACTIONS.map(a => [a.id, a.label]));
+const GROUPS = [
+  { id: 'sales', label: 'Bán hàng', modules: [
+    { id: 'orders', label: 'Đơn hàng', acts: 'vceda' },
+    { id: 'customers', label: 'Khách hàng', acts: 'vced' },
+    { id: 'quotes', label: 'Báo giá', acts: 'vceda' } ] },
+  { id: 'finance', label: 'Tài chính', modules: [
+    { id: 'invoices', label: 'Hóa đơn', acts: 'vceda', sensitive: true },
+    { id: 'payments', label: 'Thanh toán', acts: 'vca', sensitive: true },
+    { id: 'ledger', label: 'Sổ cái', acts: 'vce', sensitive: true } ] },
+  { id: 'hr', label: 'Nhân sự', modules: [
+    { id: 'employees', label: 'Nhân viên', acts: 'vced', sensitive: true },
+    { id: 'payroll', label: 'Bảng lương', acts: 'vea', sensitive: true },
+    { id: 'leave', label: 'Nghỉ phép', acts: 'vca' } ] },
+  { id: 'system', label: 'Hệ thống', modules: [
+    { id: 'users', label: 'Người dùng', acts: 'vced' },
+    { id: 'roles', label: 'Vai trò', acts: 'vced' },
+    { id: 'audit', label: 'Nhật ký hoạt động', acts: 'v' } ] },
+];
+const MODULES = GROUPS.flatMap(g => g.modules.map(m => ({ ...m, group: g.id })));
+const MOD = Object.fromEntries(MODULES.map(m => [m.id, m]));
+const ALL_SPEC = Object.fromEntries(MODULES.map(m => [m.id, m.acts]));
+
+const USERS = { an: 'Nguyễn An', hoa: 'Lê Hoa', quan: 'Trần Minh Quân', thu: 'Phạm Thu Hà' };
+
+function perms(spec) {
+  const s = new Set();
+  for (const [m, letters] of Object.entries(spec)) for (const l of letters) s.add(m + '.' + l);
+  return s;
+}
+const mkRole = (o) => ({ failLoad: false, history: [], ...o, perms: perms(o.spec) });
+
+let roles = [
+  mkRole({ id: 'r-owner', name: 'Chủ sở hữu', desc: 'Toàn quyền trên mọi phân hệ, kể cả thanh toán và gói dịch vụ.', system: true, users: 1, by: 'an', at: '2026-01-12T02:10:00Z', spec: ALL_SPEC,
+    history: [{ at: '2026-01-12T02:10:00Z', by: 'System', what: 'Tạo vai trò hệ thống', changes: [] }] }),
+  mkRole({ id: 'r-admin', name: 'Quản trị hệ thống', desc: 'Quản lý người dùng, vai trò và cấu hình. Không duyệt chứng từ tài chính.', system: true, users: 3, by: 'an', at: '2026-01-12T02:10:00Z',
+    spec: { orders: 'vced', customers: 'vced', quotes: 'vced', invoices: 'v', payments: 'v', ledger: 'v', employees: 'vced', payroll: 'v', leave: 'vc', users: 'vced', roles: 'vced', audit: 'v' },
+    history: [{ at: '2026-01-12T02:10:00Z', by: 'System', what: 'Tạo vai trò hệ thống', changes: [] }] }),
+  mkRole({ id: 'r-gdkd', name: 'Giám đốc kinh doanh', desc: 'Theo dõi và duyệt đơn hàng, báo giá; xem công nợ khách hàng.', users: 4, by: 'quan', at: '2026-10-21T08:30:00Z',
+    spec: { orders: 'vceda', customers: 'vced', quotes: 'vceda', invoices: 'v', payments: 'v', leave: 'va', audit: 'v' },
+    history: [{ at: '2026-10-21T08:30:00Z', by: 'quan', what: 'Cập nhật 2 quyền', changes: [['Báo giá – Duyệt', 0, 1], ['Nghỉ phép – Duyệt', 0, 1]] }, { at: '2026-03-02T03:00:00Z', by: 'an', what: 'Tạo vai trò', changes: [] }] }),
+  mkRole({ id: 'r-banhang', name: 'Nhân viên bán hàng', desc: 'Tạo và cập nhật đơn hàng, báo giá, hồ sơ khách hàng của mình.', users: 12, by: 'hoa', at: '2026-11-04T08:58:00Z',
+    spec: { orders: 'vce', customers: 'vce', quotes: 'vce', invoices: 'v', leave: 'vc' },
+    history: [{ at: '2026-11-04T08:58:00Z', by: 'hoa', what: 'Cập nhật 2 quyền', changes: [['Khách hàng – Sửa', 0, 1], ['Đơn hàng – Xóa', 1, 0]] }, { at: '2026-03-02T03:00:00Z', by: 'an', what: 'Tạo vai trò', changes: [] }] }),
+  mkRole({ id: 'r-ktt', name: 'Kế toán trưởng', desc: 'Duyệt hóa đơn, thanh toán và bảng lương; khóa sổ kỳ kế toán.', users: 3, by: 'hoa', at: '2026-11-03T09:15:00Z',
+    spec: { orders: 'v', customers: 'v', invoices: 'vceda', payments: 'vca', ledger: 'vce', payroll: 'va', leave: 'va', audit: 'v' },
+    history: [{ at: '2026-11-03T09:15:00Z', by: 'hoa', what: 'Cập nhật 3 quyền', changes: [['Thanh toán – Duyệt', 0, 1], ['Bảng lương – Duyệt', 0, 1], ['Sổ cái – Sửa', 0, 1]] }, { at: '2026-05-18T04:20:00Z', by: 'an', what: 'Cập nhật 1 quyền', changes: [['Hóa đơn – Xóa', 0, 1]] }, { at: '2026-03-02T03:00:00Z', by: 'an', what: 'Tạo vai trò', changes: [] }] }),
+  mkRole({ id: 'r-ktv', name: 'Kế toán viên', desc: 'Nhập hóa đơn, đối chiếu thanh toán; không có quyền duyệt.', users: 6, by: 'quan', at: '2026-09-09T07:00:00Z',
+    spec: { orders: 'v', customers: 'v', invoices: 'vce', payments: 'vc', ledger: 'v' },
+    history: [{ at: '2026-09-09T07:00:00Z', by: 'quan', what: 'Cập nhật 1 quyền', changes: [['Thanh toán – Tạo', 0, 1]] }, { at: '2026-03-02T03:00:00Z', by: 'an', what: 'Tạo vai trò', changes: [] }] }),
+  mkRole({ id: 'r-kho', name: 'Nhân viên kho', desc: 'Xử lý xuất nhập kho theo đơn hàng; chỉ xem khách hàng.', users: 9, by: 'thu', at: '2026-08-14T02:45:00Z',
+    spec: { orders: 've', customers: 'v', quotes: 'v' },
+    history: [{ at: '2026-08-14T02:45:00Z', by: 'thu', what: 'Cập nhật 1 quyền', changes: [['Đơn hàng – Sửa', 0, 1]] }, { at: '2026-03-02T03:00:00Z', by: 'an', what: 'Tạo vai trò', changes: [] }] }),
+  mkRole({ id: 'r-ns', name: 'Chuyên viên nhân sự', desc: 'Quản lý hồ sơ nhân viên và nghỉ phép; không xem bảng lương.', users: 4, by: 'an', at: '2026-07-01T01:30:00Z',
+    spec: { employees: 'vced', leave: 'vcа'.replace('а', 'a'), audit: 'v' },
+    history: [{ at: '2026-07-01T01:30:00Z', by: 'an', what: 'Cập nhật 1 quyền', changes: [['Nghỉ phép – Duyệt', 0, 1]] }, { at: '2026-03-02T03:00:00Z', by: 'an', what: 'Tạo vai trò', changes: [] }] }),
+  mkRole({ id: 'r-kiemtoan', name: 'Kiểm toán nội bộ', desc: 'Chỉ xem toàn bộ chứng từ và nhật ký để đối soát.', users: 2, by: 'quan', at: '2026-10-02T03:10:00Z', failLoad: true,
+    spec: { orders: 'v', customers: 'v', quotes: 'v', invoices: 'v', payments: 'v', ledger: 'v', employees: 'v', payroll: 'v', audit: 'v' },
+    history: [{ at: '2026-10-02T03:10:00Z', by: 'quan', what: 'Tạo vai trò', changes: [] }] }),
+];
+
+/* ---------- State ---------- */
+const S = {
+  listState: 'loading',            // loading | ready | error
+  matrixState: 'loading',          // loading | error | ready
+  selectedId: null,
+  draft: new Set(),
+  search: '', type: '',
+  saving: false, saveError: false,
+  notice: '', token: 0, failedKhoOnce: false,
+};
+const $ = (s, r = document) => r.querySelector(s);
+const cur = () => roles.find(r => r.id === S.selectedId);
+const esc = (s) => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const nf = new Intl.NumberFormat('vi-VN');
+const userName = (k) => USERS[k] || k;
+
+function formatStamp(iso) {
+  const d = new Date(iso), tz = 'Asia/Ho_Chi_Minh';
+  const date = new Intl.DateTimeFormat('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric', timeZone: tz }).format(d);
+  const time = new Intl.DateTimeFormat('en-GB', { hour: '2-digit', minute: '2-digit', hourCycle: 'h23', timeZone: tz }).format(d);
+  return date + ' ' + time;
+}
+const formatDate = (iso) => formatStamp(iso).slice(0, 10);
+
+const ICONS = {
+  search: '<circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/>',
+  plus: '<path d="M5 12h14"/><path d="M12 5v14"/>',
+  x: '<path d="M18 6 6 18"/><path d="m6 6 12 12"/>',
+  more: '<circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/>',
+  lock: '<rect width="18" height="11" x="3" y="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>',
+  alert: '<path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"/><path d="M12 9v4"/><path d="M12 17h.01"/>',
+  copy: '<rect width="14" height="14" x="8" y="8" rx="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/>',
+  home: '<path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><path d="M9 22V12h6v10"/>',
+  cart: '<circle cx="8" cy="21" r="1"/><circle cx="19" cy="21" r="1"/><path d="M2.05 2.05h2l2.66 12.42a2 2 0 0 0 2 1.58h9.78a2 2 0 0 0 1.95-1.57l1.65-7.43H5.12"/>',
+  users: '<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>',
+  file: '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/>',
+  shield: '<path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/>',
+  history: '<path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M12 7v5l4 2"/>',
+};
+const icon = (n, cls = '') => `<svg class="h-4 w-4 shrink-0 ${cls}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICONS[n]}</svg>`;
+function hydrateIcons(root = document) { root.querySelectorAll('[data-icon]').forEach(el => { el.innerHTML = icon(el.dataset.icon); el.removeAttribute('data-icon'); }); }
+
+/* ---------- Sidebar ---------- */
+const NAV = [
+  { label: 'Vận hành', items: [['Tổng quan', 'home'], ['Đơn hàng', 'cart'], ['Khách hàng', 'users'], ['Hóa đơn', 'file']] },
+  { label: 'Quản trị', items: [['Người dùng', 'users'], ['Vai trò và phân quyền', 'shield'], ['Nhật ký hoạt động', 'history']] },
+];
+$('#sideNav').innerHTML = NAV.map(g => `<div class="flex flex-col gap-0.5"><p class="px-2 py-1 text-xs font-medium text-slate-600">${g.label}</p>${
+  g.items.map(([l, i]) => { const on = l === 'Vai trò và phân quyền';
+    return `<a href="#" data-nav ${on ? 'aria-current="page"' : ''} class="flex h-8 items-center gap-2 rounded px-2 hover:bg-slate-100 ${on ? 'bg-slate-200 font-medium text-slate-900' : 'text-slate-700'}">${icon(i)}<span class="truncate">${l}</span></a>`; }).join('')}</div>`).join('');
+
+/* ---------- Permission logic ---------- */
+const key = (m, a) => m + '.' + a;
+const cellsOfMod = (m) => [...MOD[m].acts].map(a => [m, a]);
+const cellsOfAct = (a) => MODULES.filter(m => m.acts.includes(a)).map(m => [m.id, a]);
+const cellsOfGroup = (g) => GROUPS.find(x => x.id === g).modules.flatMap(m => cellsOfMod(m.id));
+function stateOf(cells, set = S.draft) {
+  const n = cells.filter(([m, a]) => set.has(key(m, a))).length;
+  return n === 0 ? 'none' : n === cells.length ? 'all' : 'some';
+}
+function setCell(m, a, on) {
+  if (on) {
+    S.draft.add(key(m, a));
+    if (a !== 'v' && !S.draft.has(key(m, 'v'))) { S.draft.add(key(m, 'v')); S.notice = `Thao tác “${ACT[a]}” cần quyền Xem nên đã bật Xem cho ${MOD[m].label}.`; }
+  } else {
+    S.draft.delete(key(m, a));
+    if (a === 'v') {
+      const others = cellsOfMod(m).filter(([, x]) => x !== 'v' && S.draft.has(key(m, x)));
+      others.forEach(([, x]) => S.draft.delete(key(m, x)));
+      if (others.length) S.notice = `Tắt Xem nên đã tắt các thao tác khác của ${MOD[m].label}.`;
+    }
+  }
+}
+function setMany(cells, on) {
+  S.notice = '';
+  if (on) cells.forEach(([m, a]) => { S.draft.add(key(m, a)); if (a !== 'v') S.draft.add(key(m, 'v')); });
+  else cells.forEach(([m, a]) => setCell(m, a, false));
+}
+function diff() {
+  const base = cur().perms, out = [];
+  for (const m of MODULES) for (const a of m.acts) {
+    const was = base.has(key(m.id, a)), now = S.draft.has(key(m.id, a));
+    if (was !== now) out.push({ mod: m.id, act: a, from: was, to: now, label: `${m.label} – ${ACT[a]}` });
+  }
+  return out;
+}
+
+/* ---------- Rendering: list ---------- */
+const typeBadge = (system) => `<span class="inline-flex h-6 items-center gap-1 rounded-full bg-slate-100 px-2 text-xs font-medium text-slate-700"><span class="h-2 w-2 rounded-full bg-slate-500" aria-hidden="true"></span>${system ? 'Hệ thống' : 'Tùy chỉnh'}</span>`;
+function visibleRoles() {
+  const q = S.search.trim().toLowerCase();
+  return roles.filter(r => (!q || r.name.toLowerCase().includes(q)) && (!S.type || (S.type === 'system') === r.system));
+}
+function renderChips() {
+  const chips = [];
+  if (S.search.trim()) chips.push(['search', `Từ khóa: ${S.search.trim()}`]);
+  if (S.type) chips.push(['type', `Loại: ${S.type === 'system' ? 'Hệ thống' : 'Tùy chỉnh'}`]);
+  $('#chips').innerHTML = chips.length ? chips.map(([k, t]) => `<span class="inline-flex h-6 items-center gap-1 rounded-full border border-slate-300 bg-white pl-2 pr-1 text-xs font-medium text-slate-800">${esc(t)}<button type="button" data-action="clear-chip" data-chip="${k}" aria-label="Bỏ bộ lọc ${esc(t)}" class="flex h-5 w-5 items-center justify-center rounded-full hover:bg-slate-100">${icon('x')}</button></span>`).join('') +
+    `<button type="button" data-action="clear-filters" class="inline-flex h-6 items-center px-1 text-sm text-blue-700 hover:underline">Xóa tất cả</button>` : '';
+}
+function renderList() {
+  const el = $('#listBody');
+  const total = roles.reduce((s, r) => s + r.users, 0);
+  $('#summaryLine').textContent = S.listState === 'ready' ? `${roles.length} vai trò · ${nf.format(total)} người dùng` : ' ';
+  renderChips();
+  if (S.listState === 'loading') {
+    el.innerHTML = `<div aria-busy="true" aria-label="Đang tải danh sách vai trò">${Array.from({ length: 7 }, () => `<div class="flex h-10 items-center gap-4 border-b border-slate-100 px-3 last:border-0"><div class="h-3 w-40 animate-pulse rounded bg-slate-200"></div><div class="ml-auto h-3 w-16 animate-pulse rounded bg-slate-200"></div></div>`).join('')}</div>`;
+    return;
+  }
+  if (S.listState === 'error') {
+    el.innerHTML = `<div class="p-6 text-center"><p class="font-medium">Không tải được danh sách vai trò</p><p class="mt-1 text-slate-600">Máy chủ không phản hồi. Vui lòng thử lại.</p><button type="button" data-action="retry-list" class="mt-3 h-8 rounded border border-slate-300 px-3 font-medium hover:bg-slate-50">Thử lại</button></div>`;
+    return;
+  }
+  if (!roles.length) {
+    el.innerHTML = `<div class="p-8 text-center"><p class="font-medium">Chưa có vai trò nào</p><p class="mt-1 text-slate-600">Vai trò gom các quyền để gán cho nhiều người dùng cùng lúc.</p><button type="button" data-action="create-role" class="mt-3 h-8 rounded bg-blue-700 px-3 font-medium text-white hover:bg-blue-800">Tạo vai trò</button></div>`;
+    return;
+  }
+  const list = visibleRoles();
+  if (!list.length) {
+    el.innerHTML = `<div class="p-8 text-center"><p class="font-medium">Không có vai trò nào khớp bộ lọc</p><p class="mt-1 text-slate-600">Thử từ khóa khác hoặc bỏ bộ lọc loại vai trò.</p><button type="button" data-action="clear-filters" class="mt-3 h-8 rounded border border-slate-300 px-3 font-medium hover:bg-slate-50">Xóa bộ lọc</button></div>`;
+    return;
+  }
+  el.innerHTML = `<table class="w-full border-collapse text-left">
+    <caption class="sr-only">Danh sách vai trò. Chọn một vai trò để xem và sửa ma trận quyền.</caption>
+    <thead><tr class="h-10 border-b border-slate-200 bg-slate-50 text-xs font-medium text-slate-700">
+      <th scope="col" class="px-3 font-medium">Vai trò</th><th scope="col" class="px-2 font-medium">Loại</th>
+      <th scope="col" class="px-2 text-right font-medium">Người dùng</th><th scope="col" class="px-2 font-medium">Thay đổi gần nhất</th><th scope="col" class="w-10 px-1"><span class="sr-only">Thao tác</span></th></tr></thead>
+    <tbody>${list.map(r => { const sel = r.id === S.selectedId;
+      return `<tr data-role="${r.id}" class="h-10 cursor-pointer border-b border-slate-100 last:border-0 hover:bg-slate-50 ${sel ? 'bg-blue-50' : ''}">
+        <th scope="row" class="px-3 text-left font-normal"><button type="button" data-key="role-${r.id}" data-action="select-role" data-id="${r.id}" ${sel ? 'aria-current="true"' : ''} class="max-w-[190px] truncate text-left ${sel ? 'font-semibold text-blue-800' : 'font-medium text-slate-900'}" title="${esc(r.name)}">${esc(r.name)}</button></th>
+        <td class="px-2">${typeBadge(r.system)}</td>
+        <td class="px-2 text-right tabular-nums"><a href="#users?role=${r.id}" class="text-blue-700 hover:underline" aria-label="${r.users} người dùng có vai trò ${esc(r.name)}">${nf.format(r.users)}</a></td>
+        <td class="whitespace-nowrap px-2 tabular-nums text-slate-700">${formatDate(r.at)}</td>
+        <td class="px-1"><button type="button" data-key="menu-${r.id}" data-action="row-menu" data-id="${r.id}" aria-haspopup="menu" aria-label="Thao tác cho vai trò ${esc(r.name)}" class="flex h-6 w-8 items-center justify-center rounded hover:bg-slate-100">${icon('more')}</button></td></tr>`; }).join('')}</tbody></table>`;
+}
+
+/* ---------- Rendering: detail ---------- */
+function cb(attrs, label, checked, mixed, disabled) {
+  return `<label class="inline-flex h-6 w-6 items-center justify-center ${disabled ? 'cursor-not-allowed' : 'cursor-pointer'}"><input type="checkbox" ${attrs} aria-label="${esc(label)}" ${checked ? 'checked' : ''} ${mixed ? 'data-mixed="1" aria-checked="mixed"' : ''} ${disabled ? 'disabled' : ''} class="h-4 w-4"></label>`;
+}
+function renderDetail() {
+  const el = $('#detail');
+  if (S.listState !== 'ready' || !roles.length || !cur()) {
+    el.innerHTML = S.listState === 'loading' ? skeletonMatrix() : S.listState === 'ready' && roles.length ? `<div class="rounded-md border border-slate-200 p-8 text-center text-slate-600">Chọn một vai trò ở danh sách để xem ma trận quyền.</div>` : `<div class="rounded-md border border-dashed border-slate-300 p-8 text-center text-slate-600">Ma trận quyền sẽ hiện ở đây khi có vai trò.</div>`;
+    return;
+  }
+  const r = cur();
+  const head = `<div class="mb-3">
+    <div class="flex flex-wrap items-center gap-2"><h2 id="roleName" class="text-lg font-semibold">${esc(r.name)}</h2>${typeBadge(r.system)}</div>
+    <p class="mt-1 text-slate-700">${esc(r.desc)}</p>
+    <p class="mt-1 text-sm text-slate-600"><a href="#users?role=${r.id}" class="font-medium text-blue-700 hover:underline tabular-nums">${nf.format(r.users)} người dùng</a> · Thay đổi lần cuối bởi <a href="#user-${r.by}" class="font-medium text-slate-900 hover:underline">${esc(userName(r.by))}</a> lúc <time datetime="${r.at}" class="tabular-nums">${formatStamp(r.at)}</time> · <button type="button" data-action="history" class="text-blue-700 hover:underline">Xem lịch sử</button></p></div>`;
+  if (S.matrixState === 'loading') { el.innerHTML = head.replace(/<p class="mt-1 text-slate-700">.*?<\/p>/, '') + skeletonMatrix(true); return; }
+  if (S.matrixState === 'error') {
+    el.innerHTML = head + `<div class="rounded-md border border-red-200 bg-red-50 p-6 text-center" role="alert"><p class="font-medium text-red-800">Không tải được quyền của vai trò ${esc(r.name)}</p><p class="mt-1 text-slate-700">Danh sách vai trò ở bên trái vẫn dùng được. Thử tải lại ma trận.</p><button type="button" data-action="retry-matrix" class="mt-3 h-8 rounded border border-slate-300 bg-white px-3 font-medium hover:bg-slate-50">Thử lại</button></div>`;
+    return;
+  }
+  const locked = r.system;
+  const lockNote = locked ? `<div class="mb-3 flex items-start gap-2 rounded-md border border-slate-300 bg-slate-50 p-3 text-slate-800">${icon('lock', 'mt-0.5')}<div class="flex-1"><p>${esc(r.name)} là vai trò hệ thống. Quyền của vai trò này được cố định để tài khoản luôn có người quản trị.</p><button type="button" data-action="duplicate" data-id="${r.id}" class="mt-2 inline-flex h-8 items-center gap-1 rounded border border-slate-300 bg-white px-3 font-medium hover:bg-slate-100">${icon('copy')}Nhân bản vai trò</button></div></div>` : '';
+  const err = S.saveError ? `<div role="alert" class="mb-3 flex items-start gap-2 rounded-md border border-red-200 bg-red-50 p-3 text-red-800">${icon('alert', 'mt-0.5')}<div class="flex-1"><p class="font-medium">Chưa lưu được quyền của vai trò ${esc(r.name)}</p><p>Máy chủ không phản hồi. Các thay đổi của bạn vẫn được giữ trong ma trận.</p></div><button type="button" data-action="save" class="h-8 rounded border border-red-300 bg-white px-3 font-medium text-red-800 hover:bg-red-100">Thử lại</button></div>` : '';
+
+  const colHead = ACTIONS.map(a => {
+    const cells = cellsOfAct(a.id), st = stateOf(cells);
+    return `<th scope="col" class="px-1 py-1 font-medium"><div class="flex items-center justify-center gap-1">${cb(`data-kind="col" data-act="${a.id}" data-key="col-${a.id}"`, `${a.label} – tất cả phân hệ`, st === 'all', st === 'some', locked)}<span>${a.label}</span></div></th>`;
+  }).join('');
+  let body = '';
+  for (const g of GROUPS) {
+    const gs = stateOf(cellsOfGroup(g.id));
+    body += `<tr class="h-10 bg-slate-50"><th scope="rowgroup" colspan="${ACTIONS.length + 1}" class="border-y border-slate-200 px-3 text-left"><div class="flex items-center gap-2">${cb(`data-kind="grp" data-grp="${g.id}" data-key="grp-${g.id}"`, `${g.label} – tất cả thao tác`, gs === 'all', gs === 'some', locked)}<span class="font-semibold">${g.label}</span></div></th></tr>`;
+    for (const m of g.modules) {
+      const rs = stateOf(cellsOfMod(m.id));
+      body += `<tr class="h-10 border-b border-slate-100 hover:bg-slate-50"><th scope="row" class="bg-inherit px-3 text-left font-normal"><div class="flex items-center gap-2 pl-2">${cb(`data-kind="row" data-mod="${m.id}" data-key="row-${m.id}"`, `${m.label} – tất cả thao tác`, rs === 'all', rs === 'some', locked)}<span>${m.label}</span></div></th>` +
+        ACTIONS.map(a => m.acts.includes(a.id)
+          ? `<td class="px-1 text-center">${cb(`data-kind="cell" data-mod="${m.id}" data-act="${a.id}" data-key="c-${m.id}-${a.id}"`, `${m.label} – ${a.label}`, S.draft.has(key(m.id, a.id)), false, locked)}</td>`
+          : `<td class="px-1 text-center text-slate-500"><span aria-hidden="true">–</span><span class="sr-only">${m.label} – ${a.label}: không áp dụng</span></td>`).join('') + '</tr>';
+    }
+  }
+  el.innerHTML = head + lockNote + err + `<div class="rounded-md border border-slate-200 bg-white">
+    <table class="w-full border-collapse text-sm" aria-label="Ma trận phân quyền của vai trò ${esc(r.name)}: phân hệ theo thao tác">
+      <thead><tr class="border-b border-slate-200 bg-white text-xs text-slate-800"><th scope="col" class="px-3 py-2 text-left font-medium">Phân hệ</th>${colHead}</tr></thead>
+      <tbody>${body}</tbody></table></div>
+    <p id="live" role="status" class="mt-2 min-h-5 text-sm text-slate-700">${esc(S.notice)}</p>`;
+  el.querySelectorAll('input[data-mixed]').forEach(i => { i.indeterminate = true; });
+}
+function skeletonMatrix(noHead) {
+  return (noHead ? '' : `<div class="mb-3"><div class="h-5 w-48 animate-pulse rounded bg-slate-200"></div><div class="mt-2 h-3 w-80 animate-pulse rounded bg-slate-200"></div></div>`) +
+    `<div class="rounded-md border border-slate-200" aria-busy="true" aria-label="Đang tải ma trận quyền">${Array.from({ length: 10 }, () => `<div class="flex h-10 items-center gap-6 border-b border-slate-100 px-3 last:border-0"><div class="h-3 w-32 animate-pulse rounded bg-slate-200"></div><div class="ml-auto flex gap-6">${'<div class="h-4 w-4 animate-pulse rounded bg-slate-200"></div>'.repeat(5)}</div></div>`).join('')}</div>`;
+}
+
+/* ---------- Rendering: bar ---------- */
+function isDirty() { return S.matrixState === 'ready' && cur() && !cur().system && diff().length > 0; }
+function renderBar() {
+  const r = cur();
+  const bar = $('#bar');
+  if (!r || S.listState !== 'ready' || S.matrixState !== 'ready') {
+    bar.innerHTML = `<p class="text-slate-700">${S.matrixState === 'loading' ? 'Đang tải quyền…' : 'Chọn vai trò để chỉnh sửa quyền.'}</p><div class="flex gap-2"><button type="button" disabled class="h-8 rounded border border-slate-300 px-3 text-slate-500">Hủy</button><button type="button" disabled class="h-8 rounded bg-slate-200 px-3 text-slate-600">Lưu thay đổi</button></div>`;
+    return;
+  }
+  const n = diff().length;
+  const left = r.system
+    ? `<p id="barReason" class="flex items-center gap-2 text-slate-700">${icon('lock')}Vai trò hệ thống, không thể chỉnh sửa.</p>`
+    : n ? `<p id="barReason" class="flex items-center gap-2 font-medium text-slate-900"><span class="h-2 w-2 rounded-full bg-amber-600" aria-hidden="true"></span>Chưa lưu thay đổi <span class="font-normal text-slate-700 tabular-nums">· ${n} thay đổi</span></p>`
+    : `<p id="barReason" class="text-slate-700">Không có thay đổi chưa lưu.</p>`;
+  bar.innerHTML = `${left}<div class="flex gap-2">
+    <button type="button" data-action="cancel" ${r.system || S.saving ? 'disabled' : ''} class="h-8 rounded border border-slate-300 bg-white px-3 font-medium hover:bg-slate-50 disabled:cursor-not-allowed disabled:text-slate-500 disabled:hover:bg-white">Hủy</button>
+    <button type="button" data-action="save" ${r.system || S.saving ? 'disabled' : ''} aria-describedby="barReason" class="inline-flex h-8 items-center gap-2 rounded bg-blue-700 px-3 font-medium text-white hover:bg-blue-800 disabled:cursor-not-allowed disabled:bg-slate-200 disabled:text-slate-600 disabled:hover:bg-slate-200">${S.saving ? '<svg class="h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="12" cy="12" r="9" stroke="currentColor" stroke-opacity=".3" stroke-width="3"/><path d="M21 12a9 9 0 0 0-9-9" stroke="currentColor" stroke-width="3" stroke-linecap="round"/></svg>Đang lưu…' : 'Lưu thay đổi'}</button></div>`;
+}
+
+function render() {
+  const f = document.activeElement && document.activeElement.dataset ? document.activeElement.dataset.key : null;
+  renderList(); renderDetail(); renderBar(); hydrateIcons();
+  if (f) { const t = document.querySelector(`[data-key="${f}"]`); if (t && t !== document.activeElement) t.focus(); }
+}
+
+/* ---------- Behaviour ---------- */
+function loadMatrix(id) {
+  const my = ++S.token;
+  S.selectedId = id; S.matrixState = 'loading'; S.saveError = false; S.notice = '';
+  render();
+  setTimeout(() => {
+    if (my !== S.token) return;
+    const r = cur();
+    if (r.failLoad) { r.failLoad = false; S.matrixState = 'error'; }
+    else { S.matrixState = 'ready'; S.draft = new Set(r.perms); }
+    render();
+  }, 450);
+}
+function loadList() {
+  S.listState = 'loading'; render();
+  setTimeout(() => { S.listState = 'ready'; if (!S.selectedId || !cur()) { if (roles.length) { loadMatrix(roles.find(r => r.id === 'r-ktt').id); return; } } render(); }, 500);
+}
+function guard(fn) {
+  if (!isDirty()) return fn();
+  const d = dlg(`<div class="p-5"><h2 class="text-base font-semibold">Rời đi mà chưa lưu thay đổi?</h2>
+    <p class="mt-2 text-slate-700">Bạn có ${diff().length} thay đổi chưa lưu ở vai trò ${esc(cur().name)}. Nếu rời đi, các thay đổi này sẽ mất.</p>
+    <div class="mt-5 flex justify-end gap-2"><button type="button" data-close class="h-8 rounded border border-slate-300 px-3 font-medium hover:bg-slate-50" autofocus>Ở lại và tiếp tục sửa</button>
+    <button type="button" data-discard class="h-8 rounded bg-red-700 px-3 font-medium text-white hover:bg-red-800">Bỏ thay đổi</button></div></div>`);
+  $('[data-discard]', d).onclick = () => { S.draft = new Set(cur().perms); d.close(); fn(); };
+}
+window.addEventListener('beforeunload', (e) => { if (isDirty()) { e.preventDefault(); e.returnValue = ''; } });
+
+function toast(msg, tone) {
+  const t = document.createElement('div');
+  t.className = 'pointer-events-auto rounded-md border bg-white px-4 py-2 shadow-lg ' + (tone === 'error' ? 'border-red-300 text-red-800' : 'border-slate-300 text-slate-900');
+  t.textContent = msg; $('#toasts').appendChild(t);
+  setTimeout(() => t.remove(), 4000);
+}
+function dlg(html, wide) {
+  const d = document.createElement('dialog');
+  d.className = `rounded-lg border border-slate-200 p-0 text-slate-900 shadow-xl ${wide ? 'w-[640px]' : 'w-[460px]'} max-w-[92vw]`;
+  d.innerHTML = html; document.body.appendChild(d);
+  d.addEventListener('close', () => d.remove());
+  d.addEventListener('click', (e) => { if (e.target.closest('[data-close]')) d.close(); });
+  d.showModal(); return d;
+}
+
+function save(confirmed) {
+  const r = cur(); if (!r || r.system || S.saving) return;
+  const changes = diff();
+  if (!changes.length) { toast('Không có thay đổi nào để lưu.'); return; }
+  const widen = changes.filter(c => c.to && MOD[c.mod].sensitive);
+  if (widen.length && !confirmed) {
+    const d = dlg(`<div class="p-5"><h2 class="text-base font-semibold">Mở rộng quyền với dữ liệu tài chính hoặc nhân sự?</h2>
+      <p class="mt-2 text-slate-700">Vai trò ${esc(r.name)} có ${r.users} người dùng sẽ được cấp thêm các quyền sau ngay khi lưu:</p>
+      <ul class="mt-3 divide-y divide-slate-100 rounded-md border border-slate-200">${widen.map(c => `<li class="flex h-10 items-center justify-between px-3"><span>${esc(c.label)}</span><span class="text-slate-700">tắt → bật</span></li>`).join('')}</ul>
+      <div class="mt-5 flex justify-end gap-2"><button type="button" data-close class="h-8 rounded border border-slate-300 px-3 font-medium hover:bg-slate-50" autofocus>Quay lại</button>
+      <button type="button" data-ok class="h-8 rounded bg-blue-700 px-3 font-medium text-white hover:bg-blue-800">Xác nhận và lưu</button></div></div>`);
+    $('[data-ok]', d).onclick = () => { d.close(); save(true); };
+    return;
+  }
+  S.saving = true; S.saveError = false; render();
+  setTimeout(() => {
+    S.saving = false;
+    if (r.id === 'r-kho' && !S.failedKhoOnce) { S.failedKhoOnce = true; S.saveError = true; render(); return; }
+    r.history.unshift({ at: new Date().toISOString(), by: 'an', what: `Cập nhật ${changes.length} quyền`, changes: changes.map(c => [c.label, c.from ? 1 : 0, c.to ? 1 : 0]) });
+    r.perms = new Set(S.draft); r.by = 'an'; r.at = new Date().toISOString();
+    S.notice = ''; render(); toast(`Đã lưu quyền của vai trò ${r.name}`);
+  }, 700);
+}
+
+function createRoleDialog(copyFromId) {
+  const d = dlg(`<form novalidate class="p-5"><h2 class="text-base font-semibold">Tạo vai trò</h2>
+    <div class="mt-4"><label for="nrName" class="mb-1 block text-xs font-medium text-slate-800">Tên vai trò <span aria-hidden="true">*</span></label>
+      <input id="nrName" required class="h-8 w-full rounded border border-slate-300 px-2" aria-describedby="nrNameErr" autocomplete="off"><p id="nrNameErr" class="mt-1 min-h-4 text-xs text-red-700"></p></div>
+    <div class="mt-2"><label for="nrDesc" class="mb-1 block text-xs font-medium text-slate-800">Mô tả</label>
+      <input id="nrDesc" class="h-8 w-full rounded border border-slate-300 px-2"></div>
+    <div class="mt-4"><label for="nrCopy" class="mb-1 block text-xs font-medium text-slate-800">Sao chép quyền từ</label>
+      <select id="nrCopy" class="h-8 w-full rounded border border-slate-300 bg-white px-2"><option value="">Không sao chép (bắt đầu trống)</option>${roles.map(r => `<option value="${r.id}" ${r.id === copyFromId ? 'selected' : ''}>${esc(r.name)}</option>`).join('')}</select></div>
+    <div class="mt-5 flex justify-end gap-2"><button type="button" data-close class="h-8 rounded border border-slate-300 px-3 font-medium hover:bg-slate-50">Hủy</button><button type="submit" class="h-8 rounded bg-blue-700 px-3 font-medium text-white hover:bg-blue-800">Tạo vai trò</button></div></form>`);
+  const name = $('#nrName', d), err = $('#nrNameErr', d);
+  const validate = () => { const v = name.value.trim(); let m = '';
+    if (!v) m = 'Nhập tên vai trò.'; else if (roles.some(r => r.name.toLowerCase() === v.toLowerCase())) m = `Đã có vai trò tên “${v}”. Chọn tên khác.`;
+    err.textContent = m; name.setAttribute('aria-invalid', m ? 'true' : 'false'); name.classList.toggle('border-red-600', !!m); return !m; };
+  name.addEventListener('blur', validate);
+  $('form', d).addEventListener('submit', (e) => { e.preventDefault(); if (!validate()) { name.focus(); return; }
+    const src = roles.find(r => r.id === $('#nrCopy', d).value);
+    const role = { id: 'r-' + Date.now(), name: name.value.trim(), desc: $('#nrDesc', d).value.trim() || 'Chưa có mô tả.', system: false, users: 0, by: 'an', at: new Date().toISOString(), failLoad: false, perms: new Set(src ? src.perms : []), history: [{ at: new Date().toISOString(), by: 'an', what: 'Tạo vai trò', changes: [] }] };
+    d.close(); roles.push(role); toast(`Đã tạo vai trò ${role.name}`); S.search = ''; S.type = ''; $('#roleSearch').value = ''; $('#typeFilter').value = ''; loadMatrix(role.id); });
+  name.focus();
+}
+
+function deleteDialog(id) {
+  const r = roles.find(x => x.id === id);
+  const others = roles.filter(x => x.id !== id);
+  const d = dlg(`<div class="p-5"><h2 class="text-base font-semibold">Xóa vai trò ${esc(r.name)}?</h2>
+    <p class="mt-2 text-slate-700">${r.users ? `<a href="#users?role=${r.id}" class="font-medium text-blue-700 hover:underline tabular-nums">${nf.format(r.users)} người dùng</a> sẽ mất các quyền của vai trò này.` : 'Chưa có người dùng nào được gán vai trò này.'} Thao tác này không hoàn tác được.</p>
+    ${r.users ? `<div class="mt-4"><label for="repl" class="mb-1 block text-xs font-medium text-slate-800">Chuyển người dùng sang vai trò <span aria-hidden="true">*</span></label>
+      <select id="repl" class="h-8 w-full rounded border border-slate-300 bg-white px-2" aria-describedby="replErr"><option value="">Chọn vai trò thay thế</option><option value="none">Không gán vai trò (họ sẽ không có quyền nào)</option>${others.map(o => `<option value="${o.id}">${esc(o.name)}</option>`).join('')}</select><p id="replErr" class="mt-1 min-h-4 text-xs text-red-700"></p></div>` : ''}
+    <div class="mt-5 flex justify-end gap-2"><button type="button" data-close class="h-8 rounded border border-slate-300 px-3 font-medium hover:bg-slate-50" autofocus>Giữ vai trò</button><button type="button" data-ok class="h-8 rounded bg-red-700 px-3 font-medium text-white hover:bg-red-800">Xóa vai trò</button></div></div>`);
+  $('[data-ok]', d).onclick = () => {
+    if (r.users) { const v = $('#repl', d).value; if (!v) { $('#replErr', d).textContent = 'Chọn vai trò thay thế hoặc xác nhận không gán vai trò.'; $('#repl', d).setAttribute('aria-invalid', 'true'); $('#repl', d).focus(); return; }
+      const t = roles.find(x => x.id === v); if (t) t.users += r.users; }
+    d.close(); roles = roles.filter(x => x.id !== id);
+    toast(`Đã xóa vai trò ${r.name}`);
+    if (S.selectedId === id) { S.selectedId = null; if (roles.length) loadMatrix(roles[0].id); else { S.matrixState = 'ready'; render(); } } else render();
+  };
+}
+
+function historyDialog() {
+  const r = cur();
+  dlg(`<div class="p-5"><h2 class="text-base font-semibold">Lịch sử thay đổi: ${esc(r.name)}</h2>
+    <div class="mt-3 max-h-80 overflow-y-auto rounded-md border border-slate-200"><table class="w-full border-collapse text-left text-sm"><thead class="sticky top-0 bg-slate-50 text-xs"><tr class="h-10 border-b border-slate-200"><th scope="col" class="px-3 font-medium">Thời điểm</th><th scope="col" class="px-3 font-medium">Người thực hiện</th><th scope="col" class="px-3 font-medium">Thay đổi</th></tr></thead>
+    <tbody>${r.history.map(h => `<tr class="border-b border-slate-100 align-top last:border-0"><td class="whitespace-nowrap px-3 py-2 tabular-nums">${formatStamp(h.at)}</td><td class="px-3 py-2">${esc(userName(h.by))}</td><td class="px-3 py-2"><p>${esc(h.what)}</p>${h.changes.map(c => `<p class="text-slate-700">${esc(c[0])}: ${c[1] ? 'bật' : 'tắt'} → ${c[2] ? 'bật' : 'tắt'}</p>`).join('')}</td></tr>`).join('')}</tbody></table></div>
+    <p class="mt-3 text-xs text-slate-600">Lịch sử được lưu 7 năm và không thể xóa.</p>
+    <div class="mt-4 flex justify-end"><button type="button" data-close class="h-8 rounded border border-slate-300 px-3 font-medium hover:bg-slate-50" autofocus>Đóng</button></div></div>`, true);
+}
+
+function rowMenu(btn) {
+  document.querySelectorAll('[data-menu]').forEach(m => m.remove());
+  const id = btn.dataset.id, r = roles.find(x => x.id === id), b = btn.getBoundingClientRect();
+  const m = document.createElement('div');
+  m.setAttribute('data-menu', ''); m.setAttribute('role', 'menu');
+  m.className = 'fixed z-40 w-44 rounded-md border border-slate-200 bg-white py-1 shadow-lg';
+  m.style.top = (b.bottom + 4) + 'px'; m.style.left = Math.max(8, b.right - 176) + 'px';
+  m.innerHTML = `<button role="menuitem" type="button" data-m="dup" class="flex h-8 w-full items-center gap-2 px-3 text-left hover:bg-slate-100">${icon('copy')}Nhân bản</button>` +
+    (r.system ? '' : `<button role="menuitem" type="button" data-m="del" class="flex h-8 w-full items-center gap-2 px-3 text-left text-red-700 hover:bg-red-50">${icon('x')}Xóa vai trò…</button>`);
+  document.body.appendChild(m);
+  m.querySelector('button').focus();
+  const close = () => { m.remove(); document.removeEventListener('click', away, true); document.removeEventListener('keydown', esc2, true); btn.focus(); };
+  const away = (e) => { if (!m.contains(e.target)) { m.remove(); document.removeEventListener('click', away, true); document.removeEventListener('keydown', esc2, true); } };
+  const esc2 = (e) => { if (e.key === 'Escape') close(); };
+  setTimeout(() => document.addEventListener('click', away, true));
+  document.addEventListener('keydown', esc2, true);
+  m.addEventListener('click', (e) => { const t = e.target.closest('[data-m]'); if (!t) return; m.remove(); document.removeEventListener('click', away, true); document.removeEventListener('keydown', esc2, true);
+    if (t.dataset.m === 'dup') guard(() => createRoleDialog(id)); else guard(() => deleteDialog(id)); });
+}
+
+/* ---------- Events ---------- */
+document.addEventListener('click', (e) => {
+  const nav = e.target.closest('[data-nav]'); if (nav) { e.preventDefault(); guard(() => {}); return; }
+  const rowEl = e.target.closest('tr[data-role]');
+  const a = e.target.closest('[data-action]');
+  if (!a && rowEl && !e.target.closest('a')) { const id = rowEl.dataset.role; if (id !== S.selectedId) guard(() => loadMatrix(id)); return; }
+  if (!a) return;
+  const id = a.dataset.id;
+  switch (a.dataset.action) {
+    case 'select-role': if (id !== S.selectedId) guard(() => loadMatrix(id)); break;
+    case 'create-role': createRoleDialog(); break;
+    case 'duplicate': createRoleDialog(id); break;
+    case 'row-menu': rowMenu(a); break;
+    case 'save': save(); break;
+    case 'cancel': S.draft = new Set(cur().perms); S.notice = ''; S.saveError = false; render(); break;
+    case 'history': historyDialog(); break;
+    case 'retry-matrix': loadMatrix(S.selectedId); break;
+    case 'retry-list': loadList(); break;
+    case 'clear-filters': S.search = ''; S.type = ''; $('#roleSearch').value = ''; $('#typeFilter').value = ''; render(); break;
+    case 'clear-chip': if (a.dataset.chip === 'search') { S.search = ''; $('#roleSearch').value = ''; } else { S.type = ''; $('#typeFilter').value = ''; } render(); break;
+  }
+});
+document.addEventListener('change', (e) => {
+  const i = e.target; if (!(i instanceof HTMLInputElement) || !i.dataset.kind) return;
+  const on = i.checked, k = i.dataset.kind;
+  if (k === 'cell') { S.notice = ''; setCell(i.dataset.mod, i.dataset.act, on); }
+  else if (k === 'row') setMany(cellsOfMod(i.dataset.mod), on);
+  else if (k === 'col') setMany(cellsOfAct(i.dataset.act), on);
+  else if (k === 'grp') setMany(cellsOfGroup(i.dataset.grp), on);
+  render();
+});
+$('#roleSearch').addEventListener('input', (e) => { S.search = e.target.value; renderList(); hydrateIcons(); renderChips(); hydrateIcons(); });
+$('#typeFilter').addEventListener('change', (e) => { S.type = e.target.value; render(); });
+
+hydrateIcons();
+render();
+loadList();
+</script>
+</body>
+</html>

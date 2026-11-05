@@ -1,0 +1,687 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tạo hóa đơn - Kế toán</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style type="text/tailwindcss">
+  @layer components {
+    .inp { @apply h-8 w-full rounded border border-slate-300 bg-white px-2 text-sm text-slate-900 placeholder:text-slate-500 focus:border-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-700/40 aria-[invalid=true]:border-red-700; }
+    .btn { @apply inline-flex h-8 items-center justify-center gap-2 rounded px-3 text-sm font-medium focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-700 focus-visible:ring-offset-2; }
+    .btn-primary { @apply bg-blue-700 text-white hover:bg-blue-800 disabled:cursor-not-allowed disabled:opacity-70; }
+    .btn-secondary { @apply border border-slate-300 bg-white text-slate-900 hover:bg-slate-50; }
+    .lbl { @apply mb-1 block text-sm font-medium text-slate-900; }
+    .errmsg { @apply mt-1 flex items-center gap-1 text-sm text-red-700; }
+    .navlink { @apply flex h-8 items-center gap-2 rounded px-2 text-sm text-slate-700 hover:bg-slate-100; }
+  }
+</style>
+</head>
+<body class="h-screen overflow-hidden bg-slate-50 text-sm text-slate-900 antialiased" style="font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif">
+<svg width="0" height="0" class="absolute" aria-hidden="true">
+  <defs>
+    <symbol id="i-home" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.5V21h14V9.5"/></symbol>
+    <symbol id="i-file" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H6a1 1 0 0 0-1 1v16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V8z"/><path d="M14 3v5h5M9 13h6M9 17h6"/></symbol>
+    <symbol id="i-users" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0M16 4.5a3.5 3.5 0 0 1 0 7M21.5 20a6.5 6.5 0 0 0-4-6"/></symbol>
+    <symbol id="i-box" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 8 12 3 3 8v8l9 5 9-5z"/><path d="m3 8 9 5 9-5M12 13v8"/></symbol>
+    <symbol id="i-wallet" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7a2 2 0 0 1 2-2h13v4"/><path d="M3 7v11a2 2 0 0 0 2 2h15V9H5a2 2 0 0 1-2-2z"/><circle cx="16.5" cy="14.5" r="1"/></symbol>
+    <symbol id="i-chart" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></symbol>
+    <symbol id="i-gear" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M4.2 4.2l2.1 2.1M17.7 17.7l2.1 2.1M2 12h3M19 12h3M4.2 19.8l2.1-2.1M17.7 6.3l2.1-2.1"/></symbol>
+    <symbol id="i-alert" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7.5v5.5M12 16.5v.01"/></symbol>
+    <symbol id="i-plus" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></symbol>
+    <symbol id="i-trash" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/></symbol>
+    <symbol id="i-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></symbol>
+    <symbol id="i-x" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 6l12 12M18 6 6 18"/></symbol>
+  </defs>
+</svg>
+
+<div class="flex h-full">
+  <!-- Sidebar -->
+  <aside class="hidden w-56 shrink-0 flex-col border-r border-slate-200 bg-white md:flex">
+    <div class="flex h-12 items-center border-b border-slate-200 px-4 text-base font-semibold text-slate-900">KeToan Pro</div>
+    <nav class="flex-1 space-y-4 overflow-y-auto p-2" aria-label="Điều hướng chính">
+      <div>
+        <a href="#" data-nav class="navlink"><svg class="size-4" aria-hidden="true"><use href="#i-home"/></svg>Tổng quan</a>
+      </div>
+      <div>
+        <p class="px-2 pb-1 text-xs font-medium text-slate-600">Bán hàng</p>
+        <a href="#" data-nav class="navlink bg-blue-50 font-medium text-blue-700" aria-current="page"><svg class="size-4" aria-hidden="true"><use href="#i-file"/></svg>Hóa đơn</a>
+        <a href="#" data-nav class="navlink"><svg class="size-4" aria-hidden="true"><use href="#i-users"/></svg>Khách hàng</a>
+        <a href="#" data-nav class="navlink"><svg class="size-4" aria-hidden="true"><use href="#i-box"/></svg>Sản phẩm</a>
+        <a href="#" data-nav class="navlink"><svg class="size-4" aria-hidden="true"><use href="#i-wallet"/></svg>Thu tiền</a>
+      </div>
+      <div>
+        <p class="px-2 pb-1 text-xs font-medium text-slate-600">Kế toán</p>
+        <a href="#" data-nav class="navlink"><svg class="size-4" aria-hidden="true"><use href="#i-chart"/></svg>Báo cáo</a>
+        <a href="#" data-nav class="navlink"><svg class="size-4" aria-hidden="true"><use href="#i-gear"/></svg>Cài đặt</a>
+      </div>
+    </nav>
+    <div class="border-t border-slate-200 p-3">
+      <p class="text-sm font-medium text-slate-900">Nguyễn Thị Lan</p>
+      <p class="text-xs text-slate-600">Kế toán viên · Công ty TNHH An Khang</p>
+    </div>
+  </aside>
+
+  <!-- Main -->
+  <main id="scroller" class="min-w-0 flex-1 scroll-pb-20 overflow-y-auto">
+    <div class="flex min-h-full flex-col">
+      <div class="flex-1 px-6 py-6">
+        <div class="mx-auto max-w-5xl">
+          <nav aria-label="Breadcrumb" class="text-sm text-slate-600">
+            <ol class="flex items-center gap-1.5">
+              <li>Bán hàng</li><li aria-hidden="true">/</li>
+              <li><a href="#" data-nav class="underline-offset-2 hover:underline">Hóa đơn</a></li><li aria-hidden="true">/</li>
+              <li aria-current="page" class="text-slate-900">Tạo hóa đơn</li>
+            </ol>
+          </nav>
+          <div class="mt-2 flex items-start justify-between gap-4">
+            <div>
+              <div class="flex items-center gap-3">
+                <h1 class="text-2xl font-semibold text-slate-900">Tạo hóa đơn</h1>
+                <span class="inline-flex h-6 items-center rounded-full bg-slate-100 px-2 text-xs font-medium text-slate-700">Nháp</span>
+              </div>
+              <p class="mt-1 text-sm text-slate-600"><span aria-hidden="true">*</span> Bắt buộc · <span id="lastChanged">Chưa lưu</span></p>
+            </div>
+          </div>
+
+          <div id="summaryHost" role="status" class="mt-4"></div>
+
+          <!-- Loading -->
+          <div id="loading" class="mt-6 space-y-6" aria-busy="true" aria-label="Đang tải biểu mẫu">
+            <div class="rounded-md border border-slate-200 bg-white p-6">
+              <div class="h-5 w-40 animate-pulse rounded bg-slate-200"></div>
+              <div class="mt-5 grid max-w-xl gap-5">
+                <div class="h-8 animate-pulse rounded bg-slate-100"></div>
+                <div class="h-8 w-2/3 animate-pulse rounded bg-slate-100"></div>
+                <div class="h-8 w-1/2 animate-pulse rounded bg-slate-100"></div>
+              </div>
+            </div>
+            <div class="rounded-md border border-slate-200 bg-white p-6">
+              <div class="h-5 w-32 animate-pulse rounded bg-slate-200"></div>
+              <div class="mt-5 space-y-2">
+                <div class="h-10 animate-pulse rounded bg-slate-100"></div><div class="h-10 animate-pulse rounded bg-slate-100"></div><div class="h-10 animate-pulse rounded bg-slate-100"></div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Load error -->
+          <div id="loadError" class="mt-6 hidden rounded-md border border-slate-200 bg-white p-8 text-center" role="alert">
+            <p class="text-base font-medium text-slate-900">Không tải được danh sách khách hàng và sản phẩm</p>
+            <p class="mt-1 text-sm text-slate-600">Kết nối tới máy chủ bị gián đoạn. Dữ liệu bạn nhập (nếu có) vẫn được giữ nguyên.</p>
+            <button id="retryBtn" type="button" class="btn btn-primary mt-4">Thử lại</button>
+          </div>
+
+          <!-- Form -->
+          <form id="form" class="mt-6 hidden space-y-6" novalidate>
+            <section class="rounded-md border border-slate-200 bg-white p-6" aria-labelledby="h-general">
+              <h2 id="h-general" class="border-b border-slate-200 pb-2 text-base font-semibold text-slate-900">Thông tin chung</h2>
+              <div class="mt-5 space-y-6">
+                <div class="max-w-xl">
+                  <label class="lbl" for="custBtn" id="custLabel">Khách hàng <span aria-hidden="true">*</span></label>
+                  <div class="relative" id="comboWrap">
+                    <button type="button" id="custBtn" data-key="customer" aria-haspopup="listbox" aria-expanded="false" aria-labelledby="custLabel custBtn" aria-describedby="err-customer"
+                      class="inp flex items-center justify-between text-left"><span id="custText" class="truncate text-slate-500">Chọn khách hàng</span><svg class="size-4 shrink-0 text-slate-600" aria-hidden="true"><use href="#i-chev"/></svg></button>
+                    <button type="button" id="custClear" class="absolute right-8 top-1 hidden size-6 items-center justify-center rounded text-slate-600 hover:bg-slate-100" aria-label="Xóa khách hàng đã chọn"><svg class="size-4" aria-hidden="true"><use href="#i-x"/></svg></button>
+                    <div id="comboPop" class="absolute z-20 mt-1 hidden w-full rounded-md border border-slate-200 bg-white shadow-lg">
+                      <div class="border-b border-slate-200 p-2">
+                        <input id="comboInput" type="text" role="combobox" aria-expanded="true" aria-controls="comboList" aria-autocomplete="list" class="inp" placeholder="Tìm theo tên hoặc mã số thuế" autocomplete="off" aria-label="Tìm khách hàng">
+                      </div>
+                      <ul id="comboList" role="listbox" aria-label="Khách hàng" class="max-h-64 overflow-y-auto py-1"></ul>
+                    </div>
+                  </div>
+                  <p id="custInfo" class="mt-1 hidden text-sm text-slate-600"></p>
+                  <p id="err-customer" class="errmsg hidden"></p>
+                </div>
+
+                <div class="grid gap-6 sm:grid-cols-[auto_auto_auto_1fr]">
+                  <div>
+                    <label class="lbl" for="invDate">Ngày hóa đơn <span aria-hidden="true">*</span></label>
+                    <input id="invDate" data-key="date" type="date" class="inp w-40" aria-describedby="err-date" aria-required="true">
+                    <p id="err-date" class="errmsg hidden"></p>
+                  </div>
+                  <div>
+                    <label class="lbl" for="term">Điều khoản thanh toán</label>
+                    <select id="term" class="inp w-44">
+                      <option value="0">Thanh toán ngay</option><option value="15">Net 15 ngày</option><option value="30">Net 30 ngày</option><option value="45">Net 45 ngày</option><option value="-1">Tùy chỉnh</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label class="lbl" for="dueDate">Hạn thanh toán <span aria-hidden="true">*</span></label>
+                    <input id="dueDate" data-key="due" type="date" class="inp w-40" aria-describedby="err-due" aria-required="true">
+                    <p id="err-due" class="errmsg hidden"></p>
+                  </div>
+                </div>
+
+                <div class="grid gap-6 sm:grid-cols-[auto_auto]">
+                  <div>
+                    <label class="lbl" for="ref">Số đơn hàng tham chiếu</label>
+                    <input id="ref" type="text" class="inp w-56" placeholder="Ví dụ: PO-2026-0457" aria-describedby="help-ref">
+                    <p id="help-ref" class="mt-1 text-sm text-slate-600">In trên hóa đơn gửi khách.</p>
+                  </div>
+                  <div>
+                    <p class="lbl">Số hóa đơn</p>
+                    <p class="flex h-8 items-center tabular-nums text-slate-900">HD-2026-01043</p>
+                    <p class="mt-1 text-sm text-slate-600">Cấp tự động khi lưu.</p>
+                  </div>
+                </div>
+              </div>
+            </section>
+
+            <section class="rounded-md border border-slate-200 bg-white p-6" aria-labelledby="h-lines">
+              <h2 id="h-lines" class="border-b border-slate-200 pb-2 text-base font-semibold text-slate-900">Dòng hàng</h2>
+              <div class="mt-4 overflow-x-auto">
+                <table class="w-full min-w-[760px] border-collapse text-sm" aria-describedby="linesErr">
+                  <thead>
+                    <tr class="h-10 border-b border-slate-200 bg-slate-50 text-left font-medium text-slate-700">
+                      <th scope="col" class="px-2 font-medium">Sản phẩm <span aria-hidden="true">*</span></th>
+                      <th scope="col" class="w-16 px-2 font-medium">ĐVT</th>
+                      <th scope="col" class="w-28 px-2 text-right font-medium">Số lượng <span aria-hidden="true">*</span></th>
+                      <th scope="col" class="w-36 px-2 text-right font-medium">Đơn giá (VND) <span aria-hidden="true">*</span></th>
+                      <th scope="col" class="w-24 px-2 text-right font-medium">Thuế GTGT</th>
+                      <th scope="col" class="w-36 px-2 text-right font-medium">Thành tiền (VND)</th>
+                      <th scope="col" class="w-10 px-1"><span class="sr-only">Xóa dòng</span></th>
+                    </tr>
+                  </thead>
+                  <tbody id="linesBody"></tbody>
+                </table>
+              </div>
+              <div id="linesErr" role="status" class="mt-2"></div>
+              <div class="mt-2">
+                <button type="button" id="addLine" class="btn text-blue-700 hover:bg-blue-50"><svg class="size-4" aria-hidden="true"><use href="#i-plus"/></svg>Thêm dòng</button>
+              </div>
+
+              <dl class="ml-auto mt-4 w-80 text-sm" id="totals" aria-live="polite"></dl>
+            </section>
+
+            <section class="rounded-md border border-slate-200 bg-white p-6" aria-labelledby="h-note">
+              <h2 id="h-note" class="border-b border-slate-200 pb-2 text-base font-semibold text-slate-900">Ghi chú</h2>
+              <div class="mt-5 max-w-xl">
+                <label class="lbl" for="note">Ghi chú trên hóa đơn</label>
+                <textarea id="note" rows="3" class="w-full rounded border border-slate-300 bg-white px-2 py-1.5 text-sm text-slate-900 placeholder:text-slate-500 focus:border-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-700/40" placeholder="Ví dụ: Thanh toán chuyển khoản vào tài khoản 0123456789 - Vietcombank"></textarea>
+              </div>
+            </section>
+          </form>
+        </div>
+      </div>
+
+      <div id="actionBar" class="sticky bottom-0 hidden items-center gap-3 border-t border-slate-200 bg-white px-6 py-3">
+        <span role="status" id="dirtyInd" class="mr-auto flex items-center text-sm text-slate-600"></span>
+        <button type="button" id="cancelBtn" class="btn btn-secondary">Hủy</button>
+        <button type="submit" form="form" id="saveBtn" class="btn btn-primary">Lưu hóa đơn</button>
+      </div>
+    </div>
+  </main>
+</div>
+
+<!-- Toast -->
+<div id="toast" role="status" class="pointer-events-none fixed bottom-20 right-6 z-40"></div>
+
+<!-- Leave dialog -->
+<dialog id="leaveDlg" class="w-[26rem] max-w-[calc(100vw-2rem)] rounded-lg border border-slate-200 p-0 shadow-xl backdrop:bg-slate-900/40" aria-labelledby="leaveTitle">
+  <div class="p-5">
+    <h2 id="leaveTitle" class="text-base font-semibold text-slate-900">Bạn có thay đổi chưa lưu. Rời trang mà không lưu?</h2>
+    <p class="mt-2 text-sm text-slate-600">Hóa đơn đang soạn cho <span id="leaveCust" class="font-medium text-slate-900"></span> sẽ bị bỏ, gồm <span id="leaveLines"></span>.</p>
+  </div>
+  <div class="flex justify-end gap-3 border-t border-slate-200 px-5 py-3">
+    <button type="button" id="leaveYes" class="btn btn-secondary text-red-700">Rời trang</button>
+    <button type="button" id="leaveNo" class="btn btn-primary" autofocus>Ở lại</button>
+  </div>
+</dialog>
+
+<!-- New customer dialog -->
+<dialog id="newCustDlg" class="w-[28rem] max-w-[calc(100vw-2rem)] rounded-lg border border-slate-200 p-0 shadow-xl backdrop:bg-slate-900/40" aria-labelledby="ncTitle">
+  <form id="newCustForm" novalidate>
+    <div class="space-y-4 p-5">
+      <h2 id="ncTitle" class="text-base font-semibold text-slate-900">Tạo khách hàng mới</h2>
+      <div>
+        <label class="lbl" for="ncName">Tên khách hàng <span aria-hidden="true">*</span></label>
+        <input id="ncName" class="inp" aria-describedby="err-ncName" aria-required="true">
+        <p id="err-ncName" class="errmsg hidden"></p>
+      </div>
+      <div>
+        <label class="lbl" for="ncTax">Mã số thuế <span aria-hidden="true">*</span></label>
+        <input id="ncTax" class="inp w-48 tabular-nums" inputmode="numeric" aria-describedby="help-ncTax err-ncTax" aria-required="true">
+        <p id="help-ncTax" class="mt-1 text-sm text-slate-600">10 hoặc 13 chữ số.</p>
+        <p id="err-ncTax" class="errmsg hidden"></p>
+      </div>
+    </div>
+    <div class="flex justify-end gap-3 border-t border-slate-200 px-5 py-3">
+      <button type="button" id="ncCancel" class="btn btn-secondary">Hủy</button>
+      <button type="submit" class="btn btn-primary">Tạo khách hàng</button>
+    </div>
+  </form>
+</dialog>
+
+<script>
+(() => {
+  'use strict';
+  const TODAY = '2026-11-04';
+  const LOCK_BEFORE = '2026-10-01'; // kỳ kế toán đã khóa sổ
+  const $ = (s, r = document) => r.querySelector(s);
+  const vnd = new Intl.NumberFormat('vi-VN', { maximumFractionDigits: 0 });
+  const qtyNf = new Intl.NumberFormat('vi-VN', { maximumFractionDigits: 2 });
+  const money = n => vnd.format(n) + ' ₫';
+
+  const customers = [
+    { id: 'c1', name: 'Công ty TNHH Thương mại Minh Phát', tax: '0312345678', addr: '25 Nguyễn Huệ, Quận 1, TP.HCM', term: 30 },
+    { id: 'c2', name: 'Công ty CP Xây dựng Đại Nam', tax: '0108765432', addr: '112 Trần Duy Hưng, Cầu Giấy, Hà Nội', term: 45 },
+    { id: 'c3', name: 'Công ty TNHH Bao bì Tân Phú', tax: '0309988776', addr: '78 Tân Hương, Tân Phú, TP.HCM', term: 15 },
+    { id: 'c4', name: 'Cửa hàng Văn phòng phẩm Hoàng Anh', tax: '0401234567', addr: '9 Lê Duẩn, Hải Châu, Đà Nẵng', term: 0 },
+    { id: 'c5', name: 'Công ty TNHH Dược phẩm Sao Việt', tax: '0314455667', addr: '45 Võ Văn Tần, Quận 3, TP.HCM', term: 30 },
+    { id: 'c6', name: 'Công ty CP Logistics Bình Dương', tax: '3700123456', addr: 'KCN Sóng Thần, Dĩ An, Bình Dương', term: 30 },
+    { id: 'c7', name: 'Trường Quốc tế Á Châu', tax: '0305566778', addr: '15 Nguyễn Văn Linh, Quận 7, TP.HCM', term: 15 },
+    { id: 'c8', name: 'Công ty TNHH Nội thất An Cư', tax: '0316677889', addr: '210 Điện Biên Phủ, Bình Thạnh, TP.HCM', term: 45 },
+  ];
+  const products = [
+    { id: 'p1', name: 'Giấy in A4 Double A 70gsm', unit: 'Ream', price: 82000, tax: 10 },
+    { id: 'p2', name: 'Mực in HP 26A (CF226A)', unit: 'Hộp', price: 1850000, tax: 10 },
+    { id: 'p3', name: 'Dịch vụ bảo trì máy chủ (tháng)', unit: 'Tháng', price: 4500000, tax: 10 },
+    { id: 'p4', name: 'Dịch vụ tư vấn triển khai ERP', unit: 'Giờ', price: 1200000, tax: 10 },
+    { id: 'p5', name: 'Bàn làm việc Hòa Phát HR120', unit: 'Cái', price: 2350000, tax: 8 },
+    { id: 'p6', name: 'Ghế xoay lưới Xuân Hòa', unit: 'Cái', price: 1480000, tax: 8 },
+    { id: 'p7', name: 'Gạo ST25 (bao 10 kg)', unit: 'Bao', price: 245000, tax: 5 },
+    { id: 'p8', name: 'Sách giáo khoa (bộ)', unit: 'Bộ', price: 320000, tax: 0 },
+  ];
+  const TAX_RATES = [0, 5, 8, 10];
+
+  // ---------- state ----------
+  let seq = 0;
+  const newLine = () => ({ id: ++seq, pid: '', qty: '', price: '', tax: 10 });
+  const state = { customerId: '', date: TODAY, due: addDays(TODAY, 30), term: 30, ref: '', note: '', lines: [newLine()] };
+  let baseline = '';
+  const shown = {};          // key -> message currently displayed
+  let submitted = false;
+  let saving = false;
+  let recentCust = ['c1', 'c5', 'c4'];
+
+  function addDays(ymd, n) {
+    const [y, m, d] = ymd.split('-').map(Number);
+    const dt = new Date(y, m - 1, d + n);
+    return dt.getFullYear() + '-' + String(dt.getMonth() + 1).padStart(2, '0') + '-' + String(dt.getDate()).padStart(2, '0');
+  }
+  const fmtDate = ymd => ymd ? ymd.split('-').reverse().join('/') : '';
+  const snap = () => JSON.stringify({ c: state.customerId, d: state.date, u: state.due, t: state.term, r: state.ref, n: state.note, l: state.lines.map(l => [l.pid, l.qty, l.price, l.tax]) });
+  const isDirty = () => snap() !== baseline;
+
+  function parseNum(s) {
+    const t = String(s).trim().replace(/\./g, '').replace(',', '.');
+    return t !== '' && /^-?\d+(\.\d+)?$/.test(t) ? Number(t) : NaN;
+  }
+  const norm = s => s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/đ/g, 'd');
+  const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  const icon = (id, cls = 'size-4') => `<svg class="${cls}" aria-hidden="true"><use href="#${id}"/></svg>`;
+
+  // ---------- calculations ----------
+  function calc() {
+    let sub = 0; const byRate = {};
+    state.lines.forEach(l => {
+      const q = parseNum(l.qty), p = parseNum(l.price);
+      l.amount = (q > 0 && p >= 0) ? Math.round(q * p) : NaN;      // làm tròn một lần mỗi dòng
+      if (!isNaN(l.amount)) {
+        sub += l.amount;
+        byRate[l.tax] = (byRate[l.tax] || 0) + Math.round(l.amount * l.tax / 100);
+      }
+    });
+    const taxTotal = Object.values(byRate).reduce((a, b) => a + b, 0);
+    return { sub, byRate, taxTotal, total: sub + taxTotal };
+  }
+
+  function renderTotals() {
+    const t = calc();
+    const rows = Object.keys(t.byRate).map(Number).sort((a, b) => a - b)
+      .map(r => `<div class="flex h-8 items-center justify-between"><dt class="text-slate-600">Thuế GTGT ${r}%</dt><dd class="tabular-nums text-slate-900">${money(t.byRate[r])}</dd></div>`).join('');
+    $('#totals').innerHTML =
+      `<div class="flex h-8 items-center justify-between"><dt class="text-slate-600">Tạm tính</dt><dd class="tabular-nums text-slate-900">${money(t.sub)}</dd></div>` +
+      (rows || `<div class="flex h-8 items-center justify-between"><dt class="text-slate-600">Thuế GTGT</dt><dd class="tabular-nums text-slate-900">${money(0)}</dd></div>`) +
+      `<div class="mt-1 flex h-10 items-center justify-between border-t border-slate-300"><dt class="font-semibold text-slate-900">Tổng cộng</dt><dd class="text-base font-semibold tabular-nums text-slate-900">${money(t.total)}</dd></div>`;
+    state.lines.forEach(l => {
+      const c = $(`[data-amount="${l.id}"]`);
+      if (c) c.textContent = isNaN(l.amount) ? '—' : vnd.format(l.amount);
+    });
+  }
+
+  // ---------- lines ----------
+  function renderLines(focusSel) {
+    $('#linesBody').innerHTML = state.lines.map((l, i) => {
+      const n = i + 1, p = products.find(x => x.id === l.pid);
+      return `<tr class="h-10 border-b border-slate-200 hover:bg-slate-50" data-row="${l.id}">
+        <td class="px-2 py-1"><select class="inp" data-key="l${l.id}-product" data-line="${l.id}" data-f="pid" aria-label="Sản phẩm dòng ${n}" aria-describedby="linesErr">
+          <option value="">Chọn sản phẩm</option>${products.map(x => `<option value="${x.id}" ${x.id === l.pid ? 'selected' : ''}>${esc(x.name)}</option>`).join('')}</select></td>
+        <td class="px-2 text-slate-600">${p ? esc(p.unit) : '—'}</td>
+        <td class="px-2 py-1"><input class="inp text-right tabular-nums" inputmode="decimal" autocomplete="off" data-key="l${l.id}-qty" data-line="${l.id}" data-f="qty" data-col="qty" aria-label="Số lượng dòng ${n}" aria-describedby="linesErr" value="${esc(l.qty)}"></td>
+        <td class="px-2 py-1"><input class="inp text-right tabular-nums" inputmode="decimal" autocomplete="off" data-key="l${l.id}-price" data-line="${l.id}" data-f="price" data-col="price" aria-label="Đơn giá dòng ${n}" aria-describedby="linesErr" value="${esc(l.price)}"></td>
+        <td class="px-2 py-1"><select class="inp text-right [text-align-last:right]" data-line="${l.id}" data-f="tax" aria-label="Thuế GTGT dòng ${n}">
+          ${TAX_RATES.map(r => `<option value="${r}" ${r === l.tax ? 'selected' : ''}>${r}%</option>`).join('')}</select></td>
+        <td class="px-2 text-right font-medium tabular-nums text-slate-900" data-amount="${l.id}">—</td>
+        <td class="px-1"><button type="button" class="inline-flex size-8 items-center justify-center rounded text-slate-600 hover:bg-slate-100 hover:text-red-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-700" data-remove="${l.id}" aria-label="Xóa dòng ${n}">${icon('i-trash')}</button></td>
+      </tr>`;
+    }).join('');
+    renderTotals(); paintErrors();
+    if (focusSel) { const el = $(focusSel); if (el) el.focus(); }
+  }
+
+  function addLine(focus = true) {
+    const l = newLine(); state.lines.push(l); renderLines(focus ? `[data-key="l${l.id}-product"]` : null); refreshDirty();
+  }
+  function removeLine(id) {
+    const i = state.lines.findIndex(l => l.id === id); if (i < 0) return;
+    const removed = { ...state.lines[i] };
+    const filled = removed.pid || removed.qty || removed.price;
+    clearLineErrors(id);
+    if (state.lines.length === 1) { state.lines[0] = { ...newLine(), tax: 10 }; renderLines(`[data-key="l${state.lines[0].id}-product"]`); }
+    else { state.lines.splice(i, 1); renderLines(`#addLine`); }
+    refreshDirty();
+    if (filled) toast(`Đã xóa dòng ${i + 1}`, { label: 'Hoàn tác', fn: () => { if (state.lines.length === 1 && !state.lines[0].pid && !state.lines[0].qty && !state.lines[0].price && i === 0) state.lines.splice(0, 1, removed); else state.lines.splice(i, 0, removed); renderLines(); refreshDirty(); } }, 7000);
+  }
+  function clearLineErrors(id) { Object.keys(shown).forEach(k => { if (k.startsWith('l' + id + '-')) delete shown[k]; }); }
+
+  // ---------- validation ----------
+  const validators = {
+    customer: () => state.customerId ? '' : 'Chọn khách hàng cần xuất hóa đơn',
+    date: () => !state.date ? 'Nhập ngày hóa đơn'
+      : state.date < LOCK_BEFORE ? 'Kỳ kế toán tháng ' + Number(state.date.slice(5, 7)) + '/' + state.date.slice(0, 4) + ' đã khóa sổ. Chọn ngày từ 01/10/2026 trở đi'
+      : '',
+    due: () => !state.due ? 'Nhập hạn thanh toán' : (state.date && state.due < state.date ? 'Chọn hạn thanh toán không sớm hơn ngày hóa đơn' : ''),
+  };
+  function lineValidator(key) {
+    const m = key.match(/^l(\d+)-(\w+)$/); if (!m) return null;
+    const l = state.lines.find(x => x.id === Number(m[1])); if (!l) return () => '';
+    return {
+      product: () => l.pid ? '' : 'Chọn sản phẩm',
+      qty: () => { const q = parseNum(l.qty); return isNaN(q) ? 'Nhập số lượng' : q <= 0 ? 'Nhập số lượng lớn hơn 0' : ''; },
+      price: () => { const p = parseNum(l.price); return isNaN(p) ? 'Nhập đơn giá' : p < 0 ? 'Đơn giá không được âm' : ''; },
+    }[m[2]];
+  }
+  const labelOf = { customer: 'Khách hàng', date: 'Ngày hóa đơn', due: 'Hạn thanh toán' };
+  const getValidator = key => validators[key] || lineValidator(key);
+  function validateKey(key) {
+    const v = getValidator(key); if (!v) return;
+    const msg = v(); if (msg) shown[key] = msg; else delete shown[key];
+  }
+  function allKeys() {
+    const ks = ['customer', 'date', 'due'];
+    state.lines.forEach(l => ks.push(`l${l.id}-product`, `l${l.id}-qty`, `l${l.id}-price`));
+    return ks;
+  }
+  function revalidateIfShown(key) { if (key in shown) { validateKey(key); paintErrors(); } }
+
+  function entryLabel(key) {
+    if (labelOf[key]) return labelOf[key];
+    const m = key.match(/^l(\d+)-/); const idx = state.lines.findIndex(l => l.id === Number(m[1])) + 1;
+    return 'Dòng ' + idx;
+  }
+
+  function paintErrors() {
+    ['customer', 'date', 'due'].forEach(k => {
+      const p = $('#err-' + k), el = $(`[data-key="${k}"]`), msg = shown[k];
+      p.classList.toggle('hidden', !msg);
+      p.innerHTML = msg ? icon('i-alert', 'size-4 shrink-0') + `<span>${esc(msg)}</span>` : '';
+      if (el) el.setAttribute('aria-invalid', msg ? 'true' : 'false');
+    });
+    const lineKeys = allKeys().filter(k => k.startsWith('l'));
+    lineKeys.forEach(k => { const el = $(`[data-key="${k}"]`); if (el) el.setAttribute('aria-invalid', shown[k] ? 'true' : 'false'); });
+    const lineErrs = lineKeys.filter(k => shown[k]);
+    $('#linesErr').innerHTML = lineErrs.length ? `<ul class="space-y-0.5">${lineErrs.map(k => `<li class="errmsg !mt-0">${icon('i-alert', 'size-4 shrink-0')}<span>${entryLabel(k)}: ${esc(shown[k])}</span></li>`).join('')}</ul>` : '';
+    const keys = allKeys().filter(k => shown[k]);
+    $('#summaryHost').innerHTML = (submitted && keys.length >= 3)
+      ? `<div class="rounded-md border border-red-200 bg-red-50 p-4 text-red-900"><p class="font-medium">${keys.length} trường cần chỉnh sửa</p><ul class="mt-2 list-disc pl-5">${keys.map(k => `<li><a href="#" data-jump="${k}" class="inline-flex min-h-6 items-center underline">${entryLabel(k)}${labelOf[k] ? '' : ''}: ${esc(shown[k])}</a></li>`).join('')}</ul></div>`
+      : '';
+  }
+  function focusKey(key) {
+    const el = $(`[data-key="${key}"]`); if (!el) return;
+    el.scrollIntoView({ block: 'center' }); el.focus();
+  }
+
+  // ---------- dirty indicator ----------
+  function refreshDirty() {
+    $('#dirtyInd').innerHTML = isDirty() ? '<span aria-hidden="true" class="mr-2 inline-block size-1.5 rounded-full bg-amber-500"></span>Có thay đổi chưa lưu' : '';
+  }
+  window.addEventListener('beforeunload', e => { if (isDirty()) { e.preventDefault(); e.returnValue = ''; } });
+
+  // ---------- toast ----------
+  let toastTimer;
+  function toast(msg, action, ms = 5000) {
+    const t = $('#toast');
+    t.innerHTML = `<div class="pointer-events-auto flex items-center gap-3 rounded-md bg-slate-900 px-4 py-2.5 text-sm text-white shadow-lg"><span>${esc(msg)}</span>${action ? `<button type="button" class="font-medium text-blue-200 underline underline-offset-2" id="toastAct">${esc(action.label)}</button>` : ''}</div>`;
+    if (action) $('#toastAct').onclick = () => { action.fn(); t.innerHTML = ''; };
+    clearTimeout(toastTimer); toastTimer = setTimeout(() => { t.innerHTML = ''; }, ms);
+  }
+
+  // ---------- customer combobox ----------
+  let activeIdx = -1, comboItems = [], searchTimer;
+  const pop = $('#comboPop'), cInput = $('#comboInput'), cList = $('#comboList');
+  function setCustomer(id) {
+    state.customerId = id;
+    const c = customers.find(x => x.id === id);
+    $('#custText').textContent = c ? c.name : 'Chọn khách hàng';
+    $('#custText').classList.toggle('text-slate-500', !c);
+    $('#custText').classList.toggle('text-slate-900', !!c);
+    $('#custClear').classList.toggle('hidden', !c); $('#custClear').classList.toggle('inline-flex', !!c);
+    const info = $('#custInfo');
+    info.classList.toggle('hidden', !c);
+    info.textContent = c ? `MST ${c.tax} · ${c.addr}` : '';
+    if (c) {
+      recentCust = [id, ...recentCust.filter(x => x !== id)].slice(0, 3);
+      state.term = c.term; $('#term').value = String(c.term);
+      state.due = addDays(state.date, c.term); $('#dueDate').value = state.due;
+      revalidateIfShown('due');
+    }
+    revalidateIfShown('customer'); refreshDirty();
+  }
+  function optionHtml(c, i) {
+    return `<li role="option" id="opt-${i}" data-i="${i}" aria-selected="${c.id === state.customerId}" class="cursor-pointer px-3 py-1.5 ${i === activeIdx ? 'bg-blue-50' : ''} hover:bg-slate-100"><span class="block text-slate-900">${esc(c.name)}</span><span class="block text-xs text-slate-600">MST ${c.tax} · ${esc(c.addr.split(',').slice(-1)[0].trim())}</span></li>`;
+  }
+  function renderOptions(q) {
+    cList.removeAttribute('aria-busy');
+    const term = q.trim();
+    let html = '';
+    if (!term) {
+      comboItems = recentCust.map(id => customers.find(c => c.id === id)).concat(customers.filter(c => !recentCust.includes(c.id))).slice(0, 10).map(c => ({ c }));
+      html = `<li role="presentation" class="px-3 pb-1 pt-1.5 text-xs font-medium text-slate-600">Gần đây</li>` +
+        comboItems.map((it, i) => (i === 3 ? `<li role="presentation" class="px-3 pb-1 pt-2 text-xs font-medium text-slate-600">Tất cả khách hàng</li>` : '') + optionHtml(it.c, i)).join('');
+    } else {
+      const nq = norm(term);
+      comboItems = customers.filter(c => norm(c.name).includes(nq) || c.tax.includes(nq)).slice(0, 10).map(c => ({ c }));
+      html = comboItems.map((it, i) => optionHtml(it.c, i)).join('');
+      if (!comboItems.length) html = `<li role="presentation" class="px-3 py-2 text-slate-600">Không có khách hàng nào khớp "${esc(term)}"</li>`;
+      comboItems.push({ create: term });
+      html += `<li role="option" id="opt-${comboItems.length - 1}" data-i="${comboItems.length - 1}" class="flex cursor-pointer items-center gap-2 border-t border-slate-200 px-3 py-2 font-medium text-blue-700 hover:bg-slate-100">${icon('i-plus')}Tạo khách hàng "${esc(term)}"</li>`;
+    }
+    cList.innerHTML = html;
+    setActive(comboItems.length ? 0 : -1);
+  }
+  function setActive(i) {
+    activeIdx = i;
+    cList.querySelectorAll('[role=option]').forEach(li => li.classList.toggle('bg-blue-50', Number(li.dataset.i) === i));
+    const li = $('#opt-' + i, cList);
+    if (li) { cInput.setAttribute('aria-activedescendant', li.id); li.scrollIntoView({ block: 'nearest' }); } else cInput.removeAttribute('aria-activedescendant');
+  }
+  function openCombo() {
+    pop.classList.remove('hidden'); $('#custBtn').setAttribute('aria-expanded', 'true');
+    cInput.value = ''; renderOptions(''); cInput.focus();
+  }
+  function closeCombo(refocus) {
+    if (pop.classList.contains('hidden')) return;
+    pop.classList.add('hidden'); $('#custBtn').setAttribute('aria-expanded', 'false');
+    if (refocus) $('#custBtn').focus();
+  }
+  function chooseOption(i) {
+    const it = comboItems[i]; if (!it) return;
+    if (it.create) { closeCombo(false); openNewCust(it.create); return; }
+    setCustomer(it.c.id); closeCombo(true); validateKey('customer'); paintErrors();
+  }
+  $('#custBtn').addEventListener('click', () => pop.classList.contains('hidden') ? openCombo() : closeCombo(true));
+  $('#custBtn').addEventListener('keydown', e => { if (e.key === 'ArrowDown') { e.preventDefault(); openCombo(); } });
+  $('#custBtn').addEventListener('blur', () => { setTimeout(() => { if (pop.classList.contains('hidden')) { validateKey('customer'); paintErrors(); } }, 0); });
+  $('#custClear').addEventListener('click', () => { setCustomer(''); validateKey('customer'); paintErrors(); $('#custBtn').focus(); });
+  cInput.addEventListener('input', () => {
+    clearTimeout(searchTimer);
+    cList.setAttribute('aria-busy', 'true');
+    cList.innerHTML = '<li role="presentation" class="px-3 py-2 text-slate-600">Đang tìm…</li>';
+    searchTimer = setTimeout(() => renderOptions(cInput.value), 250);
+  });
+  cInput.addEventListener('keydown', e => {
+    if (e.key === 'ArrowDown') { e.preventDefault(); setActive(Math.min(activeIdx + 1, comboItems.length - 1)); }
+    else if (e.key === 'ArrowUp') { e.preventDefault(); setActive(Math.max(activeIdx - 1, 0)); }
+    else if (e.key === 'Enter') { e.preventDefault(); if (cList.getAttribute('aria-busy')) return; chooseOption(activeIdx); }
+    else if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); closeCombo(true); }
+    else if (e.key === 'Tab') closeCombo(false);
+  });
+  cList.addEventListener('mousedown', e => { const li = e.target.closest('[role=option]'); if (li) { e.preventDefault(); chooseOption(Number(li.dataset.i)); } });
+  document.addEventListener('mousedown', e => { if (!$('#comboWrap').contains(e.target)) closeCombo(false); });
+
+  // ---------- new customer dialog ----------
+  const ncDlg = $('#newCustDlg');
+  function openNewCust(name) {
+    $('#ncName').value = name; $('#ncTax').value = '';
+    ['ncName', 'ncTax'].forEach(k => { $('#err-' + k).classList.add('hidden'); $('#' + k).setAttribute('aria-invalid', 'false'); });
+    ncDlg.showModal(); (name ? $('#ncTax') : $('#ncName')).focus();
+  }
+  function ncValidate(k) {
+    const v = $('#' + k).value.trim(); let msg = '';
+    if (k === 'ncName' && !v) msg = 'Nhập tên khách hàng';
+    if (k === 'ncTax') { if (!/^\d{10}(-?\d{3})?$/.test(v)) msg = 'Nhập mã số thuế gồm 10 hoặc 13 chữ số'; else if (customers.some(c => c.tax === v)) msg = 'Mã số thuế đã dùng cho ' + customers.find(c => c.tax === v).name; }
+    const p = $('#err-' + k); p.classList.toggle('hidden', !msg); p.innerHTML = msg ? icon('i-alert', 'size-4 shrink-0') + `<span>${esc(msg)}</span>` : '';
+    $('#' + k).setAttribute('aria-invalid', msg ? 'true' : 'false'); return !msg;
+  }
+  ['ncName', 'ncTax'].forEach(k => $('#' + k).addEventListener('blur', () => ncValidate(k)));
+  $('#newCustForm').addEventListener('submit', e => {
+    e.preventDefault();
+    const a = ncValidate('ncName'), b = ncValidate('ncTax');
+    if (!a) return $('#ncName').focus(); if (!b) return $('#ncTax').focus();
+    const c = { id: 'c' + (customers.length + 1), name: $('#ncName').value.trim(), tax: $('#ncTax').value.trim(), addr: 'Chưa có địa chỉ', term: 30 };
+    customers.push(c); ncDlg.close(); setCustomer(c.id); validateKey('customer'); paintErrors();
+    toast(`Đã tạo khách hàng ${c.name}`); $('#custBtn').focus();
+  });
+  $('#ncCancel').addEventListener('click', () => { ncDlg.close(); $('#custBtn').focus(); });
+
+  // ---------- header fields ----------
+  $('#invDate').addEventListener('input', e => {
+    state.date = e.target.value;
+    if (state.term !== -1 && state.date) { state.due = addDays(state.date, state.term); $('#dueDate').value = state.due; }
+    revalidateIfShown('date'); revalidateIfShown('due'); refreshDirty();
+  });
+  $('#invDate').addEventListener('blur', () => { validateKey('date'); if (shown.due || state.due) validateKey('due'); paintErrors(); });
+  $('#term').addEventListener('change', e => {
+    state.term = Number(e.target.value);
+    if (state.term !== -1 && state.date) { state.due = addDays(state.date, state.term); $('#dueDate').value = state.due; revalidateIfShown('due'); }
+    refreshDirty();
+  });
+  $('#dueDate').addEventListener('input', e => {
+    state.due = e.target.value; state.term = -1; $('#term').value = '-1';
+    revalidateIfShown('due'); refreshDirty();
+  });
+  $('#dueDate').addEventListener('blur', () => { validateKey('due'); paintErrors(); });
+  $('#ref').addEventListener('input', e => { state.ref = e.target.value; refreshDirty(); });
+  $('#note').addEventListener('input', e => { state.note = e.target.value; refreshDirty(); });
+
+  // ---------- lines events ----------
+  const body = $('#linesBody');
+  body.addEventListener('input', e => {
+    const t = e.target, id = Number(t.dataset.line), f = t.dataset.f; if (!f) return;
+    const l = state.lines.find(x => x.id === id);
+    if (f === 'tax') l.tax = Number(t.value); else l[f] = t.value;
+    renderTotals(); if (t.dataset.key) revalidateIfShown(t.dataset.key); refreshDirty();
+  });
+  body.addEventListener('change', e => {
+    const t = e.target; if (t.dataset.f !== 'pid') return;
+    const l = state.lines.find(x => x.id === Number(t.dataset.line)); const p = products.find(x => x.id === t.value);
+    l.pid = t.value;
+    if (p) { l.price = vnd.format(p.price); l.tax = p.tax; if (!l.qty) l.qty = '1'; }
+    delete shown[`l${l.id}-product`]; if (p) { delete shown[`l${l.id}-price`]; delete shown[`l${l.id}-qty`]; }
+    renderLines(`[data-key="l${l.id}-qty"]`); refreshDirty();
+  });
+  body.addEventListener('focusout', e => {
+    const t = e.target; if (!t.dataset || !t.dataset.key) return;
+    const l = state.lines.find(x => x.id === Number(t.dataset.line));
+    if (t.dataset.f === 'qty' || t.dataset.f === 'price') {
+      const n = parseNum(t.value);
+      if (!isNaN(n)) { t.value = t.dataset.f === 'qty' ? qtyNf.format(n) : vnd.format(n); l[t.dataset.f] = t.value; }
+    }
+    renderTotals(); validateKey(t.dataset.key); paintErrors(); refreshDirty();
+  });
+  body.addEventListener('keydown', e => {
+    const t = e.target;
+    if (e.key === 'Enter' && t.tagName === 'INPUT') {
+      e.preventDefault();
+      const rows = state.lines, i = rows.findIndex(x => x.id === Number(t.dataset.line)), col = t.dataset.col;
+      if (i === rows.length - 1) { const nl = newLine(); rows.push(nl); renderLines(`[data-key="l${nl.id}-product"]`); refreshDirty(); }
+      else { const el = $(`[data-key="l${rows[i + 1].id}-${col}"]`); if (el) el.focus(); }
+    }
+  });
+  body.addEventListener('click', e => { const b = e.target.closest('[data-remove]'); if (b) removeLine(Number(b.dataset.remove)); });
+  $('#addLine').addEventListener('click', () => addLine(true));
+
+  // ---------- summary jump ----------
+  $('#summaryHost').addEventListener('click', e => { const a = e.target.closest('[data-jump]'); if (a) { e.preventDefault(); focusKey(a.dataset.jump); } });
+
+  // ---------- leave guard ----------
+  const leaveDlg = $('#leaveDlg'); let leaveAction = null;
+  function guard(action) {
+    if (!isDirty()) { action(); return; }
+    leaveAction = action;
+    const c = customers.find(x => x.id === state.customerId);
+    $('#leaveCust').textContent = c ? c.name : 'khách hàng chưa chọn';
+    const n = state.lines.filter(l => l.pid || l.qty || l.price).length;
+    $('#leaveLines').textContent = n + ' dòng hàng đã nhập';
+    leaveDlg.showModal();
+  }
+  $('#leaveNo').addEventListener('click', () => leaveDlg.close());
+  $('#leaveYes').addEventListener('click', () => { leaveDlg.close(); const a = leaveAction; leaveAction = null; a && a(); });
+  document.querySelectorAll('[data-nav]').forEach(a => a.addEventListener('click', e => { e.preventDefault(); guard(() => resetForm(true)); }));
+  $('#cancelBtn').addEventListener('click', () => guard(() => resetForm(true)));
+
+  function resetForm(left) {
+    Object.assign(state, { customerId: '', date: TODAY, due: addDays(TODAY, 30), term: 30, ref: '', note: '', lines: [newLine()] });
+    Object.keys(shown).forEach(k => delete shown[k]); submitted = false;
+    syncFields(); renderLines(); baseline = snap(); refreshDirty();
+    if (left) toast('Đã hủy hóa đơn nháp. Quay lại danh sách hóa đơn.');
+  }
+  function syncFields() {
+    setCustomerSilently();
+    $('#invDate').value = state.date; $('#dueDate').value = state.due; $('#term').value = String(state.term);
+    $('#ref').value = state.ref; $('#note').value = state.note;
+  }
+  function setCustomerSilently() {
+    const c = customers.find(x => x.id === state.customerId);
+    $('#custText').textContent = c ? c.name : 'Chọn khách hàng';
+    $('#custText').classList.toggle('text-slate-500', !c); $('#custText').classList.toggle('text-slate-900', !!c);
+    $('#custClear').classList.toggle('hidden', !c); $('#custClear').classList.toggle('inline-flex', !!c);
+    $('#custInfo').classList.toggle('hidden', !c); $('#custInfo').textContent = c ? `MST ${c.tax} · ${c.addr}` : '';
+  }
+
+  // ---------- submit ----------
+  $('#form').addEventListener('submit', async e => {
+    e.preventDefault(); if (saving) return;
+    submitted = true;
+    allKeys().forEach(validateKey); paintErrors();
+    const first = allKeys().find(k => shown[k]);
+    if (first) { focusKey(first); return; }
+    saving = true;
+    const btn = $('#saveBtn'); btn.disabled = true;
+    btn.innerHTML = '<svg class="size-4 animate-spin" viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="12" cy="12" r="9" stroke="currentColor" stroke-opacity=".3" stroke-width="3"/><path d="M21 12a9 9 0 0 0-9-9" stroke="currentColor" stroke-width="3" stroke-linecap="round"/></svg>Lưu hóa đơn';
+    await new Promise(r => setTimeout(r, 900));   // giả lập gọi máy chủ
+    saving = false; btn.disabled = false; btn.textContent = 'Lưu hóa đơn';
+    baseline = snap(); refreshDirty(); submitted = false; paintErrors();
+    $('#lastChanged').textContent = 'Lần sửa cuối bởi Nguyễn Thị Lan lúc 04/11/2026 15:58';
+    toast('Hóa đơn HD-2026-01043 đã lưu');
+  });
+
+  // ---------- init ----------
+  function init() {
+    $('#loading').classList.remove('hidden'); $('#loadError').classList.add('hidden');
+    $('#form').classList.add('hidden'); $('#actionBar').classList.replace('flex', 'hidden');
+    const fail = /[?#&]error\b|state=error/.test(location.href);
+    setTimeout(() => {
+      $('#loading').classList.add('hidden');
+      if (fail && !init.retried) { $('#loadError').classList.remove('hidden'); return; }
+      $('#form').classList.remove('hidden'); $('#actionBar').classList.replace('hidden', 'flex');
+      if (!init.done) { syncFields(); renderLines(); baseline = snap(); refreshDirty(); init.done = true; }
+    }, 500);
+  }
+  $('#retryBtn').addEventListener('click', () => { init.retried = true; init(); });
+  init();
+})();
+</script>
+</body>
+</html>

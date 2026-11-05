@@ -1,0 +1,396 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Operations dashboard · Warehouse management</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+  body { font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; color: #0f172a; }
+  .sk { background: #e2e8f0; border-radius: 4px; animation: pulse 1.4s ease-in-out infinite; }
+  @keyframes pulse { 50% { opacity: .5; } }
+  :focus-visible { outline: 2px solid #1d4ed8; outline-offset: 2px; }
+  @media (prefers-reduced-motion: reduce) { .sk { animation: none; } }
+</style>
+</head>
+<body class="bg-slate-50 text-sm">
+<a href="#main" class="sr-only focus:not-sr-only focus:absolute focus:left-2 focus:top-2 focus:bg-white focus:px-3 focus:py-2">Skip to content</a>
+<div class="flex min-h-screen">
+  <!-- Sidebar -->
+  <aside class="hidden w-60 shrink-0 border-r border-slate-200 bg-white lg:block">
+    <div class="flex h-12 items-center border-b border-slate-200 px-4 font-semibold">Northgate WMS</div>
+    <nav aria-label="Main" class="flex flex-col gap-4 p-2">
+      <div class="flex flex-col gap-0.5">
+        <a href="#/dashboard" aria-current="page" class="flex h-8 items-center gap-2 rounded bg-slate-100 px-2 font-medium text-slate-900">
+          <svg class="size-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="3" y="3" width="7" height="9"/><rect x="14" y="3" width="7" height="5"/><rect x="14" y="12" width="7" height="9"/><rect x="3" y="16" width="7" height="5"/></svg>Dashboard</a>
+      </div>
+      <div class="flex flex-col gap-0.5">
+        <p class="px-2 py-1 text-xs font-medium text-slate-600">Outbound</p>
+        <a href="#/orders" class="flex h-8 items-center gap-2 rounded px-2 text-slate-700 hover:bg-slate-100">Orders</a>
+        <a href="#/picking" class="flex h-8 items-center gap-2 rounded px-2 text-slate-700 hover:bg-slate-100">Pick tasks</a>
+        <a href="#/shipments" class="flex h-8 items-center gap-2 rounded px-2 text-slate-700 hover:bg-slate-100">Shipments</a>
+      </div>
+      <div class="flex flex-col gap-0.5">
+        <p class="px-2 py-1 text-xs font-medium text-slate-600">Inbound</p>
+        <a href="#/receipts" class="flex h-8 items-center gap-2 rounded px-2 text-slate-700 hover:bg-slate-100">Receipts</a>
+        <a href="#/appointments" class="flex h-8 items-center gap-2 rounded px-2 text-slate-700 hover:bg-slate-100">Dock appointments</a>
+      </div>
+      <div class="flex flex-col gap-0.5">
+        <p class="px-2 py-1 text-xs font-medium text-slate-600">Inventory</p>
+        <a href="#/stock" class="flex h-8 items-center gap-2 rounded px-2 text-slate-700 hover:bg-slate-100">Stock levels</a>
+        <a href="#/locations" class="flex h-8 items-center gap-2 rounded px-2 text-slate-700 hover:bg-slate-100">Locations</a>
+        <a href="#/cycle-counts" class="flex h-8 items-center gap-2 rounded px-2 text-slate-700 hover:bg-slate-100">Cycle counts</a>
+      </div>
+    </nav>
+  </aside>
+
+  <div class="flex min-w-0 flex-1 flex-col">
+    <header class="flex h-12 items-center justify-between gap-3 border-b border-slate-200 bg-white px-4">
+      <span class="font-semibold lg:hidden">Northgate WMS</span>
+      <button type="button" class="ml-auto flex h-8 w-full max-w-xs items-center justify-between rounded border border-slate-300 bg-white px-3 text-slate-600 hover:bg-slate-50 lg:ml-0">
+        <span>Search or run a command</span><kbd class="rounded border border-slate-300 px-1 text-xs">Ctrl K</kbd>
+      </button>
+      <div class="flex items-center gap-2">
+        <button type="button" class="relative inline-flex size-8 items-center justify-center rounded hover:bg-slate-100" aria-label="Notifications, 3 unread">
+          <svg class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M6 8a6 6 0 0112 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.9 1.9 0 003.4 0"/></svg>
+          <span class="absolute right-0 top-0 rounded-full bg-blue-700 px-1 text-xs leading-4 text-white" aria-hidden="true">3</span>
+        </button>
+        <button type="button" class="inline-flex size-8 items-center justify-center rounded-full bg-slate-200 text-xs font-medium text-slate-800" aria-label="Account menu">LH</button>
+      </div>
+    </header>
+
+    <main id="main" class="min-w-0 flex-1 p-4 sm:p-6">
+      <!-- Page header -->
+      <div class="mb-4 flex flex-wrap items-center gap-x-4 gap-y-2">
+        <h1 class="text-xl font-semibold">Operations dashboard</h1>
+        <div class="flex items-center gap-2">
+          <label for="range" class="sr-only">Date range</label>
+          <select id="range" class="h-8 rounded border border-slate-300 bg-white px-2 text-sm">
+            <option value="today">Today</option>
+            <option value="yesterday">Yesterday</option>
+            <option value="7d">Last 7 days</option>
+          </select>
+          <span id="range-dates" class="text-slate-600 tabular-nums"></span>
+        </div>
+        <div class="ml-auto flex items-center gap-2 text-slate-600">
+          <span id="updated" class="tabular-nums">Updated --:--</span>
+          <span id="refresh-failed" class="hidden text-red-700">Refresh failed</span>
+          <button id="refresh" type="button" class="inline-flex h-8 items-center gap-1 rounded border border-slate-300 bg-white px-3 text-slate-800 hover:bg-slate-50">
+            <svg class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M21 12a9 9 0 11-3-6.7L21 8"/><path d="M21 3v5h-5"/></svg>Refresh</button>
+        </div>
+      </div>
+      <p class="mb-4 text-slate-600">Warehouse DC-02 Hải Phòng · Day shift 06:00–14:00, swing shift 14:00–22:00</p>
+
+      <div class="grid gap-4 xl:grid-cols-[minmax(0,1fr)_380px]">
+        <div class="order-2 grid min-w-0 gap-4 xl:order-1">
+          <!-- KPI tiles -->
+          <section aria-label="Key numbers">
+            <div id="kpis" class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3"></div>
+          </section>
+
+          <!-- Charts -->
+          <div class="grid gap-4 2xl:grid-cols-2">
+            <section aria-labelledby="h-thr" class="rounded-md border border-slate-200 bg-white">
+              <div class="flex items-center justify-between border-b border-slate-200 px-4 py-3">
+                <h2 id="h-thr" class="text-base font-semibold">Orders shipped per hour</h2>
+                <span class="text-xs text-slate-600">Today vs yesterday</span>
+              </div>
+              <div id="w-thr" class="min-h-[300px] p-4"></div>
+            </section>
+            <section aria-labelledby="h-zone" class="rounded-md border border-slate-200 bg-white">
+              <div class="flex items-center justify-between border-b border-slate-200 px-4 py-3">
+                <h2 id="h-zone" class="text-base font-semibold">Open pick lines by zone</h2>
+                <span class="text-xs text-slate-600">Sorted, highest first</span>
+              </div>
+              <div id="w-zone" class="min-h-[300px] p-4"></div>
+            </section>
+          </div>
+
+          <!-- Dock table -->
+          <section aria-labelledby="h-dock" class="rounded-md border border-slate-200 bg-white">
+            <div class="flex items-center justify-between border-b border-slate-200 px-4 py-3">
+              <h2 id="h-dock" class="text-base font-semibold">Inbound dock schedule</h2>
+              <a href="#/appointments" class="text-blue-700 hover:underline">All appointments</a>
+            </div>
+            <div id="w-dock" class="min-h-[200px]"></div>
+          </section>
+        </div>
+
+        <!-- Needs attention -->
+        <aside class="order-1 min-w-0 xl:order-2">
+          <section aria-labelledby="attn" class="rounded-md border border-slate-200 bg-white">
+            <div class="flex items-center justify-between border-b border-slate-200 px-4 py-3">
+              <h2 id="attn" class="text-base font-semibold">Needs attention</h2>
+              <span id="attn-total" class="text-xs text-slate-600"></span>
+            </div>
+            <p id="attn-live" role="status" class="sr-only"></p>
+            <div id="w-attn" class="min-h-[200px]"></div>
+          </section>
+        </aside>
+      </div>
+    </main>
+  </div>
+</div>
+
+<script>
+(function () {
+  const locale = 'en-US';
+  const nf = new Intl.NumberFormat(locale);
+  const params = new URLSearchParams(location.search);
+  const forced = params.get('state'); // empty | error | loading
+  const MINUS = '−';
+
+  /* ---------- Mock data ---------- */
+  const RANGES = {
+    today: { label: 'today', cmp: 'vs yesterday', dates: () => fmtDate(new Date()),
+      kpis: [
+        { id: 'shipped', label: 'Orders shipped', value: 1284, fmt: 'n', delta: 0.062, deltaFmt: 'pct', href: '#/shipments?date=today' },
+        { id: 'awaiting', label: 'Orders awaiting pick', value: 412, fmt: 'n', delta: -38, deltaFmt: 'n', href: '#/orders?status=awaiting-pick' },
+        { id: 'late', label: 'Late shipments', value: 7, fmt: 'n', delta: 3, deltaFmt: 'n', href: '#/shipments?status=late', target: 'Target 0' },
+        { id: 'acc', label: 'Pick accuracy', value: 0.994, fmt: 'pct1', delta: 0.002, deltaFmt: 'pts', href: '#/picking?view=accuracy', target: 'Target 99.5%' },
+        { id: 'dts', label: 'Dock-to-stock time', value: '3 h 12 min', fmt: 'raw', delta: -18, deltaFmt: 'min', href: '#/receipts?view=dock-to-stock', target: 'Target 3 h 00 min' },
+        { id: 'util', label: 'Storage utilisation', value: 0.874, fmt: 'pct1', delta: 0.006, deltaFmt: 'pts', href: '#/locations?view=utilisation', target: 'Alert above 92%' }
+      ] },
+    yesterday: { label: 'yesterday', cmp: 'vs previous day', dates: () => { const d = new Date(); d.setDate(d.getDate() - 1); return fmtDate(d); },
+      kpis: [
+        { id: 'shipped', label: 'Orders shipped', value: 2421, fmt: 'n', delta: 0.031, deltaFmt: 'pct', href: '#/shipments?date=yesterday' },
+        { id: 'awaiting', label: 'Orders awaiting pick', value: 0, fmt: 'n', delta: 0, deltaFmt: 'n', href: '#/orders?status=awaiting-pick' },
+        { id: 'late', label: 'Late shipments', value: 4, fmt: 'n', delta: -2, deltaFmt: 'n', href: '#/shipments?status=late&date=yesterday', target: 'Target 0' },
+        { id: 'acc', label: 'Pick accuracy', value: 0.992, fmt: 'pct1', delta: -0.001, deltaFmt: 'pts', href: '#/picking?view=accuracy', target: 'Target 99.5%' },
+        { id: 'dts', label: 'Dock-to-stock time', value: '3 h 30 min', fmt: 'raw', delta: 12, deltaFmt: 'min', href: '#/receipts?view=dock-to-stock', target: 'Target 3 h 00 min' },
+        { id: 'util', label: 'Storage utilisation', value: 0.868, fmt: 'pct1', delta: 0.004, deltaFmt: 'pts', href: '#/locations?view=utilisation', target: 'Alert above 92%' }
+      ] },
+    '7d': { label: 'last 7 days', cmp: 'vs previous 7 days', dates: () => { const e = new Date(), s = new Date(); s.setDate(s.getDate() - 6); return fmtDate(s) + ' – ' + fmtDate(e); },
+      kpis: [
+        { id: 'shipped', label: 'Orders shipped', value: 16592, fmt: 'n', delta: 0.044, deltaFmt: 'pct', href: '#/shipments?date=7d' },
+        { id: 'awaiting', label: 'Orders awaiting pick', value: 412, fmt: 'n', delta: 21, deltaFmt: 'n', href: '#/orders?status=awaiting-pick' },
+        { id: 'late', label: 'Late shipments', value: 31, fmt: 'n', delta: -9, deltaFmt: 'n', href: '#/shipments?status=late&date=7d', target: 'Target 0' },
+        { id: 'acc', label: 'Pick accuracy', value: 0.993, fmt: 'pct1', delta: 0.001, deltaFmt: 'pts', href: '#/picking?view=accuracy', target: 'Target 99.5%' },
+        { id: 'dts', label: 'Dock-to-stock time', value: '3 h 21 min', fmt: 'raw', delta: -7, deltaFmt: 'min', href: '#/receipts?view=dock-to-stock', target: 'Target 3 h 00 min' },
+        { id: 'util', label: 'Storage utilisation', value: 0.874, fmt: 'pct1', delta: 0.011, deltaFmt: 'pts', href: '#/locations?view=utilisation', target: 'Alert above 92%' }
+      ] }
+  };
+
+  const HOURS = [6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21];
+  const YESTERDAY = [46, 118, 164, 201, 214, 188, 132, 176, 219, 226, 208, 174, 141, 97, 64, 28];
+  const TODAY = [52, 126, 171, 214, 229, 196, 141, 188, 232, 118]; // through 15:00 (partial hour)
+
+  const ZONES = [
+    { name: 'A – Fast movers', v: 1840 }, { name: 'B – Bulk racking', v: 1265 },
+    { name: 'C – Cold storage', v: 804 }, { name: 'D – Small parts', v: 612 },
+    { name: 'E – Hazmat cage', v: 143 }
+  ];
+
+  const DOCKS = [
+    { door: 'Door 03', carrier: 'Vinalines Freight', po: 'PO-48210', units: 2400, eta: '15:30', status: 'In progress', tone: 'info' },
+    { door: 'Door 05', carrier: 'Saigon Logistics', po: 'PO-48197', units: 1180, eta: '14:45', status: 'Overdue', tone: 'danger' },
+    { door: 'Door 06', carrier: 'Hoàng Gia Transport', po: 'PO-48233', units: 860, eta: '16:15', status: 'Scheduled', tone: 'neutral' },
+    { door: 'Door 02', carrier: 'Kerry Express', po: 'PO-48240', units: 320, eta: '16:40', status: 'Scheduled', tone: 'neutral' },
+    { door: 'Door 07', carrier: 'DHL Supply Chain', po: 'PO-48251', units: 3050, eta: '17:20', status: 'Due soon', tone: 'warning' },
+    { door: 'Door 01', carrier: 'Phương Nam Cargo', po: 'PO-48119', units: 1640, eta: '13:10', status: 'Completed', tone: 'success' }
+  ];
+
+  const ATTN = [
+    { count: 7, label: 'late shipments', sub: 'Carrier cut-off missed', badge: 'Overdue', tone: 'danger', href: '#/shipments?status=late' },
+    { count: 3, label: 'dock appointments overdue', sub: 'Door 05 waiting 73 min', badge: 'Overdue', tone: 'danger', href: '#/appointments?status=overdue' },
+    { count: 12, label: 'orders on hold for stock shortage', sub: 'Allocated 0 of requested', badge: 'Needs attention', tone: 'warning', href: '#/orders?status=on-hold&reason=shortage' },
+    { count: 18, label: 'locations with count variance', sub: 'Variance above 2 units', badge: 'Needs attention', tone: 'warning', href: '#/cycle-counts?status=variance' },
+    { count: 5, label: 'replenishments not started', sub: 'Zone A pick faces below minimum', badge: 'Due soon', tone: 'warning', href: '#/picking?type=replenishment&status=open' }
+  ];
+
+  /* ---------- Helpers ---------- */
+  const $ = (id) => document.getElementById(id);
+  function pad(n) { return String(n).padStart(2, '0'); }
+  function fmtDate(d) { return pad(d.getDate()) + '/' + pad(d.getMonth() + 1) + '/' + d.getFullYear(); }
+  function fmtTime(d) { return pad(d.getHours()) + ':' + pad(d.getMinutes()); }
+  function sk(cls) { return '<div class="sk ' + cls + '"></div>'; }
+  function esc(s) { return String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c])); }
+  const toneCls = {
+    neutral: 'bg-slate-100 text-slate-700', info: 'bg-blue-50 text-blue-800',
+    success: 'bg-green-50 text-green-800', warning: 'bg-amber-50 text-amber-800', danger: 'bg-red-50 text-red-800'
+  };
+  const badge = (t, tone) => '<span class="inline-flex items-center rounded-full px-2 text-xs font-medium ' + toneCls[tone] + '">' + esc(t) + '</span>';
+
+  function fmtValue(k) {
+    if (k.fmt === 'n') return nf.format(k.value);
+    if (k.fmt === 'pct1') return new Intl.NumberFormat(locale, { style: 'percent', minimumFractionDigits: 1, maximumFractionDigits: 1 }).format(k.value);
+    return k.value;
+  }
+  function fmtDelta(k, cmp) {
+    let s;
+    if (k.deltaFmt === 'pct') s = new Intl.NumberFormat(locale, { style: 'percent', signDisplay: 'exceptZero', maximumFractionDigits: 1 }).format(k.delta);
+    else if (k.deltaFmt === 'pts') s = new Intl.NumberFormat(locale, { signDisplay: 'exceptZero', maximumFractionDigits: 1 }).format(k.delta * 100) + ' pts';
+    else if (k.deltaFmt === 'min') s = new Intl.NumberFormat(locale, { signDisplay: 'exceptZero' }).format(k.delta) + ' min';
+    else s = new Intl.NumberFormat(locale, { signDisplay: 'exceptZero' }).format(k.delta);
+    if (k.delta === 0) s = 'No change';
+    return s.replace('-', MINUS) + ' ' + cmp;
+  }
+
+  function errorBox(msg, retryId) {
+    return '<div class="flex h-full min-h-[200px] flex-col items-start justify-center gap-2 p-4"><p class="font-medium text-red-700">' + esc(msg) + '</p>' +
+      '<p class="text-slate-600">Other widgets are not affected.</p>' +
+      '<button type="button" data-retry="' + retryId + '" class="h-8 rounded border border-slate-300 bg-white px-3 text-slate-800 hover:bg-slate-50">Retry</button></div>';
+  }
+  function emptyBox(msg, action, href) {
+    return '<div class="flex min-h-[200px] flex-col items-start justify-center gap-2 p-4"><p class="text-slate-700">' + esc(msg) + '</p>' +
+      (action ? '<a href="' + href + '" class="inline-flex h-8 items-center rounded border border-slate-300 bg-white px-3 text-slate-800 hover:bg-slate-50">' + esc(action) + '</a>' : '') + '</div>';
+  }
+
+  /* ---------- Widgets ---------- */
+  function renderKpis(state, key) {
+    const el = $('kpis'), r = RANGES[key];
+    if (state === 'loading') {
+      el.innerHTML = Array.from({ length: 6 }, () => '<div class="h-28 rounded-md border border-slate-200 bg-white p-4">' + sk('h-3 w-28') + '<div class="mt-3">' + sk('h-6 w-20') + '</div><div class="mt-3">' + sk('h-3 w-36') + '</div></div>').join('');
+      return;
+    }
+    if (state === 'error') {
+      el.innerHTML = '<div class="rounded-md border border-slate-200 bg-white sm:col-span-2 lg:col-span-3">' + errorBox('Could not load the key numbers.', 'kpis') + '</div>';
+      return;
+    }
+    if (state === 'empty') {
+      el.innerHTML = '<div class="rounded-md border border-slate-200 bg-white sm:col-span-2 lg:col-span-3">' + emptyBox('No warehouse activity in this range yet. Numbers appear after the first scan of the shift.', 'Change date range', '?range=7d') + '</div>';
+      return;
+    }
+    el.innerHTML = r.kpis.map((k) =>
+      '<a href="' + k.href + '" class="block min-h-28 rounded-md border border-slate-200 bg-white p-4 hover:bg-slate-50">' +
+      '<p class="text-xs font-medium text-slate-600">' + esc(k.label) + '</p>' +
+      '<p class="mt-1 text-2xl font-semibold tabular-nums">' + esc(fmtValue(k)) + '</p>' +
+      '<p class="text-xs text-slate-600 tabular-nums">' + esc(fmtDelta(k, r.cmp)) + '</p>' +
+      (k.target ? '<p class="text-xs text-slate-600">' + esc(k.target) + '</p>' : '') + '</a>').join('');
+  }
+
+  function renderThroughput(state) {
+    const el = $('w-thr');
+    if (state === 'loading') { el.innerHTML = sk('h-[268px] w-full'); return; }
+    if (state === 'error') { el.innerHTML = errorBox('Could not load hourly throughput.', 'thr'); return; }
+    if (state === 'empty') { el.innerHTML = emptyBox('No shipments scanned out today yet.', 'Change date range', '?range=yesterday'); return; }
+    const W = 560, H = 290, L = 52, R = 76, T = 12, B = 44;
+    const maxV = 250, x = (i) => L + (i * (W - L - R)) / (HOURS.length - 1), y = (v) => T + (H - T - B) * (1 - v / maxV);
+    const line = (arr) => arr.map((v, i) => (i ? 'L' : 'M') + x(i).toFixed(1) + ' ' + y(v).toFixed(1)).join(' ');
+    let g = '';
+    [0, 50, 100, 150, 200, 250].forEach((t) => {
+      g += '<line x1="' + L + '" x2="' + (W - R) + '" y1="' + y(t) + '" y2="' + y(t) + '" stroke="#e2e8f0"/><text x="' + (L - 8) + '" y="' + (y(t) + 4) + '" text-anchor="end" font-size="12" fill="#475569">' + t + '</text>';
+    });
+    HOURS.forEach((h, i) => { if (i % 2 === 0) g += '<text x="' + x(i) + '" y="' + (H - B + 18) + '" text-anchor="middle" font-size="12" fill="#475569">' + pad(h) + ':00</text>'; });
+    const li = TODAY.length - 1, ly = HOURS.length - 1;
+    const cur = TODAY[li - 0];
+    const svg = '<svg viewBox="0 0 ' + W + ' ' + H + '" class="w-full" role="img" aria-label="Line chart. Orders shipped per hour, today versus yesterday. Today peaked at 232 in the 14:00 hour; yesterday peaked at 226 at 15:00 and ended at 28 at 21:00.">' + g +
+      '<text transform="rotate(-90)" x="' + (-(T + (H - T - B) / 2)) + '" y="12" text-anchor="middle" font-size="12" fill="#475569">Orders shipped per hour</text>' +
+      '<text x="' + (L + (W - L - R) / 2) + '" y="' + (H - 4) + '" text-anchor="middle" font-size="12" fill="#475569">Hour of day (local time)</text>' +
+      '<path d="' + line(YESTERDAY) + '" fill="none" stroke="#94a3b8" stroke-width="2" stroke-dasharray="5 4"/>' +
+      '<path d="' + line(TODAY) + '" fill="none" stroke="#1d4ed8" stroke-width="2.5"/>' +
+      '<circle cx="' + x(li) + '" cy="' + y(cur) + '" r="4" fill="#1d4ed8"/>' +
+      '<text x="' + (x(li) + 8) + '" y="' + (y(cur) + 4) + '" font-size="12" font-weight="600" fill="#1d4ed8">Today</text>' +
+      '<text x="' + (x(ly) + 6) + '" y="' + (y(YESTERDAY[ly]) - 6) + '" font-size="12" fill="#475569">Yesterday</text></svg>';
+    const total = TODAY.reduce((a, b) => a + b, 0);
+    el.innerHTML = svg + '<p class="mt-2 text-xs text-slate-600 tabular-nums">' + nf.format(total) + ' orders shipped since 06:00. Today\'s last point is the current hour, still in progress.</p>';
+  }
+
+  function renderZones(state) {
+    const el = $('w-zone');
+    if (state === 'loading') { el.innerHTML = sk('h-[268px] w-full'); return; }
+    if (state === 'error') { el.innerHTML = errorBox('Could not load pick backlog by zone.', 'zone'); return; }
+    if (state === 'empty') { el.innerHTML = emptyBox('No open pick lines. Every wave is picked.', null); return; }
+    const W = 560, rowH = 40, L = 150, R = 70, T = 8, B = 44, H = T + ZONES.length * rowH + B, max = 2000;
+    const sorted = ZONES.slice().sort((a, b) => b.v - a.v);
+    const bx = (v) => (v / max) * (W - L - R);
+    let g = '';
+    [0, 500, 1000, 1500, 2000].forEach((t) => {
+      g += '<line x1="' + (L + bx(t)) + '" x2="' + (L + bx(t)) + '" y1="' + T + '" y2="' + (H - B) + '" stroke="#e2e8f0"/><text x="' + (L + bx(t)) + '" y="' + (H - B + 16) + '" text-anchor="middle" font-size="12" fill="#475569">' + nf.format(t) + '</text>';
+    });
+    sorted.forEach((z, i) => {
+      const yy = T + i * rowH;
+      g += '<text x="' + (L - 8) + '" y="' + (yy + 24) + '" text-anchor="end" font-size="12" fill="#0f172a">' + esc(z.name) + '</text>' +
+        '<rect x="' + L + '" y="' + (yy + 8) + '" width="' + bx(z.v) + '" height="24" rx="2" fill="' + (i === 0 ? '#1d4ed8' : '#94a3b8') + '"/>' +
+        '<text x="' + (L + bx(z.v) + 6) + '" y="' + (yy + 24) + '" font-size="12" font-weight="600" fill="#0f172a">' + nf.format(z.v) + '</text>';
+    });
+    const sum = ZONES.reduce((a, b) => a + b.v, 0);
+    el.innerHTML = '<svg viewBox="0 0 ' + W + ' ' + H + '" class="w-full" role="img" aria-label="Bar chart. Open pick lines by zone: ' + sorted.map((z) => z.name + ' ' + nf.format(z.v)).join(', ') + '.">' + g +
+      '<text x="' + (L + (W - L - R) / 2) + '" y="' + (H - 4) + '" text-anchor="middle" font-size="12" fill="#475569">Open pick lines (count)</text></svg>' +
+      '<p class="mt-2 text-xs text-slate-600 tabular-nums">' + nf.format(sum) + ' open lines. <a class="text-blue-700 hover:underline" href="#/picking?status=open&zone=A">View zone A tasks</a></p>';
+  }
+
+  function renderDock(state) {
+    const el = $('w-dock');
+    if (state === 'loading') { el.innerHTML = '<div class="space-y-2 p-4">' + Array.from({ length: 5 }, () => sk('h-6 w-full')).join('') + '</div>'; return; }
+    if (state === 'error') { el.innerHTML = errorBox('Could not load the dock schedule.', 'dock'); return; }
+    if (state === 'empty') { el.innerHTML = emptyBox('No inbound appointments are booked for today.', 'Book appointment', '#/appointments/new'); return; }
+    const th = 'px-3 py-2 text-left font-medium text-slate-700';
+    const thr = 'px-3 py-2 text-right font-medium text-slate-700';
+    el.innerHTML = '<div class="overflow-x-auto"><table class="w-full min-w-[640px] text-sm"><caption class="sr-only">Inbound dock appointments today</caption>' +
+      '<thead class="border-b border-slate-200 bg-slate-50"><tr><th scope="col" class="' + th + '">Door</th><th scope="col" class="' + th + '">Carrier</th><th scope="col" class="' + th + '">Purchase order</th>' +
+      '<th scope="col" class="' + thr + '">Units</th><th scope="col" class="' + thr + '">Planned arrival</th><th scope="col" class="' + th + '">Status</th></tr></thead><tbody>' +
+      DOCKS.map((d) => '<tr class="h-10 border-b border-slate-200 last:border-0 hover:bg-slate-50">' +
+        '<td class="whitespace-nowrap px-3 font-medium">' + esc(d.door) + '</td><td class="whitespace-nowrap px-3">' + esc(d.carrier) + '</td>' +
+        '<td class="whitespace-nowrap px-3"><a class="text-blue-700 hover:underline" href="#/receipts/' + d.po + '">' + d.po + '</a></td>' +
+        '<td class="whitespace-nowrap px-3 text-right tabular-nums">' + nf.format(d.units) + '</td><td class="whitespace-nowrap px-3 text-right tabular-nums">' + d.eta + '</td>' +
+        '<td class="whitespace-nowrap px-3">' + badge(d.status, d.tone) + '</td></tr>').join('') + '</tbody></table></div>';
+  }
+
+  function renderAttn(state) {
+    const el = $('w-attn'), live = $('attn-live'), tot = $('attn-total');
+    if (state === 'loading') { el.innerHTML = '<div class="space-y-3 p-4">' + Array.from({ length: 5 }, () => sk('h-8 w-full')).join('') + '</div>'; tot.textContent = ''; return; }
+    if (state === 'error') { el.innerHTML = errorBox('Could not load the attention list.', 'attn'); tot.textContent = ''; return; }
+    if (state === 'empty') {
+      el.innerHTML = emptyBox('Nothing needs attention. Checked at ' + fmtTime(new Date()) + '.', null);
+      tot.textContent = ''; live.textContent = ''; setTimeout(() => { live.textContent = 'Nothing needs attention'; }, 50); return;
+    }
+    const items = ATTN.slice(0, 5);
+    tot.textContent = items.length + ' issues';
+    el.innerHTML = '<ul>' + items.map((i) =>
+      '<li class="border-b border-slate-200 last:border-0"><a href="' + i.href + '" class="flex items-start gap-3 px-4 py-3 hover:bg-slate-50">' +
+      '<span class="w-8 shrink-0 text-xl font-semibold leading-6 tabular-nums">' + nf.format(i.count) + '</span>' +
+      '<span class="min-w-0 flex-1"><span class="block font-medium">' + esc(i.label) + '</span><span class="block text-xs text-slate-600">' + esc(i.sub) + '</span></span>' +
+      badge(i.badge, i.tone) + '</a></li>').join('') + '</ul>';
+    const n = items.reduce((a, b) => a + b.count, 0);
+    live.textContent = '';
+    setTimeout(() => { live.textContent = items.length + ' issues need attention, ' + n + ' records in total'; }, 50);
+  }
+
+  /* ---------- Orchestration ---------- */
+  function getRange() { const r = params.get('range'); return RANGES[r] ? r : 'today'; }
+  let range = getRange();
+
+  function paint(state) {
+    renderKpis(state, range); renderThroughput(state); renderZones(state); renderDock(state); renderAttn(state);
+  }
+  function stamp(ok) {
+    if (ok) { $('updated').textContent = 'Updated ' + fmtTime(new Date()); $('refresh-failed').classList.add('hidden'); }
+    else $('refresh-failed').classList.remove('hidden');
+  }
+  function load() {
+    $('range').value = range;
+    $('range-dates').textContent = RANGES[range].dates();
+    paint('loading');
+    if (forced === 'loading') { $('updated').textContent = 'Updating…'; return; }
+    setTimeout(() => {
+      if (forced === 'error') { paint('error'); $('updated').textContent = 'Updated --:--'; stamp(false); return; }
+      if (forced === 'empty') { paint('empty'); stamp(true); return; }
+      paint('ready'); stamp(true);
+    }, 450);
+  }
+
+  $('range').addEventListener('change', (e) => {
+    range = e.target.value;
+    const u = new URL(location.href); u.searchParams.set('range', range); history.replaceState(null, '', u);
+    load();
+  });
+  $('refresh').addEventListener('click', load);
+  document.addEventListener('click', (e) => {
+    const b = e.target.closest('[data-retry]');
+    if (!b) return;
+    const k = b.getAttribute('data-retry');
+    const map = { kpis: () => renderKpis('loading', range), thr: () => renderThroughput('loading'), zone: () => renderZones('loading'), dock: () => renderDock('loading'), attn: () => renderAttn('loading') };
+    map[k]();
+    setTimeout(() => {
+      const st = forced === 'error' ? 'error' : forced === 'empty' ? 'empty' : 'ready';
+      ({ kpis: () => renderKpis(st, range), thr: () => renderThroughput(st), zone: () => renderZones(st), dock: () => renderDock(st), attn: () => renderAttn(st) })[k]();
+    }, 450);
+  });
+  setInterval(() => { if (!forced) load(); }, 60000 * 5);
+
+  load();
+})();
+</script>
+</body>
+</html>

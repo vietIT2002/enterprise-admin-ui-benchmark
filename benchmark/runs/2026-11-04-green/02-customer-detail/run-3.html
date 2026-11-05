@@ -1,0 +1,674 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Công ty TNHH Minh Phát – Customers – Northwind CRM</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+  body { font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; font-size: 14px; color: #0f172a; }
+  :focus-visible { outline: 2px solid #1d4ed8; outline-offset: 2px; }
+</style>
+</head>
+<body class="bg-slate-50 text-slate-900">
+<a href="#main" class="sr-only focus:not-sr-only focus:absolute focus:left-2 focus:top-2 focus:z-50 focus:bg-white focus:px-3 focus:py-2 focus:rounded">Skip to content</a>
+
+<div class="flex min-h-screen">
+  <!-- Sidebar -->
+  <aside class="hidden lg:flex w-56 shrink-0 flex-col border-r border-slate-200 bg-white">
+    <div class="h-14 flex items-center gap-2 px-4 border-b border-slate-200">
+      <span class="w-6 h-6 rounded bg-blue-700 text-white text-xs font-semibold flex items-center justify-center" aria-hidden="true">N</span>
+      <span class="font-semibold">Northwind CRM</span>
+    </div>
+    <nav aria-label="Main" class="p-2 text-sm flex-1">
+      <ul class="space-y-0.5" id="nav"></ul>
+    </nav>
+    <div class="p-3 border-t border-slate-200 flex items-center gap-2">
+      <span class="w-8 h-8 rounded-full bg-slate-200 text-slate-700 text-xs font-medium flex items-center justify-center" aria-hidden="true">LH</span>
+      <div class="min-w-0">
+        <div class="text-sm font-medium truncate">Lê Thu Hà</div>
+        <div class="text-xs text-slate-600 truncate">Sales manager</div>
+      </div>
+    </div>
+  </aside>
+
+  <div class="flex-1 min-w-0 flex flex-col">
+    <header class="h-14 bg-white border-b border-slate-200 flex items-center gap-3 px-4 lg:px-6">
+      <label class="relative flex-1 max-w-md">
+        <span class="sr-only">Search customers, orders, contacts</span>
+        <svg class="w-4 h-4 absolute left-2.5 top-2 text-slate-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+        <input type="search" placeholder="Search customers, orders, contacts" class="h-8 w-full rounded border border-slate-300 bg-white pl-8 pr-2 text-sm placeholder:text-slate-500">
+      </label>
+      <div class="ml-auto text-xs text-slate-600">Data as of 04/11/2026 16:30</div>
+    </header>
+
+    <main id="main" class="flex-1 min-w-0">
+      <!-- Page header -->
+      <div class="bg-white border-b border-slate-200 px-4 lg:px-6 pt-4">
+        <nav aria-label="Breadcrumb" class="text-xs text-slate-600 mb-2">
+          <ol class="flex items-center gap-1.5">
+            <li><a href="#" class="text-blue-700 hover:underline">Customers</a></li>
+            <li aria-hidden="true">/</li>
+            <li aria-current="page" class="text-slate-900">Công ty TNHH Minh Phát</li>
+          </ol>
+        </nav>
+        <div id="recordHeader"></div>
+        <div role="tablist" aria-label="Customer sections" id="tabs" class="flex gap-1 mt-4 -mb-px overflow-x-auto"></div>
+      </div>
+
+      <div class="px-4 lg:px-6 py-4">
+        <div id="panel" role="tabpanel" tabindex="0"></div>
+      </div>
+    </main>
+  </div>
+</div>
+
+<div id="menuRoot"></div>
+<div id="dialogRoot"></div>
+<div id="toasts" class="fixed bottom-4 right-4 z-50 space-y-2" aria-live="polite"></div>
+
+<script>
+(function () {
+  'use strict';
+
+  /* ---------- Helpers ---------- */
+  var NOW = new Date(2026, 10, 4, 16, 30); // fixed "now" for the mock: 04/11/2026 16:30
+  var vnd = new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND', maximumFractionDigits: 0 });
+  var num = new Intl.NumberFormat('vi-VN');
+  function pad(n) { return String(n).padStart(2, '0'); }
+  function fmtDate(d) { return pad(d.getDate()) + '/' + pad(d.getMonth() + 1) + '/' + d.getFullYear(); }
+  function fmtDT(d) { return fmtDate(d) + ' ' + pad(d.getHours()) + ':' + pad(d.getMinutes()); }
+  function rel(d) {
+    var m = Math.round((NOW - d) / 60000);
+    if (m < 60) return m + ' min ago';
+    var h = Math.round(m / 60);
+    if (h < 24) return h + ' h ago';
+    var dd = Math.round(h / 24);
+    if (dd < 60) return dd + ' days ago';
+    return Math.round(dd / 30) + ' months ago';
+  }
+  function esc(s) { return String(s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
+  function initials(name) { var p = name.trim().split(/\s+/); return (p[0][0] + (p.length > 1 ? p[p.length - 1][0] : '')).toUpperCase(); }
+  function D(y, m, d, h, mi) { return new Date(y, m - 1, d, h || 0, mi || 0); }
+
+  var icons = {
+    home: '<path d="m3 11 9-8 9 8"/><path d="M5 10v10h14V10"/>',
+    users: '<circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c0-3.5 3-6 6.5-6s6.5 2.5 6.5 6"/><path d="M16 4.5a3.5 3.5 0 0 1 0 7"/><path d="M18 14.5c2.2.7 3.5 2.6 3.5 5.5"/>',
+    building: '<rect x="4" y="3" width="16" height="18" rx="1"/><path d="M9 8h2M13 8h2M9 12h2M13 12h2M10 21v-4h4v4"/>',
+    cart: '<circle cx="9" cy="20" r="1.5"/><circle cx="18" cy="20" r="1.5"/><path d="M2 3h3l2.5 12h11L21 7H6"/>',
+    box: '<path d="M21 8 12 3 3 8v8l9 5 9-5z"/><path d="M3 8l9 5 9-5M12 13v8"/>',
+    chart: '<path d="M4 20V10M10 20V4M16 20v-8M22 20H2"/>',
+    gear: '<circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9 7 7M17 17l2.1 2.1M4.9 19.1 7 17M17 7l2.1-2.1"/>',
+    plus: '<path d="M12 5v14M5 12h14"/>',
+    more: '<circle cx="5" cy="12" r="1.2"/><circle cx="12" cy="12" r="1.2"/><circle cx="19" cy="12" r="1.2"/>',
+    mail: '<rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 7 9 6 9-6"/>',
+    phone: '<path d="M5 4h4l2 5-2.5 1.5a11 11 0 0 0 5 5L15 13l5 2v4a2 2 0 0 1-2 2A16 16 0 0 1 3 6a2 2 0 0 1 2-2z"/>',
+    x: '<path d="M6 6l12 12M18 6 6 18"/>',
+    alert: '<path d="M12 3 2 20h20z"/><path d="M12 10v4M12 17.5v.01"/>',
+    inbox: '<path d="M3 13l3-8h12l3 8v6H3z"/><path d="M3 13h5l1 3h6l1-3h5"/>'
+  };
+  function icon(name, cls) {
+    return '<svg class="' + (cls || 'w-4 h-4') + '" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + icons[name] + '</svg>';
+  }
+
+  /* Status vocabulary: five tones, always with text */
+  var tones = {
+    neutral: 'bg-slate-100 text-slate-700 border-slate-200',
+    info: 'bg-blue-50 text-blue-800 border-blue-200',
+    success: 'bg-green-50 text-green-800 border-green-200',
+    warning: 'bg-amber-50 text-amber-800 border-amber-200',
+    danger: 'bg-red-50 text-red-800 border-red-200'
+  };
+  var statusTone = {
+    'Active': 'success', 'Archived': 'neutral',
+    'Draft': 'neutral', 'Pending': 'info', 'Shipping': 'info', 'Completed': 'success', 'Overdue': 'danger', 'Cancelled': 'neutral'
+  };
+  function badge(s) {
+    return '<span class="inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-medium ' + tones[statusTone[s] || 'neutral'] + '">' + esc(s) + '</span>';
+  }
+
+  /* ---------- Mock data ---------- */
+  var people = {
+    ha: 'Lê Thu Hà', quan: 'Trần Minh Quân', lan: 'Phạm Ngọc Lan', system: 'System'
+  };
+  var customer = {
+    id: 'KH-0231', name: 'Công ty TNHH Minh Phát', status: 'Active',
+    owner: 'Lê Thu Hà', lastChangedBy: 'Phạm Ngọc Lan', lastChangedAt: D(2026, 10, 29, 9, 42),
+    industry: 'Wholesale – building materials', size: '120–250 employees', taxId: '0312 458 796',
+    website: 'minhphat.example.vn', segment: 'Key account', terms: 'Net 30', creditLimit: 500000000,
+    source: 'Referral', since: D(2023, 3, 14, 10, 0),
+    billing: '128 Nguyễn Văn Linh, Phường Tân Thuận Tây, Quận 7, TP. Hồ Chí Minh',
+    shipping: 'Kho 3, KCN Hiệp Phước, Nhà Bè, TP. Hồ Chí Minh'
+  };
+  var contacts = [
+    { id: 1, name: 'Nguyễn Văn Phát', role: 'Director', email: 'phat.nv@minhphat.example.vn', phone: '0903 456 112', primary: true, lastContact: D(2026, 11, 3, 14, 5) },
+    { id: 2, name: 'Đặng Thị Mai', role: 'Purchasing manager', email: 'mai.dt@minhphat.example.vn', phone: '0912 887 340', primary: false, lastContact: D(2026, 11, 4, 9, 12) },
+    { id: 3, name: 'Võ Quốc Hùng', role: 'Chief accountant', email: 'hung.vq@minhphat.example.vn', phone: '0938 221 905', primary: false, lastContact: D(2026, 10, 21, 11, 30) },
+    { id: 4, name: 'Bùi Thanh Tâm', role: 'Warehouse supervisor', email: 'tam.bt@minhphat.example.vn', phone: '0977 604 281', primary: false, lastContact: D(2026, 9, 30, 16, 0) },
+    { id: 5, name: 'Hoàng Gia Bảo', role: 'Purchasing assistant', email: 'bao.hg@minhphat.example.vn', phone: '0868 130 774', primary: false, lastContact: D(2026, 8, 12, 10, 15) }
+  ];
+  var orders = [
+    ['DH-1057', D(2026, 11, 3, 15, 20), 'Pending', 12, 86400000, 'Đặng Thị Mai'],
+    ['DH-1052', D(2026, 10, 28, 10, 5), 'Shipping', 8, 142750000, 'Đặng Thị Mai'],
+    ['DH-1046', D(2026, 10, 19, 9, 40), 'Shipping', 21, 238900000, 'Nguyễn Văn Phát'],
+    ['DH-1041', D(2026, 10, 9, 14, 12), 'Completed', 6, 57300000, 'Đặng Thị Mai'],
+    ['DH-1035', D(2026, 9, 24, 11, 0), 'Overdue', 15, 196500000, 'Võ Quốc Hùng'],
+    ['DH-1029', D(2026, 9, 11, 8, 55), 'Completed', 9, 74200000, 'Đặng Thị Mai'],
+    ['DH-1022', D(2026, 8, 27, 16, 30), 'Completed', 18, 221000000, 'Nguyễn Văn Phát'],
+    ['DH-1017', D(2026, 8, 6, 10, 18), 'Cancelled', 4, 32800000, 'Hoàng Gia Bảo'],
+    ['DH-1011', D(2026, 7, 22, 13, 45), 'Completed', 11, 118600000, 'Đặng Thị Mai'],
+    ['DH-1004', D(2026, 7, 3, 9, 30), 'Completed', 7, 64900000, 'Nguyễn Văn Phát'],
+    ['DH-0996', D(2026, 6, 15, 15, 10), 'Completed', 14, 167300000, 'Đặng Thị Mai'],
+    ['DH-0988', D(2026, 5, 29, 10, 0), 'Completed', 5, 41500000, 'Hoàng Gia Bảo'],
+    ['DH-0979', D(2026, 5, 8, 11, 25), 'Completed', 10, 98700000, 'Nguyễn Văn Phát'],
+    ['DH-0971', D(2026, 4, 17, 14, 50), 'Completed', 13, 152400000, 'Đặng Thị Mai']
+  ].map(function (r) { return { no: r[0], date: r[1], status: r[2], items: r[3], total: r[4], contact: r[5] }; });
+
+  var activity = [
+    { who: 'Lê Thu Hà', type: 'Order', at: D(2026, 11, 4, 15, 58), text: 'confirmed order <b>DH-1057</b> and sent the quotation to Đặng Thị Mai' },
+    { who: 'Đặng Thị Mai', type: 'Email', at: D(2026, 11, 4, 9, 12), text: 'replied to <b>Re: Quotation for ceramic tiles, Q4</b>', external: true },
+    { who: 'Lê Thu Hà', type: 'Call', at: D(2026, 11, 3, 14, 5), text: 'logged a 12 min call with Nguyễn Văn Phát: discussed volume discount for 2027' },
+    { who: 'System', type: 'Payment', at: D(2026, 10, 30, 8, 0), text: 'flagged invoice for <b>DH-1035</b> as overdue (14 days past the Net 30 due date)' },
+    { who: 'Phạm Ngọc Lan', type: 'Update', at: D(2026, 10, 29, 9, 42), text: 'changed <b>Credit limit</b>', change: ['400.000.000 ₫', '500.000.000 ₫'] },
+    { who: 'Phạm Ngọc Lan', type: 'Update', at: D(2026, 10, 29, 9, 41), text: 'changed <b>Payment terms</b>', change: ['Net 15', 'Net 30'] },
+    { who: 'Lê Thu Hà', type: 'Note', at: D(2026, 10, 21, 11, 30), text: 'added a note: “Accounting asked for e-invoices to be sent to a second address. Waiting for confirmation from Võ Quốc Hùng.”' },
+    { who: 'Trần Minh Quân', type: 'Order', at: D(2026, 10, 19, 10, 15), text: 'approved the credit exception for order <b>DH-1046</b> (238.900.000 ₫)' },
+    { who: 'Lê Thu Hà', type: 'Contact', at: D(2026, 10, 2, 16, 20), text: 'added contact <b>Hoàng Gia Bảo</b> (Purchasing assistant)' },
+    { who: 'Lê Thu Hà', type: 'Update', at: D(2026, 9, 18, 10, 5), text: 'changed <b>Account owner</b>', change: ['Trần Minh Quân', 'Lê Thu Hà'] },
+    { who: 'Lê Thu Hà', type: 'Email', at: D(2026, 9, 11, 9, 0), text: 'sent <b>Delivery schedule for DH-1029</b> to Đặng Thị Mai' }
+  ];
+
+  /* ---------- State ---------- */
+  var params = new URLSearchParams(location.search);
+  var sim = params.get('state'); // ?state=empty | ?state=error to preview those states
+  if (sim === 'empty') { contacts = []; orders = []; activity = []; }
+  var S = {
+    tab: 'overview',
+    loaded: {}, // tab -> 'loading' | 'ready' | 'error'
+    orderQ: '', orderStatus: 'all', orderPage: 1, pageSize: 6,
+    actType: 'all',
+    errorOnce: sim === 'error'
+  };
+  var PAGE_TITLES = ['overview', 'contacts', 'orders', 'activity'];
+
+  /* ---------- Shell ---------- */
+  var navItems = [['Dashboard', 'home'], ['Customers', 'building', true], ['Contacts', 'users'], ['Orders', 'cart'], ['Products', 'box'], ['Reports', 'chart'], ['Settings', 'gear']];
+  document.getElementById('nav').innerHTML = navItems.map(function (n) {
+    var active = n[2];
+    return '<li><a href="#" ' + (active ? 'aria-current="page"' : '') + ' class="flex items-center gap-2 h-8 px-2 rounded ' + (active ? 'bg-slate-100 text-blue-700 font-medium' : 'text-slate-700 hover:bg-slate-50') + '">' + icon(n[1]) + n[0] + '</a></li>';
+  }).join('');
+
+  function totals() {
+    var live = orders.filter(function (o) { return o.status !== 'Cancelled' && o.status !== 'Draft'; });
+    var revenue = live.reduce(function (s, o) { return s + o.total; }, 0);
+    var outstanding = orders.filter(function (o) { return o.status === 'Overdue' || o.status === 'Pending' || o.status === 'Shipping'; }).reduce(function (s, o) { return s + o.total; }, 0);
+    return { revenue: revenue, outstanding: outstanding, last: orders.length ? orders[0].date : null };
+  }
+
+  function renderHeader() {
+    var t = totals();
+    var fields = [
+      ['Account owner', esc(customer.owner)],
+      ['Open balance', vnd.format(t.outstanding)],
+      ['Revenue, all time', vnd.format(t.revenue)],
+      ['Last order', t.last ? fmtDate(t.last) : '—']
+    ];
+    document.getElementById('recordHeader').innerHTML =
+      '<div class="flex flex-wrap items-start justify-between gap-3">' +
+        '<div class="min-w-0">' +
+          '<div class="flex flex-wrap items-center gap-2">' +
+            '<h1 class="text-2xl font-semibold leading-tight">' + esc(customer.name) + '</h1>' + badge(customer.status) +
+          '</div>' +
+          '<div class="mt-1 text-sm text-slate-600"><span class="tabular-nums">' + customer.id + '</span> · ' + esc(customer.segment) + ' · Customer since ' + fmtDate(customer.since) + '</div>' +
+        '</div>' +
+        '<div class="flex items-center gap-2">' +
+          '<button id="btnCreateOrder" class="h-8 px-3 rounded bg-blue-700 hover:bg-blue-800 text-white text-sm font-medium inline-flex items-center gap-1.5">' + icon('plus') + 'Create order</button>' +
+          '<button data-menu="header" aria-haspopup="menu" aria-label="More actions for customer ' + esc(customer.name) + '" class="h-8 w-8 rounded border border-slate-300 bg-white hover:bg-slate-50 inline-flex items-center justify-center">' + icon('more') + '</button>' +
+        '</div>' +
+      '</div>' +
+      '<dl class="mt-4 grid grid-cols-2 lg:grid-cols-4 gap-x-6 gap-y-3 pb-1">' +
+        fields.map(function (f) { return '<div><dt class="text-xs font-medium text-slate-600">' + f[0] + '</dt><dd class="mt-0.5 text-sm font-medium tabular-nums">' + f[1] + '</dd></div>'; }).join('') +
+      '</dl>';
+    document.getElementById('btnCreateOrder').onclick = createOrder;
+  }
+
+  function renderTabs() {
+    var counts = { overview: null, contacts: contacts.length, orders: orders.length, activity: activity.length };
+    var labels = { overview: 'Overview', contacts: 'Contacts', orders: 'Orders', activity: 'Activity' };
+    document.getElementById('tabs').innerHTML = PAGE_TITLES.map(function (k) {
+      var on = S.tab === k;
+      return '<button role="tab" id="tab-' + k + '" aria-selected="' + on + '" aria-controls="panel" tabindex="' + (on ? 0 : -1) + '" data-tab="' + k + '" class="px-3 h-10 text-sm whitespace-nowrap border-b-2 ' + (on ? 'border-blue-700 text-blue-700 font-medium' : 'border-transparent text-slate-600 hover:text-slate-900') + '">' + labels[k] + (counts[k] != null ? ' <span class="ml-1 text-xs tabular-nums ' + (on ? 'text-blue-700' : 'text-slate-600') + '">' + counts[k] + '</span>' : '') + '</button>';
+    }).join('');
+  }
+
+  /* ---------- Reusable blocks ---------- */
+  function skeletonRows(n, cols) {
+    var rows = '';
+    for (var i = 0; i < n; i++) {
+      rows += '<div class="h-10 flex items-center gap-4 px-3 border-b border-slate-100 last:border-0">';
+      for (var c = 0; c < cols; c++) rows += '<div class="h-3 rounded bg-slate-200 animate-pulse" style="width:' + (c === 0 ? 18 : 12 + ((i + c) % 3) * 6) + '%"></div>';
+      rows += '</div>';
+    }
+    return '<div class="rounded-md border border-slate-200 bg-white" role="status" aria-label="Loading"><div class="h-10 border-b border-slate-200 bg-slate-50"></div>' + rows + '</div>';
+  }
+  function emptyState(title, text, actionHtml) {
+    return '<div class="rounded-md border border-slate-200 bg-white px-6 py-12 text-center">' +
+      '<div class="mx-auto w-9 h-9 rounded-full bg-slate-100 text-slate-600 flex items-center justify-center">' + icon('inbox', 'w-5 h-5') + '</div>' +
+      '<h3 class="mt-3 text-sm font-semibold">' + title + '</h3>' +
+      '<p class="mt-1 text-sm text-slate-600 max-w-sm mx-auto">' + text + '</p>' +
+      (actionHtml ? '<div class="mt-4">' + actionHtml + '</div>' : '') + '</div>';
+  }
+  function errorState(what, tabKey) {
+    return '<div class="rounded-md border border-red-200 bg-red-50 px-4 py-4 flex items-start gap-3" role="alert">' +
+      '<span class="text-red-700 mt-0.5">' + icon('alert') + '</span>' +
+      '<div class="flex-1"><div class="text-sm font-medium text-red-800">' + what + '</div>' +
+      '<div class="text-sm text-red-800">The server did not respond. Nothing was changed.</div></div>' +
+      '<button data-retry="' + tabKey + '" class="h-8 px-3 rounded border border-red-300 bg-white text-red-800 text-sm font-medium hover:bg-red-50">Retry</button></div>';
+  }
+  function btnSecondary(label, attrs) {
+    return '<button ' + (attrs || '') + ' class="h-8 px-3 rounded border border-slate-300 bg-white hover:bg-slate-50 text-sm font-medium">' + label + '</button>';
+  }
+  function btnPrimary(label, attrs) {
+    return '<button ' + (attrs || '') + ' class="h-8 px-3 rounded bg-blue-700 hover:bg-blue-800 text-white text-sm font-medium">' + label + '</button>';
+  }
+  function th(label, right) {
+    return '<th scope="col" class="px-3 h-10 text-xs font-medium text-slate-600 ' + (right ? 'text-right' : 'text-left') + ' whitespace-nowrap">' + label + '</th>';
+  }
+
+  /* ---------- Overview ---------- */
+  function row(label, value) {
+    return '<div class="grid grid-cols-3 gap-3 py-2 border-b border-slate-100 last:border-0"><dt class="text-sm text-slate-600">' + label + '</dt><dd class="col-span-2 text-sm">' + value + '</dd></div>';
+  }
+  function renderOverview() {
+    var primary = contacts.filter(function (c) { return c.primary; })[0];
+    var recent = orders.slice(0, 4);
+    var t = totals();
+    var sec = function (title, body, action) {
+      return '<section class="rounded-md border border-slate-200 bg-white"><div class="flex items-center justify-between h-11 px-4 border-b border-slate-200"><h2 class="text-sm font-semibold">' + title + '</h2>' + (action || '') + '</div><div class="px-4 py-2">' + body + '</div></section>';
+    };
+    var info = '<dl>' +
+      row('Legal name', esc(customer.name)) +
+      row('Tax ID', '<span class="tabular-nums">' + customer.taxId + '</span>') +
+      row('Industry', esc(customer.industry)) +
+      row('Company size', esc(customer.size)) +
+      row('Website', '<a href="#" class="text-blue-700 hover:underline">' + customer.website + '</a>') +
+      row('Source', esc(customer.source)) + '</dl>';
+    var commercial = '<dl>' +
+      row('Payment terms', customer.terms) +
+      row('Credit limit', '<span class="tabular-nums">' + vnd.format(customer.creditLimit) + '</span>') +
+      row('Credit used', '<span class="tabular-nums">' + vnd.format(t.outstanding) + '</span> <span class="text-slate-600">(' + Math.round(t.outstanding / customer.creditLimit * 100) + '%)</span>') +
+      row('Account owner', esc(customer.owner)) + '</dl>';
+    var addr = '<dl>' + row('Billing', esc(customer.billing)) + row('Shipping', esc(customer.shipping)) + '</dl>';
+    var primaryHtml = primary
+      ? '<div class="py-2"><div class="flex items-center gap-3"><span class="w-8 h-8 rounded-full bg-slate-200 text-slate-700 text-xs font-medium flex items-center justify-center" aria-hidden="true">' + initials(primary.name) + '</span><div class="min-w-0"><div class="text-sm font-medium">' + esc(primary.name) + '</div><div class="text-xs text-slate-600">' + esc(primary.role) + '</div></div></div>' +
+        '<div class="mt-2 space-y-1 text-sm"><div class="flex items-center gap-2"><span class="text-slate-600">' + icon('mail') + '</span><a class="text-blue-700 hover:underline truncate" href="mailto:' + esc(primary.email) + '">' + esc(primary.email) + '</a></div>' +
+        '<div class="flex items-center gap-2"><span class="text-slate-600">' + icon('phone') + '</span><span class="tabular-nums">' + esc(primary.phone) + '</span></div></div></div>'
+      : '<p class="py-3 text-sm text-slate-600">No contacts yet. Add the first contact to set a primary one.</p>';
+
+    var recentTable = recent.length
+      ? '<table class="w-full text-sm"><thead class="border-b border-slate-200"><tr>' + th('Order') + th('Date') + th('Status') + th('Total', true) + '</tr></thead><tbody>' +
+        recent.map(function (o) {
+          return '<tr class="h-10 border-b border-slate-100 last:border-0"><td class="px-3"><a href="#" data-goto-order="' + o.no + '" class="text-blue-700 hover:underline tabular-nums">' + o.no + '</a></td><td class="px-3 tabular-nums">' + fmtDate(o.date) + '</td><td class="px-3">' + badge(o.status) + '</td><td class="px-3 text-right tabular-nums">' + vnd.format(o.total) + '</td></tr>';
+        }).join('') + '</tbody></table>'
+      : '<p class="py-3 text-sm text-slate-600">No orders yet. Create the first order for this customer.</p>';
+
+    return '<div class="text-sm text-slate-600 mb-3">' + orders.length + ' orders · ' + vnd.format(t.revenue) + ' revenue · Last changed by <a href="#" data-goto-tab="activity" class="text-blue-700 hover:underline">' + esc(customer.lastChangedBy) + '</a> on ' + fmtDT(customer.lastChangedAt) + '</div>' +
+      '<div class="grid grid-cols-1 xl:grid-cols-3 gap-4">' +
+        '<div class="xl:col-span-2 space-y-4">' +
+          sec('Customer information', info) +
+          sec('Recent orders', recentTable, orders.length ? '<a href="#" data-goto-tab="orders" class="text-sm text-blue-700 hover:underline">View all ' + orders.length + '</a>' : '') +
+        '</div>' +
+        '<div class="space-y-4">' +
+          sec('Primary contact', primaryHtml, '<a href="#" data-goto-tab="contacts" class="text-sm text-blue-700 hover:underline">All contacts</a>') +
+          sec('Commercial terms', commercial) +
+          sec('Addresses', addr) +
+        '</div>' +
+      '</div>';
+  }
+
+  /* ---------- Contacts ---------- */
+  function renderContacts() {
+    var head = '<div class="flex items-center justify-between mb-3"><h2 class="text-sm font-semibold">Contacts <span class="font-normal text-slate-600 tabular-nums">(' + contacts.length + ')</span></h2>' + btnPrimary('Add contact', 'id="btnAddContact"') + '</div>';
+    if (!contacts.length) return head + emptyState('No contacts yet', 'Add the people at this company you work with, such as buyers and accountants.', btnPrimary('Add contact', 'id="btnAddContact2"'));
+    return head + '<div class="rounded-md border border-slate-200 bg-white overflow-x-auto"><table class="w-full text-sm min-w-[820px]"><thead class="bg-slate-50 border-b border-slate-200"><tr>' +
+      th('Name') + th('Role') + th('Email') + th('Phone') + th('Last contact') + th('<span class="sr-only">Actions</span>', true) + '</tr></thead><tbody>' +
+      contacts.map(function (c) {
+        return '<tr class="h-10 border-b border-slate-100 last:border-0 hover:bg-slate-50">' +
+          '<td class="px-3 whitespace-nowrap"><div class="flex items-center gap-2"><span class="w-6 h-6 rounded-full bg-slate-200 text-slate-700 text-[10px] font-medium flex items-center justify-center" aria-hidden="true">' + initials(c.name) + '</span><span class="font-medium">' + esc(c.name) + '</span>' + (c.primary ? ' <span class="inline-flex rounded-full border px-2 py-0.5 text-xs font-medium ' + tones.info + '">Primary</span>' : '') + '</div></td>' +
+          '<td class="px-3 whitespace-nowrap">' + esc(c.role) + '</td>' +
+          '<td class="px-3 whitespace-nowrap"><a class="text-blue-700 hover:underline" href="mailto:' + esc(c.email) + '">' + esc(c.email) + '</a></td>' +
+          '<td class="px-3 whitespace-nowrap tabular-nums">' + esc(c.phone) + '</td>' +
+          '<td class="px-3 whitespace-nowrap tabular-nums">' + fmtDT(c.lastContact) + '</td>' +
+          '<td class="px-3 whitespace-nowrap text-right"><button data-menu="contact:' + c.id + '" aria-haspopup="menu" aria-label="Actions for contact ' + esc(c.name) + '" class="h-8 w-8 rounded hover:bg-slate-100 inline-flex items-center justify-center">' + icon('more') + '</button></td></tr>';
+      }).join('') + '</tbody></table></div>';
+  }
+
+  /* ---------- Orders ---------- */
+  function filteredOrders() {
+    return orders.filter(function (o) {
+      var q = S.orderQ.trim().toLowerCase();
+      if (q && (o.no + ' ' + o.contact).toLowerCase().indexOf(q) < 0) return false;
+      if (S.orderStatus !== 'all' && o.status !== S.orderStatus) return false;
+      return true;
+    });
+  }
+  function renderOrders() {
+    var statuses = ['Draft', 'Pending', 'Shipping', 'Completed', 'Overdue', 'Cancelled'];
+    var filtered = filteredOrders();
+    var sum = filtered.reduce(function (s, o) { return s + o.total; }, 0);
+    var pages = Math.max(1, Math.ceil(filtered.length / S.pageSize));
+    if (S.orderPage > pages) S.orderPage = pages;
+    var start = (S.orderPage - 1) * S.pageSize;
+    var pageRows = filtered.slice(start, start + S.pageSize);
+    var counts = {};
+    orders.forEach(function (o) { counts[o.status] = (counts[o.status] || 0) + 1; });
+
+    var tabsHtml = '<div class="flex flex-wrap gap-1 mb-3" role="group" aria-label="Filter by status">' +
+      [['all', 'All', orders.length]].concat(statuses.filter(function (s) { return counts[s]; }).map(function (s) { return [s, s, counts[s]]; })).map(function (t) {
+        var on = S.orderStatus === t[0];
+        return '<button data-ostatus="' + t[0] + '" aria-pressed="' + on + '" class="h-8 px-3 rounded text-sm ' + (on ? 'bg-slate-900 text-white font-medium' : 'border border-slate-300 bg-white text-slate-700 hover:bg-slate-50') + '">' + t[1] + ' <span class="tabular-nums ' + (on ? '' : 'text-slate-600') + '">' + t[2] + '</span></button>';
+      }).join('') + '</div>';
+
+    var chips = '';
+    if (S.orderQ.trim() || S.orderStatus !== 'all') {
+      chips = '<div class="flex flex-wrap items-center gap-2 mb-3 text-sm"><span class="text-slate-600">Filters:</span>' +
+        (S.orderQ.trim() ? '<span class="inline-flex items-center gap-1 rounded-full border border-slate-300 bg-white pl-2.5 pr-1 h-6 text-xs">Search: ' + esc(S.orderQ.trim()) + '<button data-clear="q" aria-label="Remove search filter" class="w-5 h-5 rounded-full hover:bg-slate-100 inline-flex items-center justify-center">' + icon('x', 'w-3 h-3') + '</button></span>' : '') +
+        (S.orderStatus !== 'all' ? '<span class="inline-flex items-center gap-1 rounded-full border border-slate-300 bg-white pl-2.5 pr-1 h-6 text-xs">Status: ' + S.orderStatus + '<button data-clear="status" aria-label="Remove status filter" class="w-5 h-5 rounded-full hover:bg-slate-100 inline-flex items-center justify-center">' + icon('x', 'w-3 h-3') + '</button></span>' : '') +
+        '<button data-clear="all" class="text-blue-700 hover:underline text-sm">Clear all</button></div>';
+    }
+
+    var head = '<div class="flex flex-wrap items-center justify-between gap-3 mb-3"><h2 class="text-sm font-semibold">Orders</h2>' +
+      '<div class="flex items-center gap-2"><label class="relative"><span class="sr-only">Search orders</span><svg class="w-4 h-4 absolute left-2.5 top-2 text-slate-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg><input id="orderSearch" type="search" value="' + esc(S.orderQ) + '" placeholder="Order number or contact" class="h-8 w-60 rounded border border-slate-300 pl-8 pr-2 text-sm placeholder:text-slate-500"></label>' +
+      btnPrimary('Create order', 'data-create-order="1"') + '</div></div>';
+
+    if (!orders.length) return head + emptyState('No orders yet', 'Orders placed by this customer will appear here.', btnPrimary('Create order', 'data-create-order="1"'));
+
+    var table;
+    if (!filtered.length) {
+      table = emptyState('No orders match these filters', 'Try a different order number or status.', btnSecondary('Clear filters', 'data-clear="all"'));
+    } else {
+      table = '<div class="rounded-md border border-slate-200 bg-white overflow-x-auto"><table class="w-full text-sm min-w-[760px]"><thead class="bg-slate-50 border-b border-slate-200"><tr>' +
+        th('Order') + th('Date') + th('Status') + th('Ordered by') + th('Items', true) + th('Total', true) + th('<span class="sr-only">Actions</span>', true) + '</tr></thead><tbody>' +
+        pageRows.map(function (o) {
+          return '<tr class="h-10 border-b border-slate-100 last:border-0 hover:bg-slate-50">' +
+            '<td class="px-3 whitespace-nowrap"><a href="#" class="text-blue-700 font-medium hover:underline tabular-nums">' + o.no + '</a></td>' +
+            '<td class="px-3 whitespace-nowrap tabular-nums">' + fmtDate(o.date) + '</td>' +
+            '<td class="px-3 whitespace-nowrap">' + badge(o.status) + '</td>' +
+            '<td class="px-3 whitespace-nowrap">' + esc(o.contact) + '</td>' +
+            '<td class="px-3 whitespace-nowrap text-right tabular-nums">' + num.format(o.items) + '</td>' +
+            '<td class="px-3 whitespace-nowrap text-right tabular-nums">' + vnd.format(o.total) + '</td>' +
+            '<td class="px-3 whitespace-nowrap text-right"><div class="inline-flex items-center gap-1"><a href="#" class="h-8 px-2 rounded text-blue-700 hover:bg-slate-100 inline-flex items-center text-sm">View</a>' +
+            '<button data-menu="order:' + o.no + '" aria-haspopup="menu" aria-label="Actions for order ' + o.no + '" class="h-8 w-8 rounded hover:bg-slate-100 inline-flex items-center justify-center">' + icon('more') + '</button></div></td></tr>';
+        }).join('') + '</tbody></table></div>' +
+        '<div class="flex flex-wrap items-center justify-between gap-3 mt-3 text-sm text-slate-600"><div class="tabular-nums">Showing ' + (start + 1) + '–' + (start + pageRows.length) + ' of ' + filtered.length + ' orders · ' + vnd.format(sum) + '</div>' +
+        '<div class="flex items-center gap-2"><button data-page="' + (S.orderPage - 1) + '" ' + (S.orderPage <= 1 ? 'disabled' : '') + ' class="h-8 px-3 rounded border border-slate-300 bg-white text-slate-900 hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed">Previous</button><span class="tabular-nums">Page ' + S.orderPage + ' of ' + pages + '</span><button data-page="' + (S.orderPage + 1) + '" ' + (S.orderPage >= pages ? 'disabled' : '') + ' class="h-8 px-3 rounded border border-slate-300 bg-white text-slate-900 hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed">Next</button></div></div>';
+    }
+    return head + tabsHtml + chips + table;
+  }
+
+  /* ---------- Activity ---------- */
+  function renderActivity() {
+    var types = ['all', 'Order', 'Email', 'Call', 'Note', 'Contact', 'Update', 'Payment'];
+    var bar = '<div class="flex flex-wrap items-center justify-between gap-3 mb-3"><h2 class="text-sm font-semibold">Activity history</h2>' +
+      '<label class="flex items-center gap-2 text-sm"><span class="text-slate-600">Type</span><select id="actType" class="h-8 rounded border border-slate-300 bg-white pl-2 pr-6 text-sm">' +
+      types.map(function (t) { return '<option value="' + t + '"' + (S.actType === t ? ' selected' : '') + '>' + (t === 'all' ? 'All types' : t) + '</option>'; }).join('') + '</select></label></div>';
+    if (!activity.length) return bar + emptyState('No activity yet', 'Calls, emails, notes and changes to this customer are recorded here.', btnSecondary('Add note', 'data-add-note="1"'));
+    var list = activity.filter(function (a) { return S.actType === 'all' || a.type === S.actType; });
+    if (!list.length) return bar + emptyState('No activity matches this type', 'Choose another type to see more of the history.', btnSecondary('Clear filters', 'data-clear-act="1"'));
+    return bar + '<div class="rounded-md border border-slate-200 bg-white"><ol>' + list.map(function (a) {
+      var sys = a.who === 'System';
+      var avatar = sys
+        ? '<span class="w-8 h-8 rounded-full bg-slate-100 text-slate-600 text-[10px] font-medium flex items-center justify-center shrink-0" aria-hidden="true">SYS</span>'
+        : '<span class="w-8 h-8 rounded-full bg-slate-200 text-slate-700 text-xs font-medium flex items-center justify-center shrink-0" aria-hidden="true">' + initials(a.who) + '</span>';
+      return '<li class="flex gap-3 px-4 py-3 border-b border-slate-100 last:border-0">' + avatar +
+        '<div class="min-w-0 flex-1"><div class="text-sm"><span class="font-medium">' + esc(a.who) + '</span> ' + a.text + '</div>' +
+        (a.change ? '<div class="mt-1 text-sm tabular-nums"><span class="text-slate-600 line-through">' + esc(a.change[0]) + '</span> <span aria-label="changed to">→</span> <span class="font-medium">' + esc(a.change[1]) + '</span></div>' : '') +
+        '<div class="mt-0.5 text-xs text-slate-600 tabular-nums">' + fmtDT(a.at) + ' · ' + rel(a.at) + '</div></div>' +
+        '<span class="self-start inline-flex rounded-full border px-2 py-0.5 text-xs font-medium ' + tones.neutral + '">' + a.type + '</span></li>';
+    }).join('') + '</ol></div>';
+  }
+
+  /* ---------- Panel rendering with loading / error ---------- */
+  var renderers = { overview: renderOverview, contacts: renderContacts, orders: renderOrders, activity: renderActivity };
+  var errorText = { overview: 'Could not load customer information.', contacts: 'Could not load contacts.', orders: 'Could not load orders.', activity: 'Could not load activity history.' };
+  var skeletons = {
+    overview: function () { return '<div class="grid grid-cols-1 xl:grid-cols-3 gap-4"><div class="xl:col-span-2 space-y-4">' + skeletonRows(6, 3) + skeletonRows(4, 4) + '</div><div class="space-y-4">' + skeletonRows(3, 2) + skeletonRows(4, 2) + '</div></div>'; },
+    contacts: function () { return skeletonRows(5, 5); },
+    orders: function () { return skeletonRows(6, 6); },
+    activity: function () { return skeletonRows(7, 3); }
+  };
+
+  function loadTab(k) {
+    S.loaded[k] = 'loading';
+    paint();
+    setTimeout(function () {
+      if (S.errorOnce && k === 'orders') { S.errorOnce = false; S.loaded[k] = 'error'; }
+      else S.loaded[k] = 'ready';
+      if (S.tab === k) paint();
+    }, 450);
+  }
+  function paint() {
+    var k = S.tab, st = S.loaded[k], p = document.getElementById('panel');
+    p.setAttribute('aria-labelledby', 'tab-' + k);
+    if (st === 'loading') p.innerHTML = skeletons[k]();
+    else if (st === 'error') p.innerHTML = errorState(errorText[k], k);
+    else p.innerHTML = renderers[k]();
+    renderHeader(); renderTabs();
+  }
+  function setTab(k, focus) {
+    S.tab = k;
+    if (!S.loaded[k]) loadTab(k); else paint();
+    if (focus) document.getElementById('tab-' + k).focus();
+  }
+
+  /* ---------- Toasts, menus, dialogs ---------- */
+  function toast(msg, tone) {
+    var el = document.createElement('div');
+    el.className = 'rounded-md border bg-white shadow-lg px-4 py-3 text-sm flex items-center gap-3 ' + (tone === 'error' ? 'border-red-300 text-red-800' : 'border-slate-200');
+    el.setAttribute('role', 'status');
+    el.innerHTML = '<span>' + msg + '</span>';
+    document.getElementById('toasts').appendChild(el);
+    setTimeout(function () { el.remove(); }, 4000);
+  }
+
+  var menuState = null;
+  function closeMenu() { document.getElementById('menuRoot').innerHTML = ''; menuState = null; }
+  function openMenu(btn, key) {
+    var items = [];
+    var parts = key.split(':');
+    if (parts[0] === 'header') items = [['copy', 'Copy customer ID'], ['export', 'Export customer data'], ['archive', 'Archive customer…', true]];
+    if (parts[0] === 'contact') items = [['setprimary', 'Set as primary contact', parts[1]], ['removec', 'Remove contact…', parts[1], true]];
+    if (parts[0] === 'order') items = [['duplicate', 'Duplicate order', parts[1]], ['invoice', 'Download invoice', parts[1]]];
+    var r = btn.getBoundingClientRect();
+    var html = '<div role="menu" class="fixed z-40 w-52 rounded-md border border-slate-200 bg-white shadow-lg py-1" style="top:' + (r.bottom + 4) + 'px;left:' + Math.max(8, r.right - 208) + 'px">' +
+      items.map(function (it, i) {
+        return '<button role="menuitem" data-act="' + it[0] + '" data-arg="' + (typeof it[2] === 'string' ? it[2] : '') + '" class="w-full text-left h-8 px-3 text-sm hover:bg-slate-100 ' + (it[it.length - 1] === true ? 'text-red-700' : '') + '">' + it[1] + '</button>';
+      }).join('') + '</div>';
+    document.getElementById('menuRoot').innerHTML = html;
+    menuState = { btn: btn };
+    var first = document.querySelector('#menuRoot [role=menuitem]'); if (first) first.focus();
+  }
+
+  var dialogState = null;
+  function closeDialog() { document.getElementById('dialogRoot').innerHTML = ''; if (dialogState && dialogState.opener) dialogState.opener.focus(); dialogState = null; }
+  function openDialog(title, bodyHtml, footerHtml, opts) {
+    dialogState = { opener: document.activeElement, dirty: false, onSubmit: opts && opts.onSubmit };
+    document.getElementById('dialogRoot').innerHTML =
+      '<div class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40" id="backdrop">' +
+      '<div role="dialog" aria-modal="true" aria-labelledby="dlgTitle" class="w-full max-w-md rounded-lg bg-white shadow-xl border border-slate-200">' +
+      '<form id="dlgForm" novalidate><div class="px-5 pt-5 pb-2"><h2 id="dlgTitle" class="text-base font-semibold">' + title + '</h2></div>' +
+      '<div class="px-5 pb-4">' + bodyHtml + '</div>' +
+      '<div class="flex items-center justify-end gap-2 px-5 py-3 border-t border-slate-200">' + footerHtml + '</div></form></div></div>';
+    var first = document.querySelector('#dialogRoot input, #dialogRoot button[type=submit]'); if (first) first.focus();
+  }
+
+  function confirmDestructive(title, text, confirmLabel, onConfirm) {
+    openDialog(title, '<p class="text-sm text-slate-700">' + text + '</p>',
+      '<button type="button" data-dlg="cancel" class="h-8 px-3 rounded border border-slate-300 bg-white hover:bg-slate-50 text-sm font-medium">Cancel</button>' +
+      '<button type="submit" class="h-8 px-3 rounded bg-red-700 hover:bg-red-800 text-white text-sm font-medium">' + confirmLabel + '</button>',
+      { onSubmit: function () { onConfirm(); closeDialog(); } });
+  }
+
+  function openContactDialog() {
+    var f = function (id, label, req, type, ph) {
+      return '<div class="mt-3"><label for="' + id + '" class="block text-xs font-medium text-slate-700 mb-1">' + label + (req ? ' <span class="text-red-700">*</span>' : '') + '</label>' +
+        '<input id="' + id + '" name="' + id + '" type="' + (type || 'text') + '" ' + (req ? 'required aria-required="true"' : '') + ' placeholder="' + (ph || '') + '" class="h-8 w-full rounded border border-slate-300 px-2 text-sm placeholder:text-slate-500" aria-describedby="' + id + 'Err"><p id="' + id + 'Err" class="mt-1 text-xs text-red-700 hidden"></p></div>';
+    };
+    openDialog('Add contact',
+      f('cName', 'Full name', true, 'text', 'e.g. Trần Văn An') + f('cRole', 'Role', false, 'text', 'e.g. Purchasing manager') + f('cEmail', 'Email', true, 'email', 'name@company.vn') + f('cPhone', 'Phone', false, 'tel', '09xx xxx xxx'),
+      '<span id="unsaved" class="hidden mr-auto text-xs text-amber-800">Unsaved changes</span>' +
+      '<button type="button" data-dlg="cancel" class="h-8 px-3 rounded border border-slate-300 bg-white hover:bg-slate-50 text-sm font-medium">Cancel</button>' +
+      '<button type="submit" id="dlgSave" class="h-8 px-3 rounded bg-blue-700 hover:bg-blue-800 text-white text-sm font-medium inline-flex items-center gap-2">Save contact</button>',
+      { onSubmit: submitContact });
+  }
+  function validateField(el) {
+    var err = document.getElementById(el.id + 'Err'), msg = '';
+    var v = el.value.trim();
+    if (el.required && !v) msg = el.id === 'cName' ? 'Enter the contact’s full name.' : 'Enter an email address.';
+    else if (el.id === 'cEmail' && v && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v)) msg = 'Enter a valid email, like name@company.vn.';
+    else if (el.id === 'cEmail' && v && contacts.some(function (c) { return c.email.toLowerCase() === v.toLowerCase(); })) msg = 'A contact with this email already exists.';
+    err.textContent = msg; err.classList.toggle('hidden', !msg);
+    el.setAttribute('aria-invalid', msg ? 'true' : 'false');
+    el.classList.toggle('border-red-600', !!msg);
+    return !msg;
+  }
+  function submitContact() {
+    var fields = ['cName', 'cEmail'].map(function (id) { return document.getElementById(id); });
+    var ok = fields.map(validateField).every(Boolean);
+    if (!ok) { fields.filter(function (f) { return f.getAttribute('aria-invalid') === 'true'; })[0].focus(); return; }
+    var btn = document.getElementById('dlgSave');
+    btn.disabled = true; btn.classList.add('opacity-70');
+    btn.innerHTML = '<svg class="w-4 h-4 animate-spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" aria-hidden="true"><path d="M12 3a9 9 0 1 0 9 9" stroke-linecap="round"/></svg>Saving';
+    setTimeout(function () {
+      var c = { id: Date.now(), name: document.getElementById('cName').value.trim(), role: document.getElementById('cRole').value.trim() || 'Contact', email: document.getElementById('cEmail').value.trim(), phone: document.getElementById('cPhone').value.trim() || '—', primary: !contacts.length, lastContact: NOW };
+      contacts.push(c);
+      dialogState.dirty = false; closeDialog();
+      activity.unshift({ who: 'Lê Thu Hà', type: 'Contact', at: NOW, text: 'added contact <b>' + esc(c.name) + '</b> (' + esc(c.role) + ')' });
+      toast('Contact ' + esc(c.name) + ' saved');
+      paint();
+    }, 600);
+  }
+
+  function createOrder() {
+    var next = 'DH-' + (1058 + orders.filter(function (o) { return o.status === 'Draft'; }).length);
+    orders.unshift({ no: next, date: NOW, status: 'Draft', items: 0, total: 0, contact: (contacts.filter(function (c) { return c.primary; })[0] || { name: '—' }).name });
+    activity.unshift({ who: 'Lê Thu Hà', type: 'Order', at: NOW, text: 'created draft order <b>' + next + '</b>' });
+    toast('Draft order ' + next + ' created');
+    S.orderStatus = 'all'; S.orderQ = ''; S.orderPage = 1;
+    setTab('orders');
+  }
+
+  /* ---------- Events ---------- */
+  document.addEventListener('click', function (e) {
+    var t = e.target;
+    var el;
+    if ((el = t.closest('[data-tab]'))) { setTab(el.dataset.tab); return; }
+    if ((el = t.closest('[data-goto-tab]'))) { e.preventDefault(); setTab(el.dataset.gotoTab); return; }
+    if ((el = t.closest('[data-goto-order]'))) { e.preventDefault(); S.orderQ = el.dataset.gotoOrder; S.orderStatus = 'all'; S.orderPage = 1; setTab('orders'); return; }
+    if ((el = t.closest('[data-retry]'))) { loadTab(el.dataset.retry); return; }
+    if ((el = t.closest('[data-create-order]'))) { createOrder(); return; }
+    if ((el = t.closest('[data-ostatus]'))) { S.orderStatus = el.dataset.ostatus; S.orderPage = 1; paint(); return; }
+    if ((el = t.closest('[data-clear]'))) {
+      var w = el.dataset.clear;
+      if (w === 'q' || w === 'all') S.orderQ = '';
+      if (w === 'status' || w === 'all') S.orderStatus = 'all';
+      S.orderPage = 1; paint(); return;
+    }
+    if ((el = t.closest('[data-clear-act]'))) { S.actType = 'all'; paint(); return; }
+    if ((el = t.closest('[data-page]'))) { if (!el.disabled) { S.orderPage = +el.dataset.page; paint(); } return; }
+    if (t.closest('#btnAddContact, #btnAddContact2')) { openContactDialog(); return; }
+    if ((el = t.closest('[data-add-note]'))) { toast('Notes are added from the activity composer, coming soon'); return; }
+
+    if ((el = t.closest('[data-menu]'))) {
+      var same = menuState && menuState.btn === el;
+      closeMenu(); if (!same) openMenu(el, el.dataset.menu);
+      return;
+    }
+    if ((el = t.closest('[data-act]'))) {
+      var act = el.dataset.act, arg = el.dataset.arg;
+      closeMenu();
+      if (act === 'copy') { try { navigator.clipboard.writeText(customer.id); } catch (x) {} toast('Customer ID ' + customer.id + ' copied'); }
+      if (act === 'export') toast('Export of ' + esc(customer.name) + ' started. You will get an email when it is ready.');
+      if (act === 'archive') confirmDestructive('Archive customer ' + esc(customer.name) + '?', 'This customer, ' + contacts.length + ' contacts and ' + orders.length + ' orders will be hidden from lists and reports. Open orders (' + orders.filter(function (o) { return ['Pending', 'Shipping', 'Overdue'].indexOf(o.status) >= 0; }).length + ') keep processing. You can restore it later.', 'Archive customer', function () {
+        customer.status = 'Archived'; customer.lastChangedBy = 'Lê Thu Hà'; customer.lastChangedAt = NOW;
+        activity.unshift({ who: 'Lê Thu Hà', type: 'Update', at: NOW, text: 'changed <b>Status</b>', change: ['Active', 'Archived'] });
+        toast('Customer ' + esc(customer.name) + ' archived'); paint();
+      });
+      if (act === 'setprimary') {
+        contacts.forEach(function (c) { c.primary = String(c.id) === arg; });
+        toast('Primary contact updated'); paint();
+      }
+      if (act === 'removec') {
+        var c = contacts.filter(function (x) { return String(x.id) === arg; })[0];
+        confirmDestructive('Remove contact ' + esc(c.name) + '?', 'They will no longer receive quotations or invoices for this customer.' + (c.primary ? ' This is the primary contact; the next contact will not be promoted automatically.' : ''), 'Remove contact', function () {
+          contacts = contacts.filter(function (x) { return x !== c; });
+          activity.unshift({ who: 'Lê Thu Hà', type: 'Contact', at: NOW, text: 'removed contact <b>' + esc(c.name) + '</b>' });
+          toast('Contact ' + esc(c.name) + ' removed'); paint();
+        });
+      }
+      if (act === 'duplicate') { toast('Draft copy of order ' + arg + ' created'); }
+      if (act === 'invoice') { toast('Invoice for order ' + arg + ' is being prepared'); }
+      return;
+    }
+    if (t.closest('[data-dlg="cancel"]')) { requestCloseDialog(); return; }
+    if (t.id === 'backdrop') { requestCloseDialog(); return; }
+    if (!t.closest('[role=menu]')) closeMenu();
+  });
+
+  function requestCloseDialog() {
+    if (dialogState && dialogState.dirty && !confirm('Discard this contact? Your changes have not been saved.')) return;
+    closeDialog();
+  }
+
+  document.addEventListener('submit', function (e) {
+    if (e.target.id === 'dlgForm') { e.preventDefault(); if (dialogState && dialogState.onSubmit) dialogState.onSubmit(); }
+  });
+  document.addEventListener('input', function (e) {
+    if (e.target.id === 'orderSearch') {
+      S.orderQ = e.target.value; S.orderPage = 1;
+      var pos = e.target.selectionStart; paint();
+      var i = document.getElementById('orderSearch'); i.focus(); i.setSelectionRange(pos, pos);
+    }
+    if (dialogState && e.target.closest('#dlgForm') && e.target.id && e.target.id.charAt(0) === 'c') {
+      dialogState.dirty = true; document.getElementById('unsaved').classList.remove('hidden');
+    }
+  });
+  document.addEventListener('change', function (e) {
+    if (e.target.id === 'actType') { S.actType = e.target.value; paint(); }
+  });
+  document.addEventListener('focusout', function (e) {
+    if (e.target.closest && e.target.closest('#dlgForm') && (e.target.id === 'cName' || e.target.id === 'cEmail')) validateField(e.target);
+  });
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape') {
+      if (menuState) { var b = menuState.btn; closeMenu(); b.focus(); }
+      else if (dialogState) requestCloseDialog();
+    }
+    if (menuState && (e.key === 'ArrowDown' || e.key === 'ArrowUp')) {
+      e.preventDefault();
+      var items = Array.prototype.slice.call(document.querySelectorAll('#menuRoot [role=menuitem]'));
+      var i = items.indexOf(document.activeElement);
+      items[(i + (e.key === 'ArrowDown' ? 1 : -1) + items.length) % items.length].focus();
+    }
+    if (dialogState && e.key === 'Tab') {
+      var f = Array.prototype.slice.call(document.querySelectorAll('#dialogRoot input, #dialogRoot button')).filter(function (x) { return !x.disabled; });
+      if (!f.length) return;
+      if (e.shiftKey && document.activeElement === f[0]) { e.preventDefault(); f[f.length - 1].focus(); }
+      else if (!e.shiftKey && document.activeElement === f[f.length - 1]) { e.preventDefault(); f[0].focus(); }
+    }
+    var tab = e.target.closest && e.target.closest('[role=tab]');
+    if (tab && (e.key === 'ArrowRight' || e.key === 'ArrowLeft')) {
+      var idx = PAGE_TITLES.indexOf(tab.dataset.tab);
+      idx = (idx + (e.key === 'ArrowRight' ? 1 : -1) + PAGE_TITLES.length) % PAGE_TITLES.length;
+      setTab(PAGE_TITLES[idx], true);
+    }
+  });
+  window.addEventListener('scroll', closeMenu, true);
+
+  /* ---------- Go ---------- */
+  renderHeader(); renderTabs();
+  loadTab('overview');
+})();
+</script>
+</body>
+</html>

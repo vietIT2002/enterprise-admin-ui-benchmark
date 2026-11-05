@@ -1,0 +1,786 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Nhập sản phẩm từ CSV · Kho hàng</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+  [hidden] { display: none !important; }
+  html { scroll-padding-bottom: 72px; }
+  body { font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; color: #0f172a; }
+  button:focus-visible, a:focus-visible, select:focus-visible, input:focus-visible, summary:focus-visible, [tabindex]:focus-visible { outline: 2px solid #1d4ed8; outline-offset: 2px; }
+  [tabindex="-1"]:focus { outline: none; }
+  [tabindex="-1"]:focus-visible { outline: 2px solid #1d4ed8; outline-offset: 2px; }
+  .tnum { font-variant-numeric: tabular-nums; }
+  td, th { line-height: 1.43; }
+</style>
+</head>
+<body class="bg-white text-slate-900 text-sm">
+
+<a href="#view" class="sr-only focus:not-sr-only focus:absolute focus:left-2 focus:top-2 focus:z-50 focus:rounded focus:bg-white focus:px-3 focus:py-2">Bỏ qua điều hướng</a>
+
+<div class="flex min-h-screen">
+  <aside class="sticky top-0 hidden h-screen w-60 shrink-0 flex-col border-r border-slate-200 bg-slate-50 md:flex">
+    <div class="flex h-12 items-center gap-2 border-b border-slate-200 px-4">
+      <span class="inline-flex size-6 items-center justify-center rounded bg-white text-slate-700 ring-1 ring-slate-300" id="logo"></span>
+      <span class="font-semibold">Kho Tân Phát</span>
+    </div>
+    <nav aria-label="Chính" id="nav" class="flex flex-1 flex-col gap-4 overflow-y-auto p-2"></nav>
+    <div class="border-t border-slate-200 p-2 text-xs text-slate-600">
+      <p class="px-2 py-1">Kho: Kho trung tâm Bình Dương</p>
+    </div>
+  </aside>
+
+  <div class="flex min-w-0 flex-1 flex-col">
+    <header class="sticky top-0 z-20 flex h-12 items-center justify-between border-b border-slate-200 bg-white px-4">
+      <button type="button" class="inline-flex h-8 w-72 items-center gap-2 rounded border border-slate-300 bg-white px-2 text-left text-slate-600 hover:bg-slate-50" aria-label="Tìm kiếm hoặc chạy lệnh">
+        <span id="ic-search"></span><span class="flex-1">Tìm hoặc chạy lệnh</span><kbd class="rounded border border-slate-300 px-1 text-xs text-slate-600">Ctrl K</kbd>
+      </button>
+      <div class="flex items-center gap-1">
+        <button type="button" class="inline-flex size-8 items-center justify-center rounded text-slate-700 hover:bg-slate-100" aria-label="Thông báo, 1 chưa đọc" id="bell"></button>
+        <button type="button" class="inline-flex size-8 items-center justify-center rounded-full bg-slate-200 text-xs font-medium text-slate-800" aria-label="Menu tài khoản">LH</button>
+      </div>
+    </header>
+
+    <main class="min-w-0 flex-1 p-6" id="main">
+      <header class="mb-4 flex flex-col gap-2">
+        <nav aria-label="Breadcrumb">
+          <ol class="flex flex-wrap items-center gap-1 text-sm text-slate-600">
+            <li><a href="#" data-nav class="inline-flex min-h-6 items-center hover:text-slate-900 hover:underline">Kho hàng</a></li>
+            <li aria-hidden="true">/</li>
+            <li><a href="#" data-nav class="inline-flex min-h-6 items-center hover:text-slate-900 hover:underline">Sản phẩm</a></li>
+            <li aria-hidden="true">/</li>
+            <li><span aria-current="page" class="text-slate-900">Nhập từ CSV</span></li>
+          </ol>
+        </nav>
+        <h1 class="text-xl font-semibold">Nhập sản phẩm từ file CSV</h1>
+      </header>
+
+      <div id="banner" class="mb-4" aria-live="off"></div>
+      <div id="stepper" class="mb-6"></div>
+      <div id="view"></div>
+    </main>
+
+    <div id="bar" class="sticky bottom-0 z-10 border-t border-slate-200 bg-white" hidden></div>
+  </div>
+</div>
+
+<div id="toasts" role="status" aria-live="polite" class="fixed right-4 top-14 z-40 flex w-80 flex-col gap-2"></div>
+<p id="sr-progress" role="status" class="sr-only"></p>
+<input type="file" id="file-input" accept=".csv,text/csv" class="sr-only" tabindex="-1" aria-hidden="true">
+
+<script>
+/* ========== Locale and formatters (one place) ========== */
+const LOCALE = 'vi-VN', TZ = 'Asia/Ho_Chi_Minh';
+const NF = new Intl.NumberFormat(LOCALE);
+const AMT = new Intl.NumberFormat(LOCALE, { minimumFractionDigits: 0, maximumFractionDigits: 0 });
+const fmtNum = n => NF.format(n);
+const fmtAmt = n => AMT.format(n);
+const DF_D = new Intl.DateTimeFormat(LOCALE, { day: '2-digit', month: '2-digit', year: 'numeric', timeZone: TZ });
+const DF_T = new Intl.DateTimeFormat(LOCALE, { hour: '2-digit', minute: '2-digit', hourCycle: 'h23', timeZone: TZ });
+const fmtDT = iso => { const d = new Date(iso); return DF_D.format(d) + ' ' + DF_T.format(d); };
+const fmtSize = b => b < 1024 * 1024 ? new Intl.NumberFormat(LOCALE, { maximumFractionDigits: 1 }).format(b / 1024) + ' KB' : new Intl.NumberFormat(LOCALE, { maximumFractionDigits: 1 }).format(b / 1048576) + ' MB';
+const foldVi = s => s.normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/đ/g, 'd').replace(/Đ/g, 'D').toLowerCase();
+const headerKey = h => foldVi(h).replace(/[\s_-]+/g, ' ').trim();
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const $ = (s, r = document) => r.querySelector(s);
+
+/* ========== Icons (one set, 16px) ========== */
+const ICONS = {
+  upload: '<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12"/>',
+  download: '<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/>',
+  file: '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8zM14 2v6h6"/>',
+  check: '<path d="M20 6 9 17l-5-5"/>',
+  alert: '<circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/>',
+  warn: '<path d="m21.7 18-8-14a2 2 0 0 0-3.5 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.7-3M12 9v4M12 17h.01"/>',
+  x: '<path d="M18 6 6 18M6 6l12 12"/>',
+  left: '<path d="m15 18-6-6 6-6"/>',
+  right: '<path d="m9 18 6-6-6-6"/>',
+  search: '<circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/>',
+  bell: '<path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9M10.3 21a1.9 1.9 0 0 0 3.4 0"/>',
+  box: '<path d="M21 8a2 2 0 0 0-1-1.7l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.7l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16zM3.3 7 12 12l8.7-5M12 22V12"/>',
+  home: '<path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2zM9 22V12h6v10"/>',
+  inbound: '<path d="M12 3v12m0 0-4-4m4 4 4-4M5 21h14"/>',
+  outbound: '<path d="M12 15V3m0 0L8 7m4-4 4 4M5 21h14"/>',
+  clip: '<path d="M9 2h6v4H9zM9 4H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2h-3"/>',
+  users: '<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2M22 21v-2a4 4 0 0 0-3-3.9M16 3.1a4 4 0 0 1 0 7.8"/><circle cx="9" cy="7" r="4"/>',
+  building: '<path d="M3 21V8l9-5 9 5v13M9 21v-6h6v6"/>',
+  sliders: '<path d="M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3M1 14h6M9 8h6M17 16h6"/>',
+  refresh: '<path d="M21 12a9 9 0 1 1-3-6.7L21 8M21 3v5h-5"/>',
+  spin: '<path d="M21 12a9 9 0 1 1-6.2-8.6"/>'
+};
+const ic = (n, cls = 'size-4') => `<svg class="${cls} shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICONS[n]}</svg>`;
+const spinner = () => ic('spin', 'size-4 animate-spin');
+
+/* ========== Shell ========== */
+const NAV = [
+  { label: 'Kho hàng', items: [['Tổng quan', 'home'], ['Sản phẩm', 'box', true], ['Nhập kho', 'inbound'], ['Xuất kho', 'outbound'], ['Kiểm kê', 'clip']] },
+  { label: 'Danh mục', items: [['Nhà cung cấp', 'users'], ['Kho và vị trí', 'building']] },
+  { label: 'Hệ thống', items: [['Cài đặt', 'sliders']] }
+];
+$('#nav').innerHTML = NAV.map(g => `<div class="flex flex-col gap-0.5"><p class="px-2 py-1 text-xs font-medium text-slate-600">${g.label}</p>${g.items.map(([l, i, a]) =>
+  `<a href="#" data-nav ${a ? 'aria-current="page"' : ''} class="flex h-8 items-center gap-2 rounded px-2 text-sm text-slate-800 hover:bg-slate-200/60 ${a ? 'bg-slate-200 font-medium text-slate-900' : ''}">${ic(i)}<span class="truncate">${l}</span></a>`).join('')}</div>`).join('');
+$('#logo').innerHTML = ic('box'); $('#ic-search').innerHTML = ic('search'); $('#bell').innerHTML = ic('bell');
+
+/* ========== Domain: fields, rules, mock data ========== */
+const CATEGORIES = ['Thực phẩm khô', 'Đồ uống', 'Gia vị', 'Hóa phẩm', 'Giấy & vệ sinh', 'Đồ gia dụng'];
+const FIELDS = [
+  { key: 'sku', label: 'SKU', req: true, alias: ['sku', 'ma sku', 'ma hang', 'ma san pham', 'product code'], guide: 'Chữ, số và dấu gạch ngang, 3–24 ký tự. Không có khoảng trắng.' },
+  { key: 'name', label: 'Tên sản phẩm', req: true, alias: ['ten san pham', 'ten hang', 'ten', 'name', 'product name'], guide: 'Tối đa 120 ký tự.' },
+  { key: 'category', label: 'Nhóm hàng', alias: ['nhom hang', 'nhom', 'danh muc', 'category'], guide: 'Một trong: ' + CATEGORIES.join(', ') + '.' },
+  { key: 'unit', label: 'ĐVT', alias: ['dvt', 'don vi tinh', 'don vi', 'unit'], guide: 'Đơn vị tính, ví dụ Thùng, Chai, Túi.' },
+  { key: 'cost', label: 'Giá vốn', alias: ['gia von', 'gia nhap', 'cost'], guide: 'Số, ví dụ 108000 hoặc 108.000.' },
+  { key: 'price', label: 'Giá bán', req: true, alias: ['gia ban', 'gia', 'price'], guide: 'Số không có ký hiệu tiền tệ, ví dụ 1250000.' },
+  { key: 'stock', label: 'Tồn kho', alias: ['ton kho', 'ton', 'so luong', 'qty', 'stock'], guide: 'Số nguyên từ 0 trở lên.' },
+  { key: 'barcode', label: 'Mã vạch', alias: ['ma vach', 'barcode', 'ean'], guide: '8 hoặc 13 chữ số.' }
+];
+const F = Object.fromEntries(FIELDS.map(f => [f.key, f]));
+const EXISTING = new Set(['NK-MI-002', 'NK-GA-001', 'NK-NM-001', 'HC-OM-001', 'GV-PL-001', 'NK-CF-001', 'GD-TH-001']);
+const RACE_SKU = 'NK-DA-012'; // created by someone else while the job runs
+const CURRENT_USER = 'Lê Hoa';
+const MAX_BYTES = 10 * 1024 * 1024, MAX_ROWS = 5000;
+
+const SAMPLE_HEAD = ['Mã SKU', 'Tên sản phẩm', 'Nhóm hàng', 'ĐVT', 'Giá vốn', 'Giá bán', 'Tồn kho', 'Mã vạch', 'Ghi chú', 'Mã nội bộ'];
+const SAMPLE_ROWS = `NK-MI-001|Mì Hảo Hảo tôm chua cay (thùng 30 gói)|Thực phẩm khô|Thùng|108.000|126.000|240|8934563138165|Bán chạy|A-0101
+NK-MI-002|Mì Omachi sườn hầm ngũ quả (thùng 30 gói)|Thực phẩm khô|Thùng|172.000|198.000|96|8934563252013||A-0102
+NK-GA-001|Gạo ST25 túi 5kg|Thực phẩm khô|Túi|135.000|168.000|180|8938505970012||A-0110
+NK-GA-002|Gạo thơm Jasmine túi 10kg|Thực phẩm khô|Túi|198.000|235.000|75|8938505970029||A-0111
+NK-DA-001|Dầu ăn Neptune Simply 1L|Gia vị|Chai|44.500|52.000|320|8934563300012||A-0120
+NK-DA-002|Dầu ăn Tường An Cooking Oil 2L|Gia vị|Chai|86.000|99.000|140|8934563300029||
+NK-NM-001|Nước mắm Nam Ngư 500ml|Gia vị|Chai|31.000|38.500|410|8934563400019||
+NK-NM-002|Nước mắm Chinsu cá cơm 500ml|Gia vị|Chai|36.000|44.000|265|8934563400026||
+NK-DU-001|Đường tinh luyện Biên Hòa 1kg|Gia vị|Túi|19.500|24.000|500|8935001400013||
+NK-MU-001|Muối i-ốt Bạc Liêu 500g|Gia vị|Gói|4.200|6.000|620|8935001400020||
+NK-SU-001|Sữa tươi Vinamilk không đường 180ml (lốc 4)|Đồ uống|Lốc|26.500|31.000|880|8934673100014||
+NK-SU-002|Sữa đặc Ông Thọ lon 380g|Đồ uống|Hộp|21.000|25.500|450|8934673100021||
+NK-CF-001|Cà phê hòa tan G7 3in1 (hộp 18 gói)|Đồ uống|Hộp|42.000|52.000|300|8935024140015||
+NK-TR-001|Trà Lipton nhãn vàng (hộp 25 túi lọc)|Đồ uống|Hộp|28.000|34.500|210|8934683100016||
+NK-NU-001|Nước suối Aquafina 500ml (thùng 24 chai)|Đồ uống|Thùng|62.000|74.000|360|8935005800012||
+NK-NU-002|Nước suối Lavie 1,5L (thùng 12 chai)|Đồ uống|Thùng|54.000|65.000|190|8935005800029||
+NK-BI-001|Bia Tiger lon 330ml (thùng 24 lon)|Đồ uống|Thùng|335.000|379.000|120|8934588063015||
+HC-OM-001|Bột giặt Omo Matic cửa trước túi 3kg|Hóa phẩm|Túi|152.000|179.000|85|8934868100015||
+HC-SU-001|Nước rửa chén Sunlight chanh 750ml|Hóa phẩm|Chai|27.000|33.000|240|8934868100022||
+HC-CL-001|Nước xả vải Comfort hương ban mai 3,1L|Hóa phẩm|Túi|118.000|139.000|64|8934868100039||
+GV-PL-001|Giấy vệ sinh Pulppy 10 cuộn|Giấy & vệ sinh|Lốc|41.000|49.000|410|8935210600016||
+GV-KT-001|Khăn giấy rút Bless You 3 lớp|Giấy & vệ sinh|Gói|9.800|13.000|730|8935210600023||
+GD-TH-001|Thùng nhựa có nắp 60L|Đồ gia dụng|Cái|98.000|125.000|42|8936015000018||
+GD-CH-001|Chổi quét nhà cán nhôm|Đồ gia dụng|Cái|22.000|30.000|58|8936015000025||
+NK-DA-012|Dầu ăn Simply đậu nành 5L|Gia vị|Chai|228.000|265.000|36|8934563300050||
+HC BT 001|Bột giặt Aba 800g|Hóa phẩm|Túi|27.000|32.000|150|8934868100046||
+NK-MI-001|Mì Hảo Hảo tôm chua cay (thùng 30 gói) - nhập lại|Thực phẩm khô|Thùng|108.000|126.000|60|8934563138165||A-0101
+NK-KD-001||Thực phẩm khô|Gói|12.000|15.000|90|8935001500012||
+NK-HT-001|Hạt nêm Knorr thịt thăn 900g|Gia vị|Gói|58.000||130|8934563500016||
+NK-TT-001|Tương ớt Chin-su 250g|Gia vị|Chai|11.000|17.5k|200|8934563600013||
+NK-DV-001|Đậu xanh hạt 500g|Thực phẩm khô|Túi|24.000|29.000|-5|8935001600010||
+NK-BH-001|Bánh quy Cosy 400g|Thực phẩm khô|Hộp|31.000|37.000|12,5|8935001700017||
+NK-SC-001|Sữa chua Vinamilk có đường (lốc 4 hộp)|Đồ uống|Lốc|23.000|27.000|90|12345||
+DC-XE-001|Xe đẩy đồ chơi trẻ em|Đồ chơi|Cái|85.000|110.000|20|8936015100019||
+NK-KM-001|Kẹo mềm Alpenliebe 330g|Thực phẩm khô|Gói|36.000|34.000|110|8935001800014||`.split('\n').map(l => l.split('|'));
+
+const RECENT = [
+  { id: 'IMP-0218', file: 'ton-kho-thang-10.csv', user: 'Lê Hoa', at: '2026-11-04T08:58:00Z', created: 312, updated: 40, skipped: 0, failed: 0, status: 'Hoàn tất', mode: 'Tạo mới và cập nhật theo SKU', failedRows: [] },
+  { id: 'IMP-0217', file: 'sp-dien-gia-dung.csv', user: 'Phạm Quốc Bảo', at: '2026-11-03T03:20:00Z', created: 84, updated: 0, skipped: 2, failed: 6, status: 'Có lỗi', mode: 'Chỉ tạo mới',
+    failedRows: [[14, 'GD-QT-014', 'Giá bán: "—" không phải số hợp lệ'], [22, 'GD-QT-022', 'Giá bán: trống'], [31, 'GD-NC-003', 'Mã vạch: "9348" phải gồm 8 hoặc 13 chữ số'], [47, 'GD-NC-019', 'Nhóm hàng: "Điện lạnh" không có trong danh mục'], [58, 'GD-BP-002', 'Tồn kho: "-3" không được âm'], [63, 'GD-BP-007', 'Tên sản phẩm: trống']] },
+  { id: 'IMP-0216', file: 'bang-gia-nha-cung-cap.csv', user: 'Lê Hoa', at: '2026-10-29T02:05:00Z', created: 0, updated: 1205, skipped: 0, failed: 0, status: 'Hoàn tất', mode: 'Chỉ cập nhật theo SKU', failedRows: [] },
+  { id: 'IMP-0215', file: 'sp-moi-q4.csv', user: 'Trần Minh Quân', at: '2026-10-21T07:41:00Z', created: 210, updated: 0, skipped: 0, failed: 0, status: 'Hoàn tất', mode: 'Chỉ tạo mới', failedRows: [] },
+  { id: 'IMP-0214', file: 'hoa-pham-tong-hop.csv', user: 'Phạm Quốc Bảo', at: '2026-10-15T09:12:00Z', created: 340, updated: 0, skipped: 0, failed: 0, status: 'Đã dừng', mode: 'Chỉ tạo mới', failedRows: [], stoppedAt: 340 }
+];
+
+/* ========== CSV ========== */
+function detectDelim(text) {
+  const line = text.split(/\r?\n/, 1)[0] || '';
+  const c = { ',': 0, ';': 0, '\t': 0 }; let q = false;
+  for (const ch of line) { if (ch === '"') q = !q; else if (!q && ch in c) c[ch]++; }
+  return Object.entries(c).sort((a, b) => b[1] - a[1])[0][1] ? Object.entries(c).sort((a, b) => b[1] - a[1])[0][0] : ',';
+}
+function parseCSV(text, d) {
+  const rows = []; let row = [], cur = '', q = false;
+  for (let i = 0; i < text.length; i++) {
+    const ch = text[i];
+    if (q) { if (ch === '"') { if (text[i + 1] === '"') { cur += '"'; i++; } else q = false; } else cur += ch; }
+    else if (ch === '"') q = true;
+    else if (ch === d) { row.push(cur); cur = ''; }
+    else if (ch === '\n' || ch === '\r') { if (ch === '\r' && text[i + 1] === '\n') i++; row.push(cur); cur = ''; rows.push(row); row = []; }
+    else cur += ch;
+  }
+  if (cur !== '' || row.length) { row.push(cur); rows.push(row); }
+  return rows.filter(r => r.some(c => c.trim() !== ''));
+}
+const csvCell = (v, d = ',') => { v = String(v ?? ''); return /["\r\n]/.test(v) || v.includes(d) ? '"' + v.replace(/"/g, '""') + '"' : v; };
+const toCSV = (rows, d = ',') => '﻿' + rows.map(r => r.map(v => csvCell(v, d)).join(d)).join('\r\n') + '\r\n';
+const SAMPLE_TEXT = toCSV([SAMPLE_HEAD, ...SAMPLE_ROWS]);
+function saveBlob(name, text) {
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([text], { type: 'text/csv;charset=utf-8' }));
+  a.download = name; document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+}
+const DELIMS = { ',': 'dấu phẩy', ';': 'dấu chấm phẩy', '\t': 'tab' };
+
+/* ========== Parsing and validation of values ========== */
+function parseVi(s) {
+  s = String(s).replace(/\s|₫|đ|vnd/gi, '');
+  if (/^-?\d+(,\d+)?$/.test(s) || /^-?\d{1,3}(\.\d{3})+(,\d+)?$/.test(s)) return Number(s.replace(/\./g, '').replace(',', '.'));
+  return null;
+}
+function analyze() {
+  const colOf = {};
+  S.mapping.forEach((k, i) => { if (k && !(k in colOf)) colOf[k] = i; });
+  const skuCount = {}, skuRows = {};
+  const raws = S.data.map(r => {
+    const raw = {};
+    FIELDS.forEach(f => { raw[f.key] = f.key in colOf ? (r[colOf[f.key]] ?? '').trim() : undefined; });
+    return raw;
+  });
+  raws.forEach((raw, i) => { if (raw.sku) { const k = raw.sku.toUpperCase(); skuCount[k] = (skuCount[k] || 0) + 1; (skuRows[k] = skuRows[k] || []).push(i + 2); } });
+  const recs = raws.map((raw, i) => {
+    const row = i + 2, errors = [], warnings = [], val = {};
+    const err = (f, msg) => errors.push({ field: f, msg });
+    // SKU
+    if (!raw.sku) err('sku', 'trống');
+    else if (!/^[A-Za-z0-9][A-Za-z0-9-]{2,23}$/.test(raw.sku)) err('sku', `"${raw.sku}" không hợp lệ (chỉ chữ, số, dấu gạch ngang, 3–24 ký tự)`);
+    else if (skuCount[raw.sku.toUpperCase()] > 1) err('sku', `${raw.sku} cũng xuất hiện ở dòng ${skuRows[raw.sku.toUpperCase()].filter(n => n !== row).join(', ')}`);
+    // Name
+    if (!raw.name) err('name', 'trống'); else if (raw.name.length > 120) err('name', 'dài quá 120 ký tự');
+    // Category
+    if (raw.category && !CATEGORIES.includes(raw.category)) err('category', `"${raw.category}" không có trong danh mục`);
+    // Money
+    for (const k of ['cost', 'price']) {
+      const v = raw[k];
+      if (v === undefined || v === '') { if (k === 'price') err('price', 'trống'); continue; }
+      const n = parseVi(v);
+      if (n === null) err(k, `"${v}" không phải số hợp lệ`); else if (n < 0) err(k, 'không được âm'); else val[k] = n;
+    }
+    if (val.cost !== undefined && val.price !== undefined && val.price < val.cost) warnings.push({ field: 'price', msg: 'giá bán thấp hơn giá vốn' });
+    // Stock
+    if (raw.stock) {
+      const n = parseVi(raw.stock);
+      if (n === null) err('stock', `"${raw.stock}" không phải số hợp lệ`); else if (n < 0) err('stock', `"${raw.stock}" không được âm`); else if (!Number.isInteger(n)) err('stock', `"${raw.stock}" phải là số nguyên`); else val.stock = n;
+    }
+    if (raw.barcode && !/^(\d{8}|\d{13})$/.test(raw.barcode)) err('barcode', `"${raw.barcode}" phải gồm 8 hoặc 13 chữ số`);
+    return { row, raw, val, errors, warnings, exists: !!raw.sku && EXISTING.has(raw.sku.toUpperCase()) };
+  });
+  S.analysis = { recs, colOf };
+}
+const outcome = r => r.errors.length ? 'error' : r.exists ? (S.mode === 'create' ? 'skip' : 'update') : (S.mode === 'update' ? 'skip' : 'create');
+function counts() {
+  const recs = S.analysis.recs, ok = recs.filter(r => !r.errors.length);
+  const o = { create: 0, update: 0, skip: 0 };
+  ok.forEach(r => o[outcome(r)]++);
+  return { total: recs.length, valid: ok.length, errors: recs.length - ok.length, warnings: recs.filter(r => !r.errors.length && r.warnings.length).length,
+    isNew: ok.filter(r => !r.exists).length, isOld: ok.filter(r => r.exists).length, ...o, run: o.create + o.update };
+}
+const errLine = (r, e) => `Dòng ${r.row} · ${F[e.field].label}: ${e.msg}`;
+
+/* ========== State ========== */
+const QS = new URLSearchParams(location.search).get('state');
+const S = {
+  step: 1, file: null, fileError: '', delim: ',', headers: [], data: [], mapping: [], remembered: false,
+  mapErr: null, analysis: null, mode: 'create', filter: 'all', page: 1, size: 10,
+  job: null, bg: false, result: null, showLog: false, bannerPending: null, focus: null, refocus: null, timer: null
+};
+const R = { status: 'loading' };
+const STEPS = ['Tải lên', 'Ghép cột', 'Xem trước', 'Nhập'];
+const dirty = () => (S.file && S.step <= 3 && !S.result) || (S.job && S.job.status === 'running');
+
+/* ========== UI helpers ========== */
+const BTN = 'inline-flex h-8 items-center justify-center gap-1.5 rounded px-3 text-sm font-medium whitespace-nowrap';
+const B1 = BTN + ' bg-blue-700 text-white hover:bg-blue-800';
+const B2 = BTN + ' border border-slate-300 bg-white text-slate-900 hover:bg-slate-50';
+const BD = BTN + ' bg-red-700 text-white hover:bg-red-800';
+const TH = 'px-3 py-2.5 text-left text-sm font-medium text-slate-600 whitespace-nowrap bg-slate-50 border-b border-slate-200';
+const TD = 'h-10 px-3 whitespace-nowrap border-b border-slate-100';
+const TONES = {
+  neutral: 'bg-slate-100 text-slate-700', info: 'bg-blue-50 text-blue-700', success: 'bg-green-50 text-green-800',
+  warning: 'bg-amber-50 text-amber-800', danger: 'bg-red-50 text-red-700'
+};
+const badge = (tone, text, title = '') => `<span ${title ? `title="${esc(title)}"` : ''} class="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${TONES[tone]}">${text}</span>`;
+const empty = () => '<span aria-hidden="true" class="text-slate-600">—</span><span class="sr-only">Chưa nhập</span>';
+
+function toast(msg, tone = 'success', action) {
+  const el = document.createElement('div');
+  el.className = 'flex items-start gap-2 rounded-md border border-slate-200 bg-white p-3 shadow-lg';
+  el.innerHTML = `<span class="${tone === 'success' ? 'text-green-700' : tone === 'danger' ? 'text-red-700' : 'text-blue-700'}">${ic(tone === 'danger' ? 'alert' : 'check')}</span>
+    <div class="min-w-0 flex-1"><p>${msg}</p>${action ? `<button type="button" class="mt-1 text-blue-700 underline" data-toast-act>${action.label}</button>` : ''}</div>
+    <button type="button" class="inline-flex size-6 items-center justify-center rounded text-slate-600 hover:bg-slate-100" aria-label="Đóng thông báo">${ic('x')}</button>`;
+  $('#toasts').appendChild(el);
+  const close = () => el.remove();
+  el.querySelector('[aria-label="Đóng thông báo"]').onclick = close;
+  if (action) el.querySelector('[data-toast-act]').onclick = () => { action.fn(); close(); };
+  setTimeout(close, action ? 10000 : 5000);
+}
+
+function confirmDialog({ title, body, ok, cancel, danger = true }) {
+  return new Promise(res => {
+    const prev = document.activeElement, w = document.createElement('div');
+    w.className = 'fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4';
+    w.innerHTML = `<div role="alertdialog" aria-modal="true" aria-labelledby="dlg-t" aria-describedby="dlg-b" class="w-full max-w-md rounded-lg border border-slate-200 bg-white p-6 shadow-lg">
+      <h2 id="dlg-t" class="text-base font-semibold">${title}</h2><p id="dlg-b" class="mt-2 text-slate-600">${body}</p>
+      <div class="mt-6 flex justify-end gap-2"><button type="button" id="dlg-c" class="${B2}">${cancel}</button><button type="button" id="dlg-o" class="${danger ? BD : B1}">${ok}</button></div></div>`;
+    document.body.appendChild(w);
+    const c = $('#dlg-c', w), o = $('#dlg-o', w);
+    const done = v => { document.removeEventListener('keydown', key, true); w.remove(); prev && prev.focus && prev.focus(); res(v); };
+    const key = e => {
+      if (e.key === 'Escape') { e.preventDefault(); done(false); }
+      if (e.key === 'Tab') { e.preventDefault(); (document.activeElement === c ? o : c).focus(); }
+    };
+    document.addEventListener('keydown', key, true);
+    c.onclick = () => done(false); o.onclick = () => done(true);
+    c.focus();
+  });
+}
+
+/* ========== Stepper ========== */
+function renderStepper() {
+  const cur = S.result || (S.job && S.job.status !== 'running') ? 4 : S.step;
+  const finished = !!S.result;
+  const canGo = !S.job && !finished;
+  $('#stepper').innerHTML = `<nav aria-label="Các bước nhập"><ol class="flex flex-wrap items-center gap-x-2 gap-y-2">${STEPS.map((n, i) => {
+    const k = i + 1, done = k < cur || (finished && k === 4), here = k === cur && !finished;
+    const circle = `<span class="inline-flex size-6 items-center justify-center rounded-full text-xs font-medium ${here ? 'bg-blue-700 text-white' : done ? 'bg-blue-50 text-blue-700 ring-1 ring-blue-700' : 'bg-white text-slate-700 ring-1 ring-slate-300'}">${done ? ic('check', 'size-3.5') : k}</span>`;
+    const inner = `${circle}<span class="${here ? 'font-semibold text-slate-900' : done ? 'font-medium text-blue-700' : 'text-slate-600'}">${n}</span>`;
+    const item = done && canGo && k < cur
+      ? `<button type="button" data-act="goto" data-step="${k}" class="inline-flex min-h-8 items-center gap-2 rounded px-1.5 hover:bg-slate-100">${inner}</button>`
+      : `<span ${here ? 'aria-current="step"' : ''} class="inline-flex min-h-8 items-center gap-2 px-1.5">${inner}</span>`;
+    return `<li class="flex items-center gap-2">${item}${k < 4 ? '<span class="h-px w-8 bg-slate-300" aria-hidden="true"></span>' : ''}</li>`;
+  }).join('')}</ol></nav>`;
+}
+
+/* ========== Step 1: upload ========== */
+function viewUpload() {
+  const f = S.file;
+  const drop = f ? `
+    <div class="flex items-center gap-3 rounded-md border border-slate-200 bg-slate-50 p-4">
+      <span class="text-slate-700">${ic('file', 'size-6')}</span>
+      <div class="min-w-0 flex-1"><p class="truncate font-medium">${esc(f.name)}</p>
+        <p class="text-slate-600"><span class="tnum">${fmtSize(f.size)}</span> · <span class="tnum">${fmtNum(S.data.length)}</span> dòng dữ liệu · phân tách bằng ${DELIMS[S.delim]} · mã hóa UTF-8</p></div>
+      <button type="button" class="${B2}" data-act="change-file">Đổi file</button>
+    </div>` : `
+    <div id="dropzone" class="flex flex-col items-center gap-2 rounded-md border-2 border-dashed border-slate-300 bg-slate-50 px-6 py-8 text-center">
+      <span class="text-slate-700">${ic('upload', 'size-6')}</span>
+      <p class="font-medium">Kéo thả file CSV vào đây</p>
+      <p class="text-slate-600">hoặc</p>
+      <div class="flex flex-wrap justify-center gap-2"><button type="button" class="${B1}" data-act="choose-file" id="choose-btn">Chọn file</button>
+        <button type="button" class="${B2}" data-act="use-sample">Dùng file mẫu có sẵn</button></div>
+      <p class="text-slate-600">CSV · tối đa 10 MB · tối đa ${fmtNum(MAX_ROWS)} dòng</p>
+    </div>`;
+  return `
+  <h2 id="stepHeading" tabindex="-1" class="text-base font-semibold">Tải file lên</h2>
+  <p class="mt-1 text-slate-600">Thêm hoặc cập nhật sản phẩm từ file CSV. Hệ thống đọc file ở bước sau, chưa ghi gì vào kho.</p>
+  <div class="mt-4 grid gap-6 lg:grid-cols-[minmax(0,1fr)_340px]">
+    <div>
+      ${drop}
+      <p id="file-error" role="alert" class="mt-2 flex items-start gap-1.5 text-red-700" ${S.fileError ? '' : 'hidden'}>${ic('alert', 'size-4 mt-0.5')}<span>${esc(S.fileError)}</span></p>
+    </div>
+    <div class="rounded-md border border-slate-200 p-4">
+      <h3 class="font-medium">Chưa có file?</h3>
+      <p class="mt-1 text-slate-600">File mẫu có dòng tiêu đề và một dòng ví dụ, đúng tên cột mà bước ghép cột tự nhận.</p>
+      <button type="button" class="${B2} mt-3" data-act="download-template">${ic('download')}Tải file mẫu (CSV UTF-8 có BOM)</button>
+    </div>
+  </div>
+  <section class="mt-6" aria-labelledby="guide-h">
+    <h3 id="guide-h" class="mb-2 font-medium">Các cột trong file</h3>
+    <div class="overflow-x-auto rounded-md border border-slate-200"><table class="w-full min-w-[640px] border-collapse">
+      <thead><tr><th class="${TH}">Cột</th><th class="${TH}">Bắt buộc</th><th class="${TH}">Định dạng</th></tr></thead>
+      <tbody>${FIELDS.map(x => `<tr><td class="${TD} font-medium">${x.label}</td><td class="${TD}">${x.req ? 'Có' : 'Không'}</td><td class="${TD} !whitespace-normal !h-auto py-2.5 text-slate-700">${esc(x.guide)}</td></tr>`).join('')}</tbody>
+    </table></div>
+  </section>
+  <section class="mt-8" aria-labelledby="recent-h"><h3 id="recent-h" class="mb-2 font-medium">Lần nhập gần đây</h3><div id="recent"></div></section>`;
+}
+
+function renderRecent() {
+  const el = $('#recent'); if (!el) return;
+  const cols = 8;
+  if (R.status === 'loading') {
+    el.innerHTML = `<div class="overflow-hidden rounded-md border border-slate-200" aria-busy="true"><span class="sr-only" role="status">Đang tải các lần nhập gần đây</span>${Array.from({ length: 4 }, () => `<div class="flex h-10 items-center gap-4 border-b border-slate-100 px-3 last:border-0">${[16, 40, 24, 24, 12, 12, 12].map(w => `<span class="h-3 animate-pulse rounded bg-slate-200" style="width:${w}%"></span>`).join('')}</div>`).join('')}</div>`;
+  } else if (R.status === 'error') {
+    el.innerHTML = `<div class="flex items-center gap-3 rounded-md border border-red-200 bg-red-50 p-4" role="alert"><span class="text-red-700">${ic('alert')}</span><p class="flex-1 text-red-800">Không tải được danh sách lần nhập gần đây. Việc nhập file mới vẫn dùng được.</p><button type="button" class="${B2}" data-act="retry-recent">${ic('refresh')}Thử lại</button></div>`;
+  } else if (R.status === 'empty') {
+    el.innerHTML = `<div class="rounded-md border border-dashed border-slate-300 p-6 text-center"><p class="font-medium">Chưa có lần nhập nào</p><p class="mt-1 text-slate-600">Kết quả mỗi lần nhập được lưu tại đây trong 30 ngày. Tải một file lên để bắt đầu.</p><button type="button" class="${B1} mt-3" data-act="choose-file">Chọn file</button></div>`;
+  } else {
+    el.innerHTML = `<div class="overflow-x-auto rounded-md border border-slate-200"><table class="w-full min-w-[860px] border-collapse"><thead><tr>
+      <th class="${TH}">Mã</th><th class="${TH}">File</th><th class="${TH}">Người nhập</th><th class="${TH}">Thời gian</th>
+      <th class="${TH} !text-right">Đã tạo</th><th class="${TH} !text-right">Đã cập nhật</th><th class="${TH} !text-right">Lỗi</th><th class="${TH}">Trạng thái</th><th class="${TH}"><span class="sr-only">Thao tác</span></th></tr></thead>
+      <tbody>${RECENT.map(r => `<tr><td class="${TD} tnum">${r.id}</td><td class="${TD} max-w-[16rem] truncate" title="${esc(r.file)}">${esc(r.file)}</td><td class="${TD}">${esc(r.user)}</td>
+        <td class="${TD} tnum"><time datetime="${r.at}">${fmtDT(r.at)}</time></td>
+        <td class="${TD} text-right tnum">${fmtNum(r.created)}</td><td class="${TD} text-right tnum">${fmtNum(r.updated)}</td><td class="${TD} text-right tnum">${fmtNum(r.failed)}</td>
+        <td class="${TD}">${badge(r.status === 'Hoàn tất' ? 'success' : r.status === 'Có lỗi' ? 'warning' : 'neutral', r.status)}</td>
+        <td class="${TD} text-right"><button type="button" class="text-blue-700 underline" data-act="open-summary" data-id="${r.id}" aria-label="Xem kết quả lần nhập ${r.id}">Xem kết quả</button></td></tr>`).join('')}</tbody></table></div>
+      <p class="mt-2 text-slate-600">Kết quả và nhật ký được lưu 30 ngày.</p>`;
+  }
+}
+function loadRecent() {
+  R.status = 'loading'; renderRecent();
+  if (QS === 'loading') return;
+  setTimeout(() => { R.status = QS === 'error' ? 'error' : QS === 'empty' ? 'empty' : 'ok'; renderRecent(); }, 500);
+}
+
+/* ========== File intake ========== */
+async function readFile(file) {
+  S.fileError = '';
+  if (!/\.csv$/i.test(file.name) && !/csv/.test(file.type)) return fileFail('File phải có định dạng .csv. Mở file trong Excel và lưu dưới dạng "CSV UTF-8".');
+  if (file.size > MAX_BYTES) return fileFail(`File nặng ${fmtSize(file.size)}, vượt giới hạn 10 MB. Tách file thành nhiều phần rồi tải lại.`);
+  const text = new TextDecoder('utf-8').decode(await file.arrayBuffer());
+  acceptText(file.name, text, file.size);
+}
+function fileFail(msg) { S.fileError = msg; render(); const e = $('#file-error'); e && e.focus && 0; }
+function acceptText(name, text, size) {
+  if (text.includes('�')) return fileFail('File không phải mã hóa UTF-8 nên không đọc được chữ tiếng Việt. Trong Excel, hãy lưu lại bằng "CSV UTF-8 (phân tách bằng dấu phẩy)".');
+  text = text.replace(/^﻿/, '');
+  const d = detectDelim(text), rows = parseCSV(text, d);
+  if (rows.length < 2) return fileFail('File không có dòng dữ liệu nào ngoài dòng tiêu đề.');
+  if (rows.length - 1 > MAX_ROWS) return fileFail(`File có ${fmtNum(rows.length - 1)} dòng, vượt giới hạn ${fmtNum(MAX_ROWS)} dòng. Tách file rồi tải lại.`);
+  S.file = { name, text, size }; S.delim = d; S.fileError = '';
+  reparse(); render();
+  toast(`Đã đọc ${esc(name)}: ${fmtNum(S.data.length)} dòng dữ liệu`, 'info');
+}
+function reparse() {
+  const rows = parseCSV(S.file.text, S.delim);
+  S.headers = rows[0]; S.data = rows.slice(1).map(r => { const x = r.slice(0, S.headers.length); while (x.length < S.headers.length) x.push(''); return x; });
+  S.analysis = null; S.mapErr = null; S.remembered = false;
+  const memKey = 'imp-map:' + S.headers.join('|');
+  let saved = null; try { saved = JSON.parse(localStorage.getItem(memKey)); } catch (e) {}
+  if (saved && saved.length === S.headers.length) { S.mapping = saved; S.remembered = true; }
+  else {
+    const used = new Set();
+    S.mapping = S.headers.map(h => {
+      const k = headerKey(h), f = FIELDS.find(x => !used.has(x.key) && x.alias.includes(k));
+      if (f) { used.add(f.key); return f.key; } return '';
+    });
+  }
+}
+function resetWizard() {
+  clearInterval(S.timer);
+  Object.assign(S, { step: 1, file: null, fileError: '', headers: [], data: [], mapping: [], analysis: null, mapErr: null, mode: 'create', filter: 'all', page: 1, job: null, bg: false, result: null, showLog: false, bannerPending: null, remembered: false });
+  history.replaceState(null, '', location.pathname + location.search);
+}
+
+/* ========== Step 2: mapping ========== */
+function mappingCheck() {
+  const by = {}; S.mapping.forEach((k, i) => { if (k) (by[k] = by[k] || []).push(i); });
+  const dups = {}; Object.entries(by).forEach(([k, a]) => { if (a.length > 1) a.slice(1).forEach(i => dups[i] = `${F[k].label} đã được ghép với cột "${S.headers[a[0]]}"`); });
+  const missing = FIELDS.filter(f => f.req && !by[f.key]).map(f => f.key);
+  return { by, dups, missing };
+}
+function viewMapping() {
+  const { by, dups, missing } = mappingCheck();
+  const unmapped = S.headers.filter((h, i) => !S.mapping[i]);
+  const auto = S.mapping.filter(Boolean).length;
+  const showErr = !!S.mapErr;
+  const pills = FIELDS.filter(f => f.req).map(f => {
+    const col = by[f.key]; const bad = showErr && !col;
+    return `<li class="flex items-center gap-1.5">${col ? `<span class="text-green-700">${ic('check')}</span><span>${f.label}* ← <span class="font-medium">${esc(S.headers[col[0]])}</span></span>`
+      : `<span class="${bad ? 'text-red-700' : 'text-slate-600'}">${ic(bad ? 'alert' : 'warn')}</span><span ${bad ? 'id="err-' + f.key + '" tabindex="-1" class="text-red-700"' : ''}>${f.label}*: ${bad ? `Hãy ghép một cột cho ${f.label}` : 'chưa ghép'}</span>`}</li>`;
+  }).join('');
+  const rows = S.headers.map((h, i) => {
+    const sample = S.data.map(r => r[i]).filter(v => v !== '').slice(0, 3).join(' · ');
+    const k = S.mapping[i];
+    let status;
+    if (dups[i]) status = `<span class="inline-flex items-center gap-1.5 text-red-700" id="err-col-${i}" tabindex="-1">${ic('alert')}${esc(dups[i])}</span>`;
+    else if (k) status = `<span class="inline-flex items-center gap-1.5 text-green-800">${ic('check')}Sẽ nhập vào ${F[k].label}</span>`;
+    else status = '<span class="text-slate-600">Bỏ qua cột này</span>';
+    return `<tr><td class="${TD} font-medium">${esc(h)}</td><td class="${TD} max-w-[22rem] truncate text-slate-700" title="${esc(sample)}">${sample ? esc(sample) : empty()}</td>
+      <td class="h-10 px-3 py-1 border-b border-slate-100"><label class="sr-only" for="map-${i}">Nhập cột ${esc(h)} vào</label>
+        <select id="map-${i}" data-map="${i}" class="h-8 w-52 rounded border ${dups[i] ? 'border-red-700' : 'border-slate-300'} bg-white px-2" ${dups[i] ? 'aria-invalid="true"' : ''}>
+          <option value="">Không nhập</option>${FIELDS.map(f => `<option value="${f.key}" ${k === f.key ? 'selected' : ''}>${f.label}${f.req ? ' *' : ''}</option>`).join('')}</select></td>
+      <td class="${TD}">${status}</td></tr>`;
+  }).join('');
+  return `
+  <h2 id="stepHeading" tabindex="-1" class="text-base font-semibold">Ghép cột</h2>
+  <p class="mt-1 text-slate-600">Chọn mỗi cột trong file sẽ được nhập vào trường nào của sản phẩm. Hệ thống đã tự ghép <span class="tnum">${auto}</span> trên <span class="tnum">${S.headers.length}</span> cột theo tên cột.</p>
+  ${S.remembered ? `<p class="mt-2 flex items-center gap-1.5 text-blue-700">${ic('check')}Đã áp dụng cách ghép cột từ lần nhập trước.</p>` : ''}
+  <div class="mt-4 flex flex-wrap items-end gap-x-6 gap-y-3">
+    <div><label for="delim" class="mb-1 block font-medium">Dấu phân tách</label>
+      <select id="delim" class="h-8 rounded border border-slate-300 bg-white px-2">${Object.entries(DELIMS).map(([d, n]) => `<option value="${d === '\t' ? 'tab' : d}" ${S.delim === d ? 'selected' : ''}>${n[0].toUpperCase() + n.slice(1)}</option>`).join('')}</select></div>
+    <p class="pb-1.5 text-slate-700">Đã nhận ra: ${DELIMS[S.delim]} · <span class="tnum">${fmtNum(S.data.length)}</span> dòng dữ liệu · file ${esc(S.file.name)}</p>
+  </div>
+  <div class="mt-4 rounded-md border ${showErr && missing.length ? 'border-red-300 bg-red-50' : 'border-slate-200 bg-slate-50'} p-3">
+    <p class="mb-1.5 font-medium">Trường bắt buộc</p><ul class="flex flex-wrap gap-x-6 gap-y-1">${pills}</ul></div>
+  <div class="mt-4 overflow-x-auto rounded-md border border-slate-200"><table class="w-full min-w-[780px] border-collapse">
+    <thead><tr><th class="${TH}">Cột trong file</th><th class="${TH}">Giá trị mẫu</th><th class="${TH}">Nhập vào</th><th class="${TH}">Trạng thái</th></tr></thead><tbody>${rows}</tbody></table></div>
+  <p class="mt-3 text-slate-700">${unmapped.length ? `${unmapped.length} cột sẽ không được nhập: ${esc(unmapped.join(', '))}.` : 'Tất cả các cột trong file sẽ được nhập.'}</p>`;
+}
+
+/* ========== Step 3: review ========== */
+function cellFor(r, k) {
+  const raw = r.raw[k], bad = r.errors.find(e => e.field === k);
+  if (bad) return `<span class="inline-flex items-center gap-1 rounded bg-red-50 px-1.5 text-red-700">${ic('alert', 'size-3.5')}${raw ? esc(raw) : 'Trống'}</span>`;
+  if (raw === '' || raw === undefined) return empty();
+  if (k === 'cost' || k === 'price') return fmtAmt(r.val[k]);
+  if (k === 'stock') return fmtNum(r.val.stock);
+  return esc(raw);
+}
+const NUMERIC = new Set(['cost', 'price', 'stock']);
+function viewReview() {
+  const c = counts(), A = S.analysis, cols = FIELDS.filter(f => f.key in A.colOf);
+  const errs = A.recs.filter(r => r.errors.length);
+  let list = S.filter === 'errors' ? errs : A.recs;
+  const pages = Math.max(1, Math.ceil(list.length / S.size)); if (S.page > pages) S.page = pages;
+  const from = (S.page - 1) * S.size, slice = list.slice(from, from + S.size);
+  const unit = { sku: '', cost: ' (VND)', price: ' (VND)', stock: ' (cái/đơn vị)' };
+  const head = cols.map(f => `<th class="${TH} ${NUMERIC.has(f.key) ? '!text-right' : ''}">${f.label}${f.key === 'cost' || f.key === 'price' ? ' (VND)' : ''}</th>`).join('');
+  const body = slice.map(r => {
+    const o = outcome(r);
+    const tag = { error: badge('danger', 'Lỗi'), create: badge('success', 'Tạo mới'), update: badge('info', 'Cập nhật'), skip: badge('neutral', 'Bỏ qua') }[o];
+    let det = '';
+    if (r.errors.length) { const all = r.errors.map(e => `${F[e.field].label}: ${e.msg}`).join('; '); det = `<span class="text-red-700" title="${esc(all)}">${esc(F[r.errors[0].field].label + ': ' + r.errors[0].msg)}${r.errors.length > 1 ? ` (+${r.errors.length - 1})` : ''}</span>`; }
+    else if (o === 'skip') det = `<span class="text-slate-600">${S.mode === 'create' ? 'SKU đã có trong kho' : 'SKU chưa có trong kho'}</span>`;
+    else if (r.warnings.length) det = `<span class="inline-flex items-center gap-1 text-amber-800">${ic('warn', 'size-3.5')}Cảnh báo: ${r.warnings[0].msg}</span>`;
+    return `<tr class="${r.errors.length ? 'bg-red-50/40' : ''}"><td class="${TD} text-right tnum text-slate-700">${r.row}</td>
+      ${cols.map(f => `<td class="${TD} ${NUMERIC.has(f.key) ? 'text-right tnum' : ''} ${f.key === 'name' ? 'max-w-[20rem] truncate' : ''}" ${f.key === 'name' ? `title="${esc(r.raw.name)}"` : ''}>${cellFor(r, f.key)}</td>`).join('')}
+      <td class="${TD}">${tag}</td><td class="${TD} max-w-[24rem] truncate">${det}</td></tr>`;
+  }).join('');
+  const modeOpt = (v, label, hint) => `<label class="flex min-h-6 items-start gap-2"><input type="radio" name="mode" value="${v}" class="mt-0.5 size-4 accent-blue-700" ${S.mode === v ? 'checked' : ''}><span>${label}<span class="block text-slate-600">${hint}</span></span></label>`;
+  const noRows = list.length === 0
+    ? `<tr><td colspan="${cols.length + 3}" class="px-3 py-8 text-center"><p class="font-medium">Không có dòng nào lỗi</p><p class="mt-1 text-slate-600">Tất cả các dòng đều hợp lệ.</p><button type="button" class="${B2} mt-3" data-act="filter" data-f="all">Xem tất cả dòng</button></td></tr>` : '';
+  return `
+  <h2 id="stepHeading" tabindex="-1" class="text-base font-semibold">Xem trước và kiểm tra dữ liệu</h2>
+  <p class="mt-1 text-slate-700 tnum" id="sum-line"><span class="font-medium">${fmtNum(c.total)}</span> dòng · <span class="font-medium">${fmtNum(c.valid)}</span> hợp lệ · <span class="font-medium ${c.errors ? 'text-red-700' : ''}">${fmtNum(c.errors)}</span> có lỗi${c.warnings ? ` · ${c.warnings} cảnh báo` : ''}. Số tiền và số lượng đã được đọc theo định dạng Việt Nam (1.250.000 là một triệu hai trăm năm mươi nghìn).</p>
+
+  ${c.errors ? `<details class="mt-4 rounded-md border border-red-200 bg-red-50" ${c.valid === 0 ? 'open' : ''}>
+    <summary class="flex min-h-10 cursor-pointer items-center gap-2 px-3 font-medium text-red-800">${ic('alert')}<span>${c.errors} dòng có lỗi</span></summary>
+    <ul class="max-h-48 space-y-1 overflow-y-auto border-t border-red-200 px-3 py-2 text-red-800">${errs.flatMap(r => r.errors.map(e => `<li class="flex gap-1.5">${ic('alert', 'size-3.5 mt-1')}<span>${esc(errLine(r, e))}</span></li>`)).join('')}</ul>
+    <div class="flex flex-wrap gap-2 border-t border-red-200 px-3 py-2"><button type="button" class="${B2}" data-act="download-failed">${ic('download')}Tải các dòng lỗi (${c.errors})</button><button type="button" class="${B2}" data-act="filter" data-f="errors">Chỉ xem dòng lỗi</button></div></details>` : ''}
+
+  ${c.valid ? `<fieldset class="mt-4 rounded-md border border-slate-200 p-4"><legend class="px-1 font-medium">Khi SKU đã có trong kho</legend>
+    <div class="grid gap-3 md:grid-cols-3">
+      ${modeOpt('create', 'Chỉ tạo mới (mặc định)', 'Dòng có SKU đã có sẽ bị bỏ qua.')}
+      ${modeOpt('update', 'Chỉ cập nhật theo SKU', 'Dòng có SKU chưa có sẽ bị bỏ qua.')}
+      ${modeOpt('both', 'Tạo mới và cập nhật', 'SKU đã có thì cập nhật, chưa có thì tạo mới.')}</div>
+    <p class="mt-3 text-slate-700 tnum"><span class="font-medium">${fmtNum(c.isNew)}</span> mới · <span class="font-medium">${fmtNum(c.isOld)}</span> đã có trong kho. Khi cập nhật, ô trống giữ nguyên giá trị hiện tại.</p></fieldset>` : ''}
+
+  <div class="mt-4 flex flex-wrap items-center justify-between gap-2">
+    <div class="inline-flex rounded border border-slate-300" role="group" aria-label="Lọc dòng xem trước">
+      <button type="button" data-act="filter" data-f="all" aria-pressed="${S.filter === 'all'}" class="h-8 rounded-l px-3 ${S.filter === 'all' ? 'bg-blue-50 font-medium text-blue-700' : 'bg-white hover:bg-slate-50'}">Tất cả dòng (${fmtNum(c.total)})</button>
+      <button type="button" data-act="filter" data-f="errors" aria-pressed="${S.filter === 'errors'}" class="h-8 rounded-r border-l border-slate-300 px-3 ${S.filter === 'errors' ? 'bg-blue-50 font-medium text-blue-700' : 'bg-white hover:bg-slate-50'}">Chỉ dòng lỗi (${fmtNum(c.errors)})</button></div>
+    ${S.filter === 'errors' ? `<button type="button" class="text-blue-700 underline" data-act="filter" data-f="all">Xóa bộ lọc</button>` : ''}
+  </div>
+  <div class="mt-2 overflow-x-auto rounded-md border border-slate-200"><table class="w-full min-w-[1000px] border-collapse">
+    <caption class="sr-only">Xem trước các dòng sẽ nhập</caption>
+    <thead><tr><th class="${TH} !text-right">Dòng</th>${head}<th class="${TH}">Kết quả</th><th class="${TH}">Chi tiết</th></tr></thead>
+    <tbody>${body}${noRows}</tbody></table></div>
+  <div class="mt-2 flex flex-wrap items-center justify-between gap-2 text-slate-700">
+    <p class="tnum">Hiển thị ${list.length ? fmtNum(from + 1) : 0}–${fmtNum(from + slice.length)} trên ${fmtNum(list.length)} dòng</p>
+    <div class="flex items-center gap-2"><label for="psize">Số dòng mỗi trang</label>
+      <select id="psize" class="h-8 rounded border border-slate-300 bg-white px-2">${[10, 25, 50].map(n => `<option ${S.size === n ? 'selected' : ''}>${n}</option>`).join('')}</select>
+      <button type="button" class="${B2} !px-2" data-act="page" data-d="-1" aria-label="Trang trước" ${S.page <= 1 ? 'disabled' : ''}>${ic('left')}</button>
+      <span class="tnum">Trang ${S.page} / ${pages}</span>
+      <button type="button" class="${B2} !px-2" data-act="page" data-d="1" aria-label="Trang sau" ${S.page >= pages ? 'disabled' : ''}>${ic('right')}</button></div></div>
+  <p class="mt-2 text-slate-600">Dòng được đánh số như trong Excel (dòng 1 là tiêu đề).</p>`;
+}
+
+/* ========== Step 4: run and summary ========== */
+function viewRun() {
+  const j = S.job, pct = Math.round(j.done / j.total * 100);
+  if (S.bg) return `<h2 id="stepHeading" tabindex="-1" class="text-base font-semibold">Đang nhập ở chế độ nền</h2>
+    <p class="mt-1 text-slate-600">Bạn có thể tiếp tục làm việc khác. Tiến trình hiển thị ở đầu trang và bạn sẽ nhận thông báo khi xong.</p>
+    <button type="button" class="${B2} mt-4" data-act="view-progress">Xem tiến trình</button>`;
+  return `<h2 id="stepHeading" tabindex="-1" class="text-base font-semibold">Đang nhập sản phẩm</h2>
+    <div class="mt-4 max-w-2xl rounded-md border border-slate-200 p-4">
+      <p class="flex items-center gap-2 font-medium tnum">${spinner()}<span id="run-text">Đang nhập ${fmtNum(j.done)} trên ${fmtNum(j.total)}</span><span class="ml-auto font-normal text-slate-700" id="run-pct">${pct}%</span></p>
+      <div class="mt-3 h-2 overflow-hidden rounded-full bg-slate-200" role="progressbar" aria-label="Tiến trình nhập sản phẩm" aria-valuemin="0" aria-valuemax="${j.total}" aria-valuenow="${j.done}" id="run-bar"><div class="h-full bg-blue-700" style="width:${pct}%" id="run-fill"></div></div>
+      <p class="mt-3 text-slate-700">Bạn có thể rời trang này. Bạn sẽ nhận thông báo khi nhập xong.</p>
+      <div class="mt-4 flex gap-2"><button type="button" class="${B2}" data-act="bg-import">Chạy nền</button><button type="button" class="${B2}" data-act="stop-import">Dừng nhập</button></div>
+    </div>`;
+}
+function viewSummary() {
+  const r = S.result, bad = r.failed > 0, stopped = r.status === 'Đã dừng';
+  const fig = (l, v, tone) => `<div class="rounded-md border border-slate-200 p-3"><p class="text-slate-600">${l}</p><p class="mt-1 text-2xl font-semibold tnum ${tone || ''}">${fmtNum(v)}</p></div>`;
+  return `
+  <h2 id="stepHeading" tabindex="-1" class="text-base font-semibold">Kết quả nhập <span class="tnum font-normal text-slate-600">${r.id}</span></h2>
+  <div class="mt-3 flex items-start gap-2 rounded-md border p-3 ${stopped ? 'border-slate-300 bg-slate-50' : bad ? 'border-amber-300 bg-amber-50 text-amber-900' : 'border-green-300 bg-green-50 text-green-900'}" role="status">
+    ${ic(bad || stopped ? 'warn' : 'check', 'size-4 mt-0.5')}
+    <p>${stopped ? `Đã dừng nhập: ${fmtNum(r.stoppedAt ?? r.created + r.updated)} dòng đã nhập trước khi dừng.` : bad ? `Nhập xong: ${fmtNum(r.created)} tạo mới · ${fmtNum(r.updated)} cập nhật · ${fmtNum(r.failed)} lỗi.` : `Nhập xong: ${fmtNum(r.created)} tạo mới · ${fmtNum(r.updated)} cập nhật, không có lỗi.`}</p></div>
+  <div class="mt-4 grid max-w-3xl grid-cols-2 gap-3 md:grid-cols-4">${fig('Đã tạo', r.created)}${fig('Đã cập nhật', r.updated)}${fig('Bỏ qua', r.skipped)}${fig('Lỗi', r.failed, r.failed ? 'text-red-700' : '')}</div>
+  <div class="mt-4 flex flex-wrap gap-2">
+    <a href="#/products?import=${r.id}" class="${B1}" data-act="view-products">Xem sản phẩm đã nhập</a>
+    ${r.failed ? `<button type="button" class="${B2}" data-act="download-failed">${ic('download')}Tải các dòng lỗi (${r.failed})</button>` : ''}
+    <button type="button" class="${B2}" data-act="toggle-log" aria-expanded="${S.showLog}">Xem nhật ký nhập</button>
+    <button type="button" class="${B2}" data-act="import-another">Nhập file khác</button></div>
+  ${S.showLog ? `<dl class="mt-4 grid max-w-3xl grid-cols-[160px_1fr] gap-y-1.5 rounded-md border border-slate-200 bg-slate-50 p-4">
+    <dt class="text-slate-600">File</dt><dd>${esc(r.file)}</dd><dt class="text-slate-600">Người nhập</dt><dd>${esc(r.user)}</dd>
+    <dt class="text-slate-600">Thời gian</dt><dd class="tnum"><time datetime="${r.at}">${fmtDT(r.at)}</time></dd><dt class="text-slate-600">Tùy chọn</dt><dd>${esc(r.mode)}</dd>
+    ${r.mapSummary ? `<dt class="text-slate-600">Ghép cột</dt><dd>${esc(r.mapSummary)}</dd>` : ''}
+    <dt class="text-slate-600">Số lượng</dt><dd class="tnum">${fmtNum(r.created)} tạo mới · ${fmtNum(r.updated)} cập nhật · ${fmtNum(r.skipped)} bỏ qua · ${fmtNum(r.failed)} lỗi</dd></dl>` : ''}
+  ${r.failedRows.length ? `<h3 class="mb-2 mt-6 font-medium">Các dòng lỗi (${r.failedRows.length})</h3>
+    <div class="max-w-4xl overflow-x-auto rounded-md border border-slate-200"><table class="w-full border-collapse"><thead><tr><th class="${TH} !text-right">Dòng</th><th class="${TH}">SKU</th><th class="${TH}">Lý do</th></tr></thead>
+    <tbody>${r.failedRows.map(f => `<tr><td class="${TD} text-right tnum">${f[0]}</td><td class="${TD}">${f[1] ? esc(f[1]) : empty()}</td><td class="${TD} !whitespace-normal !h-auto py-2.5 text-red-700">${esc(f[2])}</td></tr>`).join('')}</tbody></table></div>` : ''}
+  <p class="mt-4 text-slate-600">Địa chỉ trang này được giữ cố định và lưu 30 ngày: <span class="tnum">#/products/import/${r.id}</span></p>`;
+}
+
+/* ========== Import job (simulated) ========== */
+function startImport() {
+  const todo = S.analysis.recs.filter(r => ['create', 'update'].includes(outcome(r)));
+  const c = counts();
+  S.job = { id: 'IMP-0219', total: todo.length, done: 0, created: 0, updated: 0, runFailed: [], todo, status: 'running', skippedN: c.skip, startAt: new Date().toISOString() };
+  S.step = 4; S.bg = false; S.focus = true; render();
+  S.timer = setInterval(tick, 450);
+}
+function tick() {
+  const j = S.job; if (!j || j.status !== 'running') return clearInterval(S.timer);
+  for (let n = 0; n < 2 && j.done < j.total; n++) {
+    const r = j.todo[j.done++], o = outcome(r);
+    if (o === 'create' && r.raw.sku.toUpperCase() === RACE_SKU) j.runFailed.push([r.row, r.raw.sku, 'SKU đã được tạo bởi Phạm Quốc Bảo vài giây trước']);
+    else if (o === 'create') j.created++; else j.updated++;
+  }
+  updateProgress();
+  if (j.done >= j.total) finishJob('Hoàn tất');
+}
+function updateProgress() {
+  const j = S.job, pct = Math.round(j.done / j.total * 100);
+  const t = $('#run-text'); if (t) { t.textContent = `Đang nhập ${fmtNum(j.done)} trên ${fmtNum(j.total)}`; $('#run-pct').textContent = pct + '%'; $('#run-fill').style.width = pct + '%'; $('#run-bar').setAttribute('aria-valuenow', j.done); }
+  if (S.bg) renderBanner();
+  const m = Math.floor(pct / 25); if (m !== j.milestone) { j.milestone = m; $('#sr-progress').textContent = `Đã nhập ${fmtNum(j.done)} trên ${fmtNum(j.total)} sản phẩm`; }
+}
+function finishJob(status) {
+  clearInterval(S.timer);
+  const j = S.job, c = counts(), errs = S.analysis.recs.filter(r => r.errors.length);
+  const failedRows = [...errs.flatMap(r => r.errors.map(e => [r.row, r.raw.sku || '', `${F[e.field].label}: ${e.msg}`])), ...j.runFailed].sort((a, b) => a[0] - b[0]);
+  const names = FIELDS.filter(f => f.key in S.analysis.colOf).map(f => `${S.headers[S.analysis.colOf[f.key]]} → ${f.label}`).join('; ');
+  j.status = 'done';
+  S.result = { id: j.id, file: S.file.name, user: CURRENT_USER, at: new Date().toISOString(), created: j.created, updated: j.updated, skipped: j.skippedN, failed: errs.length + j.runFailed.length,
+    status, stoppedAt: j.done, mode: { create: 'Chỉ tạo mới (khóa: SKU)', update: 'Chỉ cập nhật theo SKU', both: 'Tạo mới và cập nhật theo SKU' }[S.mode], mapSummary: names, failedRows,
+    failedRaw: errs.map(r => ({ row: r.row, reason: r.errors.map(e => `${F[e.field].label}: ${e.msg}`).join('; ') })).concat(j.runFailed.map(f => ({ row: f[0], reason: f[2] }))) };
+  history.replaceState(null, '', '#/products/import/' + j.id);
+  if (S.bg) {
+    S.bannerPending = S.result;
+    if (!S.result.failed) toast(`Nhập xong: ${fmtNum(S.result.created)} tạo mới · ${fmtNum(S.result.updated)} cập nhật`, 'success', { label: 'Xem kết quả', fn: () => { S.bg = false; S.bannerPending = null; S.focus = true; render(); } });
+  }
+  S.focus = !S.bg; render();
+}
+
+/* ========== Banner (background jobs) ========== */
+function renderBanner() {
+  const el = $('#banner'), j = S.job;
+  if (S.bg && j && j.status === 'running') {
+    const pct = Math.round(j.done / j.total * 100);
+    el.innerHTML = `<div class="flex flex-wrap items-center gap-3 rounded-md border border-blue-200 bg-blue-50 p-3 text-blue-900"><span class="text-blue-700">${spinner()}</span>
+      <div class="min-w-0 flex-1"><p class="font-medium tnum">Đang nhập ${fmtNum(j.total)} sản phẩm · ${fmtNum(j.done)} trên ${fmtNum(j.total)}</p>
+      <div class="mt-1.5 h-1.5 overflow-hidden rounded-full bg-blue-200" role="progressbar" aria-label="Tiến trình nhập nền" aria-valuemin="0" aria-valuemax="${j.total}" aria-valuenow="${j.done}"><div class="h-full bg-blue-700" style="width:${pct}%"></div></div></div>
+      <button type="button" class="${B2}" data-act="view-progress">Xem tiến trình</button><button type="button" class="${B2}" data-act="stop-import">Dừng</button></div>`;
+  } else if (S.bannerPending) {
+    const r = S.bannerPending, bad = r.failed > 0;
+    el.innerHTML = `<div class="flex flex-wrap items-center gap-3 rounded-md border p-3 ${bad ? 'border-amber-300 bg-amber-50 text-amber-900' : 'border-green-300 bg-green-50 text-green-900'}" role="status">${ic(bad ? 'warn' : 'check')}
+      <p class="min-w-0 flex-1 tnum">Nhập xong: ${fmtNum(r.created)} tạo mới · ${fmtNum(r.updated)} cập nhật · ${fmtNum(r.failed)} lỗi</p>
+      <button type="button" class="${B2}" data-act="view-results">Xem kết quả</button></div>`;
+  } else el.innerHTML = '';
+}
+
+/* ========== Bar ========== */
+function renderBar() {
+  const bar = $('#bar'); let left = '', right = '', show = true;
+  if (S.step === 1 && !S.job) { left = S.file ? `<span class="inline-flex items-center gap-1.5 text-slate-700">${ic('file')}${esc(S.file.name)}</span>` : '<span class="text-slate-600">Chưa chọn file</span>'; right = `<button type="button" class="${B1}" data-act="next">Tiếp theo: ghép cột${ic('right')}</button>`; }
+  else if (S.step === 2) { left = S.mapErr ? `<span class="inline-flex items-center gap-1.5 text-red-700" role="alert">${ic('alert')}Cần ghép đủ các trường bắt buộc</span>` : ''; right = `<button type="button" class="${B2}" data-act="back">Quay lại</button><button type="button" class="${B1}" data-act="next">Tiếp theo: xem trước${ic('right')}</button>`; }
+  else if (S.step === 3 && S.analysis) {
+    const c = counts();
+    if (!c.valid) { left = '<span class="text-red-700">Không có dòng nào hợp lệ để nhập. Sửa lỗi trong file rồi tải lại.</span>'; right = `<button type="button" class="${B2}" data-act="back">Quay lại</button><button type="button" class="${B1}" data-act="new-file">Tải file mới</button>`; }
+    else {
+      left = `<span class="text-slate-700">${c.errors ? `${fmtNum(c.errors)} dòng lỗi sẽ bị bỏ qua. Sửa trong file rồi tải lại, hoặc nhập ngay ${fmtNum(c.valid)} dòng hợp lệ.` : `Tất cả ${fmtNum(c.valid)} dòng đều hợp lệ.`}${c.skip ? ` ${fmtNum(c.skip)} dòng hợp lệ bị bỏ qua theo tùy chọn đã chọn.` : ''}</span>`;
+      right = `<button type="button" class="${B2}" data-act="back">Quay lại</button><button type="button" class="${B2}" data-act="new-file">Tải file mới</button>` +
+        (c.run ? `<button type="button" class="${B1}" data-act="start-import">Nhập ${fmtNum(c.run)} sản phẩm</button>` : `<button type="button" class="${B1} opacity-50" aria-disabled="true" data-act="noop" title="Không có dòng nào để nhập theo tùy chọn này">Nhập 0 sản phẩm</button>`);
+    }
+  } else show = false;
+  bar.hidden = !show;
+  bar.innerHTML = show ? `<div class="flex flex-wrap items-center justify-between gap-3 px-6 py-3"><div class="min-w-0 flex-1">${left}</div><div class="flex items-center gap-2">${right}</div></div>` : '';
+}
+
+/* ========== Render ========== */
+function render() {
+  renderStepper(); renderBanner();
+  let html;
+  if (S.result && !(S.bg && !S.bannerPending === false)) html = viewSummary();
+  else if (S.job && S.step === 4) html = viewRun();
+  else html = S.step === 1 ? viewUpload() : S.step === 2 ? viewMapping() : viewReview();
+  if (S.result && S.bg) html = viewRun();
+  $('#view').innerHTML = html;
+  renderBar();
+  if (S.step === 1 && !S.job && !S.result) renderRecent();
+  if (S.focus) { S.focus = false; const h = $('#stepHeading'); h && h.focus(); }
+  if (S.refocus) { const e = $(S.refocus); S.refocus = null; e && e.focus(); }
+}
+
+/* ========== Actions ========== */
+function failedCsv() {
+  const r = S.result;
+  if (S.analysis && r && r.id === S.job?.id) {
+    const rows = [[...S.headers, 'Lỗi']];
+    r.failedRaw.sort((a, b) => a.row - b.row).forEach(f => rows.push([...S.data[f.row - 2], f.reason]));
+    return toCSV(rows);
+  }
+  return toCSV([['Dòng', 'SKU', 'Lỗi'], ...r.failedRows]);
+}
+async function goNext() {
+  if (S.step === 1) {
+    if (!S.file) { S.fileError = 'Chọn một file CSV để tiếp tục.'; render(); const b = $('#choose-btn'); b && b.focus(); return; }
+    S.step = 2; S.focus = true; render();
+  } else if (S.step === 2) {
+    const { dups, missing } = mappingCheck();
+    if (missing.length || Object.keys(dups).length) {
+      S.mapErr = { missing, dups }; S.refocus = missing.length ? '#err-' + missing[0] : '#err-col-' + Object.keys(dups)[0]; render(); return;
+    }
+    S.mapErr = null; try { localStorage.setItem('imp-map:' + S.headers.join('|'), JSON.stringify(S.mapping)); } catch (e) {}
+    analyze(); S.filter = 'all'; S.page = 1; S.step = 3; S.focus = true; render();
+  }
+}
+document.addEventListener('click', async e => {
+  const nav = e.target.closest('[data-nav]');
+  if (nav) { e.preventDefault(); if (dirty() && !(await confirmDialog({ title: 'Rời khỏi trang nhập?', body: 'File đã chọn và cách ghép cột sẽ không được giữ lại.', ok: 'Rời trang', cancel: 'Ở lại' }))) return; resetWizard(); render(); loadRecent(); return; }
+  const a = e.target.closest('[data-act]'); if (!a) return;
+  const act = a.dataset.act;
+  if (act === 'view-products') { e.preventDefault(); toast('Bản demo: danh sách sản phẩm không có trong tệp này.', 'info'); return; }
+  switch (act) {
+    case 'choose-file': $('#file-input').click(); break;
+    case 'use-sample': acceptText('san-pham-mau.csv', SAMPLE_TEXT, new Blob([SAMPLE_TEXT]).size); break;
+    case 'download-template': saveBlob('mau-nhap-san-pham.csv', toCSV([SAMPLE_HEAD.slice(0, 8), ['NK-MI-003', 'Mì Hảo Hảo chua cay (thùng 30 gói)', 'Thực phẩm khô', 'Thùng', '108000', '126000', '240', '8934563138165']])); toast('Đã tải mau-nhap-san-pham.csv'); break;
+    case 'change-file': if (await confirmDialog({ title: 'Đổi file?', body: `Cách ghép cột cho ${esc(S.file.name)} sẽ không được giữ lại.`, ok: 'Đổi file', cancel: 'Giữ file hiện tại', danger: false })) { S.file = null; S.analysis = null; S.fileError = ''; S.focus = true; render(); } break;
+    case 'new-file': if (await confirmDialog({ title: 'Tải file mới?', body: 'Kết quả kiểm tra của file hiện tại sẽ không được giữ lại. Các dòng lỗi vẫn có thể tải về trước khi rời trang.', ok: 'Tải file mới', cancel: 'Ở lại', danger: false })) { S.file = null; S.analysis = null; S.step = 1; S.focus = true; render(); } break;
+    case 'retry-recent': loadRecent(); break;
+    case 'next': goNext(); break;
+    case 'back': S.step--; S.focus = true; render(); break;
+    case 'goto': S.step = +a.dataset.step; S.focus = true; render(); break;
+    case 'filter': S.filter = a.dataset.f; S.page = 1; S.refocus = '[data-act="filter"][data-f="' + S.filter + '"]'; render(); break;
+    case 'page': S.page += +a.dataset.d; render(); break;
+    case 'download-failed': {
+      if (S.result) saveBlob(`dong-loi-${S.result.id}.csv`, failedCsv());
+      else { const rows = [[...S.headers, 'Lỗi']]; S.analysis.recs.filter(r => r.errors.length).forEach(r => rows.push([...S.data[r.row - 2], r.errors.map(x => `${F[x.field].label}: ${x.msg}`).join('; ')])); saveBlob('dong-loi-' + S.file.name, toCSV(rows)); toast(`Đã tải ${counts().errors} dòng lỗi (cột "Lỗi" ở cuối sẽ được bỏ qua khi nhập lại)`); }
+      break; }
+    case 'start-import': startImport(); break;
+    case 'stop-import': {
+      const j = S.job;
+      if (await confirmDialog({ title: 'Dừng nhập?', body: `${fmtNum(j.created + j.updated)} sản phẩm đã được nhập và sẽ được giữ lại. Các dòng còn lại chưa được xử lý.`, ok: 'Dừng nhập', cancel: 'Tiếp tục nhập' }) && j.status === 'running') { S.bg = false; finishJob('Đã dừng'); }
+      break; }
+    case 'bg-import': S.bg = true; S.step = 3 + 1; render(); toast('Việc nhập đang chạy nền. Bạn sẽ nhận thông báo khi xong.', 'info'); break;
+    case 'view-progress': S.bg = false; S.focus = true; render(); break;
+    case 'view-results': S.bg = false; S.bannerPending = null; S.focus = true; render(); break;
+    case 'toggle-log': S.showLog = !S.showLog; S.refocus = '[data-act="toggle-log"]'; render(); break;
+    case 'import-another': resetWizard(); S.focus = true; render(); loadRecent(); break;
+    case 'open-summary': {
+      const r = RECENT.find(x => x.id === a.dataset.id);
+      S.result = { ...r, skipped: r.skipped, stoppedAt: r.stoppedAt }; S.job = { id: r.id, status: 'done' }; S.step = 4; S.showLog = false;
+      history.replaceState(null, '', '#/products/import/' + r.id); S.focus = true; render(); break; }
+  }
+});
+document.addEventListener('change', e => {
+  const t = e.target;
+  if (t.dataset.map !== undefined) { S.mapping[+t.dataset.map] = t.value; if (S.mapErr) S.mapErr = null; S.remembered = false; S.refocus = '#' + t.id; render(); }
+  else if (t.id === 'delim') { S.delim = t.value === 'tab' ? '\t' : t.value; reparse(); S.refocus = '#delim'; render(); }
+  else if (t.name === 'mode') { S.mode = t.value; S.refocus = 'input[name="mode"][value="' + t.value + '"]'; render(); }
+  else if (t.id === 'psize') { S.size = +t.value; S.page = 1; S.refocus = '#psize'; render(); }
+  else if (t.id === 'file-input') { const f = t.files[0]; t.value = ''; if (f) readFile(f); }
+});
+document.addEventListener('dragover', e => { if ($('#dropzone')) e.preventDefault(); });
+document.addEventListener('drop', e => { const z = $('#dropzone'); if (!z) return; e.preventDefault(); const f = e.dataTransfer.files[0]; if (f) readFile(f); });
+window.addEventListener('beforeunload', e => { if (dirty()) { e.preventDefault(); e.returnValue = ''; } });
+
+/* ========== Boot ========== */
+(function boot() {
+  const m = location.hash.match(/import\/(IMP-\d+)/);
+  const hist = m && RECENT.find(x => x.id === m[1]);
+  if (hist) { S.result = { ...hist }; S.job = { id: hist.id, status: 'done' }; S.step = 4; }
+  render();
+  if (!hist) loadRecent();
+})();
+</script>
+</body>
+</html>

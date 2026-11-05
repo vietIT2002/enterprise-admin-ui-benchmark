@@ -1,0 +1,559 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lịch sử xuất nhập kho</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+  body{font-family:ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;font-size:14px;color:#0f172a}
+  .num{font-variant-numeric:tabular-nums}
+  @keyframes sk{0%,100%{opacity:1}50%{opacity:.5}}
+  .sk{animation:sk 1.4s ease-in-out infinite;background:#e2e8f0;border-radius:4px;height:12px}
+  th button:focus-visible,button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid #1d4ed8;outline-offset:1px}
+  tbody tr:hover td{background:#f8fafc}
+  tbody tr.sel td{background:#eff6ff}
+  thead th{position:sticky;top:0;background:#fff;z-index:2}
+  .stickycol{position:sticky;left:0;background:#fff;z-index:1}
+  tbody tr:hover td.stickycol{background:#f8fafc}
+  tbody tr.sel td.stickycol{background:#eff6ff}
+</style>
+</head>
+<body class="bg-slate-50">
+<div class="flex min-h-screen">
+  <!-- Sidebar -->
+  <aside class="hidden lg:flex w-60 shrink-0 flex-col border-r border-slate-200 bg-white" aria-label="Điều hướng chính">
+    <div class="flex h-14 items-center border-b border-slate-200 px-4 font-semibold">Kho Việt WMS</div>
+    <nav class="flex-1 overflow-y-auto p-2 text-sm">
+      <p class="px-3 pb-1 pt-3 text-xs font-medium text-slate-600">Tổng quan</p>
+      <a href="#" class="block h-8 rounded px-3 leading-8 text-slate-700 hover:bg-slate-100">Bảng điều khiển</a>
+      <p class="px-3 pb-1 pt-4 text-xs font-medium text-slate-600">Kho hàng</p>
+      <a href="#" class="block h-8 rounded px-3 leading-8 text-slate-700 hover:bg-slate-100">Tồn kho</a>
+      <a href="#" aria-current="page" class="block h-8 rounded bg-blue-50 px-3 font-medium leading-8 text-blue-700">Lịch sử xuất nhập kho</a>
+      <a href="#" class="block h-8 rounded px-3 leading-8 text-slate-700 hover:bg-slate-100">Kiểm kê</a>
+      <a href="#" class="block h-8 rounded px-3 leading-8 text-slate-700 hover:bg-slate-100">Danh mục hàng hóa</a>
+      <p class="px-3 pb-1 pt-4 text-xs font-medium text-slate-600">Đối tác</p>
+      <a href="#" class="block h-8 rounded px-3 leading-8 text-slate-700 hover:bg-slate-100">Nhà cung cấp</a>
+      <a href="#" class="block h-8 rounded px-3 leading-8 text-slate-700 hover:bg-slate-100">Khách hàng</a>
+      <p class="px-3 pb-1 pt-4 text-xs font-medium text-slate-600">Hệ thống</p>
+      <a href="#" class="block h-8 rounded px-3 leading-8 text-slate-700 hover:bg-slate-100">Người dùng và phân quyền</a>
+      <a href="#" class="block h-8 rounded px-3 leading-8 text-slate-700 hover:bg-slate-100">Cài đặt</a>
+    </nav>
+    <div class="border-t border-slate-200 p-3 text-sm">
+      <p class="font-medium">Phạm Thu Hà</p>
+      <p class="text-xs text-slate-600">Thủ kho tổng</p>
+    </div>
+  </aside>
+
+  <main class="min-w-0 flex-1">
+    <div class="mx-auto max-w-[1360px] px-6 py-5">
+      <!-- Page header -->
+      <nav aria-label="Breadcrumb" class="mb-1 text-xs text-slate-600">Kho hàng <span aria-hidden="true">/</span> <span class="text-slate-900">Lịch sử xuất nhập kho</span></nav>
+      <div class="mb-4 flex flex-wrap items-center gap-3">
+        <h1 class="mr-auto text-xl font-semibold">Lịch sử xuất nhập kho</h1>
+        <button id="btnExport" class="h-8 rounded border border-slate-300 bg-white px-3 text-sm font-medium text-slate-800 hover:bg-slate-50">Xuất Excel</button>
+        <button id="btnMore" aria-label="Thêm tùy chọn trang" aria-haspopup="menu" class="grid h-8 w-8 place-items-center rounded border border-slate-300 bg-white text-slate-700 hover:bg-slate-50" data-icon="more"></button>
+        <button id="btnCreate" aria-haspopup="menu" class="h-8 rounded bg-blue-700 px-3 text-sm font-medium text-white hover:bg-blue-800">Tạo phiếu</button>
+      </div>
+
+      <section class="rounded-md border border-slate-200 bg-white">
+        <!-- Type tabs -->
+        <div id="tabs" role="tablist" aria-label="Loại phiếu" class="flex gap-1 overflow-x-auto border-b border-slate-200 px-3"></div>
+
+        <!-- Filter row -->
+        <div class="flex flex-wrap items-center gap-2 px-3 pt-3">
+          <div class="relative w-80 max-w-full">
+            <span class="pointer-events-none absolute left-2 top-2 text-slate-500" data-icon="search"></span>
+            <input id="q" type="search" aria-label="Tìm phiếu" placeholder="Tìm mã phiếu, đối tác, mã hàng, lý do" class="h-8 w-full rounded border border-slate-300 pl-8 pr-2 text-sm placeholder:text-slate-500">
+          </div>
+          <label class="sr-only" for="fWh">Kho</label>
+          <select id="fWh" class="h-8 rounded border border-slate-300 bg-white px-2 text-sm"></select>
+          <label class="sr-only" for="fStatus">Trạng thái</label>
+          <select id="fStatus" class="h-8 rounded border border-slate-300 bg-white px-2 text-sm"></select>
+          <label class="sr-only" for="fCreator">Người tạo</label>
+          <select id="fCreator" class="h-8 rounded border border-slate-300 bg-white px-2 text-sm"></select>
+          <div class="relative">
+            <button id="btnMoreF" aria-expanded="false" aria-controls="morePanel" class="h-8 rounded border border-slate-300 bg-white px-3 text-sm text-slate-800 hover:bg-slate-50">Bộ lọc khác</button>
+            <div id="morePanel" hidden class="absolute left-0 top-9 z-30 w-72 rounded-lg border border-slate-200 bg-white p-4 shadow-lg">
+              <div class="space-y-3">
+                <div><label for="pFrom" class="mb-1 block text-xs font-medium text-slate-700">Từ ngày</label><input id="pFrom" type="date" class="h-8 w-full rounded border border-slate-300 px-2 text-sm"></div>
+                <div><label for="pTo" class="mb-1 block text-xs font-medium text-slate-700">Đến ngày</label><input id="pTo" type="date" class="h-8 w-full rounded border border-slate-300 px-2 text-sm"></div>
+                <div><label for="pMin" class="mb-1 block text-xs font-medium text-slate-700">Giá trị tối thiểu (₫)</label><input id="pMin" type="number" min="0" step="1000000" inputmode="numeric" class="num h-8 w-full rounded border border-slate-300 px-2 text-right text-sm"></div>
+              </div>
+              <div class="mt-4 flex justify-end gap-2">
+                <button id="pReset" class="h-8 rounded border border-slate-300 px-3 text-sm hover:bg-slate-50">Đặt lại</button>
+                <button id="pApply" class="h-8 rounded bg-blue-700 px-3 text-sm font-medium text-white hover:bg-blue-800">Áp dụng</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Chips -->
+        <div id="chips" class="flex flex-wrap items-center gap-2 px-3"></div>
+
+        <!-- Summary / bulk bar -->
+        <div id="barWrap" class="mt-2 border-t border-slate-200"></div>
+
+        <!-- Table -->
+        <div class="overflow-x-auto" style="max-height:calc(100vh - 300px);min-height:200px">
+          <table id="tbl" class="w-full min-w-[1100px] border-collapse text-sm text-left"></table>
+        </div>
+
+        <!-- Pagination -->
+        <div id="pager" class="flex h-12 flex-wrap items-center gap-3 border-t border-slate-200 px-3"></div>
+      </section>
+      <p role="status" id="live" class="sr-only"></p>
+    </div>
+  </main>
+</div>
+
+<!-- Detail panel -->
+<div id="overlay" hidden class="fixed inset-0 z-40 bg-slate-900/30"></div>
+<aside id="panel" hidden role="dialog" aria-modal="true" aria-labelledby="pTitle" class="fixed inset-y-0 right-0 z-50 flex w-full max-w-[560px] flex-col border-l border-slate-200 bg-white shadow-xl"></aside>
+
+<!-- Confirm dialog -->
+<div id="dlgWrap" hidden class="fixed inset-0 z-[60] grid place-items-center bg-slate-900/40 p-4">
+  <div role="alertdialog" aria-modal="true" aria-labelledby="dlgTitle" aria-describedby="dlgBody" class="w-full max-w-md rounded-lg bg-white p-5 shadow-xl">
+    <h2 id="dlgTitle" class="text-base font-semibold"></h2>
+    <p id="dlgBody" class="mt-2 text-sm text-slate-700"></p>
+    <div class="mt-5 flex justify-end gap-2">
+      <button id="dlgNo" class="h-8 rounded border border-slate-300 px-3 text-sm hover:bg-slate-50">Quay lại</button>
+      <button id="dlgYes" class="h-8 rounded bg-red-600 px-3 text-sm font-medium text-white hover:bg-red-700"></button>
+    </div>
+  </div>
+</div>
+
+<div id="menu" hidden role="menu" class="fixed z-[70] min-w-48 rounded-lg border border-slate-200 bg-white py-1 text-sm shadow-lg"></div>
+<div id="toasts" class="fixed bottom-4 left-1/2 z-[80] flex -translate-x-1/2 flex-col gap-2" aria-live="polite"></div>
+
+<script>
+(function(){
+'use strict';
+/* ---------- helpers ---------- */
+const $ = (s,r=document)=>r.querySelector(s);
+const esc = s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const nf = new Intl.NumberFormat('vi-VN');
+const vnd = new Intl.NumberFormat('vi-VN',{style:'currency',currency:'VND'});
+const p2 = n=>String(n).padStart(2,'0');
+const fmtDate = d=>`${p2(d.getDate())}/${p2(d.getMonth()+1)}/${d.getFullYear()}`;
+const fmtDT = d=>`${fmtDate(d)} ${p2(d.getHours())}:${p2(d.getMinutes())}`;
+const iso = d=>`${d.getFullYear()}-${p2(d.getMonth()+1)}-${p2(d.getDate())}`;
+const norm = s=>String(s).normalize('NFD').replace(/\p{Diacritic}/gu,'').replace(/đ/gi,'d').toLowerCase();
+const signed = n=> n<0 ? '-'+nf.format(-n) : (n>0?'+'+nf.format(n):'0');
+const ICONS = {
+  search:'<circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/>',
+  x:'<path d="M18 6 6 18M6 6l12 12"/>',
+  more:'<circle cx="5" cy="12" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/>',
+  in:'<path d="M12 5v14M19 12l-7 7-7-7"/>',
+  out:'<path d="M12 19V5M5 12l7-7 7 7"/>',
+  transfer:'<path d="m8 3-4 4 4 4M4 7h16M16 21l4-4-4-4M20 17H4"/>',
+  adjust:'<path d="M21 4h-7M10 4H3M21 12h-9M8 12H3M21 20h-5M12 20H3M14 2v4M8 10v4M16 18v4"/>',
+  up:'<path d="m18 15-6-6-6 6"/>', down:'<path d="m6 9 6 6 6-6"/>'
+};
+const ic = (n,cls='')=>`<svg class="inline-block shrink-0 ${cls}" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICONS[n]}</svg>`;
+document.querySelectorAll('[data-icon]').forEach(el=>el.innerHTML=ic(el.dataset.icon));
+
+/* ---------- vocabulary ---------- */
+const TYPES = {
+  in:{label:'Nhập kho',icon:'in',prefix:'PN'},
+  out:{label:'Xuất kho',icon:'out',prefix:'PX'},
+  transfer:{label:'Chuyển kho',icon:'transfer',prefix:'PC'},
+  adjust:{label:'Điều chỉnh tồn',icon:'adjust',prefix:'DC'}
+};
+const TONE = {
+  neutral:'bg-slate-100 text-slate-700', info:'bg-blue-50 text-blue-800',
+  success:'bg-green-50 text-green-800', warning:'bg-amber-50 text-amber-800', danger:'bg-red-50 text-red-800'
+};
+const STATUS = {
+  'Nháp':'neutral','Chờ duyệt':'info','Đang chuyển':'info','Hoàn tất':'success',
+  'Lệch khi nhận':'warning','Từ chối':'danger','Đã hủy':'neutral'
+};
+const badge = s=>`<span class="inline-flex h-6 items-center whitespace-nowrap rounded-full px-2 text-xs font-medium ${TONE[STATUS[s]]}">${esc(s)}</span>`;
+const WH = ['Kho Bình Dương','Kho Hà Nội','Kho Đà Nẵng','Kho Cần Thơ'];
+const USERS = ['Phạm Thu Hà','Nguyễn Văn Hậu','Lê Thị Mai Anh','Đỗ Quốc Khánh','Võ Thanh Tùng','Bùi Ngọc Lan'];
+const APPROVER = 'Trần Minh Quân (Quản lý kho)';
+const ITEMS = [
+  ['VT-0012','Thép cuộn cán nguội 0.5mm','kg',24500],['VT-0047','Bu lông M10 x 50 inox','hộp',186000],
+  ['TP-1003','Máy bơm nước Panasonic 250W','cái',2350000],['TP-1021','Quạt công nghiệp 650mm','cái',1890000],
+  ['HH-2005','Sơn nội thất Dulux 18L','thùng',1640000],['HH-2018','Xi măng Hà Tiên PCB40','bao',92000],
+  ['DG-3002','Thùng carton 5 lớp 40x30x30','thùng',7800],['DG-3011','Băng keo OPP 48mm','cuộn',14500],
+  ['TB-4007','Găng tay bảo hộ sợi cotton','đôi',9500],['TB-4015','Mũ bảo hộ lao động','cái',58000],
+  ['PK-5009','Dây điện Cadivi 2.5mm','cuộn',945000],['PK-5030','Ổ cắm công nghiệp 3P','cái',215000]
+];
+const SUPPLIERS = ['Công ty TNHH Thép Hòa Phát','Công ty CP Vật liệu Xây dựng Đồng Tâm','Công ty TNHH Điện Cơ Thống Nhất','Nhà phân phối Panasonic Việt Nam','Công ty CP Bao bì Sài Gòn','Công ty TNHH Sơn Dulux AkzoNobel'];
+const CUSTOMERS = ['Công ty TNHH Xây dựng Minh Phát','Cửa hàng VLXD Thanh Bình','Công ty CP Cơ khí Hoàng Long','Nhà thầu Trường Thịnh','Đại lý Phú Gia','Công ty TNHH MTV Tân Việt'];
+const REASONS = ['Kiểm kê định kỳ quý 4','Hàng hỏng vỡ khi bốc xếp','Chênh lệch kiểm kê cuối ngày','Nhập sót phiếu tháng 10','Hàng cận date, thanh lý'];
+
+/* ---------- mock data (seeded) ---------- */
+function rng(a){return function(){a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296}}
+const R = rng(20261104);
+const pick = a=>a[Math.floor(R()*a.length)];
+const NOW = new Date(2026,10,4,16,0);
+function build(){
+  const docs=[]; const N=96;
+  const times=[]; for(let i=0;i<N;i++){times.push(new Date(NOW.getTime()-Math.pow(R(),1.15)*38*864e5-R()*3e6))}
+  times.sort((a,b)=>a-b);
+  const counters={in:1040,out:2210,transfer:318,adjust:77};
+  times.forEach((t,i)=>{
+    if(t>NOW) t=new Date(NOW.getTime()-60000);
+    const r=R(); const type = r<.40?'in':r<.74?'out':r<.89?'transfer':'adjust';
+    const age=(NOW-t)/864e5;
+    const wh=pick(WH); let wh2=null;
+    if(type==='transfer'){do{wh2=pick(WH)}while(wh2===wh)}
+    const nl=1+Math.floor(R()*4); const used=new Set(); const lines=[];
+    while(lines.length<nl){const it=pick(ITEMS); if(used.has(it[0]))continue; used.add(it[0]);
+      let q = type==='adjust' ? (Math.floor(R()*40)+1)*(R()<.6?-1:1) : (Math.floor(R()*30)+1)*(it[2]==='kg'?20:it[2]==='bao'?10:1);
+      lines.push({sku:it[0],name:it[1],unit:it[2],qty:q,price:it[3]});}
+    let path;
+    if(type==='in') path = age>6? (R()<.1?['Nháp','Đã hủy']:['Nháp','Chờ duyệt','Hoàn tất']) : pick([['Nháp'],['Nháp','Chờ duyệt'],['Nháp','Chờ duyệt','Hoàn tất'],['Nháp','Chờ duyệt','Hoàn tất']]);
+    else if(type==='out') path = age>6? (R()<.12?['Nháp','Chờ duyệt','Từ chối']:['Nháp','Chờ duyệt','Hoàn tất']) : pick([['Nháp'],['Nháp','Chờ duyệt'],['Nháp','Chờ duyệt','Hoàn tất'],['Nháp','Chờ duyệt','Từ chối'],['Nháp','Đã hủy']]);
+    else if(type==='transfer') path = age>8? (R()<.25?['Chờ duyệt','Đang chuyển','Lệch khi nhận']:['Chờ duyệt','Đang chuyển','Hoàn tất']) : pick([['Chờ duyệt'],['Chờ duyệt','Đang chuyển'],['Chờ duyệt','Đang chuyển','Hoàn tất'],['Chờ duyệt','Đã hủy']]);
+    else path = age>6? (R()<.1?['Chờ duyệt','Từ chối']:['Chờ duyệt','Hoàn tất']) : pick([['Chờ duyệt'],['Chờ duyệt','Hoàn tất'],['Chờ duyệt','Hoàn tất']]);
+    const status=path[path.length-1];
+    const creator=pick(USERS);
+    let partner;
+    if(type==='in') partner=pick(SUPPLIERS)+' · PO-'+(5100+Math.floor(R()*400));
+    else if(type==='out') partner=pick(CUSTOMERS)+' · DH-'+(8200+Math.floor(R()*900));
+    else if(type==='transfer') partner='Lệnh điều chuyển LC-'+(900+Math.floor(R()*90));
+    else partner=pick(REASONS);
+    const sum=lines.reduce((s,l)=>s+l.qty*l.price,0), qty=lines.reduce((s,l)=>s+l.qty,0);
+    const hist=[]; let tt=t.getTime();
+    hist.push({at:new Date(tt),who:creator,text:'Tạo phiếu'});
+    for(let k=1;k<path.length;k++){tt+= (1+R()*20)*36e5; if(tt>NOW.getTime()) tt=NOW.getTime()-30000;
+      const who = path[k]==='Chờ duyệt'?creator : (path[k]==='Hoàn tất'||path[k]==='Từ chối'||path[k]==='Đang chuyển')?'Trần Minh Quân':creator;
+      hist.push({at:new Date(tt),who,text:'Trạng thái: '+path[k-1]+' → '+path[k]});}
+    const n=++counters[type];
+    docs.push({id:TYPES[type].prefix+'-'+String(n).padStart(5,'0'),type,time:t,wh,wh2,partner,lines,qty:type==='transfer'?Math.abs(qty):qty,
+      value:type==='transfer'?Math.abs(sum):sum,status,creator,hist,updated:hist[hist.length-1]});
+  });
+  return docs;
+}
+let DATA = build();
+
+/* ---------- state ---------- */
+const D = {q:'',type:'',wh:'',status:'',creator:'',from:'',to:'',min:'',sort:'time',dir:'desc',page:1,size:25};
+const S = {sel:new Set(),allMatching:false,loading:true,error:false,empty:false};
+const params = new URLSearchParams(location.search);
+const st = Object.assign({},D);
+for(const k of ['q','type','wh','status','creator','from','to','min','sort','dir']) if(params.get(k)) st[k]=params.get(k);
+if(!TYPES[st.type]) st.type=''; if(!['code','type','time','qty','value','status'].includes(st.sort)){st.sort='time';st.dir='desc'}
+if(st.dir!=='asc'&&st.dir!=='desc') st.dir='desc';
+st.page=Math.max(1,parseInt(params.get('page'))||1); st.size=[25,50,100].includes(+params.get('size'))?+params.get('size'):25;
+S.empty = params.get('state')==='empty'; S.error = params.get('state')==='error';
+
+function syncUrl(){
+  const u=new URLSearchParams();
+  for(const k in D){ if(String(st[k])!==String(D[k])) u.set(k,st[k]); }
+  if(S.empty) u.set('state','empty'); if(S.error) u.set('state','error');
+  const qs=u.toString(); history.replaceState(null,'',qs?'?'+qs:location.pathname);
+}
+
+/* ---------- filtering ---------- */
+function match(d,skipType){
+  if(!skipType && st.type && d.type!==st.type) return false;
+  if(st.wh && d.wh!==st.wh && d.wh2!==st.wh) return false;
+  if(st.status && d.status!==st.status) return false;
+  if(st.creator && d.creator!==st.creator) return false;
+  if(st.from && iso(d.time)<st.from) return false;
+  if(st.to && iso(d.time)>st.to) return false;
+  if(st.min && Math.abs(d.value)<+st.min) return false;
+  if(st.q.trim()){
+    const hay=norm([d.id,d.partner,d.creator,d.lines.map(l=>l.sku+' '+l.name).join(' ')].join(' '));
+    if(!norm(st.q.trim()).split(/\s+/).every(w=>hay.includes(w))) return false;
+  }
+  return true;
+}
+const KEY = {code:d=>d.id,type:d=>TYPES[d.type].label,time:d=>d.time.getTime(),qty:d=>d.qty,value:d=>d.value,status:d=>d.status};
+function results(){
+  if(S.empty) return [];
+  const f=DATA.filter(d=>match(d));
+  const k=KEY[st.sort], m=st.dir==='asc'?1:-1;
+  return f.sort((a,b)=>{const x=k(a),y=k(b); return (typeof x==='string'?x.localeCompare(y,'vi'):x-y)*m || b.time-a.time});
+}
+
+/* ---------- render ---------- */
+function fillSelect(id,label,opts,val){
+  const el=$(id); el.innerHTML=`<option value="">${label}: Tất cả</option>`+opts.map(o=>`<option value="${esc(o)}">${label}: ${esc(o)}</option>`).join('');
+  el.value=val;
+}
+function renderControls(){
+  fillSelect('#fWh','Kho',WH,st.wh); fillSelect('#fStatus','Trạng thái',Object.keys(STATUS),st.status); fillSelect('#fCreator','Người tạo',USERS,st.creator);
+  $('#q').value=st.q; $('#pFrom').value=st.from; $('#pTo').value=st.to; $('#pMin').value=st.min;
+}
+function renderTabs(){
+  const base=S.empty?[]:DATA.filter(d=>match(d,true));
+  const tabs=[['', 'Tất cả', base.length]].concat(Object.keys(TYPES).map(k=>[k,TYPES[k].label,base.filter(d=>d.type===k).length]));
+  $('#tabs').innerHTML=tabs.map(([k,l,c])=>{const a=st.type===k;
+    return `<button role="tab" aria-selected="${a}" data-tab="${k}" class="-mb-px h-10 whitespace-nowrap border-b-2 px-3 text-sm ${a?'border-blue-700 font-medium text-blue-700':'border-transparent text-slate-700 hover:text-slate-900'}">${l} <span class="num font-normal ${a?'':'text-slate-600'}">${nf.format(c)}</span></button>`}).join('');
+}
+function chipList(){
+  const c=[];
+  if(st.q.trim()) c.push({k:'q',l:'Tìm: '+st.q.trim()});
+  if(st.wh) c.push({k:'wh',l:'Kho: '+st.wh});
+  if(st.status) c.push({k:'status',l:'Trạng thái: '+st.status});
+  if(st.creator) c.push({k:'creator',l:'Người tạo: '+st.creator});
+  if(st.from||st.to) c.push({k:'date',l:'Thời gian: '+(st.from?fmtDate(new Date(st.from+'T00:00')):'…')+' – '+(st.to?fmtDate(new Date(st.to+'T00:00')):'…')});
+  if(st.min) c.push({k:'min',l:'Giá trị từ '+vnd.format(+st.min)});
+  return c;
+}
+function renderChips(){
+  const c=chipList();
+  $('#chips').className='flex flex-wrap items-center gap-2 px-3'+(c.length?' py-2':'');
+  $('#chips').innerHTML=c.map(x=>`<span class="inline-flex h-6 items-center gap-1 rounded-full border border-slate-300 bg-slate-50 pl-2 pr-0.5 text-xs font-medium text-slate-800">${esc(x.l)}<button type="button" data-chip="${x.k}" aria-label="Bỏ lọc ${esc(x.l)}" class="grid h-6 w-6 place-items-center rounded-full hover:bg-slate-200">${ic('x')}</button></span>`).join('')+(c.length?`<button type="button" id="clearAll" class="h-6 px-1 text-sm font-medium text-blue-700 hover:underline">Xóa tất cả</button>`:'');
+  const n=c.filter(x=>['date','min'].includes(x.k)).length;
+  $('#btnMoreF').textContent='Bộ lọc khác'+(n?` (${n})`:'');
+}
+const COLS=[
+  {k:'code',l:'Mã phiếu',sort:true},{k:'type',l:'Loại phiếu',sort:true},{k:'time',l:'Thời gian',sort:true},
+  {k:'wh',l:'Kho'},{k:'partner',l:'Đối tác / lý do'},{k:'qty',l:'Tổng số lượng',sort:true,num:true},
+  {k:'value',l:'Giá trị (₫)',sort:true,num:true},{k:'status',l:'Trạng thái',sort:true}
+];
+function renderHead(){
+  const ariaSort=k=>st.sort===k?(st.dir==='asc'?'ascending':'descending'):'none';
+  return `<thead><tr class="h-10 border-b border-slate-200 text-xs font-medium text-slate-700">
+    <th class="stickycol w-10 px-3"><input type="checkbox" id="selAll" aria-label="Chọn tất cả phiếu trên trang này" class="h-4 w-4 rounded border-slate-400 accent-blue-700"></th>`+
+    COLS.map(c=>{
+      const al=c.num?'text-right':'text-left';
+      if(!c.sort) return `<th class="px-3 ${al} font-medium">${c.l}</th>`;
+      const on=st.sort===c.k;
+      return `<th class="px-3 ${al} font-medium" aria-sort="${ariaSort(c.k)}"><button type="button" data-sort="${c.k}" class="group inline-flex h-8 items-center gap-1 rounded px-1 hover:bg-slate-100 ${c.num?'flex-row-reverse':''}"><span>${c.l}</span><span class="${on?'text-slate-800':'text-slate-400 opacity-0 group-hover:opacity-100 group-focus-visible:opacity-100'}">${ic(on&&st.dir==='asc'?'up':'down')}</span></button></th>`}).join('')+
+    `<th class="w-12 px-3"><span class="sr-only">Thao tác</span></th></tr></thead>`;
+}
+function skeleton(){
+  return renderHead()+'<tbody>'+Array.from({length:9},()=>`<tr class="h-10 border-b border-slate-100"><td class="px-3"><div class="sk w-4"></div></td>`+[90,90,110,130,200,70,90,80].map((w,i)=>`<td class="px-3"><div class="sk ${i>=5&&i<=6?'ml-auto':''}" style="width:${w}px"></div></td>`).join('')+`<td></td></tr>`).join('')+'</tbody>';
+}
+function msgRow(inner){return renderHead()+`<tbody><tr><td colspan="10" class="px-3 py-14 text-center">${inner}</td></tr></tbody>`}
+function rowHtml(d){
+  const t=TYPES[d.type]; const checked=S.sel.has(d.id)||S.allMatching;
+  const whc = d.type==='transfer'?`${esc(d.wh.replace('Kho ',''))} → ${esc(d.wh2.replace('Kho ',''))}`:esc(d.wh);
+  const qtyTxt = d.type==='transfer'?nf.format(d.qty):signed(d.qty);
+  const valTxt = d.type==='transfer'?nf.format(d.value):(d.value<0?'-'+nf.format(-d.value):nf.format(d.value));
+  return `<tr class="h-10 border-b border-slate-100 ${checked?'sel':''}" data-id="${d.id}">
+    <td class="stickycol px-3"><input type="checkbox" data-sel="${d.id}" aria-label="Chọn phiếu ${d.id}" ${checked?'checked':''} class="h-4 w-4 rounded border-slate-400 accent-blue-700"></td>
+    <td class="whitespace-nowrap px-3"><a href="#${d.id}" data-open="${d.id}" class="font-medium text-blue-700 hover:underline">${d.id}</a></td>
+    <td class="whitespace-nowrap px-3"><span class="inline-flex items-center gap-1.5 text-slate-800"><span class="text-slate-600">${ic(t.icon)}</span>${t.label}</span></td>
+    <td class="num whitespace-nowrap px-3 text-slate-700">${fmtDT(d.time)}</td>
+    <td class="whitespace-nowrap px-3">${whc}</td>
+    <td class="max-w-[260px] truncate px-3 text-slate-700" title="${esc(d.partner)}">${esc(d.partner)}</td>
+    <td class="num whitespace-nowrap px-3 text-right">${qtyTxt}</td>
+    <td class="num whitespace-nowrap px-3 text-right">${valTxt}</td>
+    <td class="px-3">${badge(d.status)}</td>
+    <td class="px-3 text-right"><button type="button" data-row-menu="${d.id}" aria-label="Thao tác cho phiếu ${d.id}" aria-haspopup="menu" ${S.sel.size||S.allMatching?'disabled':''} class="grid h-8 w-8 place-items-center rounded text-slate-700 hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-40">${ic('more')}</button></td></tr>`;
+}
+function render(){
+  syncUrl(); renderTabs(); renderChips();
+  const tbl=$('#tbl');
+  if(S.loading){ tbl.setAttribute('aria-busy','true'); tbl.innerHTML=skeleton();
+    $('#barWrap').innerHTML='<div class="flex h-10 items-center px-3"><div class="sk w-48"></div></div>'; $('#pager').innerHTML=''; return; }
+  tbl.removeAttribute('aria-busy');
+  if(S.error){
+    tbl.innerHTML=msgRow(`<p class="font-medium">Không tải được danh sách phiếu</p><p class="mt-1 text-slate-600">Kết nối tới máy chủ bị gián đoạn. Dữ liệu chưa bị thay đổi.</p><button id="retry" class="mt-4 h-8 rounded bg-blue-700 px-3 text-sm font-medium text-white hover:bg-blue-800">Thử lại</button>`);
+    $('#barWrap').innerHTML='<div class="h-10"></div>'; $('#pager').innerHTML=''; return;
+  }
+  const all=results(); const total=all.length;
+  const pages=Math.max(1,Math.ceil(total/st.size)); if(st.page>pages) st.page=pages;
+  const rows=all.slice((st.page-1)*st.size, st.page*st.size);
+  const filtered=chipList().length>0||st.type;
+  // bar
+  const pageAllSel = rows.length>0 && rows.every(r=>S.sel.has(r.id));
+  const n=S.allMatching?total:S.sel.size;
+  if(n>0){
+    $('#barWrap').innerHTML=`<div class="flex h-10 items-center gap-3 bg-blue-50 px-3 text-sm text-blue-900">
+      <span class="font-medium num">Đã chọn ${nf.format(n)} phiếu</span>
+      ${!S.allMatching&&pageAllSel&&total>rows.length?`<button id="selMatching" class="font-medium text-blue-700 hover:underline">Chọn tất cả ${nf.format(total)} phiếu phù hợp</button>`:''}
+      ${S.allMatching?`<span>Tất cả ${nf.format(total)} phiếu phù hợp đã được chọn.</span>`:''}
+      <span class="ml-2 flex items-center gap-2">
+        <button data-bulk="export" class="h-8 rounded border border-slate-300 bg-white px-3 hover:bg-slate-50">Xuất Excel</button>
+        <button data-bulk="print" class="h-8 rounded border border-slate-300 bg-white px-3 hover:bg-slate-50">In phiếu</button>
+        <button data-bulk="cancel" class="h-8 rounded border border-red-300 bg-white px-3 text-red-700 hover:bg-red-50">Hủy phiếu</button></span>
+      <button id="selClear" class="ml-auto h-8 rounded px-3 hover:bg-blue-100">Bỏ chọn</button></div>`;
+  } else {
+    const sum=all.reduce((s,d)=>s+(d.type==='transfer'?0:d.value),0);
+    $('#barWrap').innerHTML=`<div class="flex h-10 items-center px-3 text-sm text-slate-700"><span class="num">${nf.format(total)} phiếu · Giá trị nhập, xuất và điều chỉnh (không gồm chuyển kho): <span class="font-medium text-slate-900">${vnd.format(sum)}</span></span></div>`;
+  }
+  // body
+  if(total===0){
+    const unfilteredTotal=DATA.length;
+    if(S.empty||unfilteredTotal===0) tbl.innerHTML=msgRow(`<p class="font-medium">Chưa có phiếu kho nào</p><p class="mt-1 text-slate-600">Phiếu nhập, xuất, chuyển kho và điều chỉnh tồn sẽ xuất hiện tại đây.</p><button data-create class="mt-4 h-8 rounded bg-blue-700 px-3 text-sm font-medium text-white hover:bg-blue-800">Tạo phiếu</button>`);
+    else tbl.innerHTML=msgRow(`<p class="font-medium">${st.q.trim()?`Không có phiếu nào khớp "${esc(st.q.trim())}"`:'Không có phiếu nào khớp bộ lọc'}</p><p class="mt-1 text-slate-600">Kiểm tra lại chính tả hoặc mở rộng khoảng thời gian.</p><button id="clearAll2" class="mt-4 h-8 rounded border border-slate-300 px-3 text-sm font-medium hover:bg-slate-50">Xóa bộ lọc</button>`);
+    $('#pager').innerHTML=`<span class="num text-sm text-slate-700">0 phiếu</span>`;
+    $('#live').textContent='Không có phiếu nào khớp';
+    return;
+  }
+  tbl.innerHTML=renderHead()+'<tbody>'+rows.map(rowHtml).join('')+'</tbody>';
+  const sa=$('#selAll'); const cnt=rows.filter(r=>S.sel.has(r.id)||S.allMatching).length;
+  sa.checked=cnt===rows.length; sa.indeterminate=cnt>0&&cnt<rows.length;
+  // pager
+  const from=(st.page-1)*st.size+1, to=Math.min(total,st.page*st.size);
+  let nums=[]; for(let i=1;i<=pages;i++){ if(i===1||i===pages||Math.abs(i-st.page)<=1) nums.push(i); else if(nums[nums.length-1]!=='…') nums.push('…'); }
+  $('#pager').innerHTML=`<span class="num text-sm text-slate-700">${nf.format(from)}–${nf.format(to)} / ${nf.format(total)} phiếu</span>
+    <span class="ml-auto flex items-center gap-2 text-sm"><label for="size" class="text-slate-700">Số dòng mỗi trang</label>
+    <select id="size" class="h-8 rounded border border-slate-300 bg-white px-2">${[25,50,100].map(s=>`<option ${s===st.size?'selected':''}>${s}</option>`).join('')}</select>
+    <button data-page="${st.page-1}" ${st.page<=1?'disabled':''} class="h-8 rounded border border-slate-300 px-3 hover:bg-slate-50 disabled:opacity-40 disabled:hover:bg-white">Trước</button>
+    ${nums.map(p=>p==='…'?'<span class="px-1 text-slate-600">…</span>':`<button data-page="${p}" ${p===st.page?'aria-current="page"':''} class="num h-8 min-w-8 rounded px-2 ${p===st.page?'bg-blue-700 font-medium text-white':'border border-slate-300 hover:bg-slate-50'}">${p}</button>`).join('')}
+    <button data-page="${st.page+1}" ${st.page>=pages?'disabled':''} class="h-8 rounded border border-slate-300 px-3 hover:bg-slate-50 disabled:opacity-40 disabled:hover:bg-white">Sau</button></span>`;
+  $('#live').textContent=`${total} phiếu phù hợp`;
+}
+function refresh(resetPage=true){ if(resetPage) st.page=1; S.sel.clear(); S.allMatching=false; render(); }
+
+/* ---------- toasts, menu, dialogs ---------- */
+function toast(msg){
+  const t=document.createElement('div'); t.className='rounded-md border border-slate-200 bg-white px-4 py-2 text-sm shadow-lg'; t.textContent=msg;
+  $('#toasts').appendChild(t); setTimeout(()=>t.remove(),3500);
+}
+const menu=$('#menu'); let menuOpener=null;
+function openMenu(btn,items){
+  menuOpener=btn;
+  menu.innerHTML=items.map((it,i)=> it==='-'?'<div class="my-1 border-t border-slate-200" role="separator"></div>':`<button role="menuitem" data-mi="${i}" class="block h-8 w-full px-3 text-left hover:bg-slate-100 ${it.danger?'text-red-700':''}">${esc(it.label)}</button>`).join('');
+  menu.hidden=false;
+  const r=btn.getBoundingClientRect(); const w=menu.offsetWidth, h=menu.offsetHeight;
+  menu.style.left=Math.max(8,Math.min(innerWidth-w-8,r.right-w))+'px';
+  menu.style.top=(r.bottom+h+8>innerHeight? r.top-h-4 : r.bottom+4)+'px';
+  menu._items=items; menu.querySelector('[role=menuitem]').focus();
+}
+function closeMenu(){ if(!menu.hidden){menu.hidden=true; if(menuOpener&&document.contains(menuOpener)) menuOpener.focus();} }
+menu.addEventListener('click',e=>{const b=e.target.closest('[data-mi]'); if(!b)return; const it=menu._items[+b.dataset.mi]; menu.hidden=true; it.run(); });
+menu.addEventListener('keydown',e=>{
+  const its=[...menu.querySelectorAll('[role=menuitem]')], i=its.indexOf(document.activeElement);
+  if(e.key==='ArrowDown'){e.preventDefault();its[(i+1)%its.length].focus()}
+  if(e.key==='ArrowUp'){e.preventDefault();its[(i-1+its.length)%its.length].focus()}
+});
+let dlgOpener=null;
+function confirmDlg(title,body,yes,run){
+  dlgOpener=document.activeElement; $('#dlgTitle').textContent=title; $('#dlgBody').textContent=body; $('#dlgYes').textContent=yes;
+  $('#dlgWrap').hidden=false; $('#dlgNo').focus();
+  $('#dlgYes').onclick=()=>{closeDlg(false);run()};
+}
+function closeDlg(restore=true){ $('#dlgWrap').hidden=true; if(restore&&dlgOpener&&document.contains(dlgOpener)) dlgOpener.focus(); }
+$('#dlgNo').onclick=()=>closeDlg();
+
+function cancelDocs(ids){
+  let ok=0,skip=0;
+  DATA.forEach(d=>{ if(ids.includes(d.id)){ if(d.status==='Hoàn tất'||d.status==='Đã hủy'||d.status==='Từ chối'){skip++} else {
+    d.hist.push({at:new Date(NOW),who:'Phạm Thu Hà',text:'Trạng thái: '+d.status+' → Đã hủy'}); d.status='Đã hủy'; d.updated=d.hist[d.hist.length-1]; ok++; } } });
+  S.sel.clear(); S.allMatching=false; render();
+  toast(skip?`Đã hủy ${ok} phiếu, ${skip} phiếu không thể hủy`:`Đã hủy ${ok} phiếu`);
+}
+function askCancel(ids){
+  const sample=ids.length===1?`phiếu ${ids[0]}`:`${nf.format(ids.length)} phiếu`;
+  confirmDlg(`Hủy ${sample}?`,`Tồn kho đã giữ chỗ cho phiếu đang chờ sẽ được hoàn lại. Phiếu đã hoàn tất, bị từ chối hoặc đã hủy không thể hủy và sẽ được bỏ qua.`,'Hủy phiếu',()=>cancelDocs(ids));
+}
+
+/* ---------- detail panel ---------- */
+let panelOpener=null;
+function openPanel(id,opener){
+  const d=DATA.find(x=>x.id===id); if(!d)return; panelOpener=opener||document.activeElement;
+  const t=TYPES[d.type];
+  const whTxt = d.type==='transfer'?`${d.wh} → ${d.wh2}`:d.wh;
+  const sub=d.lines.reduce((s,l)=>s+l.qty*l.price,0);
+  const sg = n=>n<0?'-'+nf.format(-n):nf.format(n);
+  $('#panel').innerHTML=`
+    <div class="flex items-start gap-3 border-b border-slate-200 px-5 py-4">
+      <div class="min-w-0 flex-1"><p class="text-xs text-slate-600">${t.label}</p>
+        <h2 id="pTitle" class="text-lg font-semibold">${d.id}</h2>
+        <div class="mt-1">${badge(d.status)}</div></div>
+      <button id="pClose" aria-label="Đóng chi tiết phiếu" class="grid h-8 w-8 place-items-center rounded hover:bg-slate-100">${ic('x')}</button>
+    </div>
+    <div class="flex-1 overflow-y-auto px-5 py-4">
+      ${d.status==='Chờ duyệt'?`<p class="mb-4 rounded border border-blue-200 bg-blue-50 px-3 py-2 text-sm text-blue-900">Bạn chưa thể duyệt phiếu này: đang chờ ${APPROVER}.</p>`:''}
+      ${d.status==='Lệch khi nhận'?`<p class="mb-4 rounded border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">Số lượng nhận thực tế khác phiếu chuyển. Cần đối chiếu và lập phiếu điều chỉnh tại kho nhận.</p>`:''}
+      <dl class="grid grid-cols-2 gap-x-6 gap-y-3 text-sm">
+        <div><dt class="text-xs text-slate-600">Kho</dt><dd class="font-medium">${esc(whTxt)}</dd></div>
+        <div><dt class="text-xs text-slate-600">Thời gian lập</dt><dd class="num font-medium">${fmtDT(d.time)}</dd></div>
+        <div><dt class="text-xs text-slate-600">Người tạo</dt><dd class="font-medium">${esc(d.creator)}</dd></div>
+        <div><dt class="text-xs text-slate-600">Đối tác / lý do</dt><dd class="font-medium">${esc(d.partner)}</dd></div>
+      </dl>
+      <h3 class="mb-2 mt-6 text-sm font-semibold">Dòng hàng</h3>
+      <div class="overflow-x-auto rounded-md border border-slate-200"><table class="w-full min-w-[480px] text-sm">
+        <thead><tr class="h-10 border-b border-slate-200 bg-slate-50 text-xs font-medium text-slate-700">
+          <th class="px-3 text-left font-medium">Mã hàng</th><th class="px-3 text-left font-medium">Tên hàng</th><th class="px-3 text-left font-medium">ĐVT</th>
+          <th class="px-3 text-right font-medium">Số lượng</th><th class="px-3 text-right font-medium">Đơn giá (₫)</th><th class="px-3 text-right font-medium">Thành tiền (₫)</th></tr></thead>
+        <tbody>${d.lines.map(l=>`<tr class="h-10 border-b border-slate-100 last:border-0"><td class="whitespace-nowrap px-3">${l.sku}</td><td class="whitespace-nowrap px-3">${esc(l.name)}</td><td class="px-3">${l.unit}</td>
+          <td class="num px-3 text-right">${d.type==='adjust'?signed(l.qty):nf.format(l.qty)}</td><td class="num px-3 text-right">${nf.format(l.price)}</td><td class="num px-3 text-right">${sg(l.qty*l.price)}</td></tr>`).join('')}</tbody></table></div>
+      <div class="ml-auto mt-3 w-64 text-sm"><div class="flex justify-between border-t border-slate-200 pt-2 font-medium"><span>Tổng giá trị</span><span class="num">${vnd.format(d.type==='transfer'?Math.abs(sub):sub)}</span></div></div>
+      <h3 class="mb-2 mt-6 text-sm font-semibold">Lịch sử thay đổi</h3>
+      <p class="mb-2 text-xs text-slate-600">Cập nhật lần cuối bởi ${esc(d.updated.who)} lúc ${fmtDT(d.updated.at)}</p>
+      <ol class="space-y-3 border-l border-slate-200 pl-4 text-sm">${d.hist.slice().reverse().map(h=>`<li><p>${esc(h.text)}</p><p class="num text-xs text-slate-600">${esc(h.who)} · ${fmtDT(h.at)}</p></li>`).join('')}</ol>
+    </div>
+    <div class="flex items-center gap-2 border-t border-slate-200 px-5 py-3">
+      <button data-p-print class="h-8 rounded border border-slate-300 px-3 text-sm hover:bg-slate-50">In phiếu</button>
+      <button data-p-cancel="${d.id}" class="ml-auto h-8 rounded border border-red-300 px-3 text-sm text-red-700 hover:bg-red-50">Hủy phiếu</button>
+      <button id="pClose2" class="h-8 rounded bg-blue-700 px-3 text-sm font-medium text-white hover:bg-blue-800">Đóng</button>
+    </div>`;
+  $('#overlay').hidden=false; $('#panel').hidden=false; $('#pClose').focus();
+}
+function closePanel(){ if($('#panel').hidden)return; $('#panel').hidden=true; $('#overlay').hidden=true; if(panelOpener&&document.contains(panelOpener)) panelOpener.focus(); }
+$('#overlay').onclick=closePanel;
+$('#panel').addEventListener('click',e=>{
+  if(e.target.closest('#pClose,#pClose2')) closePanel();
+  if(e.target.closest('[data-p-print]')) toast('Đã gửi lệnh in tới máy in kho');
+  const c=e.target.closest('[data-p-cancel]'); if(c) askCancel([c.dataset.pCancel]);
+});
+
+/* ---------- events ---------- */
+const createItems=()=>Object.keys(TYPES).map(k=>({label:'Phiếu '+TYPES[k].label.toLowerCase(),run:()=>toast('Mở biểu mẫu tạo phiếu '+TYPES[k].label.toLowerCase())}));
+$('#btnCreate').onclick=e=>openMenu(e.currentTarget,createItems());
+$('#btnExport').onclick=()=>toast(`Đang xuất ${nf.format(results().length)} phiếu ra tệp Excel`);
+$('#btnMore').onclick=e=>openMenu(e.currentTarget,[
+  {label:'Làm mới dữ liệu',run:()=>{S.loading=true;S.error=false;render();setTimeout(()=>{S.loading=false;render()},500)}},
+  '-',
+  {label:'Xem trạng thái: chưa có dữ liệu',run:()=>{S.empty=true;S.error=false;refresh()}},
+  {label:'Xem trạng thái: lỗi tải',run:()=>{S.error=true;S.empty=false;refresh()}},
+  {label:'Quay lại dữ liệu thật',run:()=>{S.empty=false;S.error=false;refresh()}}
+]);
+document.addEventListener('click',e=>{
+  if(!e.target.closest('#menu,#btnMore,#btnCreate,[data-row-menu]')) { if(!menu.hidden) menu.hidden=true; }
+  if(!e.target.closest('#morePanel,#btnMoreF') && !$('#morePanel').hidden){ $('#morePanel').hidden=true; $('#btnMoreF').setAttribute('aria-expanded','false'); }
+  const t=e.target;
+  let el;
+  if((el=t.closest('[data-tab]'))){ st.type=el.dataset.tab; refresh(); $('[data-tab="'+st.type+'"]').focus(); }
+  else if((el=t.closest('[data-sort]'))){ const k=el.dataset.sort; if(st.sort!==k){st.sort=k;st.dir='asc'} else if(st.dir==='asc'){st.dir='desc'} else {st.sort='time';st.dir='desc'} refresh(false); const b=$('[data-sort="'+k+'"]'); if(b)b.focus(); }
+  else if((el=t.closest('[data-page]'))){ st.page=+el.dataset.page; S.sel.clear(); S.allMatching=false; render(); }
+  else if((el=t.closest('[data-open]'))){ e.preventDefault(); openPanel(el.dataset.open,el); }
+  else if((el=t.closest('[data-row-menu]'))){ const id=el.dataset.rowMenu; openMenu(el,[
+      {label:'Xem chi tiết',run:()=>openPanel(id,el)},{label:'In phiếu',run:()=>toast('Đã gửi lệnh in phiếu '+id)},
+      {label:'Sao chép thành phiếu mới',run:()=>toast('Đã tạo bản nháp từ phiếu '+id)},'-',
+      {label:'Hủy phiếu',danger:true,run:()=>askCancel([id])}]); }
+  else if((el=t.closest('[data-chip]'))){ const k=el.dataset.chip; if(k==='date'){st.from='';st.to=''} else st[k]=''; renderControls(); refresh(); $('#chips button, #q').focus(); }
+  else if(t.closest('#clearAll,#clearAll2')){ Object.assign(st,{q:'',wh:'',status:'',creator:'',from:'',to:'',min:''}); renderControls(); refresh(); $('#q').focus(); }
+  else if(t.closest('#retry')){ S.error=false; S.loading=true; render(); setTimeout(()=>{S.loading=false;render()},500); }
+  else if(t.closest('[data-create]')) openMenu(t.closest('[data-create]'),createItems());
+  else if(t.closest('#selMatching')){ S.allMatching=true; render(); }
+  else if(t.closest('#selClear')){ S.sel.clear(); S.allMatching=false; render(); }
+  else if((el=t.closest('[data-bulk]'))){
+    const ids=S.allMatching?results().map(d=>d.id):[...S.sel];
+    if(el.dataset.bulk==='cancel') askCancel(ids);
+    else toast((el.dataset.bulk==='export'?'Đang xuất ':'Đang in ')+nf.format(ids.length)+' phiếu');
+  }
+});
+document.addEventListener('change',e=>{
+  const t=e.target;
+  if(t.matches('[data-sel]')){ t.checked?S.sel.add(t.dataset.sel):S.sel.delete(t.dataset.sel); S.allMatching=false; render(); const c=$('[data-sel="'+t.dataset.sel+'"]'); if(c)c.focus(); }
+  else if(t.id==='selAll'){ const rows=results().slice((st.page-1)*st.size,st.page*st.size); rows.forEach(r=>t.checked?S.sel.add(r.id):S.sel.delete(r.id)); if(!t.checked)S.allMatching=false; render(); $('#selAll').focus(); }
+  else if(t.id==='fWh'){ st.wh=t.value; refresh(); }
+  else if(t.id==='fStatus'){ st.status=t.value; refresh(); }
+  else if(t.id==='fCreator'){ st.creator=t.value; refresh(); }
+  else if(t.id==='size'){ st.size=+t.value; refresh(); }
+});
+let qT; $('#q').addEventListener('input',e=>{ clearTimeout(qT); const v=e.target.value; qT=setTimeout(()=>{ st.q=v; refresh(); },300); });
+$('#q').addEventListener('keydown',e=>{ if(e.key==='Enter'){ clearTimeout(qT); st.q=e.target.value; refresh(); } });
+$('#btnMoreF').onclick=()=>{ const p=$('#morePanel'); p.hidden=!p.hidden; $('#btnMoreF').setAttribute('aria-expanded',String(!p.hidden)); if(!p.hidden)$('#pFrom').focus(); };
+$('#pApply').onclick=()=>{ st.from=$('#pFrom').value; st.to=$('#pTo').value; st.min=$('#pMin').value; $('#morePanel').hidden=true; $('#btnMoreF').setAttribute('aria-expanded','false'); refresh(); $('#btnMoreF').focus(); };
+$('#pReset').onclick=()=>{ $('#pFrom').value='';$('#pTo').value='';$('#pMin').value=''; };
+document.addEventListener('keydown',e=>{
+  if(e.key==='Escape'){
+    if(!$('#dlgWrap').hidden) closeDlg();
+    else if(!menu.hidden) closeMenu();
+    else if(!$('#morePanel').hidden){ $('#morePanel').hidden=true; $('#btnMoreF').setAttribute('aria-expanded','false'); $('#btnMoreF').focus(); }
+    else closePanel();
+  }
+  if(e.key==='/' && !/INPUT|SELECT|TEXTAREA/.test(document.activeElement.tagName)){ e.preventDefault(); $('#q').focus(); }
+});
+
+/* ---------- boot ---------- */
+renderControls(); render();
+setTimeout(()=>{ S.loading=false; render(); },500);
+})();
+</script>
+</body>
+</html>

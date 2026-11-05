@@ -1,0 +1,582 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Đơn hàng – Bán hàng – ERP</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+  body { font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; color:#0f172a; }
+  .tnum { font-variant-numeric: tabular-nums; }
+  @keyframes sk { 0%,100%{opacity:1} 50%{opacity:.5} }
+  .sk { animation: sk 1.2s ease-in-out infinite; background:#e2e8f0; border-radius:4px; height:12px; }
+  :focus-visible { outline:2px solid #1d4ed8; outline-offset:1px; }
+  .btn { height:32px; padding:0 12px; border-radius:4px; font-size:14px; font-weight:500; display:inline-flex; align-items:center; gap:6px; white-space:nowrap; border:1px solid #cbd5e1; background:#fff; color:#0f172a; }
+  .btn:hover:not(:disabled) { background:#f1f5f9; }
+  .btn:disabled { color:#64748b; background:#f8fafc; cursor:not-allowed; }
+  .btn-primary { background:#1d4ed8; border-color:#1d4ed8; color:#fff; }
+  .btn-primary:hover:not(:disabled) { background:#1e40af; }
+  .btn-danger { color:#b91c1c; border-color:#fca5a5; }
+  .btn-danger:hover:not(:disabled) { background:#fef2f2; }
+  .field { height:32px; border:1px solid #cbd5e1; border-radius:4px; padding:0 8px; font-size:14px; background:#fff; color:#0f172a; }
+  .badge { display:inline-flex; align-items:center; height:20px; padding:0 8px; border-radius:9999px; font-size:12px; font-weight:500; white-space:nowrap; }
+  .t-neutral{background:#f1f5f9;color:#334155} .t-info{background:#eff6ff;color:#1d4ed8}
+  .t-success{background:#f0fdf4;color:#15803d} .t-warning{background:#fffbeb;color:#92400e} .t-danger{background:#fef2f2;color:#b91c1c}
+  th { font-weight:500; color:#475569; font-size:12px; text-align:left; }
+  td, th { padding-left:12px; padding-right:12px; white-space:nowrap; }
+  tbody tr { height:40px; border-top:1px solid #e2e8f0; }
+  tbody tr:hover { background:#f8fafc; }
+  tbody tr.sel { background:#eff6ff; }
+</style>
+</head>
+<body class="bg-slate-50 text-sm">
+<div class="flex min-h-screen">
+  <!-- Sidebar -->
+  <aside class="w-56 shrink-0 bg-white border-r border-slate-200 hidden lg:flex flex-col" aria-label="Điều hướng chính">
+    <div class="h-12 px-4 flex items-center gap-2 border-b border-slate-200">
+      <span class="w-6 h-6 rounded bg-blue-700 text-white text-xs font-semibold flex items-center justify-center">E</span>
+      <span class="font-semibold">ERP Nam Việt</span>
+    </div>
+    <nav class="p-2 text-slate-700 space-y-0.5">
+      <p class="px-2 pt-2 pb-1 text-xs font-medium text-slate-600">Bán hàng</p>
+      <a href="#" class="flex items-center h-8 px-2 rounded hover:bg-slate-100">Tổng quan</a>
+      <a href="#" class="flex items-center h-8 px-2 rounded hover:bg-slate-100">Báo giá</a>
+      <a href="#" aria-current="page" class="flex items-center h-8 px-2 rounded bg-blue-50 text-blue-700 font-medium">Đơn hàng</a>
+      <a href="#" class="flex items-center h-8 px-2 rounded hover:bg-slate-100">Khách hàng</a>
+      <a href="#" class="flex items-center h-8 px-2 rounded hover:bg-slate-100">Bảng giá</a>
+      <p class="px-2 pt-4 pb-1 text-xs font-medium text-slate-600">Kho và mua hàng</p>
+      <a href="#" class="flex items-center h-8 px-2 rounded hover:bg-slate-100">Tồn kho</a>
+      <a href="#" class="flex items-center h-8 px-2 rounded hover:bg-slate-100">Giao hàng</a>
+      <a href="#" class="flex items-center h-8 px-2 rounded hover:bg-slate-100">Mua hàng</a>
+      <p class="px-2 pt-4 pb-1 text-xs font-medium text-slate-600">Tài chính</p>
+      <a href="#" class="flex items-center h-8 px-2 rounded hover:bg-slate-100">Hóa đơn</a>
+      <a href="#" class="flex items-center h-8 px-2 rounded hover:bg-slate-100">Công nợ phải thu</a>
+    </nav>
+  </aside>
+
+  <div class="flex-1 min-w-0 flex flex-col">
+    <!-- Top bar -->
+    <header class="h-12 bg-white border-b border-slate-200 px-4 flex items-center justify-between">
+      <nav aria-label="Breadcrumb" class="text-slate-600">Bán hàng <span aria-hidden="true">/</span> <span class="text-slate-900 font-medium">Đơn hàng</span></nav>
+      <div class="flex items-center gap-3 text-slate-600">
+        <label class="flex items-center gap-2">Dữ liệu demo
+          <select id="demoState" class="field">
+            <option value="ok">Bình thường</option>
+            <option value="empty">Chưa có đơn hàng</option>
+            <option value="error">Lỗi tải dữ liệu</option>
+          </select>
+        </label>
+        <span class="w-7 h-7 rounded-full bg-slate-200 text-slate-700 text-xs font-medium flex items-center justify-center" title="Lê Thị Hạnh">LH</span>
+      </div>
+    </header>
+
+    <main class="p-6 space-y-4">
+      <!-- Page header -->
+      <div class="flex flex-wrap items-center justify-between gap-3">
+        <h1 class="text-2xl font-semibold">Đơn hàng</h1>
+        <div class="flex items-center gap-2">
+          <button class="btn" id="btnImport">Nhập từ CSV</button>
+          <button class="btn" id="btnExportAll">Xuất CSV</button>
+          <button class="btn btn-primary" id="btnCreate">+ Tạo đơn hàng</button>
+        </div>
+      </div>
+
+      <!-- Status tabs -->
+      <div id="tabs" role="tablist" aria-label="Lọc theo trạng thái" class="flex flex-wrap gap-1 border-b border-slate-200"></div>
+
+      <!-- Filter bar -->
+      <div class="space-y-2">
+        <div class="flex flex-wrap items-center gap-2">
+          <div class="relative">
+            <input id="q" type="search" class="field w-72" placeholder="Tìm mã đơn, khách hàng, mã khách…" aria-label="Tìm đơn hàng">
+          </div>
+          <select id="fChannel" class="field" aria-label="Kênh bán">
+            <option value="">Tất cả kênh bán</option>
+          </select>
+          <select id="fRange" class="field" aria-label="Thời gian đặt">
+            <option value="">Mọi thời gian</option>
+            <option value="today">Hôm nay</option>
+            <option value="7">7 ngày qua</option>
+            <option value="30">30 ngày qua</option>
+          </select>
+          <select id="fPay" class="field" aria-label="Thanh toán">
+            <option value="">Mọi trạng thái thanh toán</option>
+          </select>
+          <button id="btnMore" class="btn" aria-expanded="false" aria-controls="morePanel">Thêm bộ lọc</button>
+        </div>
+        <div id="morePanel" class="hidden bg-white border border-slate-200 rounded-md p-4">
+          <div class="flex flex-wrap items-end gap-4">
+            <label class="block"><span class="block text-xs font-medium text-slate-600 mb-1">Nhân viên phụ trách</span>
+              <select id="fOwner" class="field w-56"><option value="">Tất cả nhân viên</option></select></label>
+            <label class="block"><span class="block text-xs font-medium text-slate-600 mb-1">Giá trị từ (₫)</span>
+              <input id="fMin" type="number" min="0" step="100000" class="field w-40 text-right tnum" placeholder="0"></label>
+            <label class="block"><span class="block text-xs font-medium text-slate-600 mb-1">Giá trị đến (₫)</span>
+              <input id="fMax" type="number" min="0" step="100000" class="field w-40 text-right tnum" placeholder="Không giới hạn"></label>
+            <button class="btn" id="btnResetMore">Đặt lại</button>
+          </div>
+        </div>
+        <div id="chips" class="flex flex-wrap items-center gap-2"></div>
+      </div>
+
+      <!-- Summary + bulk bar -->
+      <div class="flex items-center justify-between min-h-8">
+        <p id="summary" class="text-slate-600" aria-live="polite"></p>
+      </div>
+      <div id="bulkBar" class="hidden bg-blue-50 border border-blue-200 rounded-md px-4 py-2" role="region" aria-label="Thao tác hàng loạt"></div>
+
+      <!-- Table card -->
+      <section class="bg-white border border-slate-200 rounded-md" aria-label="Danh sách đơn hàng">
+        <div id="tableWrap" class="overflow-x-auto"></div>
+        <div id="pager" class="flex flex-wrap items-center justify-between gap-3 px-4 py-2 border-t border-slate-200 text-slate-600"></div>
+      </section>
+    </main>
+  </div>
+</div>
+
+<!-- Row action menu -->
+<div id="menu" class="hidden fixed z-30 w-44 bg-white border border-slate-200 rounded-md shadow-lg py-1" role="menu"></div>
+
+<!-- Dialog -->
+<div id="dlgBack" class="hidden fixed inset-0 z-40 bg-slate-900/40 flex items-center justify-center p-4">
+  <div id="dlg" role="dialog" aria-modal="true" aria-labelledby="dlgTitle" class="bg-white rounded-lg shadow-xl w-full max-w-md p-6"></div>
+</div>
+
+<!-- Toasts -->
+<div id="toasts" class="fixed bottom-4 right-4 z-50 space-y-2" aria-live="polite"></div>
+
+<script>
+(function(){
+  /* ---------- Mock data ---------- */
+  const TODAY = new Date(2026, 10, 4, 16, 30);
+  const STATUS = {
+    draft:     { label:'Nháp',           tone:'neutral' },
+    pending:   { label:'Chờ xác nhận',   tone:'info' },
+    shipping:  { label:'Đang giao',      tone:'info' },
+    done:      { label:'Hoàn thành',     tone:'success' },
+    failed:    { label:'Giao thất bại',  tone:'danger' },
+    cancelled: { label:'Đã hủy',         tone:'neutral' }
+  };
+  const PAY = {
+    unpaid:  { label:'Chưa thanh toán',      tone:'warning' },
+    partial: { label:'Thanh toán một phần',  tone:'warning' },
+    paid:    { label:'Đã thanh toán',        tone:'success' },
+    refund:  { label:'Đã hoàn tiền',         tone:'neutral' }
+  };
+  const CHANNELS = ['Bán trực tiếp','Đại lý','Website','Sàn TMĐT','Điện thoại'];
+  const OWNERS = ['Nguyễn Văn Hùng','Trần Thị Mai','Lê Quang Minh','Phạm Thu Hà','Võ Đức Anh'];
+  const CUSTOMERS = ['Công ty TNHH Minh Phát','Công ty CP Thực phẩm Hòa Bình','Cửa hàng Tiện lợi An Khang','Công ty TNHH Đại Dương Xanh','Siêu thị Co.op Gia Định','Công ty CP Xây dựng Thành Đạt','Nhà thuốc Long Châu Q.7','Công ty TNHH Kỹ thuật Việt Tiến','Đại lý Phúc Lộc','Công ty CP Nội thất Hoàng Gia','Trường Tiểu học Lê Quý Đôn','Công ty TNHH Thương mại Sao Mai','Nhà hàng Hương Sen','Công ty CP Logistics Bình Minh'];
+
+  function seeded(n){ let s=n*9301+49297; return function(){ s=(s*9301+49297)%233280; return s/233280; }; }
+  const rnd = seeded(7);
+  const ORDERS = [];
+  const statusPlan = ['done','done','done','shipping','pending','done','draft','done','shipping','cancelled','done','pending','failed','done','done','shipping'];
+  for(let i=0;i<96;i++){
+    const status = statusPlan[i % statusPlan.length];
+    const daysAgo = Math.floor(i*0.62 + rnd()*1.5);
+    const d = new Date(TODAY.getTime() - daysAgo*86400000);
+    d.setHours(8+Math.floor(rnd()*9), Math.floor(rnd()*60));
+    let pay;
+    if(status==='done') pay = rnd()<0.8?'paid':'partial';
+    else if(status==='cancelled') pay = rnd()<0.4?'refund':'unpaid';
+    else if(status==='shipping') pay = rnd()<0.5?'partial':'paid';
+    else pay = 'unpaid';
+    const total = Math.round((2000000 + rnd()*rnd()*98000000)/10000)*10000;
+    ORDERS.push({
+      id: 'DH-' + (1043 - i + 0).toString().padStart(4,'0'),
+      customer: CUSTOMERS[Math.floor(rnd()*CUSTOMERS.length)],
+      date: d, status, pay, total,
+      channel: CHANNELS[Math.floor(rnd()*CHANNELS.length)],
+      owner: OWNERS[Math.floor(rnd()*OWNERS.length)],
+      items: 1 + Math.floor(rnd()*12)
+    });
+  }
+  let data = ORDERS.slice();
+
+  /* ---------- State ---------- */
+  const S = { q:'', status:'all', channel:'', range:'', pay:'', owner:'', min:'', max:'', sort:'date', dir:'desc', page:1, size:20, sel:new Set(), allMatching:false, view:'loading' };
+
+  /* ---------- Helpers ---------- */
+  const $ = id => document.getElementById(id);
+  const esc = s => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  const vnd = new Intl.NumberFormat('vi-VN',{style:'currency',currency:'VND'});
+  const num = new Intl.NumberFormat('vi-VN');
+  const fmtMoney = n => vnd.format(n);
+  const pad = n => String(n).padStart(2,'0');
+  const fmtDate = d => `${pad(d.getDate())}/${pad(d.getMonth()+1)}/${d.getFullYear()} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  const badge = (m,k) => `<span class="badge t-${m[k].tone}">${m[k].label}</span>`;
+  const norm = s => s.normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/đ/g,'d').toLowerCase();
+
+  function filtered(skipStatus){
+    const q = norm(S.q.trim());
+    const startOfToday = new Date(TODAY.getFullYear(),TODAY.getMonth(),TODAY.getDate()).getTime();
+    return data.filter(o=>{
+      if(!skipStatus && S.status!=='all' && o.status!==S.status) return false;
+      if(S.channel && o.channel!==S.channel) return false;
+      if(S.pay && o.pay!==S.pay) return false;
+      if(S.owner && o.owner!==S.owner) return false;
+      if(S.min!=='' && o.total < +S.min) return false;
+      if(S.max!=='' && o.total > +S.max) return false;
+      if(S.range==='today' && o.date.getTime() < startOfToday) return false;
+      if(S.range==='7' && o.date.getTime() < startOfToday - 6*86400000) return false;
+      if(S.range==='30' && o.date.getTime() < startOfToday - 29*86400000) return false;
+      if(q && !norm(o.id+' '+o.customer).includes(q)) return false;
+      return true;
+    });
+  }
+  function sorted(list){
+    const k = S.sort, m = S.dir==='asc'?1:-1;
+    return list.slice().sort((a,b)=>{
+      let x=a[k], y=b[k];
+      if(k==='date'){ x=a.date.getTime(); y=b.date.getTime(); }
+      if(typeof x==='string') return x.localeCompare(y,'vi')*m;
+      return (x-y)*m;
+    });
+  }
+
+  /* ---------- Toast & dialog ---------- */
+  function toast(msg, tone){
+    const t = document.createElement('div');
+    t.className = 'bg-white border rounded-md shadow-lg px-4 py-2 max-w-sm ' + (tone==='error'?'border-red-300 text-red-700':'border-slate-200 text-slate-900');
+    t.textContent = msg;
+    $('toasts').appendChild(t);
+    setTimeout(()=>t.remove(), 4500);
+  }
+  let dlgReturn = null;
+  function openDialog(html, onOpen){
+    dlgReturn = document.activeElement;
+    $('dlg').innerHTML = html;
+    $('dlgBack').classList.remove('hidden');
+    const f = $('dlg').querySelector('[data-autofocus]') || $('dlg').querySelector('button');
+    if(f) f.focus();
+    if(onOpen) onOpen();
+  }
+  function closeDialog(){ $('dlgBack').classList.add('hidden'); if(dlgReturn && dlgReturn.focus) dlgReturn.focus(); }
+  document.addEventListener('keydown', e=>{ if(e.key==='Escape'){ if(!$('dlgBack').classList.contains('hidden')) closeDialog(); hideMenu(); } });
+  $('dlgBack').addEventListener('mousedown', e=>{ if(e.target===$('dlgBack')) closeDialog(); });
+
+  /* ---------- Static filter init ---------- */
+  CHANNELS.forEach(c => $('fChannel').insertAdjacentHTML('beforeend', `<option>${c}</option>`));
+  Object.entries(PAY).forEach(([k,v]) => $('fPay').insertAdjacentHTML('beforeend', `<option value="${k}">${v.label}</option>`));
+  OWNERS.forEach(c => $('fOwner').insertAdjacentHTML('beforeend', `<option>${c}</option>`));
+
+  /* ---------- URL state ---------- */
+  function readUrl(){
+    const p = new URLSearchParams(location.search);
+    ['q','status','channel','range','pay','owner','min','max'].forEach(k=>{ if(p.has(k)) S[k]=p.get(k); });
+    $('q').value=S.q; $('fChannel').value=S.channel; $('fRange').value=S.range; $('fPay').value=S.pay;
+    $('fOwner').value=S.owner; $('fMin').value=S.min; $('fMax').value=S.max;
+    if(S.owner||S.min||S.max) toggleMore(true);
+  }
+  function writeUrl(){
+    const p = new URLSearchParams();
+    ['q','channel','range','pay','owner','min','max'].forEach(k=>{ if(S[k]!=='') p.set(k,S[k]); });
+    if(S.status!=='all') p.set('status',S.status);
+    const qs = p.toString();
+    try { history.replaceState(null,'', location.pathname + (qs?'?'+qs:'')); } catch(e){}
+  }
+
+  /* ---------- Render ---------- */
+  function renderTabs(){
+    const base = filtered(true);
+    const counts = { all: base.length };
+    Object.keys(STATUS).forEach(k=>counts[k]=base.filter(o=>o.status===k).length);
+    const items = [['all','Tất cả'], ...Object.entries(STATUS).map(([k,v])=>[k,v.label])];
+    $('tabs').innerHTML = items.map(([k,l])=>{
+      const on = S.status===k;
+      return `<button role="tab" aria-selected="${on}" data-tab="${k}" class="px-3 h-9 -mb-px border-b-2 ${on?'border-blue-700 text-blue-700 font-medium':'border-transparent text-slate-600 hover:text-slate-900'}">${l} <span class="tnum ${on?'':'text-slate-600'}">${num.format(counts[k])}</span></button>`;
+    }).join('');
+  }
+
+  function chipList(){
+    const c = [];
+    if(S.q) c.push(['q',`Từ khóa: “${esc(S.q)}”`]);
+    if(S.channel) c.push(['channel',`Kênh: ${esc(S.channel)}`]);
+    if(S.range) c.push(['range',`Thời gian: ${{today:'Hôm nay','7':'7 ngày qua','30':'30 ngày qua'}[S.range]}`]);
+    if(S.pay) c.push(['pay',`Thanh toán: ${PAY[S.pay].label}`]);
+    if(S.owner) c.push(['owner',`Phụ trách: ${esc(S.owner)}`]);
+    if(S.min!=='') c.push(['min',`Từ ${fmtMoney(+S.min)}`]);
+    if(S.max!=='') c.push(['max',`Đến ${fmtMoney(+S.max)}`]);
+    return c;
+  }
+  function renderChips(){
+    const c = chipList();
+    $('chips').innerHTML = c.length ? c.map(([k,l])=>`<span class="inline-flex items-center gap-1 h-6 pl-2 pr-1 rounded-full bg-white border border-slate-300 text-xs text-slate-800">${l}<button data-chip="${k}" class="w-5 h-5 rounded-full hover:bg-slate-100 text-slate-600" aria-label="Bỏ bộ lọc ${l.replace(/<[^>]+>/g,'')}">×</button></span>`).join('')
+      + `<button id="clearAll" class="text-xs text-blue-700 hover:underline px-1">Xóa tất cả</button>` : '';
+  }
+
+  function skeleton(){
+    let rows='';
+    for(let i=0;i<8;i++) rows += `<tr><td class="w-10"><div class="sk w-4"></div></td>${[80,180,100,90,110,90,100,90].map(w=>`<td><div class="sk" style="width:${w}px"></div></td>`).join('')}<td></td></tr>`;
+    return `<table class="w-full" aria-busy="true">${thead(true)}<tbody>${rows}</tbody></table>`;
+  }
+
+  function thead(plain){
+    const sortBtn = (k,l,right) => {
+      const act = S.sort===k;
+      const arrow = act ? (S.dir==='asc'?' ↑':' ↓') : '';
+      return plain ? l : `<button data-sort="${k}" class="font-medium ${act?'text-slate-900':''} hover:text-slate-900 ${right?'ml-auto':''}" aria-label="Sắp xếp theo ${l}">${l}${arrow}</button>`;
+    };
+    return `<thead class="bg-slate-50"><tr class="h-10">
+      <th class="w-10"><input id="chkAll" type="checkbox" class="w-4 h-4 accent-blue-700" aria-label="Chọn tất cả đơn trên trang này" ${plain?'disabled':''}></th>
+      <th>${sortBtn('id','Mã đơn')}</th><th>${sortBtn('customer','Khách hàng')}</th><th>${sortBtn('date','Ngày đặt')}</th>
+      <th>Kênh bán</th><th>Trạng thái</th><th>Thanh toán</th><th>Phụ trách</th>
+      <th class="text-right">${plain?'Tổng tiền':`<div class="flex justify-end">${sortBtn('total','Tổng tiền',true)}</div>`}</th>
+      <th class="w-24"><span class="sr-only">Thao tác</span></th></tr></thead>`;
+  }
+
+  function renderTable(){
+    const wrap = $('tableWrap');
+    if(S.view==='loading'){ wrap.innerHTML = skeleton(); $('pager').innerHTML=''; $('summary').textContent='Đang tải đơn hàng…'; $('bulkBar').classList.add('hidden'); return; }
+    if(S.view==='error'){
+      wrap.innerHTML = `<div class="py-16 text-center"><p class="font-medium text-slate-900">Không tải được danh sách đơn hàng</p><p class="text-slate-600 mt-1">Máy chủ không phản hồi (mã lỗi 503). Dữ liệu bạn đã chọn vẫn được giữ nguyên.</p><button id="btnRetry" class="btn btn-primary mt-4">Thử lại</button></div>`;
+      $('pager').innerHTML=''; $('summary').textContent=''; $('bulkBar').classList.add('hidden'); return;
+    }
+    if(data.length===0){
+      wrap.innerHTML = `<div class="py-16 text-center"><p class="font-medium text-slate-900">Chưa có đơn hàng nào</p><p class="text-slate-600 mt-1">Đơn hàng bán ra cho khách sẽ hiển thị tại đây.</p><button class="btn btn-primary mt-4" data-create>+ Tạo đơn hàng</button></div>`;
+      $('pager').innerHTML=''; $('summary').textContent=''; $('bulkBar').classList.add('hidden'); return;
+    }
+    const list = sorted(filtered());
+    const total = list.length;
+    const sum = list.reduce((a,o)=>a+o.total,0);
+    $('summary').innerHTML = `<span class="tnum">${num.format(total)}</span> đơn hàng · <span class="tnum">${fmtMoney(sum)}</span>`;
+    if(total===0){
+      wrap.innerHTML = `<div class="py-16 text-center"><p class="font-medium text-slate-900">Không có đơn hàng nào khớp bộ lọc</p><p class="text-slate-600 mt-1">Thử bỏ bớt bộ lọc hoặc tìm bằng từ khóa khác.</p><button id="clearAll2" class="btn mt-4">Xóa bộ lọc</button></div>`;
+      $('pager').innerHTML=''; renderBulk(list); return;
+    }
+    const pages = Math.max(1, Math.ceil(total/S.size));
+    if(S.page>pages) S.page=pages;
+    const start = (S.page-1)*S.size;
+    const rows = list.slice(start, start+S.size);
+    wrap.innerHTML = `<table class="w-full">${thead(false)}<tbody>${rows.map(o=>{
+      const on = S.sel.has(o.id) || S.allMatching;
+      return `<tr class="${on?'sel':''}" data-row="${o.id}">
+        <td><input type="checkbox" data-sel="${o.id}" class="w-4 h-4 accent-blue-700" aria-label="Chọn đơn ${o.id}" ${on?'checked':''}></td>
+        <td><a href="#" class="text-blue-700 font-medium hover:underline tnum">${o.id}</a></td>
+        <td class="max-w-[260px] truncate" title="${esc(o.customer)}">${esc(o.customer)}</td>
+        <td class="tnum text-slate-700">${fmtDate(o.date)}</td>
+        <td class="text-slate-700">${o.channel}</td>
+        <td>${badge(STATUS,o.status)}</td>
+        <td>${badge(PAY,o.pay)}</td>
+        <td class="text-slate-700">${o.owner}</td>
+        <td class="text-right tnum font-medium">${fmtMoney(o.total)}</td>
+        <td><div class="flex items-center justify-end gap-1">
+          <a href="#" class="text-blue-700 hover:underline px-1">Xem</a>
+          <button data-menu="${o.id}" class="w-8 h-8 rounded hover:bg-slate-100 text-slate-700" aria-haspopup="menu" aria-label="Thao tác cho đơn ${o.id}">⋯</button>
+        </div></td></tr>`;
+    }).join('')}</tbody></table>`;
+    // header checkbox state
+    const allOn = rows.every(o=>S.sel.has(o.id)) || S.allMatching;
+    const someOn = rows.some(o=>S.sel.has(o.id));
+    const h = $('chkAll');
+    h.checked = allOn; h.indeterminate = !allOn && someOn;
+    // pager
+    const from = start+1, to = Math.min(start+S.size,total);
+    const nums = [];
+    for(let p=1;p<=pages;p++) if(p===1||p===pages||Math.abs(p-S.page)<=1) nums.push(p); else if(nums[nums.length-1]!=='…') nums.push('…');
+    $('pager').innerHTML = `<div class="flex items-center gap-3"><span class="tnum">${from}–${to} / ${num.format(total)} đơn</span>
+      <label class="flex items-center gap-2">Số dòng
+        <select id="pageSize" class="field">${[10,20,50].map(n=>`<option ${n===S.size?'selected':''}>${n}</option>`).join('')}</select></label></div>
+      <div class="flex items-center gap-1">
+        <button class="btn" data-page="${S.page-1}" ${S.page===1?'disabled':''}>Trước</button>
+        ${nums.map(p=>p==='…'?'<span class="px-1">…</span>':`<button class="btn tnum ${p===S.page?'btn-primary':''}" data-page="${p}" ${p===S.page?'aria-current="page"':''}>${p}</button>`).join('')}
+        <button class="btn" data-page="${S.page+1}" ${S.page===pages?'disabled':''}>Sau</button></div>`;
+    renderBulk(list, rows);
+  }
+
+  function selectedOrders(){
+    if(S.allMatching) return filtered();
+    return data.filter(o=>S.sel.has(o.id));
+  }
+  function renderBulk(list, rows){
+    const bar = $('bulkBar');
+    const n = S.allMatching ? list.length : S.sel.size;
+    if(n===0){ bar.classList.add('hidden'); return; }
+    const sel = selectedOrders();
+    const hasDone = sel.some(o=>o.status==='done');
+    const canConfirm = sel.some(o=>o.status==='pending'||o.status==='draft');
+    const cancelWhy = hasDone ? 'Có đơn đã hoàn thành trong lựa chọn, không thể hủy hàng loạt.' : '';
+    const confirmWhy = canConfirm ? '' : 'Không có đơn nào ở trạng thái Nháp hoặc Chờ xác nhận.';
+    let banner = '';
+    if(rows && !S.allMatching && list.length > rows.length && rows.every(o=>S.sel.has(o.id))){
+      banner = `<p class="text-slate-700 mt-2">Đã chọn ${rows.length} đơn trên trang này. <button id="selAllMatching" class="text-blue-700 hover:underline font-medium">Chọn tất cả ${num.format(list.length)} đơn khớp bộ lọc</button></p>`;
+    } else if(S.allMatching){
+      banner = `<p class="text-slate-700 mt-2">Đã chọn toàn bộ ${num.format(list.length)} đơn khớp bộ lọc. <button id="selClear" class="text-blue-700 hover:underline font-medium">Bỏ chọn</button></p>`;
+    }
+    bar.classList.remove('hidden');
+    bar.innerHTML = `<div class="flex flex-wrap items-center gap-2">
+      <span class="font-medium text-slate-900 tnum mr-2">${num.format(n)} đã chọn</span>
+      <button class="btn" data-bulk="confirm" ${confirmWhy?'disabled':''} ${confirmWhy?`title="${confirmWhy}"`:''}>Xác nhận đơn</button>
+      <button class="btn" data-bulk="print">In phiếu giao</button>
+      <button class="btn" data-bulk="owner">Đổi người phụ trách</button>
+      <button class="btn" data-bulk="export">Xuất CSV</button>
+      <button class="btn btn-danger" data-bulk="cancel" ${cancelWhy?'disabled':''} ${cancelWhy?`title="${cancelWhy}"`:''}>Hủy đơn</button>
+      <button class="btn border-transparent bg-transparent ml-auto" id="selClear2">Bỏ chọn</button></div>
+      ${(cancelWhy||confirmWhy)?`<p class="text-slate-700 mt-2 text-xs">${[confirmWhy&&'Xác nhận đơn: '+confirmWhy, cancelWhy&&'Hủy đơn: '+cancelWhy].filter(Boolean).join(' · ')}</p>`:''}
+      ${banner}`;
+  }
+
+  function renderAll(){ renderTabs(); renderChips(); renderTable(); }
+
+  /* ---------- Loading ---------- */
+  function load(){
+    S.view='loading'; renderAll();
+    const mode = $('demoState').value;
+    setTimeout(()=>{
+      if(mode==='error'){ S.view='error'; }
+      else { S.view='ready'; data = mode==='empty' ? [] : ORDERS.slice(); }
+      renderAll();
+    }, 450);
+  }
+
+  /* ---------- Filters wiring ---------- */
+  function onFilter(){ S.page=1; S.sel.clear(); S.allMatching=false; writeUrl(); renderAll(); }
+  let qTimer;
+  $('q').addEventListener('input', e=>{ clearTimeout(qTimer); qTimer=setTimeout(()=>{ S.q=e.target.value; onFilter(); },200); });
+  [['fChannel','channel'],['fRange','range'],['fPay','pay'],['fOwner','owner'],['fMin','min'],['fMax','max']].forEach(([id,k])=>{
+    $(id).addEventListener('change', e=>{ S[k]=e.target.value; onFilter(); });
+  });
+  function toggleMore(force){
+    const open = typeof force==='boolean' ? force : $('morePanel').classList.contains('hidden');
+    $('morePanel').classList.toggle('hidden', !open);
+    $('btnMore').setAttribute('aria-expanded', open);
+  }
+  $('btnMore').addEventListener('click', ()=>toggleMore());
+  $('btnResetMore').addEventListener('click', ()=>{ S.owner='';S.min='';S.max=''; $('fOwner').value='';$('fMin').value='';$('fMax').value=''; onFilter(); });
+  function clearAll(){
+    S.q='';S.channel='';S.range='';S.pay='';S.owner='';S.min='';S.max='';S.status='all';
+    $('q').value='';['fChannel','fRange','fPay','fOwner','fMin','fMax'].forEach(i=>$(i).value='');
+    onFilter();
+  }
+  $('demoState').addEventListener('change', ()=>{ S.sel.clear(); S.allMatching=false; load(); });
+
+  /* ---------- Row menu ---------- */
+  let menuFor = null, menuBtn = null;
+  function hideMenu(){ $('menu').classList.add('hidden'); menuFor=null; }
+  function showMenu(btn, id){
+    const o = data.find(x=>x.id===id);
+    const canCancel = o.status!=='done' && o.status!=='cancelled';
+    const canEdit = o.status==='draft' || o.status==='pending';
+    $('menu').innerHTML = `
+      <button role="menuitem" class="w-full text-left px-3 h-8 hover:bg-slate-100 ${canEdit?'':'text-slate-500 cursor-not-allowed'}" data-m="edit" ${canEdit?'':'aria-disabled="true" title="Chỉ sửa được đơn ở trạng thái Nháp hoặc Chờ xác nhận"'}>Sửa đơn</button>
+      <button role="menuitem" class="w-full text-left px-3 h-8 hover:bg-slate-100" data-m="dup">Nhân bản</button>
+      <button role="menuitem" class="w-full text-left px-3 h-8 hover:bg-slate-100" data-m="print">In đơn hàng</button>
+      <div class="border-t border-slate-200 my-1"></div>
+      <button role="menuitem" class="w-full text-left px-3 h-8 hover:bg-slate-100 ${canCancel?'text-red-700':'text-slate-500 cursor-not-allowed'}" data-m="cancel" ${canCancel?'':'aria-disabled="true" title="Đơn đã hoàn thành hoặc đã hủy không thể hủy"'}>Hủy đơn</button>`;
+    const r = btn.getBoundingClientRect();
+    const m = $('menu');
+    m.classList.remove('hidden');
+    m.style.top = Math.min(r.bottom+4, innerHeight-180)+'px';
+    m.style.left = Math.max(8, r.right-176)+'px';
+    menuFor = id; menuBtn = btn;
+  }
+  $('menu').addEventListener('click', e=>{
+    const b = e.target.closest('[data-m]'); if(!b) return;
+    if(b.getAttribute('aria-disabled')) return;
+    const id = menuFor, o = data.find(x=>x.id===id); hideMenu();
+    if(b.dataset.m==='cancel') confirmCancel([o]);
+    else if(b.dataset.m==='dup') toast(`Đã nhân bản đơn ${id} thành bản nháp mới`);
+    else if(b.dataset.m==='print') toast(`Đang chuẩn bị bản in đơn ${id}`);
+    else toast(`Mở form sửa đơn ${id}`);
+  });
+  document.addEventListener('click', e=>{ if(!e.target.closest('#menu') && !e.target.closest('[data-menu]')) hideMenu(); });
+
+  /* ---------- Bulk actions ---------- */
+  function confirmCancel(list){
+    const amount = list.reduce((a,o)=>a+o.total,0);
+    const names = list.length===1 ? `đơn ${list[0].id} của ${esc(list[0].customer)}` : `${list.length} đơn hàng`;
+    const paid = list.filter(o=>o.pay==='paid'||o.pay==='partial').length;
+    openDialog(`<h2 id="dlgTitle" class="text-lg font-semibold">Hủy ${names}?</h2>
+      <p class="text-slate-700 mt-2">Tổng giá trị <span class="tnum font-medium">${fmtMoney(amount)}</span> sẽ bị loại khỏi doanh thu. Hàng đã giữ chỗ trong kho sẽ được nhả lại.${paid?` Có ${paid} đơn đã thanh toán, kế toán cần hoàn tiền thủ công.`:''}</p>
+      <label class="block mt-4"><span class="block text-xs font-medium text-slate-600 mb-1">Lý do hủy *</span>
+        <select id="cancelReason" class="field w-full" data-autofocus><option value="">Chọn lý do…</option><option>Khách yêu cầu hủy</option><option>Hết hàng</option><option>Sai thông tin đơn</option><option>Trùng đơn</option></select></label>
+      <p id="reasonErr" class="text-red-700 text-xs mt-1 hidden">Vui lòng chọn lý do hủy.</p>
+      <div class="flex justify-end gap-2 mt-6"><button class="btn" id="dlgNo">Giữ đơn</button><button class="btn btn-primary" id="dlgYes" style="background:#b91c1c;border-color:#b91c1c">Hủy ${list.length===1?'đơn':list.length+' đơn'}</button></div>`,
+      ()=>{
+        $('dlgNo').onclick = closeDialog;
+        $('dlgYes').onclick = ()=>{
+          if(!$('cancelReason').value){ $('reasonErr').classList.remove('hidden'); $('cancelReason').focus(); return; }
+          const ids = new Set(list.map(o=>o.id));
+          data.forEach(o=>{ if(ids.has(o.id)){ o.status='cancelled'; } });
+          S.sel.clear(); S.allMatching=false; closeDialog(); renderAll();
+          toast(list.length===1 ? `Đã hủy đơn ${list[0].id}` : `Đã hủy ${list.length} đơn hàng`);
+        };
+      });
+  }
+
+  function runBulk(kind){
+    const sel = selectedOrders();
+    if(kind==='cancel') return confirmCancel(sel);
+    if(kind==='export'){ toast(`Đang xuất ${sel.length} đơn hàng ra CSV`); return; }
+    if(kind==='print'){ toast(`Đang tạo ${sel.length} phiếu giao hàng`); return; }
+    if(kind==='owner'){
+      openDialog(`<h2 id="dlgTitle" class="text-lg font-semibold">Đổi người phụ trách cho ${sel.length} đơn</h2>
+        <label class="block mt-4"><span class="block text-xs font-medium text-slate-600 mb-1">Người phụ trách mới *</span>
+        <select id="newOwner" class="field w-full" data-autofocus>${OWNERS.map(o=>`<option>${o}</option>`).join('')}</select></label>
+        <div class="flex justify-end gap-2 mt-6"><button class="btn" id="dlgNo">Hủy</button><button class="btn btn-primary" id="dlgYes">Áp dụng</button></div>`,
+        ()=>{ $('dlgNo').onclick=closeDialog; $('dlgYes').onclick=()=>{
+          const v=$('newOwner').value, ids=new Set(sel.map(o=>o.id));
+          data.forEach(o=>{ if(ids.has(o.id)) o.owner=v; });
+          closeDialog(); renderAll(); toast(`Đã chuyển ${sel.length} đơn cho ${v}`);
+        }; });
+      return;
+    }
+    if(kind==='confirm'){
+      const ok = sel.filter(o=>o.status==='pending'||o.status==='draft');
+      const skipped = sel.filter(o=>!(o.status==='pending'||o.status==='draft'));
+      // Simulate: orders with unpaid customers over 50M fail credit check
+      const failed = ok.filter(o=>o.total>80000000);
+      const done = ok.filter(o=>!failed.includes(o));
+      const ids = new Set(done.map(o=>o.id));
+      data.forEach(o=>{ if(ids.has(o.id)) o.status='shipping'; });
+      S.sel.clear(); S.allMatching=false; renderAll();
+      if(failed.length||skipped.length){
+        const rowsHtml = [...failed.map(o=>[o,'Vượt hạn mức công nợ của khách']), ...skipped.map(o=>[o,`Trạng thái ${STATUS[o.status].label} không thể xác nhận`])]
+          .slice(0,50).map(([o,why])=>`<tr class="h-8 border-t border-slate-200"><td class="tnum pr-3">${o.id}</td><td class="text-slate-700 whitespace-normal">${why}</td></tr>`).join('');
+        openDialog(`<h2 id="dlgTitle" class="text-lg font-semibold">${done.length} đơn đã xác nhận, ${failed.length+skipped.length} đơn không xác nhận được</h2>
+          <div class="mt-3 max-h-48 overflow-auto border border-slate-200 rounded"><table class="w-full text-sm"><tbody>${rowsHtml}</tbody></table></div>
+          <div class="flex justify-end gap-2 mt-6"><button class="btn" id="dlgCsv">Tải danh sách lỗi</button><button class="btn btn-primary" id="dlgNo" data-autofocus>Đóng</button></div>`,
+          ()=>{ $('dlgNo').onclick=closeDialog; $('dlgCsv').onclick=()=>toast('Đã tải danh sách đơn lỗi (CSV)'); });
+      } else toast(`Đã xác nhận ${done.length} đơn hàng`);
+    }
+  }
+
+  /* ---------- Delegated events ---------- */
+  document.addEventListener('click', e=>{
+    const t = e.target;
+    let el;
+    if((el=t.closest('[data-tab]'))){ S.status=el.dataset.tab; S.page=1; S.sel.clear(); S.allMatching=false; writeUrl(); renderAll(); }
+    else if((el=t.closest('[data-chip]'))){
+      const k=el.dataset.chip; S[k]=''; const map={q:'q',channel:'fChannel',range:'fRange',pay:'fPay',owner:'fOwner',min:'fMin',max:'fMax'}; $(map[k]).value=''; onFilter();
+    }
+    else if(t.closest('#clearAll')||t.closest('#clearAll2')) clearAll();
+    else if((el=t.closest('[data-sort]'))){ const k=el.dataset.sort; if(S.sort===k) S.dir=S.dir==='asc'?'desc':'asc'; else { S.sort=k; S.dir=(k==='date'||k==='total')?'desc':'asc'; } renderTable(); }
+    else if((el=t.closest('[data-page]'))){ if(el.disabled) return; S.page=+el.dataset.page; renderTable(); }
+    else if((el=t.closest('[data-menu]'))){ e.stopPropagation(); if(menuFor===el.dataset.menu){ hideMenu(); } else showMenu(el, el.dataset.menu); }
+    else if((el=t.closest('[data-bulk]'))){ if(!el.disabled) runBulk(el.dataset.bulk); }
+    else if(t.closest('#selAllMatching')){ S.allMatching=true; renderTable(); }
+    else if(t.closest('#selClear')||t.closest('#selClear2')){ S.sel.clear(); S.allMatching=false; renderTable(); }
+    else if(t.closest('#btnRetry')){ load(); }
+    else if(t.closest('[data-create]')||t.closest('#btnCreate')){ toast('Mở form tạo đơn hàng mới'); }
+    else if(t.closest('#btnImport')){ toast('Mở trình nhập đơn hàng từ CSV'); }
+    else if(t.closest('#btnExportAll')){ toast(`Đang xuất ${filtered().length} đơn hàng theo bộ lọc hiện tại`); }
+  });
+  document.addEventListener('change', e=>{
+    const t = e.target;
+    if(t.id==='chkAll'){
+      const list = sorted(filtered()), start=(S.page-1)*S.size, rows=list.slice(start,start+S.size);
+      S.allMatching=false;
+      rows.forEach(o=> t.checked ? S.sel.add(o.id) : S.sel.delete(o.id));
+      renderTable();
+    } else if(t.dataset && t.dataset.sel){
+      if(S.allMatching){ S.allMatching=false; filtered().forEach(o=>S.sel.add(o.id)); }
+      t.checked ? S.sel.add(t.dataset.sel) : S.sel.delete(t.dataset.sel);
+      renderTable();
+    } else if(t.id==='pageSize'){ S.size=+t.value; S.page=1; renderTable(); }
+  });
+
+  readUrl();
+  load();
+})();
+</script>
+</body>
+</html>

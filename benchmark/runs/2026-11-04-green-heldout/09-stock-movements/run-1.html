@@ -1,0 +1,466 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Stock movements · Inventory</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+  html { scroll-padding-bottom: 64px; }
+  body { font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; font-size: 14px; color: #0f172a; }
+  th, td { white-space: nowrap; }
+  .focus-ring:focus-visible, button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible { outline: 2px solid #1d4ed8; outline-offset: 1px; }
+  @media (prefers-reduced-motion: reduce) { .animate-pulse { animation: none; } }
+</style>
+</head>
+<body class="bg-slate-50">
+<div class="flex min-h-screen">
+  <!-- Sidebar -->
+  <aside class="hidden w-60 shrink-0 border-r border-slate-200 bg-white lg:block">
+    <div class="flex h-12 items-center border-b border-slate-200 px-4 text-[15px] font-semibold">Northgate WMS</div>
+    <nav aria-label="Main" class="flex flex-col gap-4 p-2" id="nav"></nav>
+  </aside>
+
+  <div class="flex min-w-0 flex-1 flex-col">
+    <header class="flex h-12 items-center justify-between border-b border-slate-200 bg-white px-4">
+      <button type="button" class="flex h-8 w-72 items-center gap-2 rounded border border-slate-300 bg-white px-2 text-left text-sm text-slate-600 hover:bg-slate-50" onclick="toast('Command palette is not part of this mock')">
+        <span data-i="search"></span><span class="flex-1">Search or run a command</span><kbd class="rounded border border-slate-300 px-1 text-xs text-slate-600">Ctrl K</kbd>
+      </button>
+      <div class="flex items-center gap-2">
+        <button type="button" aria-label="Notifications, 3 unread" class="flex h-8 w-8 items-center justify-center rounded text-slate-600 hover:bg-slate-100"><span data-i="bell"></span></button>
+        <button type="button" aria-label="Account menu" class="flex h-8 w-8 items-center justify-center rounded-full bg-slate-200 text-xs font-medium text-slate-700">LH</button>
+      </div>
+    </header>
+
+    <main class="min-w-0 flex-1 p-6">
+      <header class="mb-4 flex flex-col gap-2">
+        <nav aria-label="Breadcrumb"><ol class="flex items-center gap-1 text-sm text-slate-600">
+          <li>Inventory</li><li aria-hidden="true">/</li><li><span aria-current="page" class="text-slate-900">Stock movements</span></li>
+        </ol></nav>
+        <div class="flex flex-wrap items-center justify-between gap-2">
+          <h1 class="text-xl font-semibold">Stock movements</h1>
+          <div class="flex items-center gap-2">
+            <button type="button" class="inline-flex h-8 items-center gap-1 rounded border border-slate-300 bg-white px-3 text-sm font-medium hover:bg-slate-50" onclick="toast('Import wizard is not part of this mock')"><span data-i="upload"></span>Import</button>
+            <button type="button" class="inline-flex h-8 items-center gap-1 rounded border border-slate-300 bg-white px-3 text-sm font-medium hover:bg-slate-50" onclick="exportCsv(false)"><span data-i="download"></span>Export</button>
+            <button type="button" class="inline-flex h-8 items-center gap-1 rounded bg-blue-700 px-3 text-sm font-medium text-white hover:bg-blue-800" onclick="toast('Record movement form is not part of this mock')"><span data-i="plus"></span>Record movement</button>
+          </div>
+        </div>
+      </header>
+
+      <div id="banner" role="status"></div>
+
+      <!-- Type tabs -->
+      <div id="tabs" role="tablist" aria-label="Movement type" class="flex gap-1 border-b border-slate-200"></div>
+
+      <!-- Filter row -->
+      <div class="mt-3 flex flex-wrap items-center gap-2">
+        <div class="relative w-80">
+          <span class="pointer-events-none absolute left-2 top-2 text-slate-600" data-i="search"></span>
+          <input id="q" type="search" aria-label="Search movements" placeholder="Search movement no., item, SKU, reference" class="h-8 w-full rounded border border-slate-300 bg-white pl-8 pr-2 text-sm placeholder:text-slate-500" autocomplete="off">
+        </div>
+        <label class="sr-only" for="fWh">Warehouse</label>
+        <select id="fWh" class="h-8 rounded border border-slate-300 bg-white px-2 text-sm"></select>
+        <div class="relative">
+          <button type="button" id="statusBtn" aria-haspopup="true" aria-expanded="false" class="inline-flex h-8 items-center gap-1 rounded border border-slate-300 bg-white px-2 text-sm hover:bg-slate-50"></button>
+          <div id="statusPop" hidden class="absolute left-0 top-9 z-20 w-56 rounded-md border border-slate-200 bg-white p-2 shadow-lg"></div>
+        </div>
+        <div class="relative">
+          <button type="button" id="moreBtn" aria-haspopup="true" aria-expanded="false" class="inline-flex h-8 items-center gap-1 rounded border border-slate-300 bg-white px-2 text-sm hover:bg-slate-50"></button>
+          <div id="morePop" hidden class="absolute left-0 top-9 z-20 w-72 rounded-md border border-slate-200 bg-white p-3 shadow-lg">
+            <fieldset class="flex flex-col gap-2">
+              <legend class="mb-1 text-xs font-medium text-slate-600">Posting date</legend>
+              <label class="text-xs font-medium text-slate-700">From<input id="dFrom" type="date" class="mt-1 block h-8 w-full rounded border border-slate-300 px-2 text-sm font-normal"></label>
+              <label class="text-xs font-medium text-slate-700">To<input id="dTo" type="date" class="mt-1 block h-8 w-full rounded border border-slate-300 px-2 text-sm font-normal"></label>
+            </fieldset>
+            <div class="mt-3 flex justify-end gap-2 border-t border-slate-200 pt-3">
+              <button type="button" id="moreReset" class="h-8 rounded px-3 text-sm font-medium text-slate-700 hover:bg-slate-100">Reset</button>
+              <button type="button" id="moreApply" class="h-8 rounded bg-blue-700 px-3 text-sm font-medium text-white hover:bg-blue-800">Apply</button>
+            </div>
+          </div>
+        </div>
+        <div class="ml-auto flex items-center gap-2">
+          <label class="flex items-center gap-2 text-sm text-slate-700"><input id="compact" type="checkbox" class="h-4 w-4"> Compact rows</label>
+        </div>
+      </div>
+
+      <div id="chips" class="flex flex-wrap items-center gap-2 py-2"></div>
+      <p id="summary" class="mb-2 text-sm text-slate-600"></p>
+      <p id="live" role="status" class="sr-only"></p>
+
+      <!-- Bulk bar + table -->
+      <div class="rounded-md border border-slate-200 bg-white">
+        <div id="bulk" hidden class="flex h-10 items-center gap-3 border-b border-slate-200 bg-blue-50 px-3 text-sm text-blue-900"></div>
+        <div class="overflow-x-auto"><table id="tbl" class="w-full border-collapse text-sm" aria-busy="false"></table></div>
+        <div id="pager" class="flex h-12 items-center justify-between gap-3 border-t border-slate-200 px-3 text-sm text-slate-700"></div>
+      </div>
+
+      <p class="mt-4 text-xs text-slate-600">Demo states:
+        <button type="button" class="font-medium text-blue-700 underline" onclick="reload('ok')">Reload</button> ·
+        <button type="button" class="font-medium text-blue-700 underline" onclick="reload('error')">Simulate error</button> ·
+        <button type="button" class="font-medium text-blue-700 underline" onclick="reload('empty')">Show first use</button>
+      </p>
+    </main>
+  </div>
+</div>
+
+<div id="toasts" aria-live="polite" class="fixed right-4 top-14 z-50 flex flex-col gap-2"></div>
+<div id="overlay"></div>
+
+<script>
+/* ---------- icons ---------- */
+const P = {
+  search:'<circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/>', bell:'<path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10 21h4"/>',
+  plus:'<path d="M12 5v14M5 12h14"/>', download:'<path d="M12 4v12m0 0-4-4m4 4 4-4M5 20h14"/>', upload:'<path d="M12 16V4m0 0L8 8m4-4 4 4M5 20h14"/>',
+  x:'<path d="M6 6l12 12M18 6 6 18"/>', more:'<circle cx="5" cy="12" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/>',
+  down:'<path d="m6 9 6 6 6-6"/>', up:'<path d="m6 15 6-6 6 6"/>', filter:'<path d="M3 5h18l-7 8v6l-4-2v-4z"/>', arrow:'<path d="M5 12h14m-5-5 5 5-5 5"/>',
+  box:'<path d="M21 8 12 3 3 8v8l9 5 9-5z"/><path d="m3 8 9 5 9-5M12 13v8"/>', swap:'<path d="M7 4 3 8l4 4M3 8h14M17 20l4-4-4-4m4 4H7"/>',
+  warn:'<path d="M12 3 2 20h20z"/><path d="M12 10v4m0 3h.01"/>'
+};
+const icon = (n, c='') => `<svg class="h-4 w-4 shrink-0 ${c}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${P[n]}</svg>`;
+function hydrateIcons(root=document){ root.querySelectorAll('[data-i]').forEach(e=>{ e.outerHTML = icon(e.dataset.i, e.className); }); }
+
+/* ---------- nav ---------- */
+const NAV = [
+  ['Inventory', [['Stock levels','box'],['Stock movements','swap'],['Warehouses','box'],['Items','box']]],
+  ['Purchasing', [['Purchase orders','box'],['Receiving','download']]],
+  ['Sales', [['Sales orders','box'],['Shipments','upload']]],
+  ['Administration', [['Users & roles','box'],['Settings','box']]]
+];
+document.getElementById('nav').innerHTML = NAV.map(([g, items]) => `<div class="flex flex-col gap-0.5"><p class="px-2 py-1 text-xs font-medium text-slate-600">${g}</p>${items.map(([l, ic]) => {
+  const on = l === 'Stock movements';
+  return `<a href="#" ${on ? 'aria-current="page"' : ''} class="flex h-8 items-center gap-2 rounded px-2 text-sm hover:bg-slate-100 ${on ? 'bg-slate-100 font-medium text-slate-900' : 'text-slate-700'}">${icon(ic)}<span>${l}</span></a>`; }).join('')}</div>`).join('');
+
+/* ---------- mock data ---------- */
+let seed = 20261104;
+const rnd = () => (seed = (seed * 1664525 + 1013904223) % 4294967296) / 4294967296;
+const pick = a => a[Math.floor(rnd() * a.length)];
+const WH = ['Hanoi DC','Ho Chi Minh DC','Da Nang Hub','Hai Phong Depot','Can Tho Depot'];
+const ITEMS = [
+  ['Corrugated carton 40x30x25','PKG-0412','pcs',0.62],['Stretch film 500 mm','PKG-0120','roll',7.9],['Pallet EUR 1200x800','PLT-0001','pcs',11.5],
+  ['LED panel 600x600 40 W','ELC-2210','pcs',18.4],['Cable Cat6 305 m','ELC-3305','box',74],['Industrial adhesive 5 L','CHM-0870','pail',29.9],
+  ['Safety gloves, size L','SAF-0140','pair',1.85],['Hydraulic oil ISO 46','CHM-1046','L',3.2],['Steel bracket 90 mm','HRD-0905','pcs',0.48],
+  ['Packing tape 48 mm','PKG-0061','roll',1.1],['Barcode label 100x50','LBL-1005','roll',4.7],['Lithium battery 18650','ELC-1865','pcs',3.35],
+  ['Rice bran oil 1 L','FNB-0301','btl',2.6],['Jasmine rice 25 kg','FNB-0125','bag',21],['Bottled water 500 ml','FNB-0500','case',5.4],['Forklift battery 48 V','EQP-4801','pcs',640]
+];
+const USERS = ['Nguyen Thi Lan','Tran Minh Quan','Le Hoang Nam','Pham Thu Ha','Vo Duc Anh'];
+const REASONS = ['Cycle count variance','Damaged in storage','Expired stock','Found during audit','Customer return, restocked'];
+const NOW = new Date(2026, 10, 4, 16, 30);
+const ALL = [];
+for (let i = 0; i < 96; i++) {
+  const type = pick(['receipt','receipt','issue','issue','issue','transfer','transfer','adjustment']);
+  const [name, sku, unit, cost] = pick(ITEMS);
+  const age = Math.floor(Math.pow(rnd(), 1.6) * 88);
+  const d = new Date(NOW.getTime() - age * 86400000 - Math.floor(rnd() * 9) * 3600000 - Math.floor(rnd() * 59) * 60000);
+  if (age === 0 && d > NOW) d.setHours(9, 12);
+  let qty = Math.max(1, Math.round((type === 'receipt' ? 40 + rnd() * 460 : 4 + rnd() * 160) / (unit === 'pcs' && cost < 1 ? 1 : 1)));
+  if (cost > 100) qty = 1 + Math.floor(rnd() * 6);
+  let from = '', to = '', ref = '', signed = qty;
+  const w1 = pick(WH); let w2 = pick(WH); while (w2 === w1) w2 = pick(WH);
+  if (type === 'receipt') { to = w1; ref = 'PO-' + (24100 + Math.floor(rnd() * 400)); }
+  if (type === 'issue') { from = w1; ref = 'SO-' + (51200 + Math.floor(rnd() * 900)); signed = -qty; }
+  if (type === 'transfer') { from = w1; to = w2; ref = 'TR-' + (3300 + Math.floor(rnd() * 200)); }
+  if (type === 'adjustment') { from = w1; ref = pick(REASONS); signed = rnd() < 0.7 ? -Math.max(1, Math.round(qty / 8)) : Math.max(1, Math.round(qty / 8)); qty = Math.abs(signed); }
+  let status = 'posted';
+  if (age < 6) status = pick(['draft','pending','pending','posted','posted']);
+  else if (rnd() < 0.04) status = 'rejected'; else if (rnd() < 0.04) status = 'cancelled';
+  if (type !== 'adjustment' && status === 'pending') status = 'draft';
+  ALL.push({ id: 'SM-' + (10480 + i), date: d, type, item: name, sku, unit, qty, signed, from, to, ref, status,
+    value: Math.round(Math.abs(qty) * cost * 100) / 100, by: pick(USERS) });
+}
+ALL.sort((a, b) => b.id.localeCompare(a.id));
+
+/* ---------- vocab ---------- */
+const TYPES = { receipt: 'Receipts', issue: 'Issues', transfer: 'Transfers', adjustment: 'Adjustments' };
+const TYPE1 = { receipt: 'Receipt', issue: 'Issue', transfer: 'Transfer', adjustment: 'Adjustment' };
+const TYPE_ICON = { receipt: 'download', issue: 'upload', transfer: 'swap', adjustment: 'filter' };
+const STATUS = { draft: ['Draft','bg-slate-100 text-slate-700'], pending: ['Pending approval','bg-blue-50 text-blue-800'],
+  posted: ['Posted','bg-green-50 text-green-800'], rejected: ['Rejected','bg-red-50 text-red-800'], cancelled: ['Cancelled','bg-slate-100 text-slate-700'] };
+const badge = s => `<span class="inline-flex h-6 items-center rounded-full px-2 text-xs font-medium ${STATUS[s][1]}">${STATUS[s][0]}</span>`;
+
+/* ---------- formatting ---------- */
+const nf = new Intl.NumberFormat('en-US');
+const mf = new Intl.NumberFormat('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const fmtDate = d => d.toLocaleString('en-GB', { day:'2-digit', month:'2-digit', year:'numeric', hour:'2-digit', minute:'2-digit', hour12:false }).replace(',', '');
+const fmtDay = iso => { const [y,m,d] = iso.split('-'); return `${d}/${m}/${y}`; };
+const norm = s => String(s).normalize('NFD').replace(/\p{Diacritic}/gu, '').replace(/đ/gi, 'd').toLowerCase();
+const esc = s => String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const signedQty = r => r.type === 'transfer' ? nf.format(r.qty) : (r.signed > 0 ? '+' : '-') + nf.format(Math.abs(r.signed));
+const whText = r => r.type === 'transfer' ? `${r.from} → ${r.to}` : (r.to || r.from);
+
+/* ---------- state ---------- */
+const DEF = { q:'', type:'', status:[], wh:'', from:'', to:'', sort:'-date', page:1, size:10 };
+let S = { ...DEF, status: [] };
+let data = ALL, mode = 'loading', selected = new Set(), allMatching = false, failedInfo = null;
+
+function readUrl() {
+  const p = new URLSearchParams(location.search);
+  S.q = p.get('q') || ''; const t = p.get('type'); S.type = TYPES[t] ? t : '';
+  S.status = p.getAll('status').filter(x => STATUS[x]); const w = p.get('wh'); S.wh = WH.includes(w) ? w : '';
+  const iso = /^\d{4}-\d{2}-\d{2}$/; S.from = iso.test(p.get('from')||'') ? p.get('from') : ''; S.to = iso.test(p.get('to')||'') ? p.get('to') : '';
+  const so = p.get('sort'); S.sort = ['date','-date','id','-id','item','-item','qty','-qty','value','-value'].includes(so) ? so : '-date';
+  S.page = Math.max(1, parseInt(p.get('page')) || 1); S.size = [10,25,50].includes(+p.get('size')) ? +p.get('size') : 10;
+}
+function writeUrl() {
+  const p = new URLSearchParams();
+  if (S.q) p.set('q', S.q); if (S.type) p.set('type', S.type); S.status.forEach(s => p.append('status', s));
+  if (S.wh) p.set('wh', S.wh); if (S.from) p.set('from', S.from); if (S.to) p.set('to', S.to);
+  if (S.sort !== DEF.sort) p.set('sort', S.sort); if (S.page > 1) p.set('page', S.page); if (S.size !== DEF.size) p.set('size', S.size);
+  const qs = p.toString(); history.replaceState(null, '', qs ? '?' + qs : location.pathname);
+}
+
+/* ---------- filtering ---------- */
+function match(r, skipType) {
+  if (!skipType && S.type && r.type !== S.type) return false;
+  if (S.status.length && !S.status.includes(r.status)) return false;
+  if (S.wh && r.from !== S.wh && r.to !== S.wh) return false;
+  const day = r.date.getFullYear() + '-' + String(r.date.getMonth()+1).padStart(2,'0') + '-' + String(r.date.getDate()).padStart(2,'0');
+  if (S.from && day < S.from) return false; if (S.to && day > S.to) return false;
+  if (S.q) { const hay = norm([r.id, r.item, r.sku, r.ref, r.from, r.to].join(' ')); if (!norm(S.q).split(/\s+/).every(t => hay.includes(t))) return false; }
+  return true;
+}
+function sorted(rows) {
+  const desc = S.sort.startsWith('-'), k = S.sort.replace('-', '');
+  const val = r => ({ date: r.date.getTime(), id: r.id, item: r.item, qty: r.signed, value: r.value })[k];
+  return [...rows].sort((a, b) => { const x = val(a), y = val(b); const c = typeof x === 'string' ? x.localeCompare(y, 'en', { numeric: true }) : x - y; return desc ? -c : c; });
+}
+const filtered = () => sorted(data.filter(r => match(r)));
+
+/* ---------- render ---------- */
+const $ = id => document.getElementById(id);
+const COLS = [
+  ['id','Movement no.','l',true],['date','Posting date','l',true],['type','Type','l',false],['item','Item','l',true],['sku','SKU','l',false],
+  ['wh','Warehouse','l',false],['qty','Quantity','r',true],['unit','Unit','l',false],['value','Value (USD)','r',true],['status','Status','l',false]
+];
+function render() {
+  const rows = filtered(), total = rows.length, pages = Math.max(1, Math.ceil(total / S.size));
+  if (S.page > pages) S.page = pages;
+  const slice = rows.slice((S.page - 1) * S.size, S.page * S.size);
+  writeUrl();
+
+  // tabs
+  const base = data.filter(r => match(r, true)); const cnt = t => base.filter(r => !t || r.type === t).length;
+  const known = mode === 'ok' || mode === 'empty';
+  $('tabs').innerHTML = [['', 'All'], ...Object.entries(TYPES)].map(([k, l]) => {
+    const on = S.type === k;
+    return `<button role="tab" aria-selected="${on}" data-tab="${k}" class="-mb-px h-9 border-b-2 px-3 text-sm ${on ? 'border-blue-700 font-medium text-slate-900' : 'border-transparent text-slate-600 hover:text-slate-900'}">${l}${known && mode === 'ok' ? ` <span class="text-slate-600">${cnt(k)}</span>` : ''}</button>`;
+  }).join('');
+
+  // filter controls
+  $('fWh').innerHTML = `<option value="">Warehouse: all</option>` + WH.map(w => `<option ${S.wh === w ? 'selected' : ''}>${w}</option>`).join('');
+  $('statusBtn').innerHTML = `Status${S.status.length ? ': ' + S.status.map(s => STATUS[s][0]).join(', ') : ': all'} ${icon('down')}`;
+  const nMore = (S.from ? 1 : 0) + (S.to ? 1 : 0);
+  $('moreBtn').innerHTML = `${icon('filter')} More filters${nMore ? ` (${nMore})` : ''}`;
+
+  // chips
+  const chips = [];
+  if (S.q) chips.push(['q', '', `Search: ${S.q}`]);
+  if (S.wh) chips.push(['wh', '', `Warehouse: ${S.wh}`]);
+  S.status.forEach(s => chips.push(['status', s, `Status: ${STATUS[s][0]}`]));
+  if (S.from) chips.push(['from', '', `From: ${fmtDay(S.from)}`]); if (S.to) chips.push(['to', '', `To: ${fmtDay(S.to)}`]);
+  $('chips').innerHTML = chips.length ? chips.map(([k, v, l]) => `<span class="inline-flex h-6 items-center gap-1 rounded-full border border-slate-300 bg-slate-100 pl-2 pr-1 text-xs font-medium text-slate-800">${esc(l)}<button type="button" data-chip="${k}" data-val="${v}" aria-label="Remove filter ${esc(l)}" class="inline-flex h-6 w-6 items-center justify-center rounded-full hover:bg-slate-200">${icon('x')}</button></span>`).join('') + `<button type="button" id="clearAll" class="h-6 px-1 text-sm font-medium text-blue-700 hover:underline">Clear all</button>` : '';
+
+  // summary
+  const sum = rows.reduce((a, r) => a + r.value, 0);
+  const sumTxt = mode === 'ok' ? `${nf.format(total)} movement${total === 1 ? '' : 's'}${total ? ' · ' + mf.format(sum) + ' USD total value' : ''}` : '';
+  $('summary').textContent = sumTxt;
+  $('live').textContent = mode === 'ok' ? (total ? `${nf.format(total)} movements match` : 'No movements match') : '';
+
+  // bulk bar
+  const pageIds = slice.map(r => r.id), selOnPage = pageIds.filter(i => selected.has(i)).length;
+  const allSel = allMatching && selOnPage === pageIds.length;
+  const n = allSel ? total : selected.size;
+  const bulk = $('bulk'); bulk.hidden = n === 0;
+  if (n) bulk.innerHTML = `<span class="font-medium">${allSel ? `All ${nf.format(total)} matching selected` : `${nf.format(n)} selected`}</span>` +
+    (!allSel && selOnPage === pageIds.length && total > pageIds.length ? `<button type="button" id="selAll" class="font-medium text-blue-700 underline">Select all ${nf.format(total)} matching</button>` : '') +
+    `<button type="button" id="bExport" class="ml-2 h-8 rounded border border-slate-300 bg-white px-3 font-medium text-slate-900 hover:bg-slate-50">Export selected</button>
+     <button type="button" id="bCancel" class="h-8 rounded border border-slate-300 bg-white px-3 font-medium text-slate-900 hover:bg-slate-50">Cancel movements</button>
+     <button type="button" id="bClear" class="ml-auto h-8 rounded px-3 font-medium hover:bg-blue-100">${allSel ? 'Clear selection' : 'Cancel'}</button>`;
+
+  // banner
+  $('banner').innerHTML = failedInfo ? `<div class="mb-3 flex items-start gap-2 rounded-md border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900">${icon('warn', 'mt-0.5')}<div class="flex-1"><p class="font-medium">${failedInfo.ok} cancelled, ${failedInfo.failed.length} failed</p><ul class="mt-1">${failedInfo.failed.map(f => `<li>${f.id}: ${f.reason}</li>`).join('')}</ul><p class="mt-1">Failed movements stay selected.</p></div><button type="button" id="banX" aria-label="Dismiss message" class="flex h-6 w-6 items-center justify-center rounded hover:bg-amber-100">${icon('x')}</button></div>` : '';
+
+  // table
+  const tbl = $('tbl'); const compact = $('compact').checked; const rh = compact ? 'h-8' : 'h-10';
+  tbl.setAttribute('aria-busy', mode === 'loading');
+  const head = `<thead class="border-b border-slate-200 bg-slate-50"><tr class="h-10">
+    <th class="w-10 px-3 text-left"><input type="checkbox" id="hdrChk" class="h-4 w-4" aria-label="Select all rows on this page" ${mode !== 'ok' || !slice.length ? 'disabled' : ''}></th>
+    ${COLS.map(([k, l, al, sortable]) => {
+      const cur = S.sort.replace('-', '') === k, dir = S.sort.startsWith('-') ? 'descending' : 'ascending';
+      return `<th scope="col" ${cur ? `aria-sort="${dir}"` : ''} class="px-3 text-xs font-medium text-slate-700 ${al === 'r' ? 'text-right' : 'text-left'}">${sortable ? `<button type="button" data-sort="${k}" class="group inline-flex items-center gap-1 font-medium hover:text-slate-900">${l}<span class="${cur ? '' : 'opacity-0 group-hover:opacity-60 group-focus-visible:opacity-100'}">${icon(cur && dir === 'ascending' ? 'up' : 'down')}</span></button>` : l}</th>`;
+    }).join('')}<th scope="col" class="w-12 px-3"><span class="sr-only">Actions</span></th></tr></thead>`;
+  let body = '';
+  const span = COLS.length + 2;
+  if (mode === 'loading') {
+    body = `<tbody aria-hidden="true">${Array.from({ length: 8 }, () => `<tr class="${rh} border-b border-slate-100">${Array.from({ length: span }, () => `<td class="px-3"><div class="h-4 w-full animate-pulse rounded bg-slate-200"></div></td>`).join('')}</tr>`).join('')}</tbody>`;
+  } else if (mode === 'error') {
+    body = `<tbody><tr><td colspan="${span}"><div class="flex flex-col items-center gap-3 px-6 py-12 text-center"><p class="text-base font-medium">Couldn't load stock movements</p><p class="max-w-sm text-sm text-slate-600">Check your connection and try again. Reference: ERR-7F3A21.</p><button type="button" id="retry" class="h-8 rounded bg-blue-700 px-3 text-sm font-medium text-white hover:bg-blue-800">Retry</button></div></td></tr></tbody>`;
+  } else if (!data.length) {
+    body = `<tbody><tr><td colspan="${span}"><div class="flex flex-col items-center gap-3 px-6 py-12 text-center"><p class="text-base font-medium">No stock movements yet</p><p class="max-w-sm text-sm text-slate-600">Receipts, issues, transfers and adjustments across your warehouses appear here once they are recorded.</p><button type="button" class="h-8 rounded bg-blue-700 px-3 text-sm font-medium text-white hover:bg-blue-800" onclick="toast('Record movement form is not part of this mock')">Record movement</button></div></td></tr></tbody>`;
+  } else if (!total) {
+    body = `<tbody><tr><td colspan="${span}"><div class="flex flex-col items-center gap-3 px-6 py-12 text-center"><p class="text-base font-medium">No stock movements match ${S.q ? '“' + esc(S.q) + '”' : 'these filters'}</p><p class="max-w-sm text-sm text-slate-600">Check the spelling or widen the date range.</p><button type="button" id="clearF" class="h-8 rounded border border-slate-300 bg-white px-3 text-sm font-medium hover:bg-slate-50">Clear filters</button></div></td></tr></tbody>`;
+  } else {
+    body = `<tbody>${slice.map(r => {
+      const on = selected.has(r.id) || allSel;
+      return `<tr class="${rh} border-b border-slate-100 hover:bg-slate-50 ${on ? 'bg-blue-50/60' : ''}">
+        <td class="px-3"><input type="checkbox" class="rowChk h-4 w-4" data-id="${r.id}" aria-label="Select movement ${r.id}" ${on ? 'checked' : ''}></td>
+        <td class="px-3"><button type="button" data-open="${r.id}" class="font-medium text-blue-700 hover:underline">${r.id}</button></td>
+        <td class="px-3 tabular-nums text-slate-700">${fmtDate(r.date)}</td>
+        <td class="px-3"><span class="inline-flex items-center gap-1.5 text-slate-800">${icon(TYPE_ICON[r.type], 'text-slate-600')}${TYPE1[r.type]}</span></td>
+        <td class="px-3">${esc(r.item)}</td>
+        <td class="px-3 text-slate-700">${r.sku}</td>
+        <td class="px-3">${whText(r)}</td>
+        <td class="px-3 text-right tabular-nums font-medium">${signedQty(r)}</td>
+        <td class="px-3 text-slate-700">${r.unit}</td>
+        <td class="px-3 text-right tabular-nums">${mf.format(r.value)}</td>
+        <td class="px-3">${badge(r.status)}</td>
+        <td class="px-3 text-right"><button type="button" data-menu="${r.id}" aria-haspopup="menu" aria-label="Actions for movement ${r.id}" ${n > 0 ? 'disabled' : ''} class="inline-flex h-6 w-6 items-center justify-center rounded text-slate-700 hover:bg-slate-100 disabled:opacity-40">${icon('more')}</button></td></tr>`;
+    }).join('')}</tbody>`;
+  }
+  tbl.innerHTML = head + body;
+  const hc = $('hdrChk'); if (hc) { hc.checked = slice.length > 0 && selOnPage === slice.length; hc.indeterminate = selOnPage > 0 && selOnPage < slice.length; }
+
+  // pager
+  const from = total ? (S.page - 1) * S.size + 1 : 0, to = Math.min(total, S.page * S.size);
+  $('pager').innerHTML = mode !== 'ok' || !data.length ? '<span></span>' : `<span class="tabular-nums">${total ? `${nf.format(from)}–${nf.format(to)} of ${nf.format(total)}` : '0 results'}</span>
+    <div class="flex items-center gap-3"><label class="flex items-center gap-2">Rows per page <select id="size" class="h-8 rounded border border-slate-300 bg-white px-1">${[10,25,50].map(s => `<option ${S.size === s ? 'selected' : ''}>${s}</option>`).join('')}</select></label>
+    <span class="tabular-nums">Page ${S.page} of ${pages}</span>
+    <button type="button" id="prev" ${S.page <= 1 ? 'disabled' : ''} class="h-8 rounded border border-slate-300 bg-white px-3 font-medium hover:bg-slate-50 disabled:opacity-50">Previous</button>
+    <button type="button" id="next" ${S.page >= pages ? 'disabled' : ''} class="h-8 rounded border border-slate-300 bg-white px-3 font-medium hover:bg-slate-50 disabled:opacity-50">Next</button></div>`;
+}
+
+/* ---------- popovers ---------- */
+function openPop(btn, pop) { const o = pop.hidden; closePops(); pop.hidden = !o; btn.setAttribute('aria-expanded', String(o)); }
+function closePops() { ['statusPop','morePop','rowMenu'].forEach(i => { const e = $(i); if (e) e.hidden = true; }); $('statusBtn').setAttribute('aria-expanded','false'); $('moreBtn').setAttribute('aria-expanded','false'); }
+$('statusPop').innerHTML = Object.entries(STATUS).map(([k, v]) => `<label class="flex h-8 items-center gap-2 rounded px-2 hover:bg-slate-100"><input type="checkbox" class="stChk h-4 w-4" value="${k}"> ${v[0]}</label>`).join('');
+$('statusBtn').onclick = () => { document.querySelectorAll('.stChk').forEach(c => c.checked = S.status.includes(c.value)); openPop($('statusBtn'), $('statusPop')); };
+$('statusPop').onchange = () => { S.status = [...document.querySelectorAll('.stChk:checked')].map(c => c.value); S.page = 1; render(); };
+$('moreBtn').onclick = () => { $('dFrom').value = S.from; $('dTo').value = S.to; openPop($('moreBtn'), $('morePop')); };
+$('moreApply').onclick = () => { S.from = $('dFrom').value; S.to = $('dTo').value; if (S.from && S.to && S.from > S.to) [S.from, S.to] = [S.to, S.from]; S.page = 1; closePops(); render(); $('moreBtn').focus(); };
+$('moreReset').onclick = () => { $('dFrom').value = ''; $('dTo').value = ''; };
+document.addEventListener('click', e => { if (!e.target.closest('#statusPop,#statusBtn,#morePop,#moreBtn,#rowMenu,[data-menu]')) closePops(); });
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') { closePops(); closeOverlay(); }
+  if (e.key === '/' && !/INPUT|SELECT|TEXTAREA/.test(document.activeElement.tagName)) { e.preventDefault(); $('q').focus(); }
+});
+
+/* ---------- events ---------- */
+let qt; $('q').oninput = e => { clearTimeout(qt); qt = setTimeout(() => { const v = e.target.value.trim(); if (v.length === 1) return; S.q = v; S.page = 1; render(); }, 300); };
+$('q').onkeydown = e => { if (e.key === 'Enter') { clearTimeout(qt); S.q = e.target.value.trim(); S.page = 1; render(); } };
+$('fWh').onchange = e => { S.wh = e.target.value; S.page = 1; render(); };
+$('compact').onchange = render;
+function clearFilters() { S = { ...DEF, status: [], sort: S.sort, size: S.size, type: S.type }; $('q').value = ''; render(); }
+
+document.addEventListener('click', e => {
+  const t = e.target.closest('button, input'); if (!t) return;
+  if (t.dataset.tab !== undefined) { S.type = t.dataset.tab; S.page = 1; render(); }
+  else if (t.dataset.sort) { const k = t.dataset.sort; if (S.sort === k) S.sort = '-' + k; else if (S.sort === '-' + k) S.sort = DEF.sort; else S.sort = k; S.page = 1; render(); }
+  else if (t.dataset.chip) {
+    const k = t.dataset.chip; if (k === 'status') S.status = S.status.filter(s => s !== t.dataset.val); else { S[k] = ''; if (k === 'q') $('q').value = ''; }
+    S.page = 1; render(); (document.querySelector('[data-chip]') || $('fWh')).focus();
+  }
+  else if (t.id === 'clearAll' || t.id === 'clearF') { clearFilters(); $('q').focus(); }
+  else if (t.id === 'retry') reload('ok');
+  else if (t.id === 'prev') { S.page--; render(); } else if (t.id === 'next') { S.page++; render(); }
+  else if (t.id === 'selAll') { allMatching = true; render(); }
+  else if (t.id === 'bClear') { selected.clear(); allMatching = false; render(); }
+  else if (t.id === 'banX') { failedInfo = null; render(); }
+  else if (t.id === 'bExport') exportCsv(true);
+  else if (t.id === 'bCancel') confirmCancel();
+  else if (t.id === 'hdrChk') {
+    const ids = filtered().slice((S.page - 1) * S.size, S.page * S.size).map(r => r.id);
+    ids.forEach(i => t.checked ? selected.add(i) : selected.delete(i)); if (!t.checked) allMatching = false; render();
+  }
+  else if (t.classList.contains('rowChk')) { t.checked ? selected.add(t.dataset.id) : selected.delete(t.dataset.id); allMatching = false; render(); }
+  else if (t.dataset.open) openDetail(t.dataset.open);
+  else if (t.dataset.menu) rowMenu(t);
+});
+document.addEventListener('change', e => { if (e.target.id === 'size') { S.size = +e.target.value; S.page = 1; render(); } });
+
+/* ---------- row menu ---------- */
+function rowMenu(btn) {
+  const id = btn.dataset.menu, r = data.find(x => x.id === id), old = $('rowMenu'); if (old) old.remove();
+  const b = btn.getBoundingClientRect();
+  const m = document.createElement('div'); m.id = 'rowMenu'; m.setAttribute('role', 'menu'); m.setAttribute('aria-label', `Actions for movement ${id}`);
+  m.className = 'fixed z-40 w-48 rounded-md border border-slate-200 bg-white p-1 text-sm shadow-lg';
+  m.style.top = (b.bottom + 4) + 'px'; m.style.left = (b.right - 192) + 'px';
+  const cancelable = r.status === 'draft' || r.status === 'pending';
+  m.innerHTML = `<button role="menuitem" class="flex h-8 w-full items-center rounded px-2 hover:bg-slate-100" data-act="view">View details</button>
+    <button role="menuitem" class="flex h-8 w-full items-center rounded px-2 hover:bg-slate-100" data-act="dup">Duplicate</button>
+    <div class="my-1 border-t border-slate-200"></div>
+    <button role="menuitem" ${cancelable ? '' : 'disabled title="Posted movements can’t be cancelled. Reverse them with an adjustment."'} class="flex h-8 w-full items-center rounded px-2 text-red-700 hover:bg-red-50 disabled:text-slate-500 disabled:hover:bg-transparent" data-act="cancel">${cancelable ? 'Cancel movement' : 'Cancel unavailable (posted)'}</button>`;
+  document.body.appendChild(m);
+  m.onclick = e => { const a = e.target.closest('[data-act]'); if (!a || a.disabled) return; m.remove();
+    if (a.dataset.act === 'view') openDetail(id); if (a.dataset.act === 'dup') toast(`Draft copy of ${id} created`); if (a.dataset.act === 'cancel') confirmCancel([id]); };
+  m.querySelector('button').focus();
+}
+
+/* ---------- dialogs ---------- */
+let lastFocus = null;
+function closeOverlay() { $('overlay').innerHTML = ''; if (lastFocus && document.contains(lastFocus)) lastFocus.focus(); }
+function confirmCancel(ids) {
+  lastFocus = document.activeElement;
+  const pool = ids || (allMatching ? filtered().map(r => r.id) : [...selected]);
+  const rows = pool.map(i => data.find(r => r.id === i)).filter(Boolean);
+  const ok = rows.filter(r => r.status === 'draft' || r.status === 'pending'), bad = rows.filter(r => !ok.includes(r));
+  $('overlay').innerHTML = `<div class="fixed inset-0 z-40 bg-slate-900/40"></div>
+  <div role="dialog" aria-modal="true" aria-labelledby="dT" class="fixed left-1/2 top-1/3 z-50 w-[28rem] max-w-[92vw] -translate-x-1/2 rounded-lg border border-slate-200 bg-white p-5 shadow-xl">
+    <h2 id="dT" class="text-base font-semibold">Cancel ${rows.length} movement${rows.length === 1 ? '' : 's'}?</h2>
+    <p class="mt-2 text-sm text-slate-700">${ok.length} draft or pending movement${ok.length === 1 ? '' : 's'} will be cancelled and removed from approval queues.${bad.length ? ` ${bad.length} already posted and can’t be cancelled; stock stays as recorded.` : ''}</p>
+    <div class="mt-5 flex justify-end gap-2"><button type="button" id="dKeep" class="h-8 rounded border border-slate-300 bg-white px-3 text-sm font-medium hover:bg-slate-50">Keep movements</button>
+    <button type="button" id="dGo" class="h-8 rounded bg-red-700 px-3 text-sm font-medium text-white hover:bg-red-800">Cancel movements</button></div></div>`;
+  $('dKeep').focus(); $('dKeep').onclick = closeOverlay;
+  $('dGo').onclick = () => {
+    $('dGo').disabled = true; $('dGo').textContent = 'Cancelling…';
+    setTimeout(() => {
+      ok.forEach(r => r.status = 'cancelled'); closeOverlay();
+      selected.clear(); allMatching = false; failedInfo = null;
+      if (bad.length) { failedInfo = { ok: ok.length, failed: bad.map(r => ({ id: r.id, reason: 'already posted' })) }; bad.forEach(r => selected.add(r.id)); }
+      else toast(ids && ids.length === 1 ? `Movement ${ids[0]} cancelled` : `${ok.length} movements cancelled`);
+      render();
+    }, 500);
+  };
+}
+function openDetail(id) {
+  lastFocus = document.activeElement; const r = data.find(x => x.id === id);
+  const f = (l, v) => `<div><dt class="text-xs font-medium text-slate-600">${l}</dt><dd class="mt-0.5">${v}</dd></div>`;
+  const waiting = r.status === 'pending' ? `<p class="mt-4 rounded-md bg-blue-50 p-3 text-sm text-blue-900">Waiting for Tran Minh Quan (Warehouse manager) to approve this adjustment.</p>` : '';
+  $('overlay').innerHTML = `<div class="fixed inset-0 z-40 bg-slate-900/40" id="scrim"></div>
+  <aside role="dialog" aria-modal="true" aria-labelledby="sT" class="fixed right-0 top-0 z-50 flex h-full w-[26rem] max-w-full flex-col border-l border-slate-200 bg-white shadow-xl">
+    <div class="flex items-center justify-between border-b border-slate-200 px-4 py-3"><div><h2 id="sT" class="text-base font-semibold">${r.id}</h2><div class="mt-1">${badge(r.status)}</div></div>
+    <button type="button" id="sX" aria-label="Close details" class="flex h-8 w-8 items-center justify-center rounded hover:bg-slate-100">${icon('x')}</button></div>
+    <div class="flex-1 overflow-y-auto p-4"><dl class="grid grid-cols-2 gap-4">
+      ${f('Type', TYPE1[r.type])}${f('Posting date', fmtDate(r.date))}${f('Item', esc(r.item))}${f('SKU', r.sku)}
+      ${f('Warehouse', whText(r))}${f('Quantity', signedQty(r) + ' ' + r.unit)}${f('Value (USD)', mf.format(r.value))}${f('Reference', esc(r.ref))}</dl>
+      ${waiting}
+      <h3 class="mt-6 text-sm font-semibold">Activity</h3>
+      <ul class="mt-2 space-y-2 text-sm text-slate-700"><li>${fmtDate(r.date)} · ${r.by} created the movement</li>${r.status !== 'draft' ? `<li>${fmtDate(new Date(r.date.getTime() + 1800000))} · Status changed: Draft → ${STATUS[r.status][0]}</li>` : ''}</ul>
+      <p class="mt-4 text-xs text-slate-600">Last changed by ${r.by} on ${fmtDate(new Date(r.date.getTime() + 1800000))}</p></div></aside>`;
+  $('sX').focus(); $('sX').onclick = closeOverlay; $('scrim').onclick = closeOverlay;
+}
+
+/* ---------- misc ---------- */
+function toast(msg) {
+  const el = document.createElement('div'); el.className = 'flex items-center gap-3 rounded-md border border-slate-200 bg-white px-3 py-2 text-sm shadow-lg';
+  el.innerHTML = `<span>${esc(msg)}</span><button type="button" aria-label="Dismiss" class="flex h-6 w-6 items-center justify-center rounded hover:bg-slate-100">${icon('x')}</button>`;
+  $('toasts').appendChild(el); const rm = () => el.remove(); el.querySelector('button').onclick = rm;
+  let tm = setTimeout(rm, 5000); el.onmouseenter = () => clearTimeout(tm); el.onmouseleave = () => tm = setTimeout(rm, 5000);
+}
+function exportCsv(sel) {
+  const rows = sel ? (allMatching ? filtered() : filtered().filter(r => selected.has(r.id))) : filtered();
+  const csv = ['Movement no.,Posting date,Type,Item,SKU,Warehouse,Quantity,Unit,Value (USD),Status'].concat(rows.map(r => [r.id, fmtDate(r.date), TYPE1[r.type], `"${r.item}"`, r.sku, `"${whText(r)}"`, r.type === 'transfer' ? r.qty : r.signed, r.unit, r.value.toFixed(2), STATUS[r.status][0]].join(','))).join('\n');
+  const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv' })); a.download = 'stock-movements.csv'; a.click();
+  toast(`Exported ${nf.format(rows.length)} movements`);
+}
+function reload(kind) {
+  mode = 'loading'; selected.clear(); allMatching = false; failedInfo = null; render();
+  setTimeout(() => {
+    if (kind === 'error') mode = 'error'; else if (kind === 'empty') { mode = 'ok'; data = []; } else { mode = 'ok'; data = ALL; }
+    render();
+  }, 500);
+}
+
+hydrateIcons();
+readUrl(); $('q').value = S.q; render(); reload('ok');
+</script>
+</body>
+</html>

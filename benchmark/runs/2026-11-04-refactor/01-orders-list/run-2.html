@@ -1,0 +1,537 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Đơn hàng – Bán hàng – ERP</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+  body{font-family:ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;color:#0f172a}
+  :focus-visible{outline:2px solid #1d4ed8;outline-offset:1px}
+  .tnum{font-variant-numeric:tabular-nums}
+  thead th{position:sticky;top:0;background:#f8fafc;z-index:2}
+  .sk{background:linear-gradient(90deg,#e2e8f0,#f1f5f9,#e2e8f0);background-size:200% 100%;animation:sk 1.2s linear infinite;border-radius:4px;height:14px}
+  @keyframes sk{to{background-position:-200% 0}}
+  .ctl{height:32px;border:1px solid #cbd5e1;border-radius:4px;background:#fff;padding:0 8px;font-size:14px;color:#0f172a}
+  .btn{display:inline-flex;align-items:center;gap:6px;height:32px;padding:0 12px;border-radius:4px;font-size:14px;font-weight:500;white-space:nowrap;border:1px solid #cbd5e1;background:#fff;color:#0f172a}
+  .btn:hover{background:#f1f5f9}
+  .btn:disabled{opacity:.5;cursor:not-allowed}
+  .btn-primary{background:#1d4ed8;border-color:#1d4ed8;color:#fff}
+  .btn-primary:hover{background:#1e40af}
+  .btn-danger{background:#b91c1c;border-color:#b91c1c;color:#fff}
+  .btn-danger:hover{background:#991b1b}
+  .btn-link{border:0;background:transparent;color:#1d4ed8;padding:0 4px}
+  .btn-link:hover{background:transparent;text-decoration:underline}
+  .menu{position:absolute;z-index:30;background:#fff;border:1px solid #e2e8f0;border-radius:6px;box-shadow:0 8px 24px rgba(15,23,42,.12);padding:4px;min-width:200px}
+  .menu button{display:flex;width:100%;align-items:center;gap:8px;height:32px;padding:0 8px;border-radius:4px;font-size:14px;text-align:left}
+  .menu button:hover{background:#f1f5f9}
+  .badge{display:inline-flex;height:24px;align-items:center;border-radius:9999px;padding:0 8px;font-size:12px;font-weight:500;white-space:nowrap}
+  .t-neutral{background:#f1f5f9;color:#334155}.t-info{background:#eff6ff;color:#1e40af}.t-success{background:#f0fdf4;color:#166534}.t-warning{background:#fffbeb;color:#92400e}.t-danger{background:#fef2f2;color:#991b1b}
+  td,th{white-space:nowrap}
+</style>
+</head>
+<body class="bg-white text-sm">
+<div class="flex min-h-screen">
+  <!-- Sidebar -->
+  <aside class="hidden lg:flex w-60 shrink-0 flex-col border-r border-slate-200 bg-slate-50">
+    <div class="flex h-12 items-center gap-2 border-b border-slate-200 px-4 font-semibold">
+      <span class="inline-flex h-6 w-6 items-center justify-center rounded bg-blue-700 text-xs text-white">E</span> ERP Minh Long
+    </div>
+    <nav aria-label="Chính" class="flex flex-col gap-4 p-2" id="nav"></nav>
+  </aside>
+
+  <div class="flex min-w-0 flex-1 flex-col">
+    <header class="flex h-12 items-center gap-3 border-b border-slate-200 px-4">
+      <button class="btn-link" style="height:32px" id="paletteBtn" type="button">
+        <span class="flex h-8 w-72 items-center gap-2 rounded border border-slate-300 bg-white px-2 text-slate-600" aria-label="Tìm kiếm hoặc chạy lệnh">
+          <span data-i="search"></span><span class="text-sm">Tìm kiếm hoặc chạy lệnh</span><kbd class="ml-auto rounded border border-slate-300 px-1 text-xs text-slate-600">Ctrl K</kbd>
+        </span>
+      </button>
+      <div class="ml-auto flex items-center gap-3 text-slate-600">
+        <button class="btn" style="border:0" aria-label="Thông báo, 3 chưa đọc" type="button"><span data-i="bell"></span><span class="text-xs font-medium text-blue-700">3</span></button>
+        <button class="flex h-8 w-8 items-center justify-center rounded-full bg-slate-200 text-xs font-medium text-slate-800" aria-label="Tài khoản" type="button">LH</button>
+      </div>
+    </header>
+
+    <main class="min-w-0 flex-1 p-6">
+      <!-- Page header -->
+      <nav aria-label="Breadcrumb" class="mb-1"><ol class="flex items-center gap-1 text-sm text-slate-600">
+        <li><a href="#" class="hover:underline">Bán hàng</a></li><li aria-hidden="true">/</li><li aria-current="page" class="text-slate-900">Đơn hàng</li></ol></nav>
+      <div class="mb-3 flex flex-wrap items-center justify-between gap-2">
+        <h1 class="text-xl font-semibold">Đơn hàng</h1>
+        <div class="flex items-center gap-2">
+          <button class="btn" type="button" id="btnImport"><span data-i="upload"></span>Nhập Excel</button>
+          <button class="btn" type="button" id="btnExport"><span data-i="download"></span>Xuất Excel</button>
+          <button class="btn btn-primary" type="button" id="btnCreate"><span data-i="plus"></span>Tạo đơn hàng</button>
+        </div>
+      </div>
+
+      <div id="banner"></div>
+
+      <!-- Status tabs -->
+      <div class="border-b border-slate-200"><div role="tablist" aria-label="Trạng thái đơn hàng" id="tabs" class="flex gap-1 overflow-x-auto"></div></div>
+
+      <!-- Filter bar -->
+      <div class="relative flex flex-wrap items-center gap-2 py-3" id="filters">
+        <div class="relative">
+          <span class="pointer-events-none absolute left-2 top-2 text-slate-500" data-i="search"></span>
+          <input id="q" type="search" class="ctl w-72 pl-8" placeholder="Tìm mã đơn, khách hàng, SĐT" aria-label="Tìm đơn hàng" autocomplete="off">
+        </div>
+        <select id="fChannel" class="ctl" aria-label="Kênh bán"></select>
+        <select id="fOwner" class="ctl" aria-label="Người phụ trách"></select>
+        <label class="flex items-center gap-1 text-slate-600">Ngày tạo
+          <input id="fFrom" type="date" class="ctl" aria-label="Từ ngày"><span aria-hidden="true">–</span><input id="fTo" type="date" class="ctl" aria-label="Đến ngày">
+        </label>
+        <div class="relative">
+          <button class="btn" type="button" id="btnMore" aria-haspopup="dialog" aria-expanded="false"><span data-i="filter"></span><span id="moreLbl">Bộ lọc khác</span></button>
+          <div id="morePanel" class="menu hidden" style="width:300px;padding:12px;left:0;top:38px" role="dialog" aria-label="Bộ lọc khác">
+            <div class="flex flex-col gap-3">
+              <label class="flex flex-col gap-1 font-medium">Thanh toán
+                <select id="pPay" class="ctl font-normal"></select></label>
+              <fieldset class="flex flex-col gap-1"><legend class="font-medium">Tổng tiền (VND)</legend>
+                <div class="flex items-center gap-2"><input id="pMin" inputmode="numeric" class="ctl w-full tnum text-right" placeholder="Từ" aria-label="Tổng tiền từ"><span aria-hidden="true">–</span><input id="pMax" inputmode="numeric" class="ctl w-full tnum text-right" placeholder="Đến" aria-label="Tổng tiền đến"></div></fieldset>
+              <div class="flex justify-end gap-2 border-t border-slate-200 pt-3"><button class="btn" type="button" id="pReset">Đặt lại</button><button class="btn btn-primary" type="button" id="pApply">Áp dụng</button></div>
+            </div>
+          </div>
+        </div>
+        <div class="relative ml-auto">
+          <button class="btn" type="button" id="btnCols" aria-haspopup="menu" aria-expanded="false"><span data-i="columns"></span><span id="colsLbl">Cột</span></button>
+          <div id="colsPanel" class="menu hidden" style="right:0;top:38px" role="menu"></div>
+        </div>
+      </div>
+      <div id="chips" class="flex flex-wrap items-center gap-2 pb-3 empty:hidden"></div>
+
+      <!-- Summary line -->
+      <p id="summary" class="pb-2 text-slate-600" aria-live="polite"></p>
+      <p role="status" id="sr" class="sr-only"></p>
+
+      <!-- Table -->
+      <div class="rounded-md border border-slate-200 bg-white">
+        <div id="bulk" class="hidden"></div>
+        <div class="max-h-[640px] overflow-auto" id="tableWrap">
+          <table class="w-full border-collapse" id="tbl" aria-busy="false">
+            <thead id="thead"></thead>
+            <tbody id="tbody"></tbody>
+          </table>
+        </div>
+        <div id="pager" class="flex h-12 items-center justify-between gap-3 border-t border-slate-200 px-3"></div>
+      </div>
+    </main>
+  </div>
+</div>
+
+<div id="modalRoot"></div>
+<div id="toasts" class="fixed bottom-4 right-4 z-50 flex flex-col gap-2" role="status" aria-live="polite"></div>
+
+<script>
+/* ---------- helpers ---------- */
+const $ = s => document.querySelector(s);
+const esc = s => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const norm = s => String(s).normalize('NFD').replace(/\p{Diacritic}/gu,'').replace(/đ/gi,'d').toLowerCase();
+const vnd = new Intl.NumberFormat('vi-VN');
+const nf = new Intl.NumberFormat('vi-VN');
+const money = n => vnd.format(n);
+const fmtDate = iso => { const [y,m,d] = iso.slice(0,10).split('-'); return `${d}/${m}/${y}`; };
+const ICONS = {
+  search:'<circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/>', x:'<path d="M18 6 6 18M6 6l12 12"/>',
+  plus:'<path d="M12 5v14M5 12h14"/>', download:'<path d="M12 3v12m0 0-4-4m4 4 4-4M5 21h14"/>', upload:'<path d="M12 15V3m0 0L8 7m4-4 4 4M5 21h14"/>',
+  filter:'<path d="M3 5h18l-7 8v6l-4 2v-8z"/>', more:'<circle cx="5" cy="12" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/>',
+  up:'<path d="m6 15 6-6 6 6"/>', down:'<path d="m6 9 6 6 6-6"/>', updown:'<path d="m8 9 4-4 4 4M8 15l4 4 4-4"/>',
+  left:'<path d="m15 6-6 6 6 6"/>', right:'<path d="m9 6 6 6-6 6"/>', alert:'<path d="M12 9v4m0 4h.01M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/>',
+  bell:'<path d="M6 8a6 6 0 1 1 12 0c0 7 3 9 3 9H3s3-2 3-9M10.3 21a1.9 1.9 0 0 0 3.4 0"/>', columns:'<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M9 4v16M15 4v16"/>',
+  list:'<path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/>', box:'<path d="m21 8-9-5-9 5v8l9 5 9-5zM3 8l9 5 9-5M12 13v9"/>', users:'<circle cx="9" cy="8" r="3.5"/><path d="M2 20c0-3.5 3-6 7-6s7 2.5 7 6M17 4.5a3.5 3.5 0 0 1 0 7M22 20c0-2.8-1.8-4.8-4.5-5.7"/>',
+  file:'<path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9zM14 3v6h6"/>', tag:'<path d="M20 12 12 20 3 11V3h8z"/><circle cx="7.5" cy="7.5" r="1"/>',
+  wallet:'<path d="M3 7h16a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2zM3 7l14-3v3M16 14h2"/>', check:'<path d="m5 12 5 5 9-10"/>', truck:'<path d="M1 6h13v11H1zM14 10h5l3 3v4h-8M6 20a2 2 0 1 0 0-4 2 2 0 0 0 0 4zM18 20a2 2 0 1 0 0-4 2 2 0 0 0 0 4z"/>'
+};
+const icon = (n,c='') => `<svg class="${c}" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICONS[n]||''}</svg>`;
+function paintIcons(root=document){ root.querySelectorAll('[data-i]').forEach(e => { if(!e.dataset.done){ e.innerHTML = icon(e.dataset.i); e.dataset.done=1; e.classList.add('inline-flex'); } }); }
+
+/* ---------- vocabulary (one status vocabulary, five tones) ---------- */
+const STATUS = {
+  draft:{label:'Nháp', tone:'neutral'}, pending:{label:'Chờ xác nhận', tone:'warning'},
+  shipping:{label:'Đang giao', tone:'info'}, done:{label:'Hoàn thành', tone:'success'}, cancelled:{label:'Đã hủy', tone:'danger'}
+};
+const PAY = { unpaid:{label:'Chưa thanh toán',tone:'neutral'}, partial:{label:'Thanh toán một phần',tone:'warning'}, paid:{label:'Đã thanh toán',tone:'success'}, refunded:{label:'Đã hoàn tiền',tone:'info'} };
+const CHANNELS = ['Showroom','Đại lý','Website B2B','Điện thoại','Sàn TMĐT'];
+const OWNERS = ['Nguyễn Thị Hoa','Trần Minh Quân','Lê Hoàng Nam','Phạm Thu Hà','Đặng Văn Khoa'];
+const badge = (map,k) => `<span class="badge t-${map[k].tone}">${map[k].label}</span>`;
+
+/* ---------- mock data (deterministic) ---------- */
+function rng(a){return function(){a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296}}
+const CUSTOMERS = [['Công ty TNHH Thương mại Minh Phát','0903 412 785'],['Công ty CP Xây dựng Hòa Bình An','0912 880 143'],['Đại lý Thành Đạt','0987 224 610'],['Công ty TNHH Nội thất Đông Dương','0938 761 502'],['Siêu thị Mini Hải Âu','0977 305 218'],['Công ty CP Dược phẩm Việt Hưng','0908 119 764'],['Nhà phân phối Lê Gia','0965 540 872'],['Công ty TNHH Điện máy Phương Nam','0918 673 395'],['Cửa hàng Vật liệu Tân Tiến','0932 408 126'],['Công ty CP Logistics Sao Việt','0983 257 640'],['Công ty TNHH In ấn Đại Phát','0901 936 487'],['Trường Mầm non Hoa Sen','0944 128 053'],['Công ty TNHH Thực phẩm An Khang','0975 612 349'],['Nhà hàng Sen Vàng','0909 784 231'],['Công ty CP Thiết bị Y tế Nam Á','0913 590 678'],['Đại lý Hoàng Long','0936 207 915']];
+const ORDERS = (function(){
+  const r = rng(20261104), out = [], total = 96, today = new Date('2026-11-04T16:30:00');
+  for(let i=0;i<total;i++){
+    const age = Math.floor(i*0.68 + r()*0.6);
+    const d = new Date(today.getTime() - age*86400000 - Math.floor(r()*9)*3600000);
+    const p = r(); let st;
+    if(age<2) st = p<.45?'draft':'pending';
+    else if(age<8) st = p<.18?'pending':p<.85?'shipping':p<.93?'done':'cancelled';
+    else st = p<.82?'done':p<.92?'cancelled':p<.96?'shipping':'pending';
+    let pay = st==='done'?(r()<.9?'paid':'partial'):st==='cancelled'?(r()<.5?'unpaid':'refunded'):st==='draft'?'unpaid':(r()<.5?'unpaid':r()<.6?'partial':'paid');
+    const c = CUSTOMERS[Math.floor(r()*CUSTOMERS.length)];
+    out.push({ id:'DH-'+(1096-i), customer:c[0], phone:c[1], status:st, pay, channel:CHANNELS[Math.floor(r()*CHANNELS.length)],
+      owner:OWNERS[Math.floor(r()*OWNERS.length)], created:d.toISOString().slice(0,10)+'T'+String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0'),
+      lines:1+Math.floor(r()*8), total:Math.round((1.2e6 + Math.pow(r(),2.2)*68e6)/1000)*1000 });
+  }
+  return out;
+})();
+
+/* ---------- state (kept in URL) ---------- */
+const DEF = { sort:'-created', size:25 };
+const COLS = [
+  {k:'id',label:'Mã đơn',always:true},{k:'customer',label:'Khách hàng'},{k:'status',label:'Trạng thái'},{k:'pay',label:'Thanh toán'},
+  {k:'channel',label:'Kênh bán'},{k:'created',label:'Ngày tạo'},{k:'owner',label:'Phụ trách'},{k:'total',label:'Tổng tiền (VND)'}
+];
+let hidden = new Set(['channel']);   // hidden columns
+let S = { status:'', q:'', channel:'', owner:'', from:'', to:'', pay:'', min:'', max:'', sort:DEF.sort, page:1, size:DEF.size, onlyIds:null };
+let sel = new Set(), allMatching = false, loadState = 'loading', failed = [];
+const DEMO = new URLSearchParams(location.search).get('state');
+
+function readURL(){
+  const p = new URLSearchParams(location.search);
+  const pick=(k,ok)=>{const v=p.get(k);return v&&ok(v)?v:''};
+  S.status = pick('status',v=>STATUS[v]); S.q = p.get('q')||''; S.channel = pick('channel',v=>CHANNELS.includes(v));
+  S.owner = pick('owner',v=>OWNERS.includes(v)); S.pay = pick('pay',v=>PAY[v]);
+  S.from = pick('from',v=>/^\d{4}-\d{2}-\d{2}$/.test(v)); S.to = pick('to',v=>/^\d{4}-\d{2}-\d{2}$/.test(v));
+  S.min = pick('min',v=>/^\d+$/.test(v)); S.max = pick('max',v=>/^\d+$/.test(v));
+  S.sort = pick('sort',v=>['code','customer','created','total'].includes(v.replace('-','')) )||DEF.sort;
+  S.size = [10,25,50].includes(+p.get('size')) ? +p.get('size') : DEF.size;
+  S.page = Math.max(1, parseInt(p.get('page'))||1);
+}
+function writeURL(push){
+  const p = new URLSearchParams(location.search), st = p.get('state');
+  const q = new URLSearchParams(); if(st) q.set('state',st);
+  ['status','q','channel','owner','pay','from','to','min','max'].forEach(k=>{ if(S[k]) q.set(k,S[k]); });
+  if(S.sort!==DEF.sort) q.set('sort',S.sort); if(S.size!==DEF.size) q.set('size',S.size); if(S.page>1) q.set('page',S.page);
+  const url = location.pathname + (q.toString()?'?'+q:'');
+  history[push?'pushState':'replaceState'](null,'',url);
+}
+
+/* ---------- filtering ---------- */
+function matches(o, skipStatus){
+  if(!skipStatus && S.status && o.status!==S.status) return false;
+  if(S.channel && o.channel!==S.channel) return false;
+  if(S.owner && o.owner!==S.owner) return false;
+  if(S.pay && o.pay!==S.pay) return false;
+  if(S.from && o.created.slice(0,10)<S.from) return false;
+  if(S.to && o.created.slice(0,10)>S.to) return false;
+  if(S.min && o.total<+S.min) return false;
+  if(S.max && o.total>+S.max) return false;
+  if(S.onlyIds && !S.onlyIds.includes(o.id)) return false;
+  if(S.q){ const n = norm(S.q.trim()); if(!norm(o.id+' '+o.customer+' '+o.phone).includes(n)) return false; }
+  return true;
+}
+function sortRows(rows){
+  const desc = S.sort.startsWith('-'), key = S.sort.replace('-','');
+  const val = o => key==='code'?+o.id.slice(3):key==='total'?o.total:key==='created'?o.created:o.customer;
+  return rows.slice().sort((a,b)=>{ const x=val(a),y=val(b); const c = typeof x==='string'&&key==='customer'?x.localeCompare(y,'vi'):(x<y?-1:x>y?1:0); return desc?-c:c; });
+}
+const dataset = () => DEMO==='empty' ? [] : ORDERS;
+const filtered = () => sortRows(dataset().filter(o=>matches(o)));
+
+/* ---------- render ---------- */
+function renderNav(){
+  const groups = [['Bán hàng',[['Báo giá','file'],['Đơn hàng','list',1],['Khách hàng','users'],['Bảng giá','tag']]],['Kho',[['Tồn kho','box'],['Phiếu xuất kho','truck']]],['Tài chính',[['Hóa đơn','file'],['Công nợ phải thu','wallet']]]];
+  $('#nav').innerHTML = groups.map(([g,items])=>`<div class="flex flex-col gap-0.5"><p class="px-2 py-1 text-xs font-medium text-slate-600">${g}</p>${items.map(([l,ic,act])=>`<a href="#" ${act?'aria-current="page"':''} class="flex h-8 items-center gap-2 rounded px-2 text-sm hover:bg-slate-200 ${act?'bg-slate-200 font-medium text-slate-900':'text-slate-700'}">${icon(ic)}<span>${l}</span></a>`).join('')}</div>`).join('');
+}
+function renderTabs(){
+  const base = dataset().filter(o=>matches(o,true));
+  const tabs = [['','Tất cả']].concat(Object.keys(STATUS).map(k=>[k,STATUS[k].label]));
+  $('#tabs').innerHTML = tabs.map(([k,l])=>{
+    const n = k? base.filter(o=>o.status===k).length : base.length, on = S.status===k;
+    return `<button role="tab" type="button" data-tab="${k}" aria-selected="${on}" class="h-10 shrink-0 border-b-2 px-3 text-sm ${on?'border-blue-700 font-medium text-blue-700':'border-transparent text-slate-700 hover:text-slate-900'}">${l} <span class="tnum text-slate-600">${loadState==='ready'||loadState==='empty'?nf.format(n):''}</span></button>`;
+  }).join('');
+}
+function fillSelect(el, label, list, val, map){
+  el.innerHTML = `<option value="">${label}</option>` + list.map(k=>`<option value="${esc(k)}" ${k===val?'selected':''}>${esc(map?map[k].label:k)}</option>`).join('');
+}
+function renderFilters(){
+  fillSelect($('#fChannel'),'Kênh bán: tất cả',CHANNELS,S.channel);
+  fillSelect($('#fOwner'),'Phụ trách: tất cả',OWNERS,S.owner);
+  fillSelect($('#pPay'),'Tất cả',Object.keys(PAY),S.pay,PAY);
+  if(document.activeElement!==$('#q')) $('#q').value = S.q;
+  $('#fFrom').value = S.from; $('#fTo').value = S.to;
+  const n = [S.pay, S.min||S.max].filter(Boolean).length;
+  $('#moreLbl').textContent = 'Bộ lọc khác' + (n?` (${n})`:'');
+  $('#pMin').value = S.min ? nf.format(S.min) : ''; $('#pMax').value = S.max ? nf.format(S.max) : '';
+  const hc = hidden.size; $('#colsLbl').textContent = hc ? `Cột (${hc} ẩn)` : 'Cột';
+}
+function chipList(){
+  const c = [];
+  if(S.status) c.push(['status','Trạng thái: '+STATUS[S.status].label]);
+  if(S.q) c.push(['q','Tìm kiếm: '+S.q]);
+  if(S.channel) c.push(['channel','Kênh: '+S.channel]);
+  if(S.owner) c.push(['owner','Phụ trách: '+S.owner]);
+  if(S.from||S.to) c.push(['date','Ngày tạo: '+(S.from?fmtDate(S.from):'…')+' – '+(S.to?fmtDate(S.to):'…')]);
+  if(S.pay) c.push(['pay','Thanh toán: '+PAY[S.pay].label]);
+  if(S.min||S.max) c.push(['amt','Tổng tiền: '+(S.min?nf.format(S.min):'0')+' – '+(S.max?nf.format(S.max):'…')+' ₫']);
+  if(S.onlyIds) c.push(['onlyIds','Đơn thao tác lỗi ('+S.onlyIds.length+')']);
+  return c;
+}
+function renderChips(){
+  const c = chipList();
+  $('#chips').innerHTML = c.length ? c.map(([k,l])=>`<span class="inline-flex h-6 items-center gap-1 rounded-full border border-slate-300 bg-slate-100 pl-2 pr-0.5 text-xs font-medium text-slate-800">${esc(l)}<button type="button" data-chip="${k}" aria-label="Bỏ lọc ${esc(l)}" class="inline-flex h-5 w-5 items-center justify-center rounded-full hover:bg-slate-300">${icon('x')}</button></span>`).join('') + `<button type="button" class="btn btn-link" id="clearAll">Xóa tất cả</button>` : '';
+}
+function visibleCols(){ return COLS.filter(c=>!hidden.has(c.k)); }
+const numeric = k => k==='total';
+const sortKey = {id:'code',customer:'customer',created:'created',total:'total'};
+function renderHead(){
+  const cols = visibleCols(), cur = S.sort.replace('-',''), desc = S.sort.startsWith('-');
+  const allSel = pageRows.length>0 && pageRows.every(o=>sel.has(o.id)), some = pageRows.some(o=>sel.has(o.id));
+  $('#thead').innerHTML = `<tr class="h-10 border-b border-slate-200 text-left text-sm font-medium text-slate-700">
+    <th class="w-10 px-3"><input type="checkbox" id="selAll" aria-label="Chọn tất cả đơn trên trang này" ${allSel?'checked':''}></th>` +
+    cols.map(c=>{
+      const sk = sortKey[c.k], active = sk===cur;
+      const asc = active?(desc?'descending':'ascending'):null;
+      const right = numeric(c.k);
+      if(!sk) return `<th class="px-3 ${right?'text-right':'text-left'}">${c.label}</th>`;
+      return `<th class="px-3 ${right?'text-right':'text-left'}" ${asc?`aria-sort="${asc}"`:''}><button type="button" data-sort="${sk}" class="group inline-flex ${right?'flex-row-reverse':''} items-center gap-1 font-medium hover:text-slate-900">${c.label}<span class="${active?'text-slate-900':'text-slate-500 opacity-0 group-hover:opacity-100 group-focus-visible:opacity-100'}">${icon(active?(desc?'down':'up'):'updown')}</span></button></th>`;
+    }).join('') + `<th class="w-28 px-3 text-right"><span class="sr-only">Thao tác</span></th></tr>`;
+  const h = $('#selAll'); if(h) h.indeterminate = some && !allSel;
+}
+function cell(c,o){
+  switch(c.k){
+    case 'id': return `<td class="px-3"><a href="#" class="font-medium text-blue-700 hover:underline">${o.id}</a></td>`;
+    case 'customer': return `<td class="px-3"><span class="block max-w-[300px] truncate" title="${esc(o.customer)}">${esc(o.customer)}</span></td>`;
+    case 'status': return `<td class="px-3">${badge(STATUS,o.status)}</td>`;
+    case 'pay': return `<td class="px-3">${badge(PAY,o.pay)}</td>`;
+    case 'channel': return `<td class="px-3">${esc(o.channel)}</td>`;
+    case 'created': return `<td class="px-3 tnum">${fmtDate(o.created)} <span class="text-slate-600">${o.created.slice(11)}</span></td>`;
+    case 'owner': return `<td class="px-3">${esc(o.owner)}</td>`;
+    case 'total': return `<td class="px-3 text-right tnum">${money(o.total)}</td>`;
+  }
+}
+let pageRows = [], matchRows = [];
+function renderBody(){
+  const cols = visibleCols(), span = cols.length+2, tb = $('#tbody'), tbl = $('#tbl');
+  tbl.setAttribute('aria-busy', loadState==='loading');
+  if(loadState==='loading'){
+    tb.innerHTML = Array.from({length:10}).map(()=>`<tr class="h-10 border-b border-slate-100"><td class="px-3"><div class="sk w-4"></div></td>${cols.map(c=>`<td class="px-3"><div class="sk ${numeric(c.k)?'ml-auto w-20':'w-28'}"></div></td>`).join('')}<td class="px-3"><div class="sk ml-auto w-12"></div></td></tr>`).join('');
+    return;
+  }
+  const msg = (t,sub,btns)=>`<tr><td colspan="${span}" class="px-3 py-16 text-center"><p class="text-base font-medium text-slate-900">${t}</p><p class="mt-1 text-slate-600">${sub}</p><div class="mt-4 flex justify-center gap-2">${btns}</div></td></tr>`;
+  if(loadState==='error'){ tb.innerHTML = msg('Không tải được danh sách đơn hàng','Máy chủ không phản hồi. Dữ liệu đã chọn của bạn không bị mất.',`<button class="btn btn-primary" type="button" id="retry">Thử lại</button>`); return; }
+  if(dataset().length===0){ tb.innerHTML = msg('Chưa có đơn hàng nào','Đơn hàng từ mọi kênh bán sẽ hiển thị tại đây.',`<button class="btn btn-primary" type="button" data-act="create">${icon('plus')}Tạo đơn hàng</button>`); return; }
+  if(matchRows.length===0){
+    const t = S.q ? `Không có đơn hàng nào khớp "${esc(S.q)}"` : 'Không có đơn hàng nào khớp bộ lọc';
+    tb.innerHTML = msg(t,'Kiểm tra lại chính tả hoặc mở rộng khoảng ngày.',`<button class="btn" type="button" id="clearAll2">Xóa bộ lọc</button>`); return;
+  }
+  tb.innerHTML = pageRows.map(o=>{
+    const on = sel.has(o.id), dis = sel.size>0 || allMatching;
+    return `<tr class="h-10 border-b border-slate-100 hover:bg-slate-50 ${on?'bg-blue-50 hover:bg-blue-50':''}">
+      <td class="px-3"><input type="checkbox" data-row="${o.id}" aria-label="Chọn đơn ${o.id}" ${on?'checked':''}></td>
+      ${cols.map(c=>cell(c,o)).join('')}
+      <td class="px-3 text-right"><div class="relative inline-flex items-center gap-1">
+        <button class="btn btn-link" type="button" data-edit="${o.id}" aria-label="Sửa đơn ${o.id}" ${dis?'disabled':''}>Sửa</button>
+        <button class="btn" style="border:0;padding:0 6px" type="button" data-menu="${o.id}" aria-haspopup="menu" aria-label="Thao tác cho đơn ${o.id}" ${dis?'disabled':''}>${icon('more')}</button></div></td></tr>`;
+  }).join('');
+}
+function renderBulk(){
+  const el = $('#bulk'), n = allMatching ? matchRows.length : sel.size;
+  if(!n || loadState!=='ready'){ el.className='hidden'; el.innerHTML=''; return; }
+  const pageAll = pageRows.length>0 && pageRows.every(o=>sel.has(o.id));
+  el.className = 'flex h-10 items-center gap-3 border-b border-slate-200 bg-blue-50 px-3 text-slate-900';
+  el.innerHTML = `<span class="font-medium tnum">${nf.format(n)} đã chọn</span>
+    ${!allMatching && pageAll && matchRows.length>pageRows.length ? `<button class="btn btn-link" type="button" id="selMatching">Chọn tất cả ${nf.format(matchRows.length)} đơn khớp bộ lọc</button>` : ''}
+    ${allMatching ? `<span class="text-slate-700">Đã chọn tất cả ${nf.format(matchRows.length)} đơn khớp bộ lọc.</span><button class="btn btn-link" type="button" id="clearSel">Bỏ chọn</button>`:''}
+    <span class="mx-1 h-5 w-px bg-slate-300" aria-hidden="true"></span>
+    <button class="btn" type="button" data-bulk="confirm">Xác nhận đơn</button>
+    <button class="btn" type="button" data-bulk="print">In phiếu giao hàng</button>
+    <button class="btn" type="button" data-bulk="cancel" style="color:#b91c1c">Hủy đơn</button>
+    <div class="relative"><button class="btn" type="button" id="bulkMore" aria-haspopup="menu">Khác ${icon('down')}</button></div>
+    <button class="btn ml-auto" type="button" id="bulkCancel" style="border:0">Hủy chọn</button>`;
+}
+function renderPager(){
+  const total = matchRows.length, pages = Math.max(1,Math.ceil(total/S.size));
+  if(loadState!=='ready' || !total){ $('#pager').innerHTML = `<span class="text-slate-600">${loadState==='ready'?'0 đơn hàng':''}</span>`; return; }
+  const from = (S.page-1)*S.size+1, to = Math.min(total,S.page*S.size);
+  const nums = []; for(let i=1;i<=pages;i++){ if(i===1||i===pages||Math.abs(i-S.page)<=1) nums.push(i); else if(nums[nums.length-1]!=='…') nums.push('…'); }
+  $('#pager').innerHTML = `<span class="tnum text-slate-700">${from}–${to} / ${nf.format(total)} đơn hàng</span>
+    <div class="flex items-center gap-3">
+      <label class="flex items-center gap-2 text-slate-700">Số dòng <select id="size" class="ctl">${[10,25,50].map(n=>`<option ${n===S.size?'selected':''}>${n}</option>`).join('')}</select></label>
+      <nav aria-label="Phân trang" class="flex items-center gap-1">
+        <button class="btn" style="padding:0 6px" type="button" data-page="${S.page-1}" aria-label="Trang trước" ${S.page<=1?'disabled':''}>${icon('left')}</button>
+        ${nums.map(n=>n==='…'?'<span class="px-1 text-slate-600">…</span>':`<button type="button" data-page="${n}" ${n===S.page?'aria-current="page"':''} class="btn tnum ${n===S.page?'btn-primary':''}" style="min-width:32px;padding:0 6px">${n}</button>`).join('')}
+        <button class="btn" style="padding:0 6px" type="button" data-page="${S.page+1}" aria-label="Trang sau" ${S.page>=pages?'disabled':''}>${icon('right')}</button>
+      </nav></div>`;
+}
+function renderSummary(){
+  if(loadState!=='ready'){ $('#summary').textContent = loadState==='loading'?'Đang tải đơn hàng…':''; return; }
+  const sum = matchRows.reduce((a,o)=>a+(o.status==='cancelled'?0:o.total),0);
+  const t = matchRows.length ? `${nf.format(matchRows.length)} đơn hàng · ${new Intl.NumberFormat('vi-VN',{style:'currency',currency:'VND'}).format(sum)} (không tính đơn đã hủy)` : 'Không có đơn hàng nào khớp';
+  $('#summary').textContent = t; $('#sr').textContent = matchRows.length? `${matchRows.length} đơn hàng khớp` : 'Không có đơn hàng nào khớp';
+}
+function compute(){
+  matchRows = filtered();
+  const pages = Math.max(1,Math.ceil(matchRows.length/S.size)); if(S.page>pages) S.page=pages;
+  pageRows = matchRows.slice((S.page-1)*S.size, S.page*S.size);
+}
+function render(){
+  compute(); renderTabs(); renderFilters(); renderChips(); renderSummary(); renderHead(); renderBody(); renderBulk(); renderPager(); renderColsMenu(); paintIcons();
+}
+function renderColsMenu(){
+  $('#colsPanel').innerHTML = COLS.map((c,i)=>`<div class="flex items-center gap-1"><label class="flex h-8 flex-1 items-center gap-2 px-2 text-sm"><input type="checkbox" data-col="${c.k}" ${hidden.has(c.k)?'':'checked'} ${c.always?'disabled':''}> ${c.label}</label>
+    <button type="button" style="width:24px;height:24px;padding:0;justify-content:center" data-mv="${i}:-1" aria-label="Chuyển ${c.label} lên" ${i===0?'disabled':''}>${icon('up')}</button>
+    <button type="button" style="width:24px;height:24px;padding:0;justify-content:center" data-mv="${i}:1" aria-label="Chuyển ${c.label} xuống" ${i===COLS.length-1?'disabled':''}>${icon('down')}</button></div>`).join('');
+}
+
+/* ---------- load ---------- */
+function load(first){
+  clearTimeout(load.t);
+  if(DEMO==='loading'){ loadState='loading'; render(); return; }
+  loadState = 'loading'; render();
+  load.t = setTimeout(()=>{
+    if(DEMO==='error'){ loadState='error'; } else loadState = 'ready';
+    render();
+  }, first?450:250);
+}
+
+/* ---------- update helpers ---------- */
+function setFilter(patch, push){
+  Object.assign(S, patch, {page:1}); allMatching=false; sel.clear();
+  writeURL(push); render();
+}
+function toast(msg, tone){
+  const t = document.createElement('div');
+  t.className = 'flex items-center gap-2 rounded-md border bg-white px-3 py-2 shadow-lg ' + (tone==='error'?'border-red-300':'border-slate-200');
+  t.innerHTML = `<span class="${tone==='error'?'text-red-700':'text-green-700'}">${icon(tone==='error'?'alert':'check')}</span><span>${esc(msg)}</span>`;
+  $('#toasts').appendChild(t); setTimeout(()=>t.remove(),4500);
+}
+function confirmDialog({title, body, okLabel, danger}){
+  return new Promise(res=>{
+    const root = $('#modalRoot'), prev = document.activeElement;
+    root.innerHTML = `<div class="fixed inset-0 z-40 flex items-center justify-center bg-slate-900/40"><div role="dialog" aria-modal="true" aria-labelledby="dlgT" class="w-[420px] max-w-[92vw] rounded-lg border border-slate-200 bg-white p-5 shadow-xl">
+      <h2 id="dlgT" class="text-base font-semibold">${esc(title)}</h2><p class="mt-2 text-slate-700">${body}</p>
+      <div class="mt-5 flex justify-end gap-2"><button class="btn" type="button" id="dNo">Hủy bỏ</button><button class="btn ${danger?'btn-danger':'btn-primary'}" type="button" id="dYes">${esc(okLabel)}</button></div></div></div>`;
+    const close = v=>{ root.innerHTML=''; document.removeEventListener('keydown',kd); prev&&prev.focus&&prev.focus(); res(v); };
+    const kd = e=>{ if(e.key==='Escape') close(false); };
+    document.addEventListener('keydown',kd);
+    $('#dNo').onclick=()=>close(false); $('#dYes').onclick=()=>close(true); $('#dNo').focus();
+  });
+}
+
+/* ---------- bulk ---------- */
+async function bulk(kind){
+  const ids = allMatching ? matchRows.map(o=>o.id) : [...sel], n = ids.length;
+  const objs = ids.map(id=>ORDERS.find(o=>o.id===id));
+  if(kind==='print'){ toast(`Đã tạo phiếu giao hàng cho ${n} đơn`); return; }
+  if(kind==='more-export'){ toast(`Đã xuất ${n} đơn ra file Excel`); return; }
+  if(kind==='more-assign'){ toast(`Đã gán người phụ trách cho ${n} đơn`); return; }
+  const cancel = kind==='cancel';
+  const ok = await confirmDialog(cancel ? {title:`Hủy ${n} đơn hàng?`, body:`Đơn đã giao hoặc đã hoàn thành không thể hủy và sẽ được báo lỗi. Các đơn hủy được sẽ chuyển sang "Đã hủy".`, okLabel:`Hủy ${n} đơn`, danger:true}
+    : {title:`Xác nhận ${n} đơn hàng?`, body:`Chỉ các đơn ở trạng thái "Chờ xác nhận" được chuyển sang "Đang giao".`, okLabel:`Xác nhận ${n} đơn`});
+  if(!ok) return;
+  const ok_ = [], bad = [];
+  objs.forEach(o=>{
+    if(cancel ? (o.status==='draft'||o.status==='pending') : o.status==='pending'){ o.status = cancel?'cancelled':'shipping'; ok_.push(o.id); }
+    else bad.push(o.id);
+  });
+  failed = bad; allMatching = false; sel = new Set(bad);
+  if(bad.length){
+    $('#banner').innerHTML = `<div class="mb-3 flex items-center gap-3 rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-amber-900" role="alert">${icon('alert')}<span><strong>${ok_.length} đơn đã cập nhật, ${bad.length} đơn thất bại.</strong> Đơn thất bại không ở trạng thái phù hợp; vẫn đang được chọn.</span><button class="btn btn-link" type="button" id="viewFailed">Xem đơn lỗi (${bad.length})</button><button class="btn ml-auto" style="border:0" type="button" id="dismissBanner" aria-label="Đóng thông báo">${icon('x')}</button></div>`;
+  } else { $('#banner').innerHTML=''; toast(`Đã ${cancel?'hủy':'xác nhận'} ${ok_.length} đơn hàng`); }
+  render();
+}
+
+/* ---------- popovers ---------- */
+function closePops(except){
+  [['#morePanel','#btnMore'],['#colsPanel','#btnCols']].forEach(([p,b])=>{ if(p!==except){ $(p).classList.add('hidden'); $(b).setAttribute('aria-expanded','false'); }});
+  document.querySelectorAll('.rowmenu').forEach(m=>m.remove());
+}
+function togglePop(p,b){
+  const el=$(p), open = el.classList.contains('hidden'); closePops(p); el.classList.toggle('hidden',!open); $(b).setAttribute('aria-expanded',open);
+  if(open){ const f = el.querySelector('select,input:not([disabled])'); f&&f.focus(); }
+}
+
+/* ---------- events ---------- */
+document.addEventListener('click', e=>{
+  const t = e.target.closest('button,a,input');
+  if(!e.target.closest('.menu') && !e.target.closest('#btnMore') && !e.target.closest('#btnCols') && !e.target.closest('[data-menu]') && !e.target.closest('#bulkMore')) closePops();
+  if(!t) return;
+  if(t.dataset.tab!==undefined){ setFilter({status:t.dataset.tab},true); }
+  else if(t.dataset.chip){
+    const k=t.dataset.chip, m={status:{status:''},q:{q:''},channel:{channel:''},owner:{owner:''},date:{from:'',to:''},pay:{pay:''},amt:{min:'',max:''},onlyIds:{onlyIds:null}}[k]; setFilter(m);
+    const next = $('#chips [data-chip]') || $('#q'); next.focus();
+  }
+  else if(t.id==='clearAll'||t.id==='clearAll2'){ setFilter({status:'',q:'',channel:'',owner:'',from:'',to:'',pay:'',min:'',max:'',onlyIds:null}); $('#q').focus(); }
+  else if(t.dataset.sort){
+    const k=t.dataset.sort, cur=S.sort.replace('-',''), desc=S.sort.startsWith('-');
+    let next; if(cur!==k) next=k; else if(!desc) next='-'+k; else next=DEF.sort;
+    if(next===DEF.sort && cur!==k) next = k;  // first click on a new column is ascending
+    S.sort = next; S.page=1; writeURL(); render();
+  }
+  else if(t.id==='selAll'){ if(t.checked) pageRows.forEach(o=>sel.add(o.id)); else { pageRows.forEach(o=>sel.delete(o.id)); allMatching=false; } render(); }
+  else if(t.dataset.row){ t.checked?sel.add(t.dataset.row):sel.delete(t.dataset.row); if(!t.checked) allMatching=false; render(); }
+  else if(t.id==='selMatching'){ allMatching=true; matchRows.forEach(o=>sel.add(o.id)); render(); }
+  else if(t.id==='clearSel'||t.id==='bulkCancel'){ sel.clear(); allMatching=false; render(); }
+  else if(t.dataset.bulk){ bulk(t.dataset.bulk); }
+  else if(t.id==='bulkMore'){
+    closePops(); const m=document.createElement('div'); m.className='menu rowmenu'; m.style.top='36px'; m.style.left='0'; m.setAttribute('role','menu');
+    m.innerHTML = `<button type="button" role="menuitem" data-bulk="more-export">Xuất Excel các đơn đã chọn</button><button type="button" role="menuitem" data-bulk="more-assign">Gán người phụ trách</button>`;
+    t.parentElement.appendChild(m); m.querySelector('button').focus();
+  }
+  else if(t.dataset.menu){
+    const had = t.parentElement.querySelector('.rowmenu'); closePops(); if(had) return;
+    const m=document.createElement('div'); m.className='menu rowmenu'; m.style.right='0'; m.style.top='34px'; m.setAttribute('role','menu');
+    const id=t.dataset.menu;
+    m.innerHTML = `<button type="button" role="menuitem" data-ra="view:${id}">Xem chi tiết</button><button type="button" role="menuitem" data-ra="dup:${id}">Nhân bản đơn</button><button type="button" role="menuitem" data-ra="print:${id}">In phiếu giao hàng</button><div class="my-1 border-t border-slate-200"></div><button type="button" role="menuitem" data-ra="cancel:${id}" style="color:#b91c1c">Hủy đơn</button>`;
+    t.parentElement.appendChild(m); m.querySelector('button').focus();
+  }
+  else if(t.dataset.ra){
+    const [a,id]=t.dataset.ra.split(':'); closePops(); const o=ORDERS.find(x=>x.id===id);
+    if(a==='cancel'){
+      if(o.status==='done'||o.status==='shipping'||o.status==='cancelled'){ toast(`Không thể hủy đơn ${id}: đơn ở trạng thái "${STATUS[o.status].label}"`,'error'); return; }
+      confirmDialog({title:`Hủy đơn ${id}?`, body:`Đơn của ${esc(o.customer)} trị giá ${money(o.total)} ₫ sẽ chuyển sang "Đã hủy". Tồn kho đã giữ chỗ sẽ được giải phóng.`, okLabel:'Hủy đơn', danger:true}).then(y=>{ if(y){ o.status='cancelled'; render(); toast(`Đã hủy đơn ${id}`); }});
+    } else toast(a==='view'?`Mở đơn ${id}`:a==='dup'?`Đã nhân bản đơn ${id} thành bản nháp`:`Đã tạo phiếu giao hàng cho đơn ${id}`);
+  }
+  else if(t.dataset.edit){ toast(`Mở form sửa đơn ${t.dataset.edit}`); }
+  else if(t.dataset.page){ S.page=+t.dataset.page; writeURL(true); sel.clear(); allMatching=false; render(); $('#tableWrap').scrollTop=0; }
+  else if(t.id==='btnMore'){ togglePop('#morePanel','#btnMore'); }
+  else if(t.id==='btnCols'){ togglePop('#colsPanel','#btnCols'); }
+  else if(t.id==='pApply'){
+    const num=v=>String(v).replace(/\D/g,'');
+    S.pay=$('#pPay').value; S.min=num($('#pMin').value); S.max=num($('#pMax').value); closePops(); setFilter({}); $('#btnMore').focus();
+  }
+  else if(t.id==='pReset'){ $('#pPay').value=''; $('#pMin').value=''; $('#pMax').value=''; }
+  else if(t.id==='retry'){ load(); }
+  else if(t.id==='viewFailed'){ setFilter({onlyIds:failed.slice(),status:''}); }
+  else if(t.id==='dismissBanner'){ $('#banner').innerHTML=''; }
+  else if(t.dataset.act==='create'||t.id==='btnCreate'){ toast('Mở form tạo đơn hàng mới'); }
+  else if(t.id==='btnImport'){ toast('Mở trình nhập đơn hàng từ Excel'); }
+  else if(t.id==='btnExport'){ toast(`Đang xuất ${nf.format(matchRows.length)} đơn theo bộ lọc hiện tại`); }
+  else if(t.dataset.mv){
+    const [i,d]=t.dataset.mv.split(':').map(Number), j=i+d; [COLS[i],COLS[j]]=[COLS[j],COLS[i]]; render();
+    $('#colsPanel').classList.remove('hidden');
+  }
+});
+document.addEventListener('change', e=>{
+  const t=e.target;
+  if(t.id==='fChannel') setFilter({channel:t.value});
+  else if(t.id==='fOwner') setFilter({owner:t.value});
+  else if(t.id==='fFrom') setFilter({from:t.value});
+  else if(t.id==='fTo') setFilter({to:t.value});
+  else if(t.id==='size'){ S.size=+t.value; S.page=1; sel.clear(); allMatching=false; writeURL(); render(); }
+  else if(t.dataset.col){ t.checked?hidden.delete(t.dataset.col):hidden.add(t.dataset.col); render(); $('#colsPanel').classList.remove('hidden'); }
+});
+let qTimer;
+$('#q').addEventListener('input', e=>{
+  clearTimeout(qTimer); const v=e.target.value;
+  qTimer=setTimeout(()=>{ if(v.trim().length===1) return; setFilter({q:v.trim()}); },300);
+});
+$('#q').addEventListener('keydown', e=>{ if(e.key==='Enter'){ clearTimeout(qTimer); setFilter({q:e.target.value.trim()}); }});
+document.addEventListener('keydown', e=>{
+  if(e.key==='/' && !/INPUT|SELECT|TEXTAREA/.test(document.activeElement.tagName)){ e.preventDefault(); $('#q').focus(); }
+  if(e.key==='Escape') closePops();
+});
+window.addEventListener('beforeunload', e=>{ /* list page has no unsaved edits */ });
+window.addEventListener('popstate', ()=>{ readURL(); sel.clear(); allMatching=false; render(); });
+
+/* ---------- init ---------- */
+renderNav(); paintIcons(); readURL();
+if(DEMO==='empty'){ loadState='loading'; }
+load(true);
+if(DEMO==='empty'){ /* resolves to the first-use state */ }
+</script>
+</body>
+</html>

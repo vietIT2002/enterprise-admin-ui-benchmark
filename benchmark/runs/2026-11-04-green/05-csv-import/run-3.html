@@ -1,0 +1,661 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Import products · Stockroom</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+  body { font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; font-size: 14px; color: #0f172a; }
+  .tnum { font-variant-numeric: tabular-nums; }
+  dialog::backdrop { background: rgba(15,23,42,.45); }
+  dialog { padding: 0; }
+  :focus-visible { outline: 2px solid #1d4ed8; outline-offset: 2px; }
+  @media (prefers-reduced-motion: reduce) { .animate-pulse, .prog { animation: none !important; transition: none !important; } }
+</style>
+</head>
+<body class="bg-slate-50">
+<div class="flex h-screen">
+  <!-- Sidebar -->
+  <aside class="hidden md:flex w-56 shrink-0 flex-col border-r border-slate-200 bg-slate-50">
+    <div class="flex h-12 items-center gap-2 px-4 border-b border-slate-200 font-semibold">Stockroom</div>
+    <nav aria-label="Main" class="flex-1 p-2 space-y-0.5" id="sidenav"></nav>
+    <div class="border-t border-slate-200 p-3 text-xs text-slate-600">Nguyễn Thu Hà<br>Inventory manager</div>
+  </aside>
+
+  <div class="flex min-w-0 flex-1 flex-col">
+    <header class="flex h-12 shrink-0 items-center justify-between border-b border-slate-200 bg-white px-6">
+      <nav aria-label="Breadcrumb" class="text-sm text-slate-600">
+        <ol class="flex items-center gap-1.5">
+          <li><a href="#products" class="text-blue-700 hover:underline" data-guard="products">Products</a></li>
+          <li aria-hidden="true">/</li>
+          <li aria-current="page" class="text-slate-900">Import</li>
+        </ol>
+      </nav>
+      <div class="relative">
+        <button id="jobsBtn" class="inline-flex h-8 items-center gap-2 rounded border border-slate-300 bg-white px-3 text-sm hover:bg-slate-50" aria-haspopup="true" aria-expanded="false">
+          Jobs <span id="jobsCount" class="inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-slate-100 px-1.5 text-xs font-medium text-slate-700">0</span>
+        </button>
+        <div id="jobsPop" class="hidden absolute right-0 top-10 z-30 w-80 rounded-lg border border-slate-200 bg-white p-3 shadow-lg" role="region" aria-label="Background jobs"></div>
+      </div>
+    </header>
+
+    <main id="main" class="flex-1 overflow-y-auto" tabindex="-1">
+      <div class="mx-auto max-w-6xl px-6 pt-6 pb-6" id="page"></div>
+    </main>
+  </div>
+</div>
+
+<!-- Toasts: live region always present -->
+<div id="toasts" role="status" aria-live="polite" class="fixed right-4 top-4 z-50 flex w-96 flex-col gap-2"></div>
+<!-- Dialog -->
+<dialog id="dlg" class="w-[28rem] max-w-[92vw] rounded-lg border border-slate-200 text-slate-900 shadow-xl">
+  <form method="dialog" class="p-6" id="dlgForm">
+    <h2 id="dlgTitle" class="text-base font-semibold"></h2>
+    <p id="dlgBody" class="mt-2 text-sm text-slate-600"></p>
+    <div class="mt-6 flex justify-end gap-2">
+      <button type="button" id="dlgCancel" class="h-8 rounded border border-slate-300 bg-white px-3 text-sm hover:bg-slate-50"></button>
+      <button type="button" id="dlgOk" class="h-8 rounded px-3 text-sm font-medium text-white"></button>
+    </div>
+  </form>
+</dialog>
+
+<script>
+/* ---------- Config & helpers ---------- */
+const nf = new Intl.NumberFormat('vi-VN');
+const vnd = n => n == null || n === '' ? '—' : nf.format(n);
+const dtf = new Intl.DateTimeFormat('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: false });
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const $ = (s, r = document) => r.querySelector(s);
+const CATEGORIES = ['Beverages', 'Snacks', 'Household', 'Personal care', 'Stationery', 'Electronics accessories'];
+const WAREHOUSES = ['Hà Nội', 'TP. HCM', 'Đà Nẵng'];
+const FIELDS = [
+  { key: 'sku', label: 'SKU', req: true, syn: ['sku', 'productcode', 'itemcode', 'code'] },
+  { key: 'name', label: 'Product name', req: true, syn: ['productname', 'name', 'itemname', 'title'] },
+  { key: 'category', label: 'Category', req: true, syn: ['category', 'productcategory', 'group'] },
+  { key: 'cost', label: 'Cost price (VND)', req: true, syn: ['costpricevnd', 'costprice', 'cost', 'unitcost', 'purchaseprice'] },
+  { key: 'price', label: 'Selling price (VND)', req: false, syn: ['sellingpricevnd', 'sellingprice', 'price', 'retailprice'] },
+  { key: 'qty', label: 'Quantity on hand', req: true, syn: ['qtyonhand', 'quantity', 'qty', 'stock', 'onhand'] },
+  { key: 'reorder', label: 'Reorder level', req: false, syn: ['reorderlevel', 'reorderpoint', 'minstock', 'minimum'] },
+  { key: 'barcode', label: 'Barcode', req: false, syn: ['barcode', 'ean', 'upc', 'gtin'] },
+  { key: 'warehouse', label: 'Warehouse', req: false, syn: ['warehouse', 'location', 'site'] },
+];
+const STEPS = ['Upload file', 'Map columns', 'Preview', 'Import'];
+const CONFLICT_BARCODES = {}; // barcode -> existing SKU, used by the mock server
+
+const ico = {
+  upload: '<path d="M12 15V3m0 0L7 8m5-5 5 5M4 17v3h16v-3"/>',
+  file: '<path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8zM14 3v5h5"/>',
+  down: '<path d="M12 3v12m0 0 5-5m-5 5-5-5M4 17v3h16v-3"/>',
+  check: '<path d="m5 12 5 5L20 7"/>',
+  alert: '<path d="M12 9v4m0 4h.01M10.3 3.9 2.4 18a2 2 0 0 0 1.7 3h15.8a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/>',
+  x: '<path d="M18 6 6 18M6 6l12 12"/>',
+  info: '<circle cx="12" cy="12" r="9"/><path d="M12 11v5m0-8h.01"/>',
+  box: '<path d="m21 8-9-5-9 5v8l9 5 9-5zM3 8l9 5 9-5M12 13v8"/>',
+  grid: '<rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/>',
+  layers: '<path d="m12 3 9 5-9 5-9-5zM3 13l9 5 9-5"/>',
+  truck: '<path d="M3 6h11v10H3zM14 9h4l3 3v4h-7zM7 19a1.5 1.5 0 1 0 0-.01M17 19a1.5 1.5 0 1 0 0-.01"/>',
+  users: '<circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0M16 4.5a3.5 3.5 0 0 1 0 7M18 14a6 6 0 0 1 3.5 6"/>',
+  chart: '<path d="M4 20V4m0 16h16M8 16v-5m4 5V8m4 8v-3"/>',
+  gear: '<circle cx="12" cy="12" r="3"/><path d="M12 2v3m0 14v3M2 12h3m14 0h3M5 5l2 2m10 10 2 2M19 5l-2 2M7 17l-2 2"/>',
+};
+const icon = (n, c = '') => `<svg class="h-4 w-4 shrink-0 ${c}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ico[n]}</svg>`;
+const spinner = '<svg class="h-4 w-4 animate-spin motion-reduce:animate-none" viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="12" cy="12" r="9" stroke="currentColor" stroke-opacity=".3" stroke-width="3"/><path d="M21 12a9 9 0 0 0-9-9" stroke="currentColor" stroke-width="3" stroke-linecap="round"/></svg>';
+
+const TONES = {
+  neutral: 'bg-slate-100 text-slate-700',
+  info: 'bg-blue-50 text-blue-800',
+  success: 'bg-green-50 text-green-800',
+  warning: 'bg-amber-50 text-amber-800',
+  danger: 'bg-red-50 text-red-800',
+};
+const badge = (tone, text) => `<span class="inline-flex h-6 items-center rounded-full px-2 text-xs font-medium ${TONES[tone]}">${esc(text)}</span>`;
+const BTN = 'inline-flex h-8 items-center justify-center gap-2 rounded px-3 text-sm font-medium disabled:cursor-not-allowed ';
+const btnPrimary = BTN + 'bg-blue-700 text-white hover:bg-blue-800 disabled:bg-slate-200 disabled:text-slate-600';
+const btnSecondary = BTN + 'border border-slate-300 bg-white text-slate-900 hover:bg-slate-50 disabled:text-slate-500';
+const btnDanger = BTN + 'bg-red-700 text-white hover:bg-red-800';
+
+/* ---------- State ---------- */
+const S = {
+  step: 0, maxStep: 0,
+  file: null,            // {name,size,text}
+  uploadError: null,
+  headers: [], raw: [],  // raw rows (arrays)
+  mapping: {},           // fieldKey -> header index or -1
+  mapErrors: null,
+  rows: [],              // validated rows
+  loading: false, loadError: false, failNextValidation: false,
+  existing: new Set(),
+  existingMode: 'update',
+  tab: 'all', q: '', page: 1, pageSize: 25,
+  job: null,             // {id, status, total, done, created, updated, failed:[], skipped, startedAt, bg}
+  jobTimer: null,
+  dirty: false,
+};
+
+/* ---------- CSV ---------- */
+function parseCSV(text) {
+  const out = []; let row = [], cur = '', q = false;
+  text = text.replace(/^﻿/, '');
+  for (let i = 0; i < text.length; i++) {
+    const c = text[i];
+    if (q) {
+      if (c === '"' && text[i + 1] === '"') { cur += '"'; i++; }
+      else if (c === '"') q = false;
+      else cur += c;
+    } else if (c === '"') q = true;
+    else if (c === ',') { row.push(cur); cur = ''; }
+    else if (c === '\n' || c === '\r') { if (c === '\r' && text[i + 1] === '\n') i++; row.push(cur); out.push(row); row = []; cur = ''; }
+    else cur += c;
+  }
+  if (cur !== '' || row.length) { row.push(cur); out.push(row); }
+  return out.filter(r => r.some(v => v.trim() !== ''));
+}
+const csvCell = v => /[",\n]/.test(v) ? '"' + String(v).replace(/"/g, '""') + '"' : String(v);
+const toCSV = rows => '﻿' + rows.map(r => r.map(csvCell).join(',')).join('\r\n');
+function download(name, text) {
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([text], { type: 'text/csv;charset=utf-8' }));
+  a.download = name; document.body.appendChild(a); a.click(); a.remove();
+}
+const fmtSize = b => b < 1024 ? b + ' B' : (b / 1024).toFixed(1) + ' KB';
+
+/* ---------- Mock data ---------- */
+function buildSample() {
+  const base = [
+    ['BEV', 'Beverages', ['Mineral water 500 ml', 'Green tea 330 ml', 'Iced coffee can 250 ml', 'Orange juice 1 L'], 4000],
+    ['SNK', 'Snacks', ['Rice crackers 120 g', 'Roasted peanuts 200 g', 'Seaweed chips 40 g', 'Dried mango 100 g'], 9000],
+    ['HOU', 'Household', ['Dish soap 750 ml', 'Laundry powder 3 kg', 'Trash bags roll 60 L', 'Glass cleaner 500 ml'], 22000],
+    ['PRS', 'Personal care', ['Shampoo 650 ml', 'Toothpaste 180 g', 'Hand soap refill 500 ml', 'Face tissue box'], 18000],
+    ['STA', 'Stationery', ['Ballpoint pen blue (12)', 'A4 paper ream 500', 'Sticky notes 76 mm', 'Spiral notebook A5'], 7000],
+    ['ELE', 'Electronics accessories', ['USB-C cable 1 m', 'Wireless mouse', 'Phone stand', 'AA batteries (8)'], 35000],
+  ];
+  const sizes = ['', ' – pack of 6', ' – carton of 24', ' – value pack'];
+  const rows = [['SKU', 'Product name', 'Category', 'Cost price (VND)', 'Selling price (VND)', 'Qty on hand', 'Reorder at', 'Barcode', 'Warehouse', 'Notes']];
+  let i = 0;
+  for (const s of sizes) for (const [pre, cat, names, cost0] of base) for (let k = 0; k < 4 && rows.length <= 64; k++) {
+    if (k !== sizes.indexOf(s) && sizes.indexOf(s) < 4) { /* spread names across sizes */ }
+  }
+  // deterministic 64 rows
+  const flat = [];
+  base.forEach(([pre, cat, names, c]) => names.forEach((n, k) => sizes.forEach((sz, z) => flat.push([pre, cat, n + sz, c * (1 + k * .4) * (1 + z * .8)]))));
+  for (i = 0; i < 64; i++) {
+    const [pre, cat, name, cost] = flat[(i * 3) % flat.length];
+    const c = Math.round(cost / 500) * 500;
+    rows.push([`${pre}-${1000 + i}`, name, cat, String(c), String(Math.round(c * 1.32 / 500) * 500), String(20 + ((i * 37) % 300)), String(10 + (i % 5) * 10), '893456' + String(1000000 + i * 7), WAREHOUSES[i % 3], i % 9 === 0 ? 'Seasonal item' : '']);
+  }
+  const R = k => rows[k + 1]; // data row k (0-based)
+  R(4)[1] = '';                          // blank name
+  R(9)[5] = 'abc';                       // qty not a number
+  R(13)[5] = '-5';                       // negative qty
+  R(17)[2] = 'Gadgets';                  // unknown category
+  R(26)[3] = '';                         // blank cost
+  R(30)[0] = R(3)[0];                    // duplicate SKU
+  R(38)[7] = '89345';                    // short barcode
+  R(52)[5] = '12.5';                     // fractional qty
+  R(11)[4] = String(Number(R(11)[3]) - 2000); // price below cost (warning)
+  R(24)[4] = String(Number(R(24)[3]) - 1000);
+  CONFLICT_BARCODES[R(21)[7]] = 'HOU-0412'; CONFLICT_BARCODES[R(45)[7]] = 'STA-0087';
+  const existing = new Set(rows.slice(1).filter((_, k) => k % 6 === 1).map(r => r[0]));
+  return { csv: toCSV(rows), existing };
+}
+const SAMPLE = buildSample();
+
+/* ---------- Validation ---------- */
+const norm = s => String(s).toLowerCase().replace(/[^a-z0-9]/g, '');
+function autoMap() {
+  const used = new Set(); const m = {};
+  FIELDS.forEach(f => {
+    let idx = -1;
+    for (const syn of f.syn) {
+      const h = S.headers.findIndex((x, i) => !used.has(i) && norm(x) === syn);
+      if (h >= 0) { idx = h; break; }
+    }
+    if (idx >= 0) used.add(idx);
+    m[f.key] = idx;
+  });
+  return m;
+}
+const isNum = v => v !== '' && !isNaN(Number(String(v).replace(/[,\s₫đ]/g, '')));
+const toNum = v => Number(String(v).replace(/[,\s₫đ]/g, ''));
+function validateAll() {
+  const seen = new Map();
+  S.rows = S.raw.map((r, i) => {
+    const v = {};
+    FIELDS.forEach(f => { v[f.key] = S.mapping[f.key] >= 0 ? (r[S.mapping[f.key]] ?? '').trim() : ''; });
+    const errors = [], warns = [];
+    const E = (field, msg) => errors.push({ field, msg });
+    if (!v.sku) E('SKU', 'SKU is required');
+    else if (!/^[A-Za-z0-9-]{3,20}$/.test(v.sku)) E('SKU', 'SKU must be 3–20 letters, digits or hyphens');
+    else if (seen.has(v.sku.toUpperCase())) E('SKU', `Duplicate SKU, first used in row ${seen.get(v.sku.toUpperCase())}`);
+    else seen.set(v.sku.toUpperCase(), i + 2);
+    if (!v.name) E('Product name', 'Product name is required');
+    else if (v.name.length > 120) E('Product name', 'Product name is longer than 120 characters');
+    const cat = CATEGORIES.find(c => c.toLowerCase() === v.category.toLowerCase());
+    if (!v.category) E('Category', 'Category is required');
+    else if (!cat) E('Category', `Category "${v.category}" doesn't exist`); else v.category = cat;
+    if (v.cost === '') E('Cost price (VND)', 'Cost price is required');
+    else if (!isNum(v.cost) || toNum(v.cost) < 0) E('Cost price (VND)', 'Cost price must be a number of 0 or more');
+    if (v.price !== '' && (!isNum(v.price) || toNum(v.price) < 0)) E('Selling price (VND)', 'Selling price must be a number of 0 or more');
+    if (v.qty === '') E('Quantity on hand', 'Quantity is required');
+    else if (!isNum(v.qty)) E('Quantity on hand', `"${v.qty}" is not a number`);
+    else if (toNum(v.qty) < 0) E('Quantity on hand', 'Quantity can\'t be negative');
+    else if (!Number.isInteger(toNum(v.qty))) E('Quantity on hand', 'Quantity must be a whole number');
+    if (v.reorder !== '' && (!isNum(v.reorder) || toNum(v.reorder) < 0 || !Number.isInteger(toNum(v.reorder)))) E('Reorder level', 'Reorder level must be a whole number of 0 or more');
+    if (v.barcode !== '' && !/^(\d{8}|\d{13})$/.test(v.barcode)) E('Barcode', 'Barcode must be 8 or 13 digits');
+    if (v.warehouse !== '') {
+      const w = WAREHOUSES.find(x => x.toLowerCase() === v.warehouse.toLowerCase());
+      if (!w) E('Warehouse', `Warehouse "${v.warehouse}" doesn't exist`); else v.warehouse = w;
+    } else if (S.mapping.warehouse >= 0) { v.warehouse = 'Hà Nội'; warns.push({ field: 'Warehouse', msg: 'Warehouse is blank, Hà Nội will be used' }); }
+    else v.warehouse = 'Hà Nội';
+    if (!errors.length && v.price !== '' && toNum(v.price) < toNum(v.cost)) warns.push({ field: 'Selling price (VND)', msg: 'Selling price is below cost price' });
+    const exists = !!v.sku && S.existing.has(v.sku);
+    return { n: i + 2, raw: r, v, errors, warns, exists, status: errors.length ? 'error' : warns.length ? 'warning' : 'valid' };
+  });
+}
+const counts = () => ({
+  all: S.rows.length,
+  error: S.rows.filter(r => r.status === 'error').length,
+  warning: S.rows.filter(r => r.status === 'warning').length,
+  valid: S.rows.filter(r => r.status === 'valid').length,
+});
+const importable = () => S.rows.filter(r => r.status !== 'error' && !(r.exists && S.existingMode === 'skip'));
+
+/* ---------- Dialog / toast / guard ---------- */
+let dlgOnOk = null, dlgTrigger = null;
+function confirmDialog({ title, body, ok, cancel = 'Cancel', danger = false, onOk }) {
+  dlgTrigger = document.activeElement;
+  $('#dlgTitle').textContent = title; $('#dlgBody').textContent = body;
+  const okBtn = $('#dlgOk'), c = $('#dlgCancel');
+  okBtn.textContent = ok; okBtn.className = danger ? btnDanger : btnPrimary;
+  c.textContent = cancel; c.className = btnSecondary;
+  dlgOnOk = onOk; $('#dlg').showModal(); c.focus();
+}
+$('#dlgOk').onclick = () => { $('#dlg').close(); const f = dlgOnOk; dlgOnOk = null; f && f(); };
+$('#dlgCancel').onclick = () => $('#dlg').close();
+$('#dlg').addEventListener('close', () => { if (dlgTrigger && document.contains(dlgTrigger)) dlgTrigger.focus(); });
+
+function toast(msg, link) {
+  const t = document.createElement('div');
+  t.className = 'flex items-start gap-2 rounded-lg border border-slate-200 bg-white p-3 text-sm shadow-lg';
+  t.innerHTML = `${icon('check', 'mt-0.5 text-green-700')}<div class="flex-1">${esc(msg)}${link ? ` <button class="font-medium text-blue-700 underline" data-tlink>${esc(link.label)}</button>` : ''}</div><button class="rounded p-0.5 text-slate-600 hover:bg-slate-100" aria-label="Dismiss notification">${icon('x')}</button>`;
+  $('#toasts').appendChild(t);
+  let timer; const kill = () => t.remove(); const start = () => { timer = setTimeout(kill, link ? 10000 : 5000); };
+  start();
+  t.addEventListener('mouseenter', () => clearTimeout(timer)); t.addEventListener('mouseleave', start);
+  t.addEventListener('focusin', () => clearTimeout(timer)); t.addEventListener('focusout', start);
+  t.querySelector('[aria-label]').onclick = kill;
+  const l = t.querySelector('[data-tlink]'); if (l) l.onclick = () => { kill(); link.fn(); };
+}
+const hasUnsaved = () => !!S.file && S.step < 3 && !(S.job && S.job.status === 'done');
+function guard(fn) {
+  if (!hasUnsaved()) return fn();
+  confirmDialog({ title: 'Leave this import?', body: `${S.file.name} (${nf.format(S.raw.length)} rows) hasn't been imported. Your column mapping will be discarded.`, ok: 'Discard import', cancel: 'Keep editing', danger: true, onOk: () => { resetAll(); fn(); } });
+}
+window.addEventListener('beforeunload', e => { if (hasUnsaved() || (S.job && S.job.status === 'running')) { e.preventDefault(); e.returnValue = ''; } });
+
+/* ---------- Shell ---------- */
+const NAV = [['Dashboard', 'grid'], ['Products', 'box'], ['Stock levels', 'layers'], ['Purchase orders', 'truck'], ['Suppliers', 'users'], ['Reports', 'chart'], ['Settings', 'gear']];
+$('#sidenav').innerHTML = NAV.map(([n, i]) => `<a href="#${n.toLowerCase()}" data-guard="${n}" ${n === 'Products' ? 'aria-current="page"' : ''} class="flex h-8 items-center gap-2 rounded px-2 text-sm ${n === 'Products' ? 'bg-slate-200 font-medium text-slate-900' : 'text-slate-700 hover:bg-slate-100'}">${icon(i)}${n}</a>`).join('');
+document.addEventListener('click', e => {
+  const a = e.target.closest('[data-guard]'); if (!a) return;
+  e.preventDefault();
+  guard(() => { if (S.file || S.job) { resetAll(); toast('Import discarded'); } });
+});
+function renderJobs() {
+  const j = S.job; const active = j && (j.status === 'running' || (j.bg && j.status === 'done'));
+  $('#jobsCount').textContent = j ? '1' : '0';
+  $('#jobsPop').innerHTML = j ? `<p class="text-xs font-medium text-slate-600">Recent jobs</p>
+    <div class="mt-2 flex items-center justify-between gap-2 rounded border border-slate-200 p-2">
+      <div class="min-w-0"><p class="truncate text-sm font-medium">Import ${esc(j.id)}</p><p class="truncate text-xs text-slate-600">${esc(S.file ? S.file.name : '')} · ${j.status === 'running' ? `${nf.format(j.done)} of ${nf.format(j.total)}` : 'Finished'}</p></div>
+      ${j.status === 'running' ? badge('info', 'In progress') : j.failed.length ? badge('warning', 'Needs attention') : badge('success', 'Completed')}
+    </div>
+    <button class="${btnSecondary} mt-2 w-full" id="jobOpen">${j.status === 'running' ? 'View progress' : 'View results'}</button>`
+    : '<p class="text-sm text-slate-600">No import jobs yet. Imports you run in the background appear here.</p>';
+  const o = $('#jobOpen'); if (o) o.onclick = () => { S.job.bg = false; S.step = 3; S.maxStep = 3; $('#jobsPop').classList.add('hidden'); render(); };
+}
+$('#jobsBtn').onclick = () => { const p = $('#jobsPop'); const open = p.classList.toggle('hidden') === false; $('#jobsBtn').setAttribute('aria-expanded', open); };
+document.addEventListener('keydown', e => { if (e.key === 'Escape') { $('#jobsPop').classList.add('hidden'); $('#jobsBtn').setAttribute('aria-expanded', 'false'); } });
+
+/* ---------- Rendering ---------- */
+function stepper() {
+  return `<nav aria-label="Import steps"><ol class="flex flex-wrap items-center gap-2">${STEPS.map((s, i) => {
+    const done = i < S.step || (i === 3 && S.job && S.job.status === 'done');
+    const cur = i === S.step;
+    const clickable = i < S.step && !(S.job && S.job.status === 'running') && !(S.job && S.job.status === 'done');
+    const dot = `<span class="inline-flex h-6 w-6 items-center justify-center rounded-full text-xs font-medium ${done ? 'bg-blue-700 text-white' : cur ? 'border-2 border-blue-700 text-blue-700' : 'border border-slate-300 text-slate-600'}">${done ? icon('check', 'h-3 w-3') : i + 1}</span>`;
+    const label = `${dot}<span class="${cur ? 'font-semibold text-slate-900' : 'text-slate-700'}">${s}</span>`;
+    return `<li class="flex items-center gap-2" ${cur ? 'aria-current="step"' : ''}>${clickable ? `<button data-goto="${i}" class="flex items-center gap-2 rounded px-1 py-1 text-sm hover:bg-slate-100">${label}</button>` : `<span class="flex items-center gap-2 px-1 py-1 text-sm">${label}</span>`}${i < 3 ? '<span class="h-px w-8 bg-slate-300" aria-hidden="true"></span>' : ''}</li>`;
+  }).join('')}</ol></nav>`;
+}
+function header() {
+  return `<div class="flex flex-wrap items-start justify-between gap-3">
+    <div><h1 class="text-xl font-semibold">Import products</h1><p class="mt-1 text-sm text-slate-600">Add or update products in bulk from a CSV file. Existing products are matched by SKU.</p></div>
+    <button id="tplBtn" class="${btnSecondary}">${icon('down')}Download template</button></div>
+    <div class="mt-4">${stepper()}</div>`;
+}
+function bar(inner) {
+  return `<div class="sticky bottom-0 -mx-6 mt-6 border-t border-slate-200 bg-white px-6 py-3"><div class="mx-auto flex max-w-6xl flex-wrap items-center justify-end gap-3">${inner}</div></div>`;
+}
+const unsaved = () => '<span class="mr-auto text-sm text-slate-600" role="status">Unsaved changes</span>';
+
+function render() {
+  const p = $('#page');
+  document.title = S.job && S.job.status === 'running' ? `Importing ${Math.round(S.job.done / S.job.total * 100)}%… · Stockroom` : 'Import products · Stockroom';
+  let body = '';
+  if (S.step === 0) body = viewUpload();
+  else if (S.step === 1) body = viewMap();
+  else if (S.step === 2) body = viewPreview();
+  else body = viewImport();
+  p.innerHTML = header() + `<div class="mt-6">${body}</div>`;
+  $('#tplBtn').onclick = () => { download('products-template.csv', toCSV([FIELDS.map(f => f.label).concat('Notes'), ['BEV-2001', 'Mineral water 500 ml', 'Beverages', '4000', '5500', '240', '60', '8934560001234', 'Hà Nội', '']])); toast('Template downloaded'); };
+  p.querySelectorAll('[data-goto]').forEach(b => b.onclick = () => { S.step = +b.dataset.goto; render(); });
+  bind();
+  renderJobs();
+}
+
+/* Step 1: upload */
+function viewUpload() {
+  const err = S.uploadError;
+  return `<section class="rounded-md border border-slate-200 bg-white p-6">
+    <h2 class="text-base font-semibold">Upload a CSV file</h2>
+    <p class="mt-1 text-sm text-slate-600">Up to 5 MB and 5,000 rows. The first row must contain column headers. Not sure about the format? Download the template above.</p>
+    ${err ? `<div id="upErr" role="alert" class="mt-4 flex items-start gap-2 rounded border border-red-200 bg-red-50 p-3 text-sm text-red-800">${icon('alert', 'mt-0.5')}<div class="flex-1"><p class="font-medium">${esc(err.title)}</p><p>${esc(err.detail)}</p></div></div>` : ''}
+    <div id="drop" class="mt-4 flex flex-col items-center gap-3 rounded-md border-2 border-dashed border-slate-300 bg-slate-50 px-6 py-10 text-center">
+      ${icon('upload', 'h-6 w-6 text-slate-600')}
+      <p class="text-sm">Drag a CSV file here, or</p>
+      <label class="${btnPrimary} cursor-pointer focus-within:outline focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-blue-700">Choose file<input id="fileIn" type="file" accept=".csv,text/csv" class="sr-only"></label>
+      <p class="text-xs text-slate-600">Accepted: .csv, UTF-8 encoded, comma separated</p>
+    </div>
+    <div class="mt-4 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-slate-600">
+      <span>No file to hand?</span>
+      <button class="font-medium text-blue-700 underline" id="useSample">Use sample file (64 rows)</button>
+      <button class="font-medium text-blue-700 underline" id="useBad">Try a file in the wrong format</button>
+      <button class="font-medium text-blue-700 underline" id="useFlaky">Try a sample where validation fails once</button>
+    </div>
+  </section>
+  <section class="mt-4 rounded-md border border-slate-200 bg-white p-6">
+    <h2 class="text-base font-semibold">Recent imports</h2>
+    <div class="mt-3 overflow-x-auto"><table class="w-full text-sm">
+      <thead><tr class="h-10 border-b border-slate-200 text-left text-slate-600"><th class="font-medium">File</th><th class="font-medium">Imported by</th><th class="font-medium">Date</th><th class="text-right font-medium">Created</th><th class="text-right font-medium">Updated</th><th class="text-right font-medium">Failed</th><th class="font-medium pl-6">Status</th></tr></thead>
+      <tbody>
+      ${[['products-october.csv', 'Nguyễn Thu Hà', '28/10/2026 09:12', 412, 38, 0, 'success', 'Completed'], ['seasonal-items.csv', 'Trần Minh Quân', '14/10/2026 16:40', 96, 0, 7, 'warning', 'Needs attention'], ['warehouse-dn-stock.csv', 'Lê Hoàng Nam', '02/10/2026 11:05', 0, 220, 0, 'success', 'Completed']].map(r => `<tr class="h-10 border-b border-slate-100 hover:bg-slate-50"><td>${esc(r[0])}</td><td>${esc(r[1])}</td><td class="tnum">${r[2]}</td><td class="text-right tnum">${nf.format(r[3])}</td><td class="text-right tnum">${nf.format(r[4])}</td><td class="text-right tnum">${nf.format(r[5])}</td><td class="pl-6">${badge(r[6], r[7])}</td></tr>`).join('')}
+      </tbody></table></div>
+  </section>`;
+}
+function takeFile(name, size, text, opts = {}) {
+  S.uploadError = null;
+  if (!/\.csv$/i.test(name)) return fail('This file isn\'t a CSV', `"${name}" has the wrong extension. Export your spreadsheet as CSV (comma delimited) and try again.`);
+  if (size > 5 * 1024 * 1024) return fail('File is too large', `${name} is ${fmtSize(size)}. The limit is 5 MB. Split the file and import it in parts.`);
+  const rows = parseCSV(text);
+  if (!rows.length) return fail('The file is empty', `${name} has no content. Check the export and upload it again.`);
+  if (rows.length < 2) return fail('No data rows found', `${name} only has a header row. Add at least one product row.`);
+  if (rows.length - 1 > 5000) return fail('Too many rows', `${name} has ${nf.format(rows.length - 1)} rows. The limit is 5,000 per import.`);
+  if (rows[0].length < 3) return fail('Columns not recognised', `${name} has ${rows[0].length} column. Is it comma separated? Semicolon or tab separated files aren't supported.`);
+  S.file = { name, size, text }; S.headers = rows[0]; S.raw = rows.slice(1);
+  S.mapping = autoMap(); S.mapErrors = null; S.existing = opts.existing || new Set(); S.failNextValidation = !!opts.flaky;
+  S.step = 1; S.maxStep = 1; S.dirty = true; render();
+  $('#main').focus();
+}
+function fail(title, detail) { S.uploadError = { title, detail }; render(); const e = $('#upErr'); e && e.scrollIntoView({ block: 'nearest' }); }
+
+/* Step 2: map */
+function viewMap() {
+  const missing = FIELDS.filter(f => f.req && S.mapping[f.key] < 0);
+  const ignored = S.headers.filter((h, i) => !Object.values(S.mapping).includes(i));
+  const summary = S.mapErrors ? `<div id="mapSummary" role="alert" tabindex="-1" class="mb-4 rounded border border-red-200 bg-red-50 p-3 text-sm text-red-800"><p class="font-medium">${S.mapErrors.length} required ${S.mapErrors.length === 1 ? 'field isn\'t' : 'fields aren\'t'} mapped</p><ul class="mt-1 list-disc pl-5">${S.mapErrors.map(f => `<li><a class="underline" href="#map-${f.key}" data-focus="map-${f.key}">${esc(f.label)}: choose a column</a></li>`).join('')}</ul></div>` : '';
+  return `<section class="rounded-md border border-slate-200 bg-white">
+    <div class="flex flex-wrap items-center justify-between gap-2 border-b border-slate-200 p-4">
+      <div><h2 class="text-base font-semibold">Map columns</h2><p class="mt-1 text-sm text-slate-600">${icon('file', 'inline mr-1 align-text-bottom')}${esc(S.file.name)} · ${nf.format(S.raw.length)} rows · ${fmtSize(S.file.size)}. We matched ${FIELDS.filter(f => S.mapping[f.key] >= 0).length} of ${FIELDS.length} fields automatically.</p></div>
+      <button class="${btnSecondary}" id="replaceFile">Choose another file</button>
+    </div>
+    <div class="p-4">${summary}
+    <div class="overflow-x-auto"><table class="w-full text-sm" id="mapTable">
+      <thead><tr class="h-10 border-b border-slate-200 text-left text-slate-600">
+        <th class="font-medium">Product field</th><th class="font-medium">Column in your file</th><th class="font-medium">Sample values</th><th class="font-medium">Match</th></tr></thead>
+      <tbody>${FIELDS.map(f => `<tr class="border-b border-slate-100" data-row="${f.key}">
+        <th scope="row" class="py-1 pr-4 text-left font-normal"><label for="map-${f.key}">${esc(f.label)}${f.req ? ' <span class="text-red-700" aria-hidden="true">*</span><span class="sr-only">(required)</span>' : ' <span class="text-xs text-slate-600">(optional)</span>'}</label></th>
+        <td class="py-1 pr-4"><select id="map-${f.key}" data-map="${f.key}" class="h-8 w-64 rounded border border-slate-300 bg-white px-2 text-sm" ${f.req ? 'aria-required="true"' : ''}>
+          <option value="-1">${f.req ? 'Select a column' : 'Don\'t import'}</option>
+          ${S.headers.map((h, i) => `<option value="${i}" ${S.mapping[f.key] === i ? 'selected' : ''}>${esc(h || '(blank header)')}</option>`).join('')}</select>
+          <p class="hidden text-xs text-red-800" data-err="${f.key}"></p></td>
+        <td class="max-w-xs truncate py-1 pr-4 text-slate-600" data-sample="${f.key}"></td>
+        <td class="py-1" data-match="${f.key}"></td></tr>`).join('')}</tbody></table></div>
+    <p class="mt-3 text-sm text-slate-600" id="ignoredNote"></p></div>
+  </section>` + bar(`${unsaved()}<button class="${btnSecondary} mr-auto" data-goto="0">Back</button><button class="${btnSecondary}" id="cancelImport">Cancel</button><button class="${btnPrimary}" id="toPreview">Continue to preview</button>`)
+    .replace('<span class="mr-auto text-sm', '<span class="text-sm').replace(' mr-auto" data-goto', '" data-goto');
+}
+function updateMapView() {
+  FIELDS.forEach(f => {
+    const i = S.mapping[f.key];
+    const smp = $(`[data-sample="${f.key}"]`); if (!smp) return;
+    const vals = i >= 0 ? S.raw.slice(0, 3).map(r => r[i]).filter(v => v) : [];
+    smp.textContent = i >= 0 ? (vals.join(' · ') || '(blank in first rows)') : '—';
+    const m = $(`[data-match="${f.key}"]`);
+    m.innerHTML = i >= 0 ? badge('success', 'Mapped') : f.req ? badge('danger', 'Required') : badge('neutral', 'Not imported');
+    const sel = $(`#map-${f.key}`); const er = $(`[data-err="${f.key}"]`);
+    if (S.mapErrors && i < 0 && f.req) { er.textContent = `Choose the column that holds ${f.label.toLowerCase()}`; er.classList.remove('hidden'); sel.setAttribute('aria-invalid', 'true'); sel.classList.add('border-red-700'); }
+    else { er.classList.add('hidden'); sel.removeAttribute('aria-invalid'); sel.classList.remove('border-red-700'); }
+  });
+  const used = Object.values(S.mapping), ign = S.headers.filter((h, i) => !used.includes(i));
+  $('#ignoredNote').textContent = ign.length ? `${ign.length} ${ign.length === 1 ? 'column' : 'columns'} in your file won't be imported: ${ign.join(', ')}.` : 'Every column in your file is mapped.';
+}
+
+/* Step 3: preview */
+function filteredRows() {
+  const q = S.q.trim().toLowerCase();
+  return S.rows.filter(r => (S.tab === 'all' || r.status === S.tab) && (!q || r.v.sku.toLowerCase().includes(q) || r.v.name.toLowerCase().includes(q)));
+}
+function viewPreview() {
+  if (S.loading) return skeleton();
+  if (S.loadError) return `<section class="rounded-md border border-slate-200 bg-white p-8 text-center" role="alert">
+    <p class="text-base font-medium">Couldn't validate the file</p><p class="mt-1 text-sm text-slate-600">The validation service didn't respond. Your column mapping is kept.</p>
+    <div class="mt-4 flex justify-center gap-2"><button class="${btnSecondary}" data-goto="1">Back to mapping</button><button class="${btnPrimary}" id="retryVal">Retry</button></div></section>`;
+  const c = counts(); const imp = importable();
+  const rows = filteredRows(); const pages = Math.max(1, Math.ceil(rows.length / S.pageSize));
+  if (S.page > pages) S.page = pages;
+  const slice = rows.slice((S.page - 1) * S.pageSize, S.page * S.pageSize);
+  const skippedExisting = S.rows.filter(r => r.status !== 'error' && r.exists && S.existingMode === 'skip').length;
+  const tabs = [['all', 'All'], ['error', 'Errors'], ['warning', 'Warnings'], ['valid', 'Valid']];
+  const chips = S.q ? `<div class="flex flex-wrap items-center gap-2 px-4 pb-3 text-sm"><span class="inline-flex h-6 items-center gap-1 rounded-full bg-slate-100 pl-2 pr-1 text-xs font-medium text-slate-700">Search: ${esc(S.q)}<button class="rounded-full p-0.5 hover:bg-slate-200" aria-label="Remove search filter" data-clearq>${icon('x', 'h-3 w-3')}</button></span><button class="font-medium text-blue-700 underline" data-clearq>Clear all</button></div>` : '';
+  const banner = c.error
+    ? `<div role="status" class="flex flex-wrap items-center gap-3 border-b border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">${icon('alert')}<p class="flex-1"><span class="font-medium">${nf.format(S.rows.length)} rows · ${nf.format(c.error)} with errors.</span> Rows with errors are skipped. Fix them in your file and upload again, or import the ${nf.format(c.all - c.error)} other rows now.</p><button class="${btnSecondary}" id="dlFailed">${icon('down')}Download failed rows</button></div>`
+    : `<div role="status" class="flex items-center gap-3 border-b border-green-200 bg-green-50 px-4 py-3 text-sm text-green-800">${icon('check')}<p>${nf.format(S.rows.length)} rows checked. No errors found.</p></div>`;
+  const head = (t, right) => `<th class="h-10 whitespace-nowrap px-3 font-medium ${right ? 'text-right' : 'text-left'}">${t}</th>`;
+  const body = slice.length ? slice.map(r => {
+    const msgs = r.errors.concat(r.warns);
+    const first = msgs[0];
+    const tone = r.status === 'error' ? 'danger' : r.status === 'warning' ? 'warning' : 'success';
+    const label = r.status === 'error' ? 'Error' : r.status === 'warning' ? 'Warning' : 'Valid';
+    const action = r.status === 'error' ? 'Skip' : r.exists ? (S.existingMode === 'update' ? 'Update' : 'Skip (exists)') : 'Create';
+    return `<tr class="h-10 border-b border-slate-100 hover:bg-slate-50 ${r.status === 'error' ? 'bg-red-50/40' : ''}">
+      <td class="px-3 tnum text-right text-slate-600">${r.n}</td>
+      <td class="px-3">${badge(tone, label)}</td>
+      <td class="px-3 whitespace-nowrap font-medium">${esc(r.v.sku) || '<span class="text-slate-600">—</span>'}</td>
+      <td class="px-3 whitespace-nowrap max-w-[16rem] truncate" title="${esc(r.v.name)}">${esc(r.v.name) || '<span class="text-slate-600">—</span>'}</td>
+      <td class="px-3 whitespace-nowrap">${esc(r.v.category) || '—'}</td>
+      <td class="px-3 text-right tnum whitespace-nowrap">${r.v.cost !== '' && isNum(r.v.cost) ? vnd(toNum(r.v.cost)) : (r.v.cost ? esc(r.v.cost) : '—')}</td>
+      <td class="px-3 text-right tnum whitespace-nowrap">${r.v.price !== '' && isNum(r.v.price) ? vnd(toNum(r.v.price)) : (r.v.price ? esc(r.v.price) : '—')}</td>
+      <td class="px-3 text-right tnum whitespace-nowrap">${r.v.qty !== '' && isNum(r.v.qty) ? vnd(toNum(r.v.qty)) : (r.v.qty ? esc(r.v.qty) : '—')}</td>
+      <td class="px-3 whitespace-nowrap">${esc(r.v.warehouse)}</td>
+      <td class="px-3 whitespace-nowrap text-slate-700">${action}</td>
+      <td class="px-3 whitespace-nowrap max-w-[18rem] truncate ${r.status === 'error' ? 'text-red-800' : 'text-amber-800'}" ${msgs.length ? `title="${esc(msgs.map(m => m.msg).join('; '))}"` : ''}>${first ? esc(first.msg) + (msgs.length > 1 ? ` (+${msgs.length - 1} more)` : '') : ''}</td></tr>`;
+  }).join('') : `<tr><td colspan="11"><div class="flex flex-col items-center gap-3 px-6 py-12 text-center"><p class="text-base font-medium">${S.q ? 'No rows match this search' : 'No rows in this view'}</p><p class="text-sm text-slate-600">${S.q ? `Nothing in the file matches "${esc(S.q)}" with the ${S.tab === 'all' ? 'current' : S.tab} filter.` : 'Switch to another tab to see the rest of your file.'}</p><button class="${btnSecondary}" id="clearFilters">Clear filters</button></div></td></tr>`;
+  const pageBtns = Array.from({ length: pages }, (_, i) => i + 1).filter(p => pages <= 7 || Math.abs(p - S.page) <= 1 || p === 1 || p === pages)
+    .map((p, i, a) => (i && p - a[i - 1] > 1 ? '<span class="px-1 text-slate-600">…</span>' : '') + `<button data-page="${p}" class="h-8 min-w-8 rounded px-2 text-sm ${p === S.page ? 'bg-blue-700 text-white' : 'hover:bg-slate-100'}" ${p === S.page ? 'aria-current="page"' : ''} aria-label="Page ${p}">${p}</button>`).join('');
+  const from = rows.length ? (S.page - 1) * S.pageSize + 1 : 0, to = Math.min(rows.length, S.page * S.pageSize);
+  const none = imp.length === 0;
+  return `<section class="rounded-md border border-slate-200 bg-white">
+    <div class="border-b border-slate-200 p-4"><h2 class="text-base font-semibold">Preview and validate</h2>
+      <p class="mt-1 text-sm text-slate-600">${nf.format(c.valid)} valid · ${nf.format(c.warning)} with warnings · ${nf.format(c.error)} with errors. Nothing is imported until you confirm.</p>
+      <fieldset class="mt-3"><legend class="text-sm font-medium">When a SKU already exists</legend>
+        <div class="mt-1 flex flex-wrap gap-x-6 gap-y-1 text-sm">
+          <label class="inline-flex min-h-6 items-center gap-2"><input type="radio" name="exmode" value="update" ${S.existingMode === 'update' ? 'checked' : ''}> Update the existing product (${nf.format(S.rows.filter(r => r.exists && r.status !== 'error').length)} rows)</label>
+          <label class="inline-flex min-h-6 items-center gap-2"><input type="radio" name="exmode" value="skip" ${S.existingMode === 'skip' ? 'checked' : ''}> Skip it and keep current data</label>
+        </div></fieldset></div>
+    ${banner}
+    <div class="flex flex-wrap items-center justify-between gap-3 p-4">
+      <div role="tablist" aria-label="Filter rows" class="flex gap-1">${tabs.map(([k, l]) => `<button role="tab" aria-selected="${S.tab === k}" data-tab="${k}" class="h-8 rounded px-3 text-sm ${S.tab === k ? 'bg-blue-50 font-medium text-blue-800' : 'text-slate-700 hover:bg-slate-100'}">${l} <span class="tnum">${nf.format(c[k])}</span></button>`).join('')}</div>
+      <input id="q" type="search" value="${esc(S.q)}" placeholder="Search SKU or name" aria-label="Search rows by SKU or product name" class="h-8 w-64 rounded border border-slate-300 px-2 text-sm">
+    </div>${chips}
+    <div class="overflow-x-auto border-t border-slate-200"><table class="w-full text-sm" aria-busy="false">
+      <thead class="bg-slate-50 text-slate-700"><tr>${head('Row', 1)}${head('Result')}${head('SKU')}${head('Product name')}${head('Category')}${head('Cost (VND)', 1)}${head('Price (VND)', 1)}${head('Qty', 1)}${head('Warehouse')}${head('Action')}${head('Issue')}</tr></thead>
+      <tbody>${body}</tbody></table></div>
+    <div role="status" class="sr-only">${nf.format(rows.length)} rows shown</div>
+    <div class="flex flex-wrap items-center justify-between gap-3 border-t border-slate-200 p-3 text-sm">
+      <span class="tnum text-slate-600">${from}–${to} of ${nf.format(rows.length)}</span>
+      <div class="flex items-center gap-3"><label class="flex items-center gap-2 text-slate-600">Rows per page <select id="pgSize" class="h-8 rounded border border-slate-300 bg-white px-1">${[25, 50, 100].map(n => `<option ${n === S.pageSize ? 'selected' : ''}>${n}</option>`).join('')}</select></label>
+      <nav aria-label="Pagination" class="flex items-center gap-1"><button data-page="${S.page - 1}" class="${btnSecondary}" ${S.page <= 1 ? 'disabled' : ''}>Previous</button>${pageBtns}<button data-page="${S.page + 1}" class="${btnSecondary}" ${S.page >= pages ? 'disabled' : ''}>Next</button></nav></div>
+    </div></section>`
+    + bar(`${unsaved()}${none ? '<span class="text-sm text-slate-700">No valid rows to import. Fix the file and upload it again.</span>' : `<span class="text-sm text-slate-700 tnum">${nf.format(imp.length)} rows will be imported${c.error ? `, ${nf.format(c.error)} skipped` : ''}${skippedExisting ? `, ${nf.format(skippedExisting)} existing kept` : ''}</span>`}<button class="${btnSecondary}" data-goto="1">Back</button><button class="${btnSecondary}" id="cancelImport">Cancel</button><button class="${btnPrimary}" id="runImport" ${none ? 'disabled' : ''}>Import ${nf.format(imp.length)} rows</button>`)
+      .replace('<span class="mr-auto text-sm', '<span class="text-sm');
+}
+function skeleton() {
+  return `<section class="rounded-md border border-slate-200 bg-white" aria-busy="true"><div class="border-b border-slate-200 p-4"><h2 class="text-base font-semibold">Preview and validate</h2><p class="mt-1 text-sm text-slate-600">Checking ${nf.format(S.raw.length)} rows…</p></div>
+    <div role="status" class="sr-only">Validating file</div>
+    <div aria-hidden="true">${Array.from({ length: 10 }, () => `<div class="flex h-10 items-center gap-4 border-b border-slate-100 px-3">${[8, 14, 12, 40, 18, 12, 12, 8].map(w => `<div class="h-4 animate-pulse rounded bg-slate-200 motion-reduce:animate-none" style="width:${w}%"></div>`).join('')}</div>`).join('')}</div></section>`;
+}
+function startValidation() {
+  S.loading = true; S.loadError = false; render();
+  setTimeout(() => {
+    S.loading = false;
+    if (S.failNextValidation) { S.failNextValidation = false; S.loadError = true; }
+    else validateAll();
+    S.tab = 'all'; S.q = ''; S.page = 1;
+    render();
+  }, 500);
+}
+function failedRowsCSV(list) {
+  return toCSV([S.headers.concat('Error')].concat(list.map(r => r.raw.concat(Array(Math.max(0, S.headers.length - r.raw.length)).fill('')).concat(r.reason || r.errors.map(e => e.msg).join('; ')))));
+}
+
+/* Step 4: run + summary */
+function viewImport() {
+  const j = S.job;
+  if (!j) return '';
+  if (j.status === 'running') {
+    const pct = Math.round(j.done / j.total * 100);
+    return `<section class="rounded-md border border-slate-200 bg-white p-6" aria-live="off">
+      <h2 class="text-base font-semibold">Importing products</h2>
+      <p class="mt-1 text-sm text-slate-600">You can leave this page. The import keeps running and shows under Jobs.</p>
+      <div class="mt-5 flex items-baseline justify-between text-sm"><span id="progText" role="status" class="font-medium tnum">Importing ${nf.format(j.done)} of ${nf.format(j.total)}</span><span id="progPct" class="tnum text-slate-600">${pct}%</span></div>
+      <div class="mt-2 h-2 overflow-hidden rounded-full bg-slate-100" role="progressbar" aria-label="Import progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${pct}" id="progBar"><div class="prog h-full bg-blue-700 transition-all" style="width:${pct}%" id="progFill"></div></div>
+      <p class="mt-3 text-sm text-slate-600 tnum" id="progSub">${nf.format(j.created)} created · ${nf.format(j.updated)} updated · ${nf.format(j.failed.length)} failed so far</p>
+      <div class="mt-6 flex gap-2"><button class="${btnSecondary}" id="bgBtn">Run in background</button><button class="${btnSecondary}" id="stopBtn">Stop import</button></div></section>`;
+  }
+  const f = j.failed;
+  const tone = f.length ? 'warning' : 'success';
+  const fig = (label, n, t) => `<div class="rounded-md border border-slate-200 p-4"><p class="text-sm text-slate-600">${label}</p><p class="mt-1 text-2xl font-semibold tnum">${nf.format(n)}</p>${t ? `<div class="mt-1">${t}</div>` : ''}</div>`;
+  return `<section class="rounded-md border border-slate-200 bg-white">
+    <div class="p-6"><div class="flex flex-wrap items-center justify-between gap-2"><h2 class="text-base font-semibold">${j.stopped ? 'Import stopped' : 'Import finished'}</h2>${badge(f.length || j.stopped ? 'warning' : 'success', f.length || j.stopped ? 'Needs attention' : 'Completed')}</div>
+      <p class="mt-1 text-sm text-slate-600">Job ${esc(j.id)} · ${esc(S.file.name)} · started by Nguyễn Thu Hà on ${dtf.format(j.startedAt).replace(',', '')}</p>
+      <div role="status" class="mt-4 flex items-start gap-2 rounded border p-3 text-sm ${f.length || j.stopped ? 'border-amber-200 bg-amber-50 text-amber-800' : 'border-green-200 bg-green-50 text-green-800'}">${icon(f.length || j.stopped ? 'alert' : 'check', 'mt-0.5')}<p>${nf.format(j.created)} created, ${nf.format(j.updated)} updated, ${nf.format(f.length)} failed${j.skipped ? `, ${nf.format(j.skipped)} skipped` : ''}.${j.stopped ? ` You stopped the import after ${nf.format(j.done)} of ${nf.format(j.total)} rows; imported rows were kept.` : ''}${f.length ? ' Fix the failed rows and import them again.' : ''}</p></div>
+      <div class="mt-4 grid gap-3 sm:grid-cols-4">${fig('Created', j.created, '')}${fig('Updated', j.updated, '')}${fig('Failed', f.length, f.length ? badge('danger', 'See below') : '')}${fig('Skipped', j.skipped, '<span class="text-xs text-slate-600">Existing SKUs kept</span>'.replace(/^.*$/, j.skipped ? '<span class="text-xs text-slate-600">Existing SKUs kept</span>' : ''))}</div></div>
+    ${f.length ? `<div class="border-t border-slate-200"><div class="flex flex-wrap items-center justify-between gap-2 p-4"><h3 class="text-base font-semibold" id="failedHead" tabindex="-1">Failed rows (${nf.format(f.length)})</h3><button class="${btnSecondary}" id="dlFailed">${icon('down')}Download failed rows</button></div>
+      <div class="overflow-x-auto"><table class="w-full text-sm"><thead class="bg-slate-50 text-slate-700"><tr><th class="h-10 px-3 text-right font-medium">Row</th><th class="px-3 text-left font-medium">SKU</th><th class="px-3 text-left font-medium">Product name</th><th class="px-3 text-left font-medium">Field</th><th class="px-3 text-left font-medium">Reason</th></tr></thead>
+      <tbody>${f.slice(0, 50).map(r => `<tr class="h-10 border-t border-slate-100 hover:bg-slate-50"><td class="px-3 text-right tnum">${r.n}</td><td class="px-3 whitespace-nowrap">${esc(r.v.sku) || '—'}</td><td class="px-3 whitespace-nowrap">${esc(r.v.name) || '—'}</td><td class="px-3 whitespace-nowrap">${esc(r.field)}</td><td class="px-3 whitespace-nowrap text-red-800">${esc(r.reason)}</td></tr>`).join('')}</tbody></table></div></div>` : ''}
+    <div class="flex flex-wrap justify-end gap-2 border-t border-slate-200 p-4"><button class="${btnSecondary}" id="again">Import another file</button><a href="#products" class="${btnPrimary}" data-guard="Products">View products</a></div></section>`;
+}
+function startJob() {
+  const list = importable(); const bad = S.rows.filter(r => r.status === 'error');
+  const id = 'IMP-' + (2041 + Math.floor(Math.random() * 40));
+  S.job = { id, status: 'running', total: list.length, done: 0, created: 0, updated: 0, failed: bad.map(r => ({ n: r.n, v: r.v, raw: r.raw, field: r.errors[0].field, reason: r.errors[0].msg + (r.errors.length > 1 ? ` (+${r.errors.length - 1} more)` : ''), errors: r.errors })), skipped: S.rows.filter(r => r.status !== 'error' && r.exists && S.existingMode === 'skip').length, startedAt: new Date(), bg: false, queue: list, stopped: false };
+  S.step = 3; S.maxStep = 3; S.dirty = false; render();
+  $('#main').focus();
+  clearInterval(S.jobTimer);
+  S.jobTimer = setInterval(tick, 250);
+}
+function tick() {
+  const j = S.job; if (!j || j.status !== 'running') return clearInterval(S.jobTimer);
+  const batch = j.queue.splice(0, 4);
+  batch.forEach(r => {
+    j.done++;
+    const other = r.v.barcode && CONFLICT_BARCODES[r.v.barcode];
+    if (other) { j.failed.push({ n: r.n, v: r.v, raw: r.raw, field: 'Barcode', reason: `Barcode is already used by ${other}`, errors: [] }); return; }
+    if (r.exists) j.updated++; else j.created++;
+  });
+  if (!j.queue.length) return finishJob(false);
+  if (S.step === 3 && !j.bg) {
+    const pct = Math.round(j.done / j.total * 100);
+    const t = $('#progText'); if (!t) return;
+    t.textContent = `Importing ${nf.format(j.done)} of ${nf.format(j.total)}`;
+    $('#progPct').textContent = pct + '%'; $('#progFill').style.width = pct + '%'; $('#progBar').setAttribute('aria-valuenow', pct);
+    $('#progSub').textContent = `${nf.format(j.created)} created · ${nf.format(j.updated)} updated · ${nf.format(j.failed.length)} failed so far`;
+  }
+  document.title = `Importing ${Math.round(j.done / j.total * 100)}%… · Stockroom`;
+  renderJobs();
+}
+function finishJob(stopped) {
+  clearInterval(S.jobTimer);
+  const j = S.job; j.status = 'done'; j.stopped = stopped; j.skipped += stopped ? j.queue.length : 0; j.queue = [];
+  document.title = 'Import finished · Stockroom';
+  if (j.bg) toast(`Import finished: ${nf.format(j.created)} created, ${nf.format(j.updated)} updated, ${nf.format(j.failed.length)} failed.`, { label: 'View results', fn: () => { j.bg = false; S.step = 3; render(); } });
+  else { render(); $('#main').focus(); }
+  if (!j.bg && j.failed.length === 0) toast(`Import ${j.id} finished`);
+  renderJobs();
+}
+
+/* ---------- Events ---------- */
+function bind() {
+  const p = $('#page');
+  const on = (sel, fn) => { const el = $(sel, p); if (el) el.onclick = fn; };
+  on('#useSample', () => takeFile('products-november.csv', new Blob([SAMPLE.csv]).size, SAMPLE.csv, { existing: SAMPLE.existing }));
+  on('#useFlaky', () => takeFile('products-november-flaky.csv', new Blob([SAMPLE.csv]).size, SAMPLE.csv, { existing: SAMPLE.existing, flaky: true }));
+  on('#useBad', () => takeFile('price-list.xlsx', 48213, 'PK\u0003\u0004binary'));
+  const fi = $('#fileIn', p); if (fi) fi.onchange = () => { const f = fi.files[0]; if (!f) return; const r = new FileReader(); r.onload = () => takeFile(f.name, f.size, String(r.result)); r.onerror = () => fail('Couldn\'t read the file', 'The browser could not read ' + f.name + '. Try again.'); r.readAsText(f); };
+  const drop = $('#drop', p);
+  if (drop) { drop.ondragover = e => { e.preventDefault(); drop.classList.add('border-blue-700', 'bg-blue-50'); }; drop.ondragleave = () => drop.classList.remove('border-blue-700', 'bg-blue-50'); drop.ondrop = e => { e.preventDefault(); const f = e.dataTransfer.files[0]; if (f) { const r = new FileReader(); r.onload = () => takeFile(f.name, f.size, String(r.result)); r.readAsText(f); } }; }
+  on('#replaceFile', () => guard(() => { resetAll(); render(); }));
+  on('#cancelImport', () => guard(() => { resetAll(); render(); toast('Import cancelled'); }));
+  p.querySelectorAll('[data-map]').forEach(s => s.onchange = () => {
+    const v = +s.value, k = s.dataset.map;
+    if (v >= 0) FIELDS.forEach(f => { if (f.key !== k && S.mapping[f.key] === v) S.mapping[f.key] = -1; document.getElementById('map-' + f.key).value = S.mapping[f.key]; });
+    S.mapping[k] = v;
+    if (S.mapErrors) S.mapErrors = FIELDS.filter(f => f.req && S.mapping[f.key] < 0);
+    if (S.mapErrors && !S.mapErrors.length) { S.mapErrors = null; const sm = $('#mapSummary'); sm && sm.remove(); }
+    updateMapView();
+  });
+  p.querySelectorAll('[data-map]').forEach(s => s.onblur = () => { const f = FIELDS.find(x => x.key === s.dataset.map); if (f.req && S.mapping[f.key] < 0) { S.mapErrors = FIELDS.filter(x => x.req && S.mapping[x.key] < 0); } });
+  if (S.step === 1) updateMapView();
+  p.querySelectorAll('[data-focus]').forEach(a => a.onclick = e => { e.preventDefault(); document.getElementById(a.dataset.focus).focus(); });
+  on('#toPreview', () => {
+    const miss = FIELDS.filter(f => f.req && S.mapping[f.key] < 0);
+    if (miss.length) {
+      S.mapErrors = miss; render();
+      const el = miss.length >= 3 ? $('#mapSummary') : document.getElementById('map-' + miss[0].key);
+      (miss.length >= 3 ? document.getElementById('map-' + miss[0].key) : el).focus(); return;
+    }
+    S.mapErrors = null; S.step = 2; S.maxStep = 2; startValidation();
+  });
+  on('#retryVal', () => startValidation());
+  p.querySelectorAll('[data-tab]').forEach(b => b.onclick = () => { S.tab = b.dataset.tab; S.page = 1; render(); });
+  const q = $('#q', p); if (q) q.oninput = () => { S.q = q.value; S.page = 1; render(); const n = $('#q'); n.focus(); n.setSelectionRange(n.value.length, n.value.length); };
+  p.querySelectorAll('[data-clearq]').forEach(b => b.onclick = () => { S.q = ''; render(); });
+  on('#clearFilters', () => { S.q = ''; S.tab = 'all'; S.page = 1; render(); });
+  p.querySelectorAll('[data-page]').forEach(b => b.onclick = () => { S.page = +b.dataset.page; render(); });
+  const ps = $('#pgSize', p); if (ps) ps.onchange = () => { S.pageSize = +ps.value; S.page = 1; render(); };
+  p.querySelectorAll('[name=exmode]').forEach(r => r.onchange = () => { S.existingMode = r.value; render(); });
+  on('#dlFailed', () => {
+    const list = S.step === 3 && S.job ? S.job.failed : S.rows.filter(r => r.status === 'error');
+    const rows = list.map(r => ({ raw: r.raw, errors: r.errors || [], reason: r.reason }));
+    download('products-failed-rows.csv', failedRowsCSV(rows)); toast(`Downloaded ${nf.format(list.length)} failed rows`);
+  });
+  on('#runImport', () => {
+    const n = importable().length; const c = counts();
+    confirmDialog({ title: `Import ${nf.format(n)} products?`, body: `${nf.format(S.rows.filter(r => r.status !== 'error' && !r.exists).length)} new products will be created and ${S.existingMode === 'update' ? nf.format(S.rows.filter(r => r.status !== 'error' && r.exists).length) + ' existing products updated' : 'existing SKUs kept as they are'}. ${c.error ? nf.format(c.error) + ' rows with errors are skipped.' : ''}`, ok: `Import ${nf.format(n)} rows`, cancel: 'Cancel', onOk: startJob });
+  });
+  on('#bgBtn', () => {
+    S.job.bg = true; S.step = 0; const keep = S.job; resetUi(); S.job = keep; render();
+    toast('Import continues in the background. Open Jobs to follow it.');
+  });
+  on('#stopBtn', () => confirmDialog({ title: 'Stop import?', body: `${nf.format(S.job.done)} rows are already imported and won't be rolled back. The remaining ${nf.format(S.job.queue.length)} rows will not be imported.`, ok: 'Stop import', cancel: 'Keep importing', danger: true, onOk: () => finishJob(true) }));
+  on('#again', () => { resetAll(); render(); });
+  const fh = $('#failedHead', p);
+}
+function resetUi() { Object.assign(S, { step: 0, maxStep: 0, file: null, uploadError: null, headers: [], raw: [], mapping: {}, mapErrors: null, rows: [], loading: false, loadError: false, tab: 'all', q: '', page: 1, dirty: false, existing: new Set(), existingMode: 'update' }); }
+function resetAll() { clearInterval(S.jobTimer); resetUi(); S.job = null; }
+
+render();
+</script>
+</body>
+</html>

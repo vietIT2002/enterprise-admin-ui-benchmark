@@ -1,0 +1,531 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ER-2026-0418 · Expense requests · Minh Phát Group</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+  body { font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; font-size: 14px; color: #0f172a; }
+  html { scroll-padding-bottom: 72px; }
+  :focus-visible { outline: 2px solid #1d4ed8; outline-offset: 2px; }
+  dialog { border: 0; padding: 0; border-radius: 8px; max-width: 32rem; width: calc(100% - 32px); box-shadow: 0 10px 30px rgba(15,23,42,.25); }
+  dialog::backdrop { background: rgba(15,23,42,.4); }
+  .skel { background: #e2e8f0; border-radius: 4px; animation: pulse 1.2s ease-in-out infinite; }
+  @keyframes pulse { 50% { opacity: .5; } }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .spin { animation: spin .8s linear infinite; }
+</style>
+</head>
+<body class="bg-slate-50">
+
+<a href="#main" class="sr-only focus:not-sr-only focus:absolute focus:left-2 focus:top-2 focus:bg-white focus:p-2">Skip to content</a>
+
+<!-- Demo bar -->
+<div class="border-b border-slate-200 bg-white px-4 py-1.5 text-xs text-slate-700 flex flex-wrap items-center gap-x-4 gap-y-1">
+  <span class="font-medium">Prototype controls</span>
+  <label class="flex items-center gap-1.5">Viewing as
+    <select id="viewAs" class="h-8 rounded border border-slate-300 bg-white px-2 text-sm text-slate-900">
+      <option value="approver">Trần Minh Quân (Finance manager)</option>
+      <option value="requester">Lê Thị Hoa (requester)</option>
+      <option value="other">Vũ Đức Anh (Sales staff)</option>
+    </select>
+  </label>
+  <label class="flex items-center gap-1.5">Attachments data
+    <select id="attState" class="h-8 rounded border border-slate-300 bg-white px-2 text-sm text-slate-900">
+      <option value="ok">Normal</option>
+      <option value="empty">No files</option>
+      <option value="error">Load error</option>
+    </select>
+  </label>
+  <button id="resetDemo" class="h-8 rounded border border-slate-300 bg-white px-2 text-sm text-slate-900 hover:bg-slate-50">Reset request</button>
+</div>
+
+<div class="flex min-h-screen">
+  <aside class="hidden lg:block w-60 shrink-0 border-r border-slate-200 bg-slate-50">
+    <div class="flex h-12 items-center border-b border-slate-200 px-4 font-semibold">Minh Phát Group</div>
+    <nav aria-label="Main" class="flex flex-col gap-4 p-2">
+      <div class="flex flex-col gap-0.5">
+        <p class="px-2 py-1 text-xs font-medium text-slate-600">Workspace</p>
+        <a href="#" class="flex h-8 items-center rounded px-2 text-slate-800 hover:bg-slate-100">Dashboard</a>
+        <a href="#" class="flex h-8 items-center rounded px-2 text-slate-800 hover:bg-slate-100">My tasks <span class="ml-auto rounded-full bg-slate-200 px-1.5 text-xs text-slate-800">4</span></a>
+      </div>
+      <div class="flex flex-col gap-0.5">
+        <p class="px-2 py-1 text-xs font-medium text-slate-600">Finance</p>
+        <a href="#" aria-current="page" class="flex h-8 items-center rounded bg-slate-200 px-2 font-medium text-slate-900">Expense requests</a>
+        <a href="#" class="flex h-8 items-center rounded px-2 text-slate-800 hover:bg-slate-100">Invoices</a>
+        <a href="#" class="flex h-8 items-center rounded px-2 text-slate-800 hover:bg-slate-100">Budgets</a>
+        <a href="#" class="flex h-8 items-center rounded px-2 text-slate-800 hover:bg-slate-100">Reimbursements</a>
+      </div>
+      <div class="flex flex-col gap-0.5">
+        <p class="px-2 py-1 text-xs font-medium text-slate-600">Administration</p>
+        <a href="#" class="flex h-8 items-center rounded px-2 text-slate-800 hover:bg-slate-100">Approval policies</a>
+        <a href="#" class="flex h-8 items-center rounded px-2 text-slate-800 hover:bg-slate-100">Users and roles</a>
+      </div>
+    </nav>
+  </aside>
+
+  <div class="min-w-0 flex-1 flex flex-col">
+    <header class="flex h-12 items-center justify-end gap-3 border-b border-slate-200 bg-white px-4">
+      <button class="h-8 rounded border border-slate-300 bg-white px-3 text-sm text-slate-700 hover:bg-slate-50">Search or run a command <kbd class="ml-2 text-xs text-slate-600">Ctrl K</kbd></button>
+      <button class="grid h-8 w-8 place-items-center rounded-full bg-slate-200 text-xs font-semibold text-slate-800" aria-label="Account menu" id="acct">QM</button>
+    </header>
+
+    <main id="main" class="flex-1 px-4 py-6 lg:px-6 pb-24">
+      <div class="mx-auto max-w-[1280px]">
+        <div id="page"></div>
+      </div>
+    </main>
+  </div>
+</div>
+
+<!-- Sticky bar: appears only with a drafted comment -->
+<div id="draftBar" class="hidden sticky bottom-0 z-20 border-t border-slate-200 bg-white px-4 py-2 text-sm lg:ml-60">
+  <span class="text-slate-700">Unsaved changes: your comment has not been sent with a decision.</span>
+  <button id="discardDraft" class="ml-3 h-8 rounded border border-slate-300 px-3 hover:bg-slate-50">Discard comment</button>
+</div>
+
+<!-- Reject dialog -->
+<dialog id="rejectDlg" aria-labelledby="rejectTitle">
+  <form method="dialog" id="rejectForm" novalidate class="p-6">
+    <h2 id="rejectTitle" class="text-base font-semibold">Reject expense request ER-2026-0418?</h2>
+    <p class="mt-1 text-slate-700">Lê Thị Hoa will be told it was rejected and can edit and resubmit. Steps 2 and 3 will not run.</p>
+    <label for="rejectReason" class="mt-4 block text-xs font-medium text-slate-800">Reason for rejection <span aria-hidden="true">*</span></label>
+    <textarea id="rejectReason" rows="4" class="mt-1 w-full rounded border border-slate-300 px-3 py-2" aria-describedby="rejectErr" aria-required="true"></textarea>
+    <p id="rejectErr" class="mt-1 hidden text-xs text-red-700" role="alert"></p>
+    <div class="mt-6 flex justify-end gap-2">
+      <button type="button" id="rejectCancel" autofocus class="h-8 rounded border border-slate-300 bg-white px-3 hover:bg-slate-50">Cancel</button>
+      <button type="submit" id="rejectGo" class="h-8 inline-flex items-center gap-2 rounded bg-red-600 px-3 font-medium text-white hover:bg-red-700 disabled:opacity-70">Reject request</button>
+    </div>
+  </form>
+</dialog>
+
+<!-- Withdraw dialog -->
+<dialog id="withdrawDlg" aria-labelledby="wdTitle">
+  <div class="p-6">
+    <h2 id="wdTitle" class="text-base font-semibold">Withdraw expense request ER-2026-0418?</h2>
+    <p class="mt-1 text-slate-700">The request leaves the approval flow at step 2 and cannot be approved. You can duplicate it later.</p>
+    <div class="mt-6 flex justify-end gap-2">
+      <button type="button" id="wdCancel" autofocus class="h-8 rounded border border-slate-300 bg-white px-3 hover:bg-slate-50">Keep request</button>
+      <button type="button" id="wdGo" class="h-8 rounded bg-red-600 px-3 font-medium text-white hover:bg-red-700">Withdraw request</button>
+    </div>
+  </div>
+</dialog>
+
+<!-- Preview dialog -->
+<dialog id="previewDlg" aria-labelledby="pvTitle" style="max-width:40rem">
+  <div class="p-6">
+    <div class="flex items-start justify-between gap-4">
+      <h2 id="pvTitle" class="text-base font-semibold break-all"></h2>
+      <button type="button" id="pvClose" class="h-8 rounded border border-slate-300 bg-white px-3 hover:bg-slate-50">Close</button>
+    </div>
+    <div id="pvBody" class="mt-4"></div>
+  </div>
+</dialog>
+
+<div id="toast" role="status" aria-live="polite" class="pointer-events-none fixed bottom-4 right-4 z-50"></div>
+
+<script>
+/* ---------- helpers ---------- */
+const TZ = 'Asia/Ho_Chi_Minh';
+const vnd = new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND', maximumFractionDigits: 0 });
+const dec1 = new Intl.NumberFormat('vi-VN', { maximumFractionDigits: 1 });
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+function stamp(iso) {
+  const d = new Date(iso);
+  const date = new Intl.DateTimeFormat('en-GB', { day:'2-digit', month:'2-digit', year:'numeric', timeZone: TZ }).format(d);
+  const time = new Intl.DateTimeFormat('en-GB', { hour:'2-digit', minute:'2-digit', hourCycle:'h23', timeZone: TZ }).format(d);
+  return `${date} ${time}`;
+}
+function dayOnly(iso) { return new Intl.DateTimeFormat('en-GB', { day:'2-digit', month:'2-digit', year:'numeric', timeZone: TZ }).format(new Date(iso)); }
+function size(b) { return b >= 1048576 ? dec1.format(b/1048576) + ' MB' : dec1.format(Math.max(1, Math.round(b/1024))) + ' KB'; }
+const now = () => new Date().toISOString();
+
+const ICON = {
+  eye: '<path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/>',
+  dl: '<path d="M12 3v12m0 0l-4-4m4 4l4-4M4 21h16"/>',
+  more: '<circle cx="5" cy="12" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/>',
+  check: '<path d="M20 6L9 17l-5-5"/>',
+  x: '<path d="M18 6L6 18M6 6l12 12"/>',
+  clock: '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',
+  circle: '<circle cx="12" cy="12" r="9"/>',
+  alert: '<path d="M12 3l10 18H2L12 3z"/><path d="M12 10v4M12 17.5v.01"/>',
+  file: '<path d="M14 3H6a2 2 0 00-2 2v14a2 2 0 002 2h12a2 2 0 002-2V9l-6-6z"/><path d="M14 3v6h6"/>',
+  ban: '<circle cx="12" cy="12" r="9"/><path d="M5 5l14 14"/>'
+};
+const ic = (n, c = '') => `<svg class="h-4 w-4 shrink-0 ${c}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICON[n]}</svg>`;
+const spinner = '<svg class="spin h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" aria-hidden="true"><circle cx="12" cy="12" r="9" opacity=".3"/><path d="M21 12a9 9 0 00-9-9"/></svg>';
+
+/* One status vocabulary: neutral / info / success / warning / danger */
+const TONES = {
+  neutral: ['bg-slate-100 text-slate-700', 'circle'],
+  info:    ['bg-blue-50 text-blue-700', 'clock'],
+  success: ['bg-green-50 text-green-800', 'check'],
+  warning: ['bg-amber-50 text-amber-800', 'alert'],
+  danger:  ['bg-red-50 text-red-700', 'x']
+};
+const STATUS_TONE = { 'Draft':'neutral','Withdrawn':'neutral','Not started':'neutral','Submitted':'info','In approval':'info','Current step':'info','Approved':'success','Over limit':'warning','Rejected':'danger' };
+function badge(label) {
+  const [cls, icon] = TONES[STATUS_TONE[label]];
+  return `<span class="inline-flex h-6 items-center gap-1 rounded-full px-2 text-xs font-medium ${cls}">${ic(icon)}<span>${esc(label)}</span></span>`;
+}
+
+/* ---------- mock data ---------- */
+const PEOPLE = {
+  requester: { name: 'Lê Thị Hoa', role: 'Sales executive' },
+  approver:  { name: 'Trần Minh Quân', role: 'Finance manager' },
+  other:     { name: 'Vũ Đức Anh', role: 'Sales staff' }
+};
+function freshState() {
+  return {
+    id: 'ER-2026-0418',
+    title: 'Client visit to Đà Nẵng – Công ty Minh Phát',
+    status: 'In approval',
+    category: 'Business travel',
+    costCenter: 'SAL-02 · Sales North',
+    project: 'Minh Phát renewal 2027',
+    purpose: 'Three-day visit to the Đà Nẵng office of Công ty Minh Phát to negotiate the 2027 renewal and present the new warehouse module. Includes a dinner with six client attendees.',
+    submittedAt: '2026-11-02T09:14:00+07:00',
+    changedBy: 'Phạm Thu Hà', changedAt: '2026-11-03T16:20:00+07:00',
+    lines: [
+      { date:'2026-10-29', desc:'Return flights HAN–DAD (Vietnam Airlines)', cat:'Travel', amount: 4280000 },
+      { date:'2026-10-29', desc:'Hotel, 2 nights (Mường Thanh Luxury)', cat:'Accommodation', amount: 3600000 },
+      { date:'2026-10-30', desc:'Client dinner, 7 people (6 guests + requester)', cat:'Meals and entertainment', amount: 6450000, flag:'Over limit' },
+      { date:'2026-10-30', desc:'Taxi and airport transfers', cat:'Transport', amount: 1230000 },
+      { date:'2026-10-31', desc:'Per diem, 3 days × 500.000 ₫', cat:'Allowance', amount: 1500000 },
+      { date:'2026-10-31', desc:'Client gift set (renewal)', cat:'Gifts', amount: 7800000 }
+    ],
+    steps: [
+      { name:'Line manager', who:'Phạm Thu Hà', role:'Sales manager', decision:'Approved', at:'2026-11-03T16:20:00+07:00', comment:'Visit is in the plan and the renewal is worth it. Dinner is above the per-head limit; please confirm with Finance.' },
+      { name:'Finance review', who:'Trần Minh Quân', role:'Finance manager', decision:'Current step' },
+      { name:'Director approval', who:'Nguyễn Hoàng Long', role:'Operations director', decision:'Not started', note:'Required when the total exceeds 20.000.000 ₫' }
+    ],
+    outcome: null,
+    activity: [
+      { at:'2026-11-03T16:20:00+07:00', who:'Phạm Thu Hà', what:'Approved step 1 (Line manager)', comment:'Visit is in the plan and the renewal is worth it. Dinner is above the per-head limit; please confirm with Finance.' },
+      { at:'2026-11-02T09:15:00+07:00', who:'System', what:'Request moved to In approval; step 1 opened' },
+      { at:'2026-11-02T09:14:00+07:00', who:'Lê Thị Hoa', what:'Submitted for approval', comment:'Receipts attached. The gift set was agreed with Sales director.' },
+      { at:'2026-11-01T18:02:00+07:00', who:'Lê Thị Hoa', what:'Updated 2 fields', diffs:[['Total amount','23.360.000 ₫','24.860.000 ₫'],['Project','(empty)','Minh Phát renewal 2027']] },
+      { at:'2026-11-01T17:30:00+07:00', who:'Lê Thị Hoa', what:'Created as Draft' }
+    ]
+  };
+}
+const FILES = [
+  { name:'hoa-don-khach-san-muong-thanh.pdf', type:'PDF', bytes: 421888, by:'Lê Thị Hoa', at:'2026-11-01T17:41:00+07:00', preview:true, info:'Hotel invoice No. 0031872 · 2 nights · 3.600.000 ₫ incl. VAT' },
+  { name:'ve-may-bay-HAN-DAD.pdf', type:'PDF', bytes: 192512, by:'Lê Thị Hoa', at:'2026-11-01T17:43:00+07:00', preview:true, info:'E-ticket HAN–DAD return · 4.280.000 ₫ · booking code VNA7QK2' },
+  { name:'hoa-don-tiec-khach.jpg', type:'JPG image', bytes: 2202009, by:'Lê Thị Hoa', at:'2026-11-01T17:55:00+07:00', preview:true, previewFail:true, info:'' },
+  { name:'bang-ke-chi-phi.xlsx', type:'Excel workbook', bytes: 38912, by:'Lê Thị Hoa', at:'2026-11-01T18:00:00+07:00', preview:false, info:'' }
+];
+
+let S = freshState();
+let view = 'approver';
+let tab = new URLSearchParams(location.search).get('tab') || 'details';
+let attState = 'ok';
+let loading = true;
+let busy = false;
+let draft = '';
+let errors = {};
+
+const total = () => S.lines.reduce((a, l) => a + l.amount, 0);
+const VAT = 0; // expenses are entered tax-inclusive
+
+/* ---------- render ---------- */
+function currentStep() { return S.steps.findIndex(s => s.decision === 'Current step'); }
+
+function decisionArea() {
+  if (S.outcome) {
+    const o = S.outcome;
+    const tone = o.kind === 'Approved' ? 'border-green-200 bg-green-50' : o.kind === 'Rejected' ? 'border-red-200 bg-red-50' : 'border-slate-200 bg-slate-50';
+    const line = o.kind === 'Approved' ? `Approved by ${esc(o.who)} on ${stamp(o.at)}` : o.kind === 'Rejected' ? `Rejected by ${esc(o.who)} on ${stamp(o.at)}` : `Withdrawn by ${esc(o.who)} on ${stamp(o.at)}`;
+    return `<div class="rounded-md border ${tone} p-3"><p class="font-medium text-slate-900">${line}</p>${o.comment ? `<p class="mt-1 text-slate-800">${o.kind === 'Rejected' ? 'Reason: ' : 'Comment: '}${esc(o.comment)}</p>` : ''}</div>`;
+  }
+  const idx = currentStep();
+  const step = S.steps[idx];
+  const isApprover = view === 'approver' && step && step.who === PEOPLE.approver.name;
+  if (isApprover) {
+    return `
+      <div>
+        <label for="comment" class="block text-xs font-medium text-slate-800">Comment <span class="font-normal text-slate-600">(optional for approval, required for rejection)</span></label>
+        <textarea id="comment" rows="3" class="mt-1 w-full rounded border ${errors.comment ? 'border-red-600' : 'border-slate-300'} px-3 py-2" aria-describedby="commentErr" ${busy ? 'disabled' : ''}>${esc(draft)}</textarea>
+        <p id="commentErr" class="mt-1 text-xs text-red-700 ${errors.comment ? '' : 'hidden'}" role="alert">${esc(errors.comment || '')}</p>
+        <div class="mt-3 flex justify-end gap-2">
+          <button id="btnReject" ${busy ? 'disabled' : ''} class="h-8 rounded border border-slate-300 bg-white px-3 font-medium text-red-700 hover:bg-red-50 disabled:opacity-60">Reject</button>
+          <button id="btnApprove" ${busy ? 'disabled' : ''} class="inline-flex h-8 items-center gap-2 rounded bg-blue-700 px-3 font-medium text-white hover:bg-blue-800 disabled:opacity-70">${busy ? spinner : ''}Approve</button>
+        </div>
+      </div>`;
+  }
+  let msg = `Waiting for ${esc(step.who)} (${esc(step.role)})`;
+  if (view === 'requester') {
+    return `<p id="waitMsg" class="text-slate-800">${msg}</p>
+      <div class="mt-3 flex justify-end"><button id="btnWithdraw" class="h-8 rounded border border-slate-300 bg-white px-3 font-medium hover:bg-slate-50">Withdraw request</button></div>`;
+  }
+  const mine = step.who === PEOPLE[view].name;
+  return `<p id="waitMsg" class="text-slate-800">${msg}</p><p class="mt-1 text-xs text-slate-600">Your role (${esc(PEOPLE[view].role)}) cannot approve this step.</p>`;
+}
+
+function stepsHtml() {
+  return `<ol class="space-y-0">` + S.steps.map((s, i) => {
+    const last = i === S.steps.length - 1;
+    const dot = s.decision === 'Approved' ? 'bg-green-700 text-white' : s.decision === 'Rejected' ? 'bg-red-700 text-white' : s.decision === 'Current step' ? 'bg-blue-700 text-white' : 'bg-slate-200 text-slate-800';
+    return `<li class="relative flex gap-3 ${last ? '' : 'pb-4'}">
+      ${last ? '' : '<span class="absolute left-3 top-7 bottom-0 w-px bg-slate-200" aria-hidden="true"></span>'}
+      <span class="grid h-6 w-6 shrink-0 place-items-center rounded-full text-xs font-semibold ${dot}">${i+1}</span>
+      <div class="min-w-0 flex-1">
+        <div class="flex flex-wrap items-center justify-between gap-2">
+          <p class="font-medium">${esc(s.name)}</p>${badge(s.decision)}
+        </div>
+        <p class="text-slate-700">${esc(s.who)} · ${esc(s.role)}</p>
+        ${s.at ? `<p class="text-xs text-slate-600"><time datetime="${s.at}">${stamp(s.at)}</time></p>` : ''}
+        ${s.note && s.decision === 'Not started' ? `<p class="text-xs text-slate-600">${esc(s.note)}</p>` : ''}
+        ${s.comment ? `<p class="mt-1 rounded bg-slate-50 border border-slate-200 p-2 text-slate-800">${s.decision === 'Rejected' ? '<span class="font-medium">Reason: </span>' : ''}${esc(s.comment)}</p>` : ''}
+      </div></li>`;
+  }).join('') + `</ol>`;
+}
+
+function detailsHtml() {
+  const rows = S.lines.map(l => `
+    <tr class="border-t border-slate-200 h-10">
+      <td class="px-3 whitespace-nowrap tabular-nums">${dayOnly(l.date + 'T12:00:00+07:00')}</td>
+      <td class="px-3 whitespace-nowrap">${esc(l.desc)} ${l.flag ? badge(l.flag) : ''}</td>
+      <td class="px-3 whitespace-nowrap">${esc(l.cat)}</td>
+      <td class="px-3 whitespace-nowrap text-right tabular-nums">${vnd.format(l.amount)}</td>
+    </tr>`).join('');
+  return `
+    <section class="rounded-md border border-slate-200 bg-white">
+      <h2 class="border-b border-slate-200 px-4 py-3 text-base font-semibold">Purpose</h2>
+      <div class="px-4 py-3 text-slate-800">${esc(S.purpose)}</div>
+    </section>
+    <section class="mt-4 rounded-md border border-slate-200 bg-white">
+      <h2 class="border-b border-slate-200 px-4 py-3 text-base font-semibold">Expense lines</h2>
+      <div class="overflow-x-auto">
+        <table class="w-full text-left text-sm">
+          <caption class="sr-only">Expense lines of ${S.id}</caption>
+          <thead class="bg-slate-50 text-xs font-medium text-slate-700"><tr class="h-10">
+            <th scope="col" class="px-3 font-medium">Date</th><th scope="col" class="px-3 font-medium">Description</th><th scope="col" class="px-3 font-medium">Category</th><th scope="col" class="px-3 text-right font-medium">Amount</th>
+          </tr></thead>
+          <tbody>${rows}</tbody>
+        </table>
+      </div>
+      <dl class="ml-auto w-full max-w-xs space-y-1 px-4 py-3 text-sm">
+        <div class="flex justify-between"><dt class="text-slate-700">Subtotal</dt><dd class="tabular-nums">${vnd.format(total() - VAT)}</dd></div>
+        <div class="flex justify-between"><dt class="text-slate-700">Tax</dt><dd class="tabular-nums">${vnd.format(VAT)} <span class="text-xs text-slate-600">(included)</span></dd></div>
+        <div class="flex justify-between border-t border-slate-200 pt-1 font-semibold"><dt>Total</dt><dd class="tabular-nums">${vnd.format(total())}</dd></div>
+      </dl>
+      <p class="border-t border-slate-200 px-4 py-3 text-xs text-slate-700">${ic('alert','inline text-amber-800 mr-1')}Client dinner is ${vnd.format(Math.round(6450000/7))} per head; the policy limit is ${vnd.format(800000)}. Totals above ${vnd.format(20000000)} need director approval.</p>
+    </section>`;
+}
+
+function attachmentsHtml() {
+  if (loading) return `<div class="rounded-md border border-slate-200 bg-white p-4 space-y-3" aria-busy="true" aria-label="Loading attachments">${[0,1,2,3].map(()=>'<div class="skel h-6 w-full"></div>').join('')}</div>`;
+  if (attState === 'error') return `<div class="rounded-md border border-red-200 bg-red-50 p-4" role="alert"><p class="font-medium text-red-700">Attachments could not be loaded.</p><p class="mt-1 text-slate-800">The request details are still valid. Check your connection and try again.</p><button id="retryAtt" class="mt-3 h-8 rounded border border-slate-300 bg-white px-3 hover:bg-slate-50">Retry</button></div>`;
+  if (attState === 'empty') return `<div class="rounded-md border border-slate-200 bg-white p-8 text-center"><p class="font-medium">No attachments yet</p><p class="mt-1 text-slate-700">Receipts and invoices uploaded by the requester appear here.</p><p class="mt-1 text-xs text-slate-600">Requests above ${vnd.format(5000000)} need at least one receipt.</p></div>`;
+  const rows = FILES.map((f, i) => `
+    <tr class="border-t border-slate-200 h-10">
+      <td class="px-3 whitespace-nowrap"><span class="inline-flex items-center gap-2">${ic('file','text-slate-600')}<span class="font-medium">${esc(f.name)}</span></span></td>
+      <td class="px-3 whitespace-nowrap">${esc(f.type)}</td>
+      <td class="px-3 whitespace-nowrap text-right tabular-nums">${size(f.bytes)}</td>
+      <td class="px-3 whitespace-nowrap">${esc(f.by)} · <span class="tabular-nums">${stamp(f.at)}</span></td>
+      <td class="px-3 whitespace-nowrap text-right">
+        ${f.preview ? `<button data-preview="${i}" aria-label="Preview ${esc(f.name)}" class="mr-1 inline-flex h-8 items-center gap-1 rounded border border-slate-300 bg-white px-2 hover:bg-slate-50">${ic('eye')}Preview</button>` : ''}
+        <button data-download="${i}" aria-label="Download ${esc(f.name)}" class="inline-flex h-8 items-center gap-1 rounded border border-slate-300 bg-white px-2 hover:bg-slate-50">${ic('dl')}Download</button>
+      </td>
+    </tr>`).join('');
+  return `<div class="rounded-md border border-slate-200 bg-white"><div class="overflow-x-auto"><table class="w-full text-left text-sm">
+    <caption class="sr-only">Attachments of ${S.id}</caption>
+    <thead class="bg-slate-50 text-xs text-slate-700"><tr class="h-10"><th scope="col" class="px-3 font-medium">File</th><th scope="col" class="px-3 font-medium">Type</th><th scope="col" class="px-3 text-right font-medium">Size</th><th scope="col" class="px-3 font-medium">Uploaded by</th><th scope="col" class="px-3 text-right font-medium"><span class="sr-only">Actions</span></th></tr></thead>
+    <tbody>${rows}</tbody></table></div></div>`;
+}
+
+function activityHtml() {
+  return `<div class="rounded-md border border-slate-200 bg-white">
+    <ol class="divide-y divide-slate-200">` + S.activity.map(a => `
+      <li class="px-4 py-3">
+        <p><span class="font-medium">${esc(a.who)}</span> · ${esc(a.what)}</p>
+        <p class="text-xs text-slate-600"><time datetime="${a.at}" class="tabular-nums">${stamp(a.at)}</time></p>
+        ${a.comment ? `<p class="mt-1 rounded border border-slate-200 bg-slate-50 p-2 text-slate-800">${esc(a.comment)}</p>` : ''}
+        ${a.diffs ? `<ul class="mt-1 space-y-0.5 text-slate-800">${a.diffs.map(d => `<li>${esc(d[0])}: ${esc(d[1])} → ${esc(d[2])}</li>`).join('')}</ul>` : ''}
+      </li>`).join('') + `</ol>
+    <p class="border-t border-slate-200 px-4 py-2 text-xs text-slate-600">History is kept for 7 years and cannot be edited.</p></div>`;
+}
+
+function render() {
+  const page = document.getElementById('page');
+  if (loading && !page.dataset.ready) {
+    page.innerHTML = `<div aria-busy="true" aria-label="Loading request"><div class="skel h-4 w-64"></div><div class="skel mt-4 h-7 w-96"></div><div class="mt-6 grid gap-4 lg:grid-cols-[1fr_380px]"><div class="skel h-72"></div><div class="skel h-72"></div></div></div>`;
+    return;
+  }
+  page.dataset.ready = '1';
+  const tabs = [['details','Details'],['attachments', `Attachments ${attState==='ok' ? FILES.length : attState==='empty' ? 0 : ''}`.trim()],['activity','Activity']];
+  const panel = tab === 'attachments' ? attachmentsHtml() : tab === 'activity' ? activityHtml() : detailsHtml();
+  page.innerHTML = `
+    <nav aria-label="Breadcrumb"><ol class="flex flex-wrap items-center gap-1 text-sm text-slate-700">
+      <li><a href="#" class="inline-flex min-h-6 items-center hover:underline">Finance</a></li><li aria-hidden="true">/</li>
+      <li><a href="#" class="inline-flex min-h-6 items-center hover:underline">Expense requests</a></li><li aria-hidden="true">/</li>
+      <li><span aria-current="page" class="text-slate-900">${S.id}</span></li></ol></nav>
+
+    <div class="mt-2 flex flex-wrap items-start justify-between gap-3">
+      <div class="min-w-0">
+        <div class="flex flex-wrap items-center gap-3"><h1 class="text-xl font-semibold">${esc(S.title)}</h1>${badge(S.status)}</div>
+        <p class="mt-1 text-slate-700">${S.id} · Last changed by <a href="#" class="font-medium text-slate-900 hover:underline">${esc(S.changedBy)}</a> on <time datetime="${S.changedAt}">${stamp(S.changedAt)}</time> · <a href="?tab=activity" data-tab="activity" class="text-blue-700 hover:underline">View history</a></p>
+      </div>
+      <div class="relative">
+        <button id="moreBtn" aria-haspopup="menu" aria-expanded="false" aria-label="More actions for ${S.id}" class="grid h-8 w-8 place-items-center rounded border border-slate-300 bg-white hover:bg-slate-50">${ic('more')}</button>
+        <div id="moreMenu" role="menu" class="absolute right-0 z-10 mt-1 hidden w-48 rounded-md border border-slate-200 bg-white py-1 shadow-lg">
+          <button role="menuitem" data-act="print" class="block h-8 w-full px-3 text-left hover:bg-slate-50">Print request</button>
+          <button role="menuitem" data-act="dup" class="block h-8 w-full px-3 text-left hover:bg-slate-50">Duplicate request</button>
+          <button role="menuitem" data-act="copy" class="block h-8 w-full px-3 text-left hover:bg-slate-50">Copy link</button>
+        </div>
+      </div>
+    </div>
+
+    <dl class="mt-4 grid grid-cols-2 gap-4 rounded-md border border-slate-200 bg-white p-4 md:grid-cols-4">
+      <div><dt class="text-xs font-medium text-slate-700">Requester</dt><dd class="mt-0.5"><span class="inline-flex items-center gap-2"><span class="grid h-6 w-6 place-items-center rounded-full bg-slate-200 text-xs font-semibold text-slate-800" aria-hidden="true">LH</span>${esc(PEOPLE.requester.name)}</span><span class="block text-xs text-slate-600">${esc(PEOPLE.requester.role)}</span></dd></div>
+      <div><dt class="text-xs font-medium text-slate-700">Total amount</dt><dd class="mt-0.5 text-base font-semibold tabular-nums">${vnd.format(total())}</dd></div>
+      <div><dt class="text-xs font-medium text-slate-700">Cost center</dt><dd class="mt-0.5">${esc(S.costCenter)}<span class="block text-xs text-slate-600">${esc(S.category)}</span></dd></div>
+      <div><dt class="text-xs font-medium text-slate-700">Submitted</dt><dd class="mt-0.5 tabular-nums">${stamp(S.submittedAt)}</dd></div>
+    </dl>
+
+    <div class="mt-6 grid gap-6 lg:grid-cols-[minmax(0,1fr)_380px]">
+      <div>
+        <div role="tablist" aria-label="Request sections" class="flex gap-1 border-b border-slate-200">
+          ${tabs.map(([k, l]) => `<button role="tab" id="tab-${k}" aria-selected="${tab===k}" aria-controls="panel" data-tab="${k}" class="-mb-px h-10 border-b-2 px-3 font-medium ${tab===k ? 'border-blue-700 text-blue-700' : 'border-transparent text-slate-700 hover:text-slate-900'}">${l}</button>`).join('')}
+        </div>
+        <div id="panel" role="tabpanel" aria-labelledby="tab-${tab}" class="mt-4">${panel}</div>
+      </div>
+
+      <aside class="lg:sticky lg:top-4 self-start space-y-4" aria-label="Approval">
+        <section class="rounded-md border border-slate-200 bg-white">
+          <h2 class="border-b border-slate-200 px-4 py-3 text-base font-semibold">Approval steps</h2>
+          <div class="px-4 py-4">${stepsHtml()}</div>
+        </section>
+        <section class="rounded-md border border-slate-200 bg-white" aria-labelledby="decH">
+          <h2 id="decH" class="border-b border-slate-200 px-4 py-3 text-base font-semibold">Your decision</h2>
+          <div class="px-4 py-4">${decisionArea()}</div>
+        </section>
+      </aside>
+    </div>`;
+  bind();
+  document.getElementById('draftBar').classList.toggle('hidden', !draft.trim() || !!S.outcome);
+}
+
+/* ---------- behaviour ---------- */
+function toast(msg, isErr) {
+  const t = document.getElementById('toast');
+  t.innerHTML = `<div class="pointer-events-auto rounded-md border ${isErr ? 'border-red-200 bg-red-50 text-red-700' : 'border-slate-200 bg-white text-slate-900'} px-4 py-3 shadow-lg">${esc(msg)}</div>`;
+  clearTimeout(toast.t); toast.t = setTimeout(() => t.innerHTML = '', 4000);
+}
+function setTab(k) { tab = k; history.replaceState(null, '', '?tab=' + k); render(); const el = document.getElementById('tab-' + k); el && el.focus(); }
+
+function bind() {
+  document.querySelectorAll('[data-tab]').forEach(b => b.addEventListener('click', e => { e.preventDefault(); setTab(b.dataset.tab); }));
+  document.querySelectorAll('[role=tab]').forEach(b => b.addEventListener('keydown', e => {
+    const ks = ['details','attachments','activity']; let i = ks.indexOf(tab);
+    if (e.key === 'ArrowRight') setTab(ks[(i+1)%3]); else if (e.key === 'ArrowLeft') setTab(ks[(i+2)%3]);
+  }));
+  const mb = document.getElementById('moreBtn'), mm = document.getElementById('moreMenu');
+  mb.addEventListener('click', () => { const open = mm.classList.toggle('hidden') === false; mb.setAttribute('aria-expanded', open); });
+  mm.querySelectorAll('[data-act]').forEach(b => b.addEventListener('click', () => { mm.classList.add('hidden'); mb.setAttribute('aria-expanded', 'false'); toast({print:'Print dialog opened', dup:'Draft ER-2026-0431 created from this request', copy:'Link copied'}[b.dataset.act]); }));
+  const c = document.getElementById('comment');
+  if (c) {
+    c.addEventListener('input', () => { draft = c.value; if (errors.comment && draft.trim()) { errors = {}; document.getElementById('commentErr').classList.add('hidden'); c.classList.replace('border-red-600','border-slate-300'); } document.getElementById('draftBar').classList.toggle('hidden', !draft.trim()); });
+  }
+  const on = (id, fn) => { const el = document.getElementById(id); el && el.addEventListener('click', fn); };
+  on('btnApprove', approve);
+  on('btnReject', () => {
+    const d = document.getElementById('rejectDlg'); document.getElementById('rejectReason').value = draft;
+    hideErr(); d.showModal(); document.getElementById('rejectCancel').focus();
+  });
+  on('btnWithdraw', () => { document.getElementById('withdrawDlg').showModal(); document.getElementById('wdCancel').focus(); });
+  on('retryAtt', () => { attState = 'ok'; document.getElementById('attState').value = 'ok'; loading = true; render(); setTimeout(() => { loading = false; render(); }, 500); });
+  document.querySelectorAll('[data-preview]').forEach(b => b.addEventListener('click', () => openPreview(+b.dataset.preview)));
+  document.querySelectorAll('[data-download]').forEach(b => b.addEventListener('click', () => toast('Download started: ' + FILES[+b.dataset.download].name)));
+}
+document.addEventListener('click', e => { const mm = document.getElementById('moreMenu'); if (mm && !e.target.closest('#moreBtn') && !e.target.closest('#moreMenu')) { mm.classList.add('hidden'); document.getElementById('moreBtn').setAttribute('aria-expanded','false'); } });
+
+function finish(kind, comment) {
+  const idx = currentStep(), step = S.steps[idx], at = now();
+  const who = PEOPLE[view].name;
+  if (kind === 'Approved') {
+    step.decision = 'Approved'; step.at = at; step.comment = comment || '';
+    S.activity.unshift({ at, who, what: `Approved step ${idx+1} (${step.name})`, comment });
+    if (idx + 1 < S.steps.length) {
+      S.steps[idx+1].decision = 'Current step';
+      S.activity.unshift({ at, who:'System', what:`Step ${idx+2} (${S.steps[idx+1].name}) opened` });
+    } else { S.status = 'Approved'; S.outcome = { kind:'Approved', who, at, comment }; }
+  } else if (kind === 'Rejected') {
+    step.decision = 'Rejected'; step.at = at; step.comment = comment;
+    S.status = 'Rejected'; S.outcome = { kind:'Rejected', who, at, comment };
+    S.activity.unshift({ at, who, what:`Rejected at step ${idx+1} (${step.name})`, comment });
+  } else {
+    S.status = 'Withdrawn'; S.outcome = { kind:'Withdrawn', who, at, comment:'' };
+    S.activity.unshift({ at, who, what:'Withdrew the request' });
+  }
+  S.changedBy = who; S.changedAt = at;
+  draft = ''; errors = {}; busy = false;
+}
+
+function approve() {
+  busy = true; render();
+  setTimeout(() => {
+    const comment = draft.trim();
+    const before = currentStep();
+    finish('Approved', comment);
+    render();
+    toast(S.status === 'Approved' ? `Expense request ${S.id} approved` : `Step ${before+1} of ${S.id} approved; sent to ${S.steps[before+1].who}`);
+  }, 700);
+}
+
+/* reject dialog */
+const rr = document.getElementById('rejectReason'), re = document.getElementById('rejectErr');
+function showErr(m) { re.textContent = m; re.classList.remove('hidden'); rr.classList.add('border-red-600'); }
+function hideErr() { re.classList.add('hidden'); rr.classList.remove('border-red-600'); }
+rr.addEventListener('blur', () => { if (!rr.value.trim()) showErr('Enter a reason so the requester knows what to fix.'); else hideErr(); });
+rr.addEventListener('input', () => { if (rr.value.trim()) hideErr(); });
+document.getElementById('rejectCancel').addEventListener('click', () => { draft = rr.value; document.getElementById('rejectDlg').close(); render(); });
+document.getElementById('rejectForm').addEventListener('submit', e => {
+  e.preventDefault();
+  if (!rr.value.trim()) { showErr('Enter a reason so the requester knows what to fix.'); rr.focus(); return; }
+  const btn = document.getElementById('rejectGo'); btn.disabled = true; btn.innerHTML = spinner + 'Reject request';
+  setTimeout(() => {
+    btn.disabled = false; btn.textContent = 'Reject request';
+    document.getElementById('rejectDlg').close();
+    finish('Rejected', rr.value.trim()); render();
+    toast(`Expense request ${S.id} rejected`);
+  }, 700);
+});
+document.getElementById('wdCancel').addEventListener('click', () => document.getElementById('withdrawDlg').close());
+document.getElementById('wdGo').addEventListener('click', () => { document.getElementById('withdrawDlg').close(); finish('Withdrawn'); render(); toast(`Expense request ${S.id} withdrawn`); });
+
+/* preview */
+function openPreview(i) {
+  const f = FILES[i], d = document.getElementById('previewDlg'), body = document.getElementById('pvBody');
+  document.getElementById('pvTitle').textContent = f.name;
+  body.innerHTML = `<div class="grid h-48 place-items-center" aria-busy="true"><div class="skel h-full w-full"></div></div>`;
+  d.showModal(); document.getElementById('pvClose').focus();
+  setTimeout(() => {
+    if (f.previewFail) {
+      body.innerHTML = `<div class="rounded-md border border-red-200 bg-red-50 p-4" role="alert"><p class="font-medium text-red-700">Preview failed for ${esc(f.name)}.</p><p class="mt-1 text-slate-800">The file could not be rendered. Download it to view the original.</p><button id="pvDl" class="mt-3 inline-flex h-8 items-center gap-1 rounded bg-blue-700 px-3 font-medium text-white hover:bg-blue-800">${ic('dl')}Download ${esc(f.name)}</button></div>`;
+      document.getElementById('pvDl').addEventListener('click', () => toast('Download started: ' + f.name));
+    } else {
+      body.innerHTML = `<div class="rounded-md border border-slate-200 bg-slate-50 p-6"><p class="font-medium">${esc(f.type)} · ${size(f.bytes)}</p><p class="mt-2 text-slate-800">${esc(f.info)}</p><p class="mt-4 text-xs text-slate-600">Uploaded by ${esc(f.by)} on ${stamp(f.at)}</p></div>`;
+    }
+  }, 400);
+}
+document.getElementById('pvClose').addEventListener('click', () => document.getElementById('previewDlg').close());
+
+/* controls */
+document.getElementById('viewAs').addEventListener('change', e => {
+  view = e.target.value; const p = PEOPLE[view];
+  document.getElementById('acct').textContent = p.name.split(' ').map(w => w[0]).filter((_, i, a) => i === 0 || i === a.length - 1).join('');
+  errors = {}; render();
+});
+document.getElementById('attState').addEventListener('change', e => { attState = e.target.value; loading = true; render(); setTimeout(() => { loading = false; render(); }, 500); });
+document.getElementById('resetDemo').addEventListener('click', () => { S = freshState(); draft = ''; errors = {}; busy = false; render(); toast('Request reset to In approval'); });
+document.getElementById('discardDraft').addEventListener('click', () => { draft = ''; render(); });
+window.addEventListener('beforeunload', e => { if (draft.trim() && !S.outcome) { e.preventDefault(); e.returnValue = ''; } });
+
+render();
+setTimeout(() => { loading = false; render(); }, 500);
+</script>
+</body>
+</html>

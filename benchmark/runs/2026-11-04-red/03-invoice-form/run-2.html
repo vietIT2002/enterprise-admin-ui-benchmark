@@ -1,0 +1,409 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tạo hóa đơn bán hàng</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+tailwind.config = { theme: { extend: { fontFamily: { sans: ['Inter','Segoe UI','system-ui','sans-serif'] } } } }
+</script>
+<style>
+  .num { font-variant-numeric: tabular-nums; }
+  input:focus, select:focus, textarea:focus { outline: none; }
+  .field { @apply w-full; }
+  input[type=number]::-webkit-inner-spin-button { display: none; }
+</style>
+</head>
+<body class="bg-slate-100 text-slate-800 font-sans antialiased">
+
+<div class="flex min-h-screen">
+  <!-- Sidebar -->
+  <aside class="hidden lg:flex w-60 shrink-0 flex-col bg-slate-900 text-slate-300">
+    <div class="h-14 flex items-center gap-2 px-5 border-b border-slate-800">
+      <div class="w-7 h-7 rounded bg-indigo-500 grid place-items-center text-white font-bold text-sm">K</div>
+      <span class="font-semibold text-white">KeToan Pro</span>
+    </div>
+    <nav class="flex-1 py-4 px-3 space-y-1 text-sm">
+      <a class="flex items-center gap-3 px-3 py-2 rounded-md hover:bg-slate-800" href="#">Tổng quan</a>
+      <a class="flex items-center gap-3 px-3 py-2 rounded-md bg-slate-800 text-white" href="#">Hóa đơn bán hàng</a>
+      <a class="flex items-center gap-3 px-3 py-2 rounded-md hover:bg-slate-800" href="#">Hóa đơn mua hàng</a>
+      <a class="flex items-center gap-3 px-3 py-2 rounded-md hover:bg-slate-800" href="#">Khách hàng</a>
+      <a class="flex items-center gap-3 px-3 py-2 rounded-md hover:bg-slate-800" href="#">Sản phẩm &amp; dịch vụ</a>
+      <a class="flex items-center gap-3 px-3 py-2 rounded-md hover:bg-slate-800" href="#">Thu chi</a>
+      <a class="flex items-center gap-3 px-3 py-2 rounded-md hover:bg-slate-800" href="#">Báo cáo</a>
+    </nav>
+    <div class="p-4 border-t border-slate-800 text-xs text-slate-500">Công ty TNHH Minh Phát<br>MST 0312345678</div>
+  </aside>
+
+  <div class="flex-1 min-w-0 flex flex-col">
+    <!-- Top bar -->
+    <header class="h-14 bg-white border-b border-slate-200 flex items-center justify-between px-4 sm:px-6">
+      <nav class="text-sm text-slate-500" aria-label="Breadcrumb">
+        <a href="#" class="hover:text-slate-800">Hóa đơn</a>
+        <span class="mx-1.5">/</span>
+        <span class="text-slate-900 font-medium">Tạo hóa đơn mới</span>
+      </nav>
+      <div class="flex items-center gap-3 text-sm">
+        <span class="hidden sm:inline text-slate-500">Nguyễn Thu Hà</span>
+        <div class="w-8 h-8 rounded-full bg-indigo-100 text-indigo-700 grid place-items-center font-semibold text-xs">TH</div>
+      </div>
+    </header>
+
+    <main class="flex-1 p-4 sm:p-6 pb-28">
+      <div class="max-w-6xl mx-auto">
+        <div class="flex flex-wrap items-center justify-between gap-3 mb-5">
+          <div>
+            <h1 class="text-xl font-semibold text-slate-900">Tạo hóa đơn bán hàng</h1>
+            <p class="text-sm text-slate-500 mt-0.5">Nhập thông tin khách hàng và các dòng hàng để lập hóa đơn.</p>
+          </div>
+          <span class="inline-flex items-center gap-1.5 rounded-full bg-amber-50 text-amber-700 ring-1 ring-amber-200 px-3 py-1 text-xs font-medium">
+            <span class="w-1.5 h-1.5 rounded-full bg-amber-500"></span>Bản nháp
+          </span>
+        </div>
+
+        <form id="invoiceForm" novalidate class="space-y-5">
+          <!-- General info -->
+          <section class="bg-white rounded-lg border border-slate-200 shadow-sm">
+            <div class="px-5 py-3.5 border-b border-slate-200"><h2 class="text-sm font-semibold text-slate-900">Thông tin chung</h2></div>
+            <div class="p-5 grid grid-cols-1 md:grid-cols-12 gap-x-5 gap-y-4">
+              <div class="md:col-span-6">
+                <label for="customer" class="block text-sm font-medium text-slate-700 mb-1">Khách hàng <span class="text-red-600">*</span></label>
+                <select id="customer" class="w-full h-10 rounded-md border border-slate-300 bg-white px-3 text-sm focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200">
+                  <option value="">Chọn khách hàng…</option>
+                </select>
+                <p id="customerErr" class="hidden mt-1 text-xs text-red-600">Vui lòng chọn khách hàng.</p>
+              </div>
+              <div class="md:col-span-3">
+                <label for="invNo" class="block text-sm font-medium text-slate-700 mb-1">Số hóa đơn</label>
+                <input id="invNo" value="HD-2026-00428" readonly class="w-full h-10 rounded-md border border-slate-200 bg-slate-50 px-3 text-sm text-slate-600 num">
+              </div>
+              <div class="md:col-span-3">
+                <label for="series" class="block text-sm font-medium text-slate-700 mb-1">Ký hiệu</label>
+                <input id="series" value="1C26TMP" readonly class="w-full h-10 rounded-md border border-slate-200 bg-slate-50 px-3 text-sm text-slate-600">
+              </div>
+
+              <div id="custInfo" class="md:col-span-12 hidden rounded-md bg-slate-50 border border-slate-200 px-4 py-3 text-sm grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div><div class="text-xs text-slate-500">Mã số thuế</div><div id="ciTax" class="num font-medium"></div></div>
+                <div class="sm:col-span-2"><div class="text-xs text-slate-500">Địa chỉ</div><div id="ciAddr" class="font-medium"></div></div>
+              </div>
+
+              <div class="md:col-span-3">
+                <label for="issueDate" class="block text-sm font-medium text-slate-700 mb-1">Ngày hóa đơn <span class="text-red-600">*</span></label>
+                <input id="issueDate" type="date" class="w-full h-10 rounded-md border border-slate-300 px-3 text-sm focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200">
+              </div>
+              <div class="md:col-span-3">
+                <label for="terms" class="block text-sm font-medium text-slate-700 mb-1">Điều khoản thanh toán</label>
+                <select id="terms" class="w-full h-10 rounded-md border border-slate-300 bg-white px-3 text-sm focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200">
+                  <option value="0">Thanh toán ngay</option>
+                  <option value="15">Net 15 ngày</option>
+                  <option value="30" selected>Net 30 ngày</option>
+                  <option value="45">Net 45 ngày</option>
+                  <option value="60">Net 60 ngày</option>
+                  <option value="custom">Tùy chọn</option>
+                </select>
+              </div>
+              <div class="md:col-span-3">
+                <label for="dueDate" class="block text-sm font-medium text-slate-700 mb-1">Hạn thanh toán <span class="text-red-600">*</span></label>
+                <input id="dueDate" type="date" class="w-full h-10 rounded-md border border-slate-300 px-3 text-sm focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200">
+                <p id="dateErr" class="hidden mt-1 text-xs text-red-600">Hạn thanh toán không được trước ngày hóa đơn.</p>
+              </div>
+              <div class="md:col-span-3">
+                <label for="method" class="block text-sm font-medium text-slate-700 mb-1">Hình thức thanh toán</label>
+                <select id="method" class="w-full h-10 rounded-md border border-slate-300 bg-white px-3 text-sm focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200">
+                  <option>Chuyển khoản</option><option>Tiền mặt</option><option>TM/CK</option>
+                </select>
+              </div>
+            </div>
+          </section>
+
+          <!-- Line items -->
+          <section class="bg-white rounded-lg border border-slate-200 shadow-sm">
+            <div class="px-5 py-3.5 border-b border-slate-200 flex items-center justify-between">
+              <h2 class="text-sm font-semibold text-slate-900">Chi tiết hàng hóa, dịch vụ</h2>
+              <button type="button" id="addRowTop" class="text-sm font-medium text-indigo-600 hover:text-indigo-800">+ Thêm dòng</button>
+            </div>
+            <div class="overflow-x-auto">
+              <table class="w-full text-sm min-w-[860px]">
+                <thead>
+                  <tr class="bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
+                    <th class="w-10 px-3 py-2.5 text-center font-medium">#</th>
+                    <th class="px-3 py-2.5 text-left font-medium">Sản phẩm / Dịch vụ</th>
+                    <th class="w-24 px-3 py-2.5 text-right font-medium">Số lượng</th>
+                    <th class="w-36 px-3 py-2.5 text-right font-medium">Đơn giá (₫)</th>
+                    <th class="w-28 px-3 py-2.5 text-right font-medium">Thuế GTGT</th>
+                    <th class="w-40 px-3 py-2.5 text-right font-medium">Thành tiền (₫)</th>
+                    <th class="w-10 px-2 py-2.5"><span class="sr-only">Xóa</span></th>
+                  </tr>
+                </thead>
+                <tbody id="rows" class="divide-y divide-slate-100"></tbody>
+              </table>
+            </div>
+            <div class="px-5 py-3 border-t border-slate-200 flex items-center justify-between">
+              <button type="button" id="addRow" class="inline-flex items-center gap-1.5 h-9 px-3 rounded-md border border-slate-300 bg-white text-sm font-medium text-slate-700 hover:bg-slate-50">
+                <span class="text-base leading-none">+</span> Thêm dòng hàng
+              </button>
+              <p id="rowsErr" class="hidden text-xs text-red-600">Cần ít nhất một dòng hàng hợp lệ.</p>
+            </div>
+          </section>
+
+          <!-- Notes + totals -->
+          <div class="grid grid-cols-1 lg:grid-cols-5 gap-5">
+            <section class="lg:col-span-3 bg-white rounded-lg border border-slate-200 shadow-sm">
+              <div class="px-5 py-3.5 border-b border-slate-200"><h2 class="text-sm font-semibold text-slate-900">Ghi chú</h2></div>
+              <div class="p-5">
+                <label for="note" class="block text-sm font-medium text-slate-700 mb-1">Ghi chú hiển thị trên hóa đơn</label>
+                <textarea id="note" rows="4" maxlength="500" class="w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200" placeholder="Ví dụ: Giao hàng đợt 1 theo hợp đồng số 12/2026/HĐ-MP"></textarea>
+                <p class="mt-1 text-xs text-slate-500">Tối đa 500 ký tự.</p>
+              </div>
+            </section>
+
+            <section class="lg:col-span-2 bg-white rounded-lg border border-slate-200 shadow-sm">
+              <div class="px-5 py-3.5 border-b border-slate-200"><h2 class="text-sm font-semibold text-slate-900">Tổng cộng</h2></div>
+              <dl class="p-5 space-y-3 text-sm">
+                <div class="flex justify-between"><dt class="text-slate-600">Cộng tiền hàng</dt><dd id="tSub" class="num font-medium">0 ₫</dd></div>
+                <div class="flex justify-between items-center">
+                  <dt class="text-slate-600">Chiết khấu</dt>
+                  <dd class="flex items-center gap-2">
+                    <input id="discount" type="number" min="0" max="100" step="0.5" value="0" aria-label="Chiết khấu phần trăm" class="w-16 h-8 rounded-md border border-slate-300 px-2 text-right text-sm num focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200">
+                    <span class="text-slate-500">%</span>
+                    <span id="tDisc" class="num font-medium w-28 text-right">0 ₫</span>
+                  </dd>
+                </div>
+                <div id="taxLines" class="space-y-2"></div>
+                <div class="flex justify-between"><dt class="text-slate-600">Tổng tiền thuế GTGT</dt><dd id="tTax" class="num font-medium">0 ₫</dd></div>
+                <div class="border-t border-slate-200 pt-3 flex justify-between items-baseline">
+                  <dt class="font-semibold text-slate-900">Tổng thanh toán</dt>
+                  <dd id="tTotal" class="num text-xl font-semibold text-indigo-700">0 ₫</dd>
+                </div>
+                <p id="inWords" class="text-xs text-slate-500 italic"></p>
+              </dl>
+            </section>
+          </div>
+        </form>
+      </div>
+    </main>
+
+    <!-- Sticky action bar -->
+    <div class="fixed bottom-0 left-0 right-0 lg:left-60 bg-white border-t border-slate-200 z-20">
+      <div class="max-w-6xl mx-auto px-4 sm:px-6 py-3 flex items-center justify-between gap-3">
+        <div class="text-sm text-slate-500 hidden sm:block">Tổng thanh toán: <span id="barTotal" class="num font-semibold text-slate-900">0 ₫</span></div>
+        <div class="flex items-center gap-2 ml-auto">
+          <button type="button" id="cancel" class="h-10 px-4 rounded-md border border-slate-300 bg-white text-sm font-medium text-slate-700 hover:bg-slate-50">Hủy</button>
+          <button type="button" id="saveDraft" class="h-10 px-4 rounded-md border border-slate-300 bg-white text-sm font-medium text-slate-700 hover:bg-slate-50">Lưu nháp</button>
+          <button type="button" id="save" class="h-10 px-5 rounded-md bg-indigo-600 text-sm font-semibold text-white hover:bg-indigo-700 focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">Lưu hóa đơn</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="toast" class="fixed top-4 right-4 z-50 hidden max-w-sm rounded-md bg-slate-900 text-white text-sm px-4 py-3 shadow-lg"></div>
+
+<script>
+const customers = [
+  { id:'C001', name:'Công ty CP Thương mại Hòa Bình', tax:'0101234567', addr:'25 Láng Hạ, Đống Đa, Hà Nội' },
+  { id:'C002', name:'Công ty TNHH Xây dựng Đại Việt', tax:'0309876543', addr:'112 Nguyễn Văn Linh, Quận 7, TP. Hồ Chí Minh' },
+  { id:'C003', name:'Công ty CP Dược phẩm An Khang', tax:'0401122334', addr:'48 Bạch Đằng, Hải Châu, Đà Nẵng' },
+  { id:'C004', name:'Cửa hàng Điện máy Thành Công', tax:'0312456789', addr:'9 Trần Hưng Đạo, Ninh Kiều, Cần Thơ' },
+  { id:'C005', name:'Công ty TNHH Logistics Sao Việt', tax:'0201567890', addr:'Lô 5 KCN Đình Vũ, Hải An, Hải Phòng' }
+];
+const products = [
+  { id:'P001', name:'Laptop Dell Latitude 5440', unit:'Cái', price:21500000, tax:10 },
+  { id:'P002', name:'Màn hình LG 24 inch IPS', unit:'Cái', price:3290000, tax:10 },
+  { id:'P003', name:'Bàn phím cơ Logitech MX', unit:'Cái', price:2150000, tax:10 },
+  { id:'P004', name:'Giấy in A4 Double A (500 tờ)', unit:'Ream', price:82000, tax:8 },
+  { id:'P005', name:'Dịch vụ bảo trì hệ thống (tháng)', unit:'Tháng', price:4500000, tax:10 },
+  { id:'P006', name:'Dịch vụ tư vấn triển khai phần mềm', unit:'Giờ', price:900000, tax:10 },
+  { id:'P007', name:'Sách kế toán doanh nghiệp', unit:'Quyển', price:185000, tax:5 },
+  { id:'P008', name:'Thiết bị lưu trữ NAS Synology', unit:'Cái', price:12900000, tax:0 }
+];
+const TAXES = [0,5,8,10];
+const $ = s => document.querySelector(s);
+const fmt = n => new Intl.NumberFormat('vi-VN').format(Math.round(n)) + ' ₫';
+const fmtNum = n => new Intl.NumberFormat('vi-VN').format(n);
+const iso = d => { const z = new Date(d.getTime() - d.getTimezoneOffset()*60000); return z.toISOString().slice(0,10); };
+
+let rows = [];
+let uid = 0;
+
+// customers
+$('#customer').insertAdjacentHTML('beforeend', customers.map(c => `<option value="${c.id}">${c.name}</option>`).join(''));
+$('#customer').addEventListener('change', e => {
+  const c = customers.find(x => x.id === e.target.value);
+  const box = $('#custInfo');
+  if (c) { $('#ciTax').textContent = c.tax; $('#ciAddr').textContent = c.addr; box.classList.remove('hidden'); $('#customerErr').classList.add('hidden'); e.target.classList.remove('border-red-500'); }
+  else box.classList.add('hidden');
+});
+
+// dates
+function setDue() {
+  const t = $('#terms').value;
+  if (t === 'custom') return;
+  const d = new Date($('#issueDate').value || iso(new Date()));
+  d.setDate(d.getDate() + parseInt(t,10));
+  $('#dueDate').value = iso(d);
+  $('#dateErr').classList.add('hidden');
+}
+$('#issueDate').value = iso(new Date());
+setDue();
+$('#issueDate').addEventListener('change', setDue);
+$('#terms').addEventListener('change', setDue);
+$('#dueDate').addEventListener('change', () => {
+  const issue = new Date($('#issueDate').value), due = new Date($('#dueDate').value);
+  const diff = Math.round((due - issue)/86400000);
+  const opt = [...$('#terms').options].find(o => o.value === String(diff));
+  $('#terms').value = opt ? opt.value : 'custom';
+});
+
+// rows
+function addRow(prefill) {
+  rows.push(Object.assign({ key: ++uid, pid:'', qty:1, price:0, tax:10 }, prefill || {}));
+  render();
+}
+function render() {
+  $('#rows').innerHTML = rows.map((r,i) => `
+    <tr data-key="${r.key}" class="align-top">
+      <td class="px-3 py-3 text-center text-slate-400 num">${i+1}</td>
+      <td class="px-3 py-2">
+        <select data-f="pid" class="w-full h-9 rounded-md border border-slate-300 bg-white px-2 text-sm focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200" aria-label="Sản phẩm dòng ${i+1}">
+          <option value="">Chọn sản phẩm…</option>
+          ${products.map(p => `<option value="${p.id}" ${p.id===r.pid?'selected':''}>${p.name}</option>`).join('')}
+        </select>
+        <div class="mt-1 text-xs text-slate-500">${r.pid ? 'ĐVT: ' + products.find(p=>p.id===r.pid).unit : '&nbsp;'}</div>
+      </td>
+      <td class="px-3 py-2"><input data-f="qty" type="number" min="0" step="1" value="${r.qty}" aria-label="Số lượng dòng ${i+1}" class="w-full h-9 rounded-md border border-slate-300 px-2 text-right text-sm num focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200"></td>
+      <td class="px-3 py-2"><input data-f="price" type="text" inputmode="numeric" value="${r.price ? fmtNum(r.price) : ''}" placeholder="0" aria-label="Đơn giá dòng ${i+1}" class="w-full h-9 rounded-md border border-slate-300 px-2 text-right text-sm num focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200"></td>
+      <td class="px-3 py-2">
+        <select data-f="tax" aria-label="Thuế dòng ${i+1}" class="w-full h-9 rounded-md border border-slate-300 bg-white px-2 text-sm text-right num focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200">
+          ${TAXES.map(t => `<option value="${t}" ${t===r.tax?'selected':''}>${t}%</option>`).join('')}
+        </select>
+      </td>
+      <td class="px-3 py-3 text-right num font-medium text-slate-900" data-line>${fmt(r.qty*r.price)}</td>
+      <td class="px-2 py-2 text-center">
+        <button type="button" data-del class="w-8 h-8 rounded-md text-slate-400 hover:text-red-600 hover:bg-red-50" aria-label="Xóa dòng ${i+1}" title="Xóa dòng">
+          <svg class="w-4 h-4 mx-auto" viewBox="0 0 20 20" fill="currentColor"><path d="M6 2h8l1 2h3v2H2V4h3l1-2zm-2 6h12l-1 10H5L4 8z"/></svg>
+        </button>
+      </td>
+    </tr>`).join('');
+  totals();
+}
+$('#rows').addEventListener('input', e => {
+  const tr = e.target.closest('tr'); if (!tr) return;
+  const r = rows.find(x => x.key == tr.dataset.key); const f = e.target.dataset.f;
+  if (f === 'qty') r.qty = parseFloat(e.target.value) || 0;
+  else if (f === 'price') {
+    const v = parseInt(e.target.value.replace(/\D/g,''),10) || 0;
+    r.price = v; e.target.value = v ? fmtNum(v) : '';
+  }
+  else return;
+  tr.querySelector('[data-line]').textContent = fmt(r.qty*r.price);
+  totals();
+});
+$('#rows').addEventListener('change', e => {
+  const tr = e.target.closest('tr'); if (!tr) return;
+  const r = rows.find(x => x.key == tr.dataset.key); const f = e.target.dataset.f;
+  if (f === 'pid') {
+    r.pid = e.target.value;
+    const p = products.find(x => x.id === r.pid);
+    if (p) { r.price = p.price; r.tax = p.tax; }
+    render();
+  } else if (f === 'tax') { r.tax = parseInt(e.target.value,10); totals(); }
+});
+$('#rows').addEventListener('click', e => {
+  const b = e.target.closest('[data-del]'); if (!b) return;
+  const key = b.closest('tr').dataset.key;
+  if (rows.length === 1) { rows = []; addRow(); return; }
+  rows = rows.filter(x => x.key != key); render();
+});
+$('#addRow').addEventListener('click', () => addRow());
+$('#addRowTop').addEventListener('click', () => addRow());
+$('#discount').addEventListener('input', totals);
+
+// totals
+function calc() {
+  const sub = rows.reduce((s,r) => s + r.qty*r.price, 0);
+  const dp = Math.min(100, Math.max(0, parseFloat($('#discount').value) || 0));
+  const disc = sub * dp / 100;
+  const byRate = {};
+  rows.forEach(r => { const net = r.qty*r.price*(1-dp/100); byRate[r.tax] = (byRate[r.tax]||0) + net*r.tax/100; });
+  const tax = Object.values(byRate).reduce((a,b)=>a+b,0);
+  return { sub, disc, byRate, tax, total: sub - disc + tax };
+}
+function totals() {
+  const t = calc();
+  $('#tSub').textContent = fmt(t.sub);
+  $('#tDisc').textContent = t.disc ? '− ' + fmt(t.disc) : fmt(0);
+  $('#tTax').textContent = fmt(t.tax);
+  $('#tTotal').textContent = fmt(t.total);
+  $('#barTotal').textContent = fmt(t.total);
+  $('#taxLines').innerHTML = Object.keys(t.byRate).sort((a,b)=>a-b).filter(k => rows.some(r=>r.tax==k && r.qty*r.price>0)).map(k =>
+    `<div class="flex justify-between pl-4 text-xs text-slate-500"><span>Thuế suất ${k}%</span><span class="num">${fmt(t.byRate[k])}</span></div>`).join('');
+  $('#inWords').textContent = t.total > 0 ? 'Bằng chữ: ' + words(Math.round(t.total)) : '';
+}
+
+// Vietnamese number to words
+function words(n) {
+  const d = ['không','một','hai','ba','bốn','năm','sáu','bảy','tám','chín'];
+  const three = (x, full) => {
+    const h = Math.floor(x/100), t = Math.floor(x%100/10), u = x%10; let s = '';
+    if (h > 0 || full) s += d[h] + ' trăm ';
+    if (t > 1) { s += d[t] + ' mươi '; if (u === 1) s += 'mốt '; else if (u === 5) s += 'lăm '; else if (u > 0) s += d[u] + ' '; }
+    else if (t === 1) { s += 'mười '; if (u === 5) s += 'lăm '; else if (u > 0) s += d[u] + ' '; }
+    else if (u > 0) { if (h > 0 || full) s += 'lẻ '; s += d[u] + ' '; }
+    return s;
+  };
+  const units = ['', 'nghìn', 'triệu', 'tỷ', 'nghìn tỷ'];
+  const parts = []; let x = n;
+  while (x > 0) { parts.push(x % 1000); x = Math.floor(x/1000); }
+  let out = '';
+  for (let i = parts.length-1; i >= 0; i--) {
+    if (parts[i] === 0) continue;
+    out += three(parts[i], i < parts.length-1) + units[i] + ' ';
+  }
+  out = out.replace(/\s+/g,' ').trim();
+  return out.charAt(0).toUpperCase() + out.slice(1) + ' đồng chẵn.';
+}
+
+// toast
+let tt;
+function toast(msg, ok=true) {
+  const el = $('#toast'); el.textContent = msg;
+  el.className = 'fixed top-4 right-4 z-50 max-w-sm rounded-md text-white text-sm px-4 py-3 shadow-lg ' + (ok ? 'bg-emerald-700' : 'bg-red-700');
+  clearTimeout(tt); tt = setTimeout(() => el.classList.add('hidden'), 3500);
+}
+
+// validate + save
+function validate() {
+  let ok = true;
+  const c = $('#customer');
+  if (!c.value) { $('#customerErr').classList.remove('hidden'); c.classList.add('border-red-500'); ok = false; }
+  if ($('#dueDate').value < $('#issueDate').value || !$('#dueDate').value) { $('#dateErr').classList.remove('hidden'); ok = false; }
+  else $('#dateErr').classList.add('hidden');
+  const valid = rows.filter(r => r.pid && r.qty > 0 && r.price > 0);
+  if (!valid.length) { $('#rowsErr').classList.remove('hidden'); ok = false; } else $('#rowsErr').classList.add('hidden');
+  return ok;
+}
+function save(draft) {
+  if (!draft && !validate()) { toast('Vui lòng kiểm tra lại các trường báo lỗi.', false); window.scrollTo({top:0,behavior:'smooth'}); return; }
+  const t = calc();
+  const data = {
+    number: $('#invNo').value, customer: $('#customer').value, issueDate: $('#issueDate').value, dueDate: $('#dueDate').value,
+    items: rows.filter(r => r.pid), total: t.total, status: draft ? 'draft' : 'issued'
+  };
+  console.log('Invoice payload', data);
+  toast(draft ? 'Đã lưu nháp hóa đơn ' + data.number + '.' : 'Đã lưu hóa đơn ' + data.number + ' - ' + fmt(t.total) + '.');
+}
+$('#save').addEventListener('click', () => save(false));
+$('#saveDraft').addEventListener('click', () => save(true));
+$('#cancel').addEventListener('click', () => { if (confirm('Hủy hóa đơn đang soạn? Dữ liệu chưa lưu sẽ mất.')) location.reload(); });
+
+// seed rows
+addRow({ pid:'P001', qty:5, price:21500000, tax:10 });
+rows[0].qty = 5;
+addRow({ pid:'P002', qty:10, price:3290000, tax:10 });
+addRow({ pid:'P006', qty:24, price:900000, tax:10 });
+addRow({ pid:'P004', qty:40, price:82000, tax:8 });
+</script>
+</body>
+</html>

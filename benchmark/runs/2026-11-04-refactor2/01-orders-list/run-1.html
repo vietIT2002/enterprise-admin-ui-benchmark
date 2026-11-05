@@ -1,0 +1,649 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Orders – ERP Sales</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+  [hidden] { display: none !important; }
+  dialog { margin: auto; }
+  :focus-visible { outline: 2px solid #1d4ed8; outline-offset: 2px; }
+  body { font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; color: #0f172a; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .spin { animation: spin .8s linear infinite; }
+  @media (prefers-reduced-motion: reduce) { .spin { animation-duration: 2s; } .animate-pulse { animation: none; } }
+</style>
+</head>
+<body class="bg-slate-50 text-sm text-slate-900">
+<div class="flex min-h-screen">
+
+  <!-- Sidebar -->
+  <aside class="hidden w-56 shrink-0 flex-col border-r border-slate-200 bg-white lg:flex" aria-label="Main navigation">
+    <div class="flex h-14 items-center gap-2 border-b border-slate-200 px-4">
+      <span class="inline-flex size-7 items-center justify-center rounded bg-blue-700 text-xs font-semibold text-white" aria-hidden="true">HP</span>
+      <span class="text-sm font-semibold">Hưng Phát ERP</span>
+    </div>
+    <nav class="flex-1 overflow-y-auto px-2 py-3" id="nav"></nav>
+    <div class="border-t border-slate-200 p-3">
+      <div class="flex items-center gap-2">
+        <span class="inline-flex size-8 items-center justify-center rounded-full bg-slate-200 text-xs font-medium text-slate-700" aria-hidden="true">LN</span>
+        <div class="min-w-0">
+          <p class="truncate text-sm font-medium">Lê Hoàng Nam</p>
+          <p class="truncate text-xs text-slate-600">Sales manager</p>
+        </div>
+      </div>
+    </div>
+  </aside>
+
+  <main class="min-w-0 flex-1 px-6 py-5">
+    <!-- Page header -->
+    <header class="mb-4">
+      <nav aria-label="Breadcrumb" class="mb-1 text-xs text-slate-600">
+        <ol class="flex items-center gap-1"><li>Sales</li><li aria-hidden="true">/</li><li aria-current="page" class="text-slate-900">Orders</li></ol>
+      </nav>
+      <div class="flex flex-wrap items-center justify-between gap-3">
+        <h1 class="text-xl font-semibold">Orders</h1>
+        <div class="flex items-center gap-2">
+          <button type="button" data-act="import" class="btn-sec inline-flex h-8 items-center gap-1.5 rounded border border-slate-300 bg-white px-3 text-sm font-medium text-slate-800 hover:bg-slate-50"><span data-ic="upload"></span>Import</button>
+          <button type="button" data-act="export" class="btn-sec inline-flex h-8 items-center gap-1.5 rounded border border-slate-300 bg-white px-3 text-sm font-medium text-slate-800 hover:bg-slate-50"><span data-ic="download"></span>Export</button>
+          <button type="button" data-act="create" class="inline-flex h-8 items-center gap-1.5 rounded bg-blue-700 px-3 text-sm font-medium text-white hover:bg-blue-800"><span data-ic="plus"></span>Create order</button>
+        </div>
+      </div>
+    </header>
+
+    <!-- Status tabs -->
+    <div id="tabs" role="tablist" aria-label="Order status" class="mb-3 flex gap-1 overflow-x-auto border-b border-slate-200"></div>
+
+    <!-- Filter row -->
+    <div class="flex flex-wrap items-center gap-2">
+      <div class="relative w-80">
+        <span class="pointer-events-none absolute left-2.5 top-2 text-slate-500" data-ic="search"></span>
+        <input id="q" type="search" autocomplete="off" aria-label="Search orders" placeholder="Search order no., customer, salesperson"
+          class="h-8 w-full rounded border border-slate-300 bg-white pl-8 pr-8 text-sm placeholder:text-slate-500 [&::-webkit-search-cancel-button]:hidden">
+        <button id="qClear" type="button" hidden aria-label="Clear search" class="absolute right-1 top-1 inline-flex size-6 items-center justify-center rounded text-slate-600 hover:bg-slate-100"><span data-ic="x"></span></button>
+      </div>
+      <select id="fPayment" aria-label="Filter by payment" class="h-8 rounded border border-slate-300 bg-white px-2 text-sm text-slate-800"></select>
+      <select id="fChannel" aria-label="Filter by channel" class="h-8 rounded border border-slate-300 bg-white px-2 text-sm text-slate-800"></select>
+      <div class="relative">
+        <button id="moreBtn" type="button" aria-haspopup="dialog" aria-expanded="false" class="inline-flex h-8 items-center gap-1.5 rounded border border-slate-300 bg-white px-3 text-sm font-medium text-slate-800 hover:bg-slate-50"><span data-ic="filter"></span><span id="moreLabel">More filters</span></button>
+        <div id="morePanel" hidden role="dialog" aria-label="More filters" class="absolute left-0 top-9 z-30 w-80 rounded-md border border-slate-200 bg-white shadow-lg">
+          <div class="space-y-3 p-4">
+            <div><label for="pRep" class="mb-1 block text-sm font-medium">Salesperson</label><select id="pRep" class="h-8 w-full rounded border border-slate-300 bg-white px-2 text-sm"></select></div>
+            <div class="grid grid-cols-2 gap-3">
+              <div><label for="pFrom" class="mb-1 block text-sm font-medium">Ordered from</label><input id="pFrom" type="date" class="h-8 w-full rounded border border-slate-300 bg-white px-2 text-sm"></div>
+              <div><label for="pTo" class="mb-1 block text-sm font-medium">Ordered to</label><input id="pTo" type="date" class="h-8 w-full rounded border border-slate-300 bg-white px-2 text-sm"></div>
+            </div>
+            <div><label for="pMin" class="mb-1 block text-sm font-medium">Minimum total (VND)</label><input id="pMin" type="number" min="0" step="1000000" inputmode="numeric" class="h-8 w-44 rounded border border-slate-300 bg-white px-2 text-right text-sm tabular-nums"></div>
+          </div>
+          <div class="flex justify-end gap-2 border-t border-slate-200 p-3">
+            <button type="button" data-act="panel-reset" class="inline-flex h-8 items-center rounded border border-slate-300 bg-white px-3 text-sm font-medium text-slate-800 hover:bg-slate-50">Reset</button>
+            <button type="button" data-act="panel-apply" class="inline-flex h-8 items-center rounded bg-blue-700 px-3 text-sm font-medium text-white hover:bg-blue-800">Apply</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Chips -->
+    <div id="chips" class="flex flex-wrap items-center gap-2 pt-2" aria-label="Applied filters"></div>
+
+    <!-- Banner (always in DOM for live announcements) -->
+    <div id="banner" role="status" class="mt-3"></div>
+
+    <!-- Summary line -->
+    <p id="summary" class="mb-2 mt-3 text-sm text-slate-600"></p>
+    <p id="live" role="status" class="sr-only"></p>
+
+    <!-- Table card -->
+    <section id="tableCard" class="overflow-hidden rounded-md border border-slate-200 bg-white" aria-label="Orders table"></section>
+  </main>
+</div>
+
+<!-- Overflow menu -->
+<div id="menu" hidden role="menu" class="fixed z-40 w-56 rounded-md border border-slate-200 bg-white py-1 shadow-lg"></div>
+
+<!-- Dialog -->
+<dialog id="dlg" class="w-[460px] max-w-[92vw] rounded-lg border border-slate-200 p-0 shadow-xl backdrop:bg-slate-900/40" aria-labelledby="dlgTitle">
+  <div class="p-5">
+    <h2 id="dlgTitle" class="text-base font-semibold"></h2>
+    <div id="dlgBody" class="mt-2 text-sm text-slate-700"></div>
+  </div>
+  <div id="dlgActions" class="flex justify-end gap-2 border-t border-slate-200 p-3"></div>
+</dialog>
+
+<!-- Toasts -->
+<div id="toasts" class="fixed right-4 top-4 z-50 flex w-80 flex-col gap-2" role="status" aria-live="polite"></div>
+
+<script>
+(() => {
+  /* ---------- helpers ---------- */
+  const $ = (s, r = document) => r.querySelector(s);
+  const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  const nf = new Intl.NumberFormat('vi-VN');
+  const money = new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' });
+  const dfmt = new Intl.DateTimeFormat('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' });
+  const norm = s => String(s).normalize('NFD').replace(/\p{Diacritic}/gu, '').replace(/đ/gi, 'd').toLowerCase();
+  const plural = (n, w) => `${nf.format(n)} ${w}${n === 1 ? '' : 's'}`;
+
+  const IC = {
+    search: '<circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/>',
+    x: '<path d="M18 6 6 18"/><path d="m6 6 12 12"/>',
+    chevDown: '<path d="m6 9 6 6 6-6"/>',
+    chevUp: '<path d="m18 15-6-6-6 6"/>',
+    updown: '<path d="m7 15 5 5 5-5"/><path d="m7 9 5-5 5 5"/>',
+    more: '<circle cx="12" cy="5" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="12" cy="19" r="1"/>',
+    plus: '<path d="M5 12h14"/><path d="M12 5v14"/>',
+    download: '<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m7 10 5 5 5-5"/><path d="M12 15V3"/>',
+    upload: '<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m17 8-5-5-5 5"/><path d="M12 3v12"/>',
+    filter: '<path d="M22 3H2l8 9.46V19l4 2v-8.46L22 3z"/>',
+    alert: '<path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"/><path d="M12 9v4"/><path d="M12 17h.01"/>',
+    check: '<path d="M20 6 9 17l-5-5"/>',
+    home: '<path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><path d="M9 22V12h6v10"/>',
+    cart: '<circle cx="8" cy="21" r="1"/><circle cx="19" cy="21" r="1"/><path d="M2 3h2l2.7 12.4a2 2 0 0 0 2 1.6h9.8a2 2 0 0 0 2-1.6L22 7H5.1"/>',
+    users: '<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.9"/><path d="M16 3.1a4 4 0 0 1 0 7.8"/>',
+    box: '<path d="M21 8 12 3 3 8v8l9 5 9-5z"/><path d="m3 8 9 5 9-5"/><path d="M12 13v8"/>',
+    truck: '<path d="M1 3h15v13H1z"/><path d="M16 8h4l3 3v5h-7z"/><circle cx="5.5" cy="18.5" r="2"/><circle cx="18.5" cy="18.5" r="2"/>',
+    wallet: '<path d="M3 7h18v12H3z"/><path d="M3 7l2-3h14l2 3"/><path d="M16 13h2"/>',
+    chart: '<path d="M3 3v18h18"/><path d="m7 15 4-4 3 3 5-6"/>',
+    cog: '<circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M5 5l2 2M17 17l2 2M19 5l-2 2M7 17l-2 2"/>'
+  };
+  const ic = (n, cls = '') => `<svg class="${cls}" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${IC[n]}</svg>`;
+  const spinner = '<svg class="spin" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M21 12a9 9 0 1 1-6.2-8.56" stroke-linecap="round"/></svg>';
+  document.querySelectorAll('[data-ic]').forEach(el => { el.outerHTML = el.tagName === 'SPAN' ? ic(el.dataset.ic, el.className + ' shrink-0') : el.outerHTML; });
+
+  /* ---------- sidebar ---------- */
+  const NAV = [
+    ['Overview', [['Dashboard', 'home']]],
+    ['Sales', [['Orders', 'cart', true], ['Customers', 'users'], ['Shipments', 'truck']]],
+    ['Operations', [['Inventory', 'box'], ['Accounting', 'wallet'], ['Reports', 'chart']]],
+    ['Admin', [['Settings', 'cog']]]
+  ];
+  $('#nav').innerHTML = NAV.map(([g, items]) => `<p class="px-2 pb-1 pt-3 text-xs font-medium text-slate-600">${g}</p>` +
+    items.map(([l, i, a]) => `<a href="#" ${a ? 'aria-current="page"' : ''} class="mb-0.5 flex h-8 items-center gap-2 rounded px-2 text-sm ${a ? 'bg-blue-50 font-medium text-blue-800' : 'text-slate-700 hover:bg-slate-100'}">${ic(i)}${l}</a>`).join('')).join('');
+
+  /* ---------- status vocabulary ---------- */
+  const TONES = {
+    neutral: 'bg-slate-100 text-slate-700',
+    info: 'bg-blue-50 text-blue-800',
+    success: 'bg-green-50 text-green-800',
+    warning: 'bg-amber-50 text-amber-800',
+    danger: 'bg-red-50 text-red-800'
+  };
+  const STATUS_TONE = { Draft: 'neutral', Pending: 'info', Shipping: 'info', Delayed: 'warning', Completed: 'success', Cancelled: 'danger' };
+  const PAY_TONE = { Unpaid: 'warning', Partial: 'info', Paid: 'success', Refunded: 'neutral' };
+  const STATUSES = ['Draft', 'Pending', 'Shipping', 'Delayed', 'Completed', 'Cancelled'];
+  const PAYS = ['Unpaid', 'Partial', 'Paid', 'Refunded'];
+  const CHANNELS = ['Direct sales', 'Distributor', 'Online store', 'Marketplace'];
+  const REPS = ['Nguyễn Thị Hà', 'Trần Minh Quân', 'Lê Hoàng Nam', 'Phạm Thu Trang', 'Võ Đức Anh', 'Đặng Bảo Ngọc'];
+  const badge = (t, tone) => `<span class="inline-flex h-6 items-center whitespace-nowrap rounded-full px-2 text-xs font-medium ${TONES[tone]}">${esc(t)}</span>`;
+
+  /* ---------- mock data ---------- */
+  const CUSTOMERS = ['Công ty TNHH Minh Phát', 'Công ty CP Thương mại An Khang', 'Cửa hàng Bách Hóa Đại Nam', 'Công ty TNHH Xây dựng Hòa Bình', 'Siêu thị Mini Phương Đông', 'Công ty CP Dược phẩm Việt Hà', 'Nhà phân phối Tân Việt', 'Công ty TNHH Điện máy Sao Mai', 'Đại lý Thành Công', 'Công ty CP Logistics Đông Dương', 'Công ty TNHH Nội thất Gia Huy', 'Cửa hàng Vật liệu Đức Thịnh', 'Công ty CP Thực phẩm Hương Việt', 'Công ty TNHH In ấn Bảo Long'];
+  function rng(seed) { return () => { seed |= 0; seed = seed + 0x6D2B79F5 | 0; let t = Math.imul(seed ^ seed >>> 15, 1 | seed); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; };
+  const rand = rng(20261104);
+  const pick = a => a[Math.floor(rand() * a.length)];
+  const NOW = new Date(2026, 10, 4, 16, 30);
+  function makeOrders() {
+    const out = []; let days = 0;
+    for (let i = 0; i < 96; i++) {
+      days += rand() < 0.35 ? 0 : 1;
+      if (i > 0 && i % 7 === 0) days += 1;
+      const d = new Date(2026, 10, 4 - Math.floor(days * 0.95)); d.setHours(8 + Math.floor(rand() * 9), Math.floor(rand() * 60));
+      let status, pay; const r = rand();
+      if (days < 3) status = r < 0.3 ? 'Draft' : 'Pending';
+      else if (days < 12) status = r < 0.15 ? 'Pending' : r < 0.55 ? 'Shipping' : r < 0.7 ? 'Delayed' : 'Completed';
+      else status = r < 0.82 ? 'Completed' : r < 0.9 ? 'Cancelled' : r < 0.95 ? 'Delayed' : 'Shipping';
+      const p = rand();
+      if (status === 'Completed') pay = p < 0.9 ? 'Paid' : 'Partial';
+      else if (status === 'Cancelled') pay = p < 0.5 ? 'Refunded' : 'Unpaid';
+      else pay = p < 0.45 ? 'Unpaid' : p < 0.75 ? 'Partial' : 'Paid';
+      const total = Math.round((1200000 + Math.pow(rand(), 2.2) * 168000000) / 1000) * 1000;
+      out.push({ id: 'DH-' + (1100 - i), customer: pick(CUSTOMERS), rep: pick(REPS), channel: pick(CHANNELS), date: d.getTime(), status, pay, total });
+    }
+    return out;
+  }
+  let DATA = makeOrders();
+
+  /* ---------- URL state ---------- */
+  const SORTS = ['id', 'status', 'customer', 'rep', 'date', 'pay', 'total'];
+  const DEFAULT_SORT = '-date';
+  let P = {}, MODE = '';
+  const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+  function readURL() {
+    const u = new URLSearchParams(location.search), g = k => u.get(k) || '';
+    const sortRaw = g('sort'), sk = sortRaw.replace(/^-/, '');
+    P = {
+      q: g('q'), status: STATUSES.includes(g('status')) ? g('status') : '',
+      payment: PAYS.includes(g('payment')) ? g('payment') : '', channel: CHANNELS.includes(g('channel')) ? g('channel') : '',
+      rep: REPS.includes(g('rep')) ? g('rep') : '', from: DATE_RE.test(g('from')) ? g('from') : '', to: DATE_RE.test(g('to')) ? g('to') : '',
+      min: /^\d+$/.test(g('min')) ? g('min') : '', sort: SORTS.includes(sk) ? sortRaw : DEFAULT_SORT,
+      page: Math.max(1, parseInt(g('page'), 10) || 1), size: [25, 50, 100].includes(+g('size')) ? +g('size') : 25
+    };
+    MODE = g('state');
+  }
+  function writeURL(push) {
+    const u = new URLSearchParams();
+    ['q', 'status', 'payment', 'channel', 'rep', 'from', 'to', 'min'].forEach(k => { if (P[k]) u.set(k, P[k]); });
+    if (P.sort !== DEFAULT_SORT) u.set('sort', P.sort);
+    if (P.page > 1) u.set('page', P.page);
+    if (P.size !== 25) u.set('size', P.size);
+    if (MODE) u.set('state', MODE);
+    const qs = u.toString(), url = location.pathname + (qs ? '?' + qs : '');
+    history[push ? 'pushState' : 'replaceState'](null, '', url);
+  }
+  function setP(patch, push = false) {
+    Object.assign(P, patch);
+    if (!('page' in patch)) P.page = 1;
+    clearSelection(true);
+    writeURL(push);
+    render();
+  }
+
+  /* ---------- state ---------- */
+  let loaded = false, failedLoad = false, busy = false, banner = null;
+  let sel = new Set(), allMatching = false;
+  const FILTER_KEYS = ['q', 'status', 'payment', 'channel', 'rep', 'from', 'to', 'min'];
+
+  function filtered(skipStatus = false) {
+    const q = norm(P.q.trim());
+    const from = P.from ? new Date(P.from + 'T00:00:00').getTime() : null;
+    const to = P.to ? new Date(P.to + 'T23:59:59').getTime() : null;
+    return DATA.filter(o =>
+      (skipStatus || !P.status || o.status === P.status) &&
+      (!P.payment || o.pay === P.payment) && (!P.channel || o.channel === P.channel) && (!P.rep || o.rep === P.rep) &&
+      (from === null || o.date >= from) && (to === null || o.date <= to) && (!P.min || o.total >= +P.min) &&
+      (!q || norm(o.id + ' ' + o.customer + ' ' + o.rep).includes(q)));
+  }
+  function sorted(list) {
+    const desc = P.sort.startsWith('-'), k = P.sort.replace(/^-/, '');
+    const cmp = {
+      id: (a, b) => a.id.localeCompare(b.id, 'vi', { numeric: true }),
+      status: (a, b) => STATUSES.indexOf(a.status) - STATUSES.indexOf(b.status),
+      customer: (a, b) => a.customer.localeCompare(b.customer, 'vi'),
+      rep: (a, b) => a.rep.localeCompare(b.rep, 'vi'),
+      pay: (a, b) => PAYS.indexOf(a.pay) - PAYS.indexOf(b.pay),
+      date: (a, b) => a.date - b.date, total: (a, b) => a.total - b.total
+    }[k];
+    return list.slice().sort((a, b) => (desc ? -1 : 1) * cmp(a, b) || a.id.localeCompare(b.id, 'vi', { numeric: true }));
+  }
+  function clearSelection(silent) { sel = new Set(); allMatching = false; if (!silent) render(); }
+
+  /* ---------- rendering ---------- */
+  const COLS = 10;
+  function render() {
+    const focusKey = document.activeElement && document.activeElement.dataset ? document.activeElement.dataset.k : null;
+    renderControls();
+    renderTabs();
+    renderChips();
+    renderBanner();
+    renderTable();
+    if (focusKey) { const el = document.querySelector(`[data-k="${CSS.escape(focusKey)}"]`); if (el) el.focus(); }
+  }
+
+  function renderControls() {
+    $('#q').value !== P.q && ($('#q').value = P.q);
+    $('#qClear').hidden = !P.q;
+    $('#fPayment').innerHTML = `<option value="">Payment: All</option>` + PAYS.map(p => `<option value="${p}" ${P.payment === p ? 'selected' : ''}>Payment: ${p}</option>`).join('');
+    $('#fChannel').innerHTML = `<option value="">Channel: All</option>` + CHANNELS.map(p => `<option value="${p}" ${P.channel === p ? 'selected' : ''}>Channel: ${p}</option>`).join('');
+    const more = [P.rep, P.from || P.to, P.min].filter(Boolean).length;
+    $('#moreLabel').textContent = more ? `More filters (${more})` : 'More filters';
+  }
+
+  function renderTabs() {
+    const base = loaded && !failedLoad && DATA.length ? filtered(true) : null;
+    const cnt = s => base ? base.filter(o => !s || o.status === s).length : null;
+    const tabs = [['', 'All'], ...STATUSES.map(s => [s, s])];
+    $('#tabs').innerHTML = tabs.map(([v, l]) => {
+      const on = P.status === v, c = cnt(v);
+      return `<button type="button" role="tab" aria-selected="${on}" data-act="tab" data-v="${v}" data-k="tab-${v || 'all'}" class="-mb-px inline-flex h-9 items-center gap-1.5 whitespace-nowrap border-b-2 px-3 text-sm ${on ? 'border-blue-700 font-medium text-blue-700' : 'border-transparent text-slate-700 hover:text-slate-900'}">${l}${c === null ? '' : ` <span class="font-normal text-slate-600">${nf.format(c)}</span>`}</button>`;
+    }).join('');
+  }
+
+  function chipList() {
+    const c = [];
+    if (P.q) c.push(['q', `Search: ${P.q}`]);
+    if (P.status) c.push(['status', `Status: ${P.status}`]);
+    if (P.payment) c.push(['payment', `Payment: ${P.payment}`]);
+    if (P.channel) c.push(['channel', `Channel: ${P.channel}`]);
+    if (P.rep) c.push(['rep', `Salesperson: ${P.rep}`]);
+    if (P.from || P.to) {
+      const f = P.from ? dfmt.format(new Date(P.from + 'T00:00:00')) : '…', t = P.to ? dfmt.format(new Date(P.to + 'T00:00:00')) : '…';
+      c.push(['date', `Ordered: ${f} – ${t}`]);
+    }
+    if (P.min) c.push(['min', `Total ≥ ${money.format(+P.min)}`]);
+    return c;
+  }
+  function renderChips() {
+    const list = chipList();
+    $('#chips').hidden = !list.length;
+    $('#chips').innerHTML = list.map(([k, l]) => `<span class="inline-flex h-6 items-center gap-0.5 rounded-full border border-slate-300 bg-white pl-2.5 pr-0.5 text-xs font-medium text-slate-800">${esc(l)}<button type="button" data-act="chip" data-key="${k}" data-k="chip-${k}" aria-label="Remove filter ${esc(l)}" class="inline-flex size-6 items-center justify-center rounded-full text-slate-600 hover:bg-slate-100">${ic('x')}</button></span>`).join('')
+      + (list.length ? `<button type="button" data-act="clear-all" data-k="clear-all" class="inline-flex h-6 items-center px-1 text-sm font-medium text-blue-700 hover:underline">Clear all</button>` : '');
+  }
+
+  function renderBanner() {
+    const el = $('#banner');
+    if (!banner) { el.innerHTML = ''; return; }
+    const warn = banner.failed.length > 0;
+    el.innerHTML = `<div class="flex items-center gap-2 rounded-md border px-3 py-2 ${warn ? 'border-amber-200 bg-amber-50 text-amber-800' : 'border-green-200 bg-green-50 text-green-800'}">
+      ${ic(warn ? 'alert' : 'check')}
+      <span class="font-medium">${esc(banner.text)}</span>
+      ${warn ? `<button type="button" data-act="view-failed" class="ml-1 font-medium underline">View failed (${banner.failed.length})</button>` : ''}
+      <button type="button" data-act="banner-close" aria-label="Dismiss message" class="ml-auto inline-flex size-6 items-center justify-center rounded hover:bg-white/60">${ic('x')}</button></div>`;
+  }
+
+  function th(key, label, num) {
+    const k = P.sort.replace(/^-/, ''), on = k === key, desc = P.sort.startsWith('-');
+    const icon = on ? ic(desc ? 'chevDown' : 'chevUp') : ic('updown', 'opacity-0 group-hover:opacity-100 group-focus-visible:opacity-100');
+    const aria = on ? ` aria-sort="${desc ? 'descending' : 'ascending'}"` : '';
+    return `<th scope="col" class="h-10 px-3 font-medium ${num ? 'text-right' : 'text-left'}"${aria}><button type="button" data-act="sort" data-key="${key}" data-k="sort-${key}" class="group inline-flex items-center gap-1 whitespace-nowrap ${num ? 'flex-row-reverse' : ''}">${label}${icon}</button></th>`;
+  }
+
+  function skeletonRows() {
+    const widths = ['w-4', 'w-16', 'w-16', 'w-40', 'w-28', 'w-24', 'w-16', 'w-20', 'w-20', 'w-12'];
+    return Array.from({ length: 8 }, () => `<tr class="h-10 border-t border-slate-100" aria-hidden="true">${widths.map(w => `<td class="px-3"><div class="h-4 ${w} animate-pulse rounded bg-slate-200"></div></td>`).join('')}</tr>`).join('');
+  }
+
+  function stateRow(inner) { return `<tr><td colspan="${COLS}">${inner}</td></tr>`; }
+
+  function renderTable() {
+    const n = sel.size ? (allMatching ? filtered().length : sel.size) : 0;
+    let rows = '', footer = '', pageRows = [], list = [];
+    let status = '';
+    if (!loaded) {
+      rows = skeletonRows();
+    } else if (failedLoad) {
+      rows = stateRow(`<div class="flex flex-col items-center gap-3 px-6 py-12 text-center"><p class="text-base font-medium">Couldn't load orders</p><p class="text-sm text-slate-600">Check your connection and try again.</p><button type="button" data-act="retry" class="inline-flex h-8 items-center rounded border border-slate-300 bg-white px-3 text-sm font-medium text-slate-800 hover:bg-slate-50">Retry</button></div>`);
+    } else if (!DATA.length) {
+      rows = stateRow(`<div class="flex flex-col items-center gap-3 px-6 py-12 text-center"><p class="text-base font-medium">No orders yet</p><p class="max-w-sm text-sm text-slate-600">Orders from every sales channel appear here once they are created.</p><button type="button" data-act="create" class="inline-flex h-8 items-center rounded bg-blue-700 px-3 text-sm font-medium text-white hover:bg-blue-800">Create order</button></div>`);
+      status = 'No orders yet';
+    } else {
+      list = sorted(filtered());
+      const pages = Math.max(1, Math.ceil(list.length / P.size));
+      if (P.page > pages) P.page = pages;
+      pageRows = list.slice((P.page - 1) * P.size, P.page * P.size);
+      if (!list.length) {
+        const term = P.q ? `No orders match "${esc(P.q)}"` : 'No orders match these filters';
+        rows = stateRow(`<div class="flex flex-col items-center gap-3 px-6 py-12 text-center"><p class="text-base font-medium">${term}</p><p class="text-sm text-slate-600">Check the spelling or widen the date range.</p><button type="button" data-act="clear-all" class="inline-flex h-8 items-center rounded border border-slate-300 bg-white px-3 text-sm font-medium text-slate-800 hover:bg-slate-50">Clear filters</button></div>`);
+        status = 'No orders match';
+      } else {
+        rows = pageRows.map(o => {
+          const on = sel.has(o.id) || allMatching;
+          return `<tr class="h-10 border-t border-slate-100 ${on ? 'bg-blue-50' : 'hover:bg-slate-50'}">
+            <td class="w-10 px-2"><label class="inline-flex size-6 cursor-pointer items-center justify-center"><input type="checkbox" class="size-4 accent-blue-700" data-act="row" data-id="${o.id}" data-k="row-${o.id}" aria-label="Select order ${o.id}" ${on ? 'checked' : ''}></label></td>
+            <td class="whitespace-nowrap px-3"><a href="#" data-act="open" data-id="${o.id}" class="font-medium text-blue-700 hover:underline">${o.id}</a></td>
+            <td class="px-3">${badge(o.status, STATUS_TONE[o.status])}</td>
+            <td class="whitespace-nowrap px-3">${esc(o.customer)}</td>
+            <td class="whitespace-nowrap px-3">${esc(o.rep)}</td>
+            <td class="whitespace-nowrap px-3">${esc(o.channel)}</td>
+            <td class="whitespace-nowrap px-3 tabular-nums">${dfmt.format(o.date)}</td>
+            <td class="px-3">${badge(o.pay, PAY_TONE[o.pay])}</td>
+            <td class="whitespace-nowrap px-3 text-right tabular-nums">${nf.format(o.total)}</td>
+            <td class="whitespace-nowrap px-2 text-right"><div class="inline-flex items-center gap-1">
+              <button type="button" data-act="edit" data-id="${o.id}" aria-label="Edit order ${o.id}" ${n ? 'disabled' : ''} class="inline-flex h-8 items-center rounded px-2 text-sm font-medium text-blue-700 hover:bg-blue-50 disabled:cursor-not-allowed disabled:text-slate-500 disabled:hover:bg-transparent">Edit</button>
+              <button type="button" data-act="row-menu" data-id="${o.id}" data-k="menu-${o.id}" aria-haspopup="menu" aria-label="Actions for order ${o.id}" ${n ? 'disabled' : ''} class="inline-flex size-8 items-center justify-center rounded text-slate-700 hover:bg-slate-100 disabled:cursor-not-allowed disabled:text-slate-500 disabled:hover:bg-transparent">${ic('more')}</button></div></td>
+          </tr>`;
+        }).join('');
+        status = plural(list.length, 'order') + ' match';
+      }
+    }
+
+    // bulk bar
+    let bar = '';
+    const total = list.length;
+    if (loaded && !failedLoad && sel.size + (allMatching ? 1 : 0) > 0) {
+      const allPage = pageRows.length > 0 && pageRows.every(o => sel.has(o.id));
+      const dis = busy ? 'disabled' : '';
+      const b = 'inline-flex h-8 items-center gap-1.5 rounded border border-blue-200 bg-white px-3 text-sm font-medium text-slate-800 hover:bg-blue-50 disabled:cursor-not-allowed disabled:text-slate-500';
+      bar = `<div class="flex h-10 items-center gap-3 border-b border-blue-200 bg-blue-50 px-3 text-sm text-blue-900" role="toolbar" aria-label="Bulk actions">
+        ${busy ? `${spinner}<span class="font-medium">Updating ${plural(n, 'order')}…</span>` : `<span class="font-medium">${allMatching ? `All ${nf.format(n)} matching selected` : `${nf.format(n)} selected`}</span>`}
+        ${!busy && !allMatching && allPage && total > pageRows.length ? `<button type="button" data-act="select-all-matching" class="font-medium text-blue-700 underline">Select all ${nf.format(total)} matching</button>` : ''}
+        <span class="mx-1 h-5 w-px bg-blue-200" aria-hidden="true"></span>
+        <button type="button" data-act="bulk-ship" ${dis} class="${b}">Confirm &amp; ship</button>
+        <button type="button" data-act="bulk-export" ${dis} class="${b}">${ic('download')}Export</button>
+        <button type="button" data-act="bulk-cancel" ${dis} class="${b} !text-red-700">Cancel orders</button>
+        <button type="button" data-act="bulk-more" data-k="bulk-more" ${dis} aria-haspopup="menu" class="${b}">More${ic('chevDown')}</button>
+        <button type="button" data-act="clear-sel" ${dis} class="ml-auto inline-flex h-8 items-center rounded px-2 text-sm font-medium text-blue-800 hover:bg-blue-100 disabled:text-slate-500">${allMatching ? 'Clear selection' : 'Cancel'}</button>
+      </div>`;
+    }
+
+    // header
+    const allPageSel = pageRows.length > 0 && (allMatching || pageRows.every(o => sel.has(o.id)));
+    const somePageSel = pageRows.some(o => sel.has(o.id)) || allMatching;
+    const head = `<tr class="bg-slate-50 text-sm text-slate-700">
+      <th scope="col" class="h-10 w-10 px-2"><label class="inline-flex size-6 cursor-pointer items-center justify-center"><input type="checkbox" id="selAll" class="size-4 accent-blue-700" data-act="all" data-k="sel-all" aria-label="Select all rows on this page" ${allPageSel ? 'checked' : ''} ${!pageRows.length ? 'disabled' : ''}></label></th>
+      ${th('id', 'Order no.')}${th('status', 'Status')}${th('customer', 'Customer')}${th('rep', 'Salesperson')}
+      <th scope="col" class="h-10 px-3 text-left font-medium">Channel</th>
+      ${th('date', 'Order date')}${th('pay', 'Payment')}${th('total', 'Total (VND)', true)}
+      <th scope="col" class="h-10 px-2"><span class="sr-only">Actions</span></th></tr>`;
+
+    // pagination
+    if (loaded && !failedLoad && pageRows.length) {
+      const pages = Math.max(1, Math.ceil(total / P.size)), a = (P.page - 1) * P.size + 1, z = a + pageRows.length - 1;
+      const pb = (p, label, dis, cur) => `<button type="button" data-act="page" data-p="${p}" data-k="page-${label}" ${dis ? 'disabled' : ''} ${cur ? 'aria-current="page"' : ''} class="inline-flex h-8 min-w-8 items-center justify-center rounded border px-2 text-sm ${cur ? 'border-blue-700 bg-blue-700 font-medium text-white' : 'border-slate-300 bg-white text-slate-800 hover:bg-slate-50'} disabled:cursor-not-allowed disabled:text-slate-500 disabled:hover:bg-white">${label}</button>`;
+      let nums = '';
+      for (let p = 1; p <= pages; p++) nums += pb(p, p, false, p === P.page);
+      footer = `<div class="flex h-12 items-center justify-between border-t border-slate-200 px-3">
+        <p class="text-sm text-slate-600 tabular-nums">${nf.format(a)}–${nf.format(z)} of ${nf.format(total)}</p>
+        <div class="flex items-center gap-3">
+          <label class="flex items-center gap-2 text-sm text-slate-600">Rows per page
+            <select data-act="size" data-k="size" class="h-8 rounded border border-slate-300 bg-white px-2 text-sm text-slate-900">${[25, 50, 100].map(s => `<option ${s === P.size ? 'selected' : ''}>${s}</option>`).join('')}</select></label>
+          <div class="flex items-center gap-1" role="navigation" aria-label="Pagination">${pb(P.page - 1, 'Previous', P.page === 1)}${nums}${pb(P.page + 1, 'Next', P.page === pages)}</div>
+        </div></div>`;
+    }
+
+    // summary & live
+    if (loaded && !failedLoad && DATA.length) {
+      const sum = list.reduce((s, o) => s + o.total, 0);
+      $('#summary').textContent = list.length ? `${plural(list.length, 'order')} · ${money.format(sum)}` : '';
+    } else $('#summary').textContent = '';
+    $('#live').textContent = status;
+
+    const card = $('#tableCard');
+    card.setAttribute('aria-busy', String(!loaded));
+    card.innerHTML = `${bar}<div class="overflow-x-auto"><table class="w-full min-w-[1080px] border-collapse text-left text-sm"><thead>${head}</thead><tbody ${!loaded ? 'aria-busy="true"' : ''}>${rows}</tbody></table></div>${footer}`;
+    const sa = $('#selAll'); if (sa) sa.indeterminate = somePageSel && !allPageSel;
+  }
+
+  /* ---------- toasts, menu, dialog ---------- */
+  function toast(msg, ms = 5000) {
+    const t = document.createElement('div');
+    t.className = 'flex items-start gap-2 rounded-md border border-slate-200 bg-white p-3 text-sm shadow-lg';
+    t.innerHTML = `<span class="mt-0.5 text-green-700">${ic('check')}</span><span class="flex-1">${esc(msg)}</span><button type="button" aria-label="Dismiss notification" class="inline-flex size-6 items-center justify-center rounded text-slate-600 hover:bg-slate-100">${ic('x')}</button>`;
+    let timer; const close = () => t.remove();
+    const start = () => { timer = setTimeout(close, ms); }, stop = () => clearTimeout(timer);
+    t.addEventListener('mouseenter', stop); t.addEventListener('mouseleave', start);
+    t.addEventListener('focusin', stop); t.addEventListener('focusout', start);
+    t.querySelector('button').onclick = close;
+    $('#toasts').appendChild(t); start();
+  }
+
+  let menuCbs = [], menuTrigger = null;
+  function openMenu(btn, items) {
+    menuCbs = items.map(i => i.run); menuTrigger = btn;
+    const m = $('#menu');
+    m.innerHTML = items.map((i, ix) => `${i.sep ? '<div class="my-1 border-t border-slate-200"></div>' : ''}<button type="button" role="menuitem" data-mi="${ix}" ${i.disabled ? 'disabled' : ''} class="flex w-full flex-col px-3 py-1.5 text-left text-sm ${i.danger ? 'text-red-700' : 'text-slate-800'} hover:bg-slate-50 disabled:cursor-not-allowed disabled:text-slate-500 disabled:hover:bg-white"><span>${esc(i.label)}</span>${i.note ? `<span class="text-xs text-slate-600">${esc(i.note)}</span>` : ''}</button>`).join('');
+    m.hidden = false;
+    const r = btn.getBoundingClientRect(), w = 224;
+    m.style.left = Math.max(8, Math.min(innerWidth - w - 8, r.right - w)) + 'px';
+    const h = m.offsetHeight; m.style.top = (r.bottom + h + 8 > innerHeight ? r.top - h - 4 : r.bottom + 4) + 'px';
+    const first = m.querySelector('button:not([disabled])'); if (first) first.focus();
+  }
+  function closeMenu(returnFocus) { const m = $('#menu'); if (m.hidden) return; m.hidden = true; if (returnFocus && menuTrigger && document.contains(menuTrigger)) menuTrigger.focus(); }
+
+  function dialog({ title, body, actions }) {
+    $('#dlgTitle').textContent = title; $('#dlgBody').innerHTML = body;
+    const box = $('#dlgActions'); box.innerHTML = '';
+    actions.forEach(a => {
+      const b = document.createElement('button'); b.type = 'button'; b.textContent = a.label;
+      b.className = 'inline-flex h-8 items-center rounded px-3 text-sm font-medium ' + (a.kind === 'danger' ? 'bg-red-700 text-white hover:bg-red-800' : a.kind === 'primary' ? 'bg-blue-700 text-white hover:bg-blue-800' : 'border border-slate-300 bg-white text-slate-800 hover:bg-slate-50');
+      b.onclick = () => { $('#dlg').close(); a.run && a.run(); };
+      if (a.safe) b.dataset.safe = '1';
+      box.appendChild(b);
+    });
+    $('#dlg').showModal();
+    (box.querySelector('[data-safe]') || box.lastElementChild).focus();
+  }
+
+  /* ---------- bulk logic ---------- */
+  const targetIds = () => allMatching ? filtered().map(o => o.id) : [...sel];
+  const byId = id => DATA.find(o => o.id === id);
+  const SHIP_FAIL = { Draft: 'Order is still a draft', Shipping: 'Order is already shipping', Completed: 'Order is already completed', Cancelled: 'Order is cancelled' };
+  const canCancel = o => ['Draft', 'Pending', 'Delayed'].includes(o.status);
+
+  function runBulk(label, fn) {
+    busy = true; render();
+    setTimeout(() => {
+      const ids = targetIds(), ok = [], failed = [];
+      ids.forEach(id => { const r = fn(byId(id)); r ? failed.push({ id, reason: r }) : ok.push(id); });
+      busy = false;
+      sel = new Set(failed.map(f => f.id)); allMatching = false;
+      if (failed.length) banner = { text: `${nf.format(ok.length)} ${label}, ${nf.format(failed.length)} failed`, failed };
+      else { banner = null; toast(`${plural(ok.length, 'order')} ${label}`); }
+      render();
+    }, 800);
+  }
+  function bulkShip() {
+    runBulk('updated', o => {
+      if (o.status === 'Pending' || o.status === 'Delayed') { o.status = 'Shipping'; return null; }
+      return SHIP_FAIL[o.status];
+    });
+  }
+  function bulkCancel() {
+    const ids = targetIds(), ok = ids.filter(id => canCancel(byId(id))).length, skip = ids.length - ok;
+    if (!ok) return dialog({ title: "Can't cancel the selected orders", body: `<p>None of the ${plural(ids.length, 'selected order')} can be cancelled. Only draft, pending and delayed orders can be cancelled.</p>`, actions: [{ label: 'Close', kind: 'secondary', safe: true }] });
+    dialog({
+      title: `Cancel ${plural(ok, 'order')}?`,
+      body: `<p>${plural(ok, 'order')} will be cancelled and their reserved stock released. Cancelled orders can't be restored.</p>${skip ? `<p class="mt-2 text-slate-600">${plural(skip, 'selected order')} can't be cancelled (shipping, completed or already cancelled) and will be skipped.</p>` : ''}`,
+      actions: [{ label: 'Keep orders', kind: 'secondary', safe: true }, { label: `Cancel ${plural(ok, 'order')}`, kind: 'danger', run: () => runBulk('cancelled', o => { if (canCancel(o)) { o.status = 'Cancelled'; return null; } return 'Order is ' + o.status.toLowerCase() + ' and can\'t be cancelled'; }) }]
+    });
+  }
+  function viewFailed() {
+    if (!banner) return;
+    dialog({
+      title: `${plural(banner.failed.length, 'order')} failed`,
+      body: `<ul class="max-h-60 divide-y divide-slate-100 overflow-y-auto rounded border border-slate-200">${banner.failed.map(f => `<li class="flex justify-between gap-3 px-3 py-2"><span class="font-medium">${f.id}</span><span class="text-slate-600">${esc(f.reason)}</span></li>`).join('')}</ul><p class="mt-2 text-slate-600">The failed orders stay selected.</p>`,
+      actions: [{ label: 'Close', kind: 'secondary', safe: true }]
+    });
+  }
+  function rowMenu(btn, id) {
+    const o = byId(id), cancellable = canCancel(o);
+    openMenu(btn, [
+      { label: 'Duplicate order', run: () => toast(`Order ${id} duplicated as DH-${1101 + Math.floor(Math.random() * 90)}`) },
+      { label: 'Print delivery note', run: () => toast(`Delivery note for ${id} sent to the printer`) },
+      { label: 'Cancel order', danger: true, sep: true, disabled: !cancellable, note: cancellable ? '' : `Not available: order is ${o.status.toLowerCase()}`,
+        run: () => dialog({ title: `Cancel order ${id}?`, body: `<p>The order for ${esc(o.customer)} (${money.format(o.total)}) will be cancelled and its reserved stock released. This can't be undone.</p>`,
+          actions: [{ label: 'Keep order', kind: 'secondary', safe: true }, { label: 'Cancel order', kind: 'danger', run: () => { o.status = 'Cancelled'; render(); toast(`Order ${id} cancelled`); } }] }) }
+    ]);
+  }
+
+  /* ---------- loading ---------- */
+  function load() {
+    loaded = false; failedLoad = false;
+    if (MODE === 'empty') DATA = [];
+    render();
+    if (MODE === 'loading') return;
+    setTimeout(() => { if (MODE === 'loading') return; loaded = true; failedLoad = MODE === 'error'; render(); }, MODE === 'error' ? 400 : 450);
+  }
+
+  /* ---------- events ---------- */
+  document.addEventListener('click', e => {
+    const mi = e.target.closest('[data-mi]');
+    if (mi) { const f = menuCbs[+mi.dataset.mi]; closeMenu(false); f && f(); return; }
+    if (!e.target.closest('#menu')) closeMenu(false);
+    if (!e.target.closest('#morePanel') && !e.target.closest('#moreBtn')) closePanel(false);
+    const t = e.target.closest('[data-act]'); if (!t) return;
+    const act = t.dataset.act;
+    if (t.tagName === 'A') e.preventDefault();
+    switch (act) {
+      case 'tab': setP({ status: t.dataset.v }, true); break;
+      case 'chip': {
+        const k = t.dataset.key;
+        setP(k === 'date' ? { from: '', to: '' } : { [k]: '' });
+        const nxt = $('#chips [data-act="chip"]') || $('#q'); nxt && nxt.focus(); break;
+      }
+      case 'clear-all': setP(Object.fromEntries(FILTER_KEYS.map(k => [k, '']))); $('#q').focus(); break;
+      case 'sort': {
+        const key = t.dataset.key, cur = P.sort;
+        const next = cur === key ? '-' + key : cur === '-' + key ? DEFAULT_SORT : key;
+        setP({ sort: next }, true); break;
+      }
+      case 'page': setP({ page: +t.dataset.p }, true); clearSelection(true); render(); break;
+      case 'retry': MODE = ''; writeURL(false); load(); break;
+      case 'select-all-matching': allMatching = true; render(); break;
+      case 'clear-sel': clearSelection(); break;
+      case 'bulk-ship': bulkShip(); break;
+      case 'bulk-cancel': bulkCancel(); break;
+      case 'bulk-export': toast(`${plural(targetIds().length, 'order')} exported to orders-2026-11-04.csv`); break;
+      case 'bulk-more': openMenu(t, [
+        { label: 'Print picking lists', run: () => toast(`Picking lists for ${plural(targetIds().length, 'order')} sent to the print queue`) },
+        { label: 'Assign salesperson', run: () => toast('Salesperson assignment is not part of this mock') }
+      ]); break;
+      case 'view-failed': viewFailed(); break;
+      case 'banner-close': banner = null; renderBanner(); break;
+      case 'row-menu': rowMenu(t, t.dataset.id); break;
+      case 'open': case 'edit': toast(`Order ${t.dataset.id} detail page is not part of this mock`); break;
+      case 'create': toast('Create order form is not part of this mock'); break;
+      case 'import': toast('Import wizard is not part of this mock'); break;
+      case 'export': toast(`${plural(filtered().length, 'order')} exported to orders-2026-11-04.csv`); break;
+      case 'panel-apply': applyPanel(); break;
+      case 'panel-reset': ['#pRep', '#pFrom', '#pTo', '#pMin'].forEach(s => $(s).value = ''); applyPanel(); break;
+    }
+  });
+  document.addEventListener('change', e => {
+    const t = e.target, act = t.dataset && t.dataset.act;
+    if (act === 'row') {
+      if (allMatching) { allMatching = false; sel = new Set(pageIds()); }
+      t.checked ? sel.add(t.dataset.id) : sel.delete(t.dataset.id); render();
+    } else if (act === 'all') {
+      if (t.checked) pageIds().forEach(id => sel.add(id)); else { pageIds().forEach(id => sel.delete(id)); allMatching = false; }
+      render();
+    } else if (act === 'size') setP({ size: +t.value }, true);
+    else if (t.id === 'fPayment') setP({ payment: t.value });
+    else if (t.id === 'fChannel') setP({ channel: t.value });
+  });
+  function pageIds() {
+    const list = sorted(filtered()); return list.slice((P.page - 1) * P.size, P.page * P.size).map(o => o.id);
+  }
+
+  // search
+  let qTimer;
+  $('#q').addEventListener('input', e => {
+    $('#qClear').hidden = !e.target.value;
+    clearTimeout(qTimer);
+    const v = e.target.value.trim();
+    if (v.length === 1) return;
+    qTimer = setTimeout(() => setP({ q: e.target.value.trim() }), 300);
+  });
+  $('#q').addEventListener('keydown', e => { if (e.key === 'Enter') { clearTimeout(qTimer); setP({ q: e.target.value.trim() }); } });
+  $('#qClear').addEventListener('click', () => { $('#q').value = ''; setP({ q: '' }); $('#q').focus(); });
+  document.addEventListener('keydown', e => {
+    if (e.key === '/' && !/^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement.tagName) && !$('#dlg').open) { e.preventDefault(); $('#q').focus(); }
+    if (e.key === 'Escape') { closeMenu(true); closePanel(true); }
+  });
+
+  // more filters panel
+  function fillPanel() {
+    $('#pRep').innerHTML = `<option value="">All</option>` + REPS.map(r => `<option ${P.rep === r ? 'selected' : ''}>${r}</option>`).join('');
+    $('#pFrom').value = P.from; $('#pTo').value = P.to; $('#pMin').value = P.min;
+  }
+  function closePanel(focus) { if ($('#morePanel').hidden) return; $('#morePanel').hidden = true; $('#moreBtn').setAttribute('aria-expanded', 'false'); focus && $('#moreBtn').focus(); }
+  $('#moreBtn').addEventListener('click', () => {
+    const open = $('#morePanel').hidden; if (!open) return closePanel(true);
+    fillPanel(); $('#morePanel').hidden = false; $('#moreBtn').setAttribute('aria-expanded', 'true'); $('#pRep').focus();
+  });
+  function applyPanel() {
+    const from = $('#pFrom').value, to = $('#pTo').value, min = $('#pMin').value;
+    closePanel(true);
+    setP({ rep: $('#pRep').value, from: DATE_RE.test(from) ? from : '', to: DATE_RE.test(to) ? to : '', min: /^\d+$/.test(min) ? min : '' });
+  }
+
+  window.addEventListener('popstate', () => { readURL(); clearSelection(true); render(); });
+
+  /* ---------- init ---------- */
+  readURL();
+  fillPanel();
+  load();
+})();
+</script>
+</body>
+</html>

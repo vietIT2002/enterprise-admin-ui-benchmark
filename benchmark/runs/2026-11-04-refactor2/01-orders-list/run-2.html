@@ -1,0 +1,660 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Đơn hàng · Bán hàng · ERP</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+  [hidden] { display: none !important; }
+  body { font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; color: #0f172a; }
+  :focus-visible { outline: 2px solid #1d4ed8; outline-offset: 2px; }
+  dialog::backdrop { background: rgba(15, 23, 42, .4); }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .spin { animation: spin .8s linear infinite; }
+  @keyframes pulse2 { 50% { opacity: .5; } }
+  .sk { animation: pulse2 1.4s ease-in-out infinite; background: #e2e8f0; border-radius: 4px; height: 12px; }
+</style>
+</head>
+<body class="bg-white text-sm text-slate-900">
+<div class="flex min-h-screen">
+
+  <!-- Sidebar -->
+  <aside id="sidebar" class="sticky top-0 hidden h-screen w-60 shrink-0 flex-col border-r border-slate-200 bg-slate-50 lg:flex">
+    <div class="flex h-12 items-center gap-2 border-b border-slate-200 px-4">
+      <span class="flex h-6 w-6 items-center justify-center rounded bg-blue-700 text-xs font-semibold text-white" aria-hidden="true">H</span>
+      <span class="font-semibold">Hưng Thịnh ERP</span>
+    </div>
+    <nav aria-label="Điều hướng chính" class="flex-1 overflow-y-auto p-2" id="nav"></nav>
+    <div class="border-t border-slate-200 p-2">
+      <a href="#" class="flex h-8 items-center gap-2 rounded px-2 text-slate-700 hover:bg-slate-200" id="navHelp"></a>
+    </div>
+  </aside>
+
+  <div class="flex min-w-0 flex-1 flex-col">
+    <!-- Header -->
+    <header class="flex h-12 items-center justify-end gap-1 border-b border-slate-200 bg-white px-4">
+      <span class="mr-auto text-slate-600">Chi nhánh: Hà Nội</span>
+      <button type="button" class="relative inline-flex h-8 w-8 items-center justify-center rounded text-slate-700 hover:bg-slate-100" aria-label="Thông báo, 3 chưa đọc" id="btnBell"></button>
+      <button type="button" class="inline-flex h-8 w-8 items-center justify-center rounded-full bg-slate-200 text-xs font-semibold text-slate-800" aria-label="Menu tài khoản">LH</button>
+    </header>
+
+    <main class="min-w-0 flex-1 p-6">
+      <!-- Page header -->
+      <header class="mb-4 flex flex-col gap-2">
+        <nav aria-label="Breadcrumb">
+          <ol class="flex items-center gap-1 text-sm text-slate-600">
+            <li><a href="#" class="inline-flex min-h-6 items-center hover:text-slate-900 hover:underline">Bán hàng</a></li>
+            <li aria-hidden="true">/</li>
+            <li><span aria-current="page" class="text-slate-900">Đơn hàng</span></li>
+          </ol>
+        </nav>
+        <div class="flex flex-wrap items-center justify-between gap-2">
+          <h1 class="text-xl font-semibold">Đơn hàng</h1>
+          <div class="flex items-center gap-2">
+            <button type="button" data-act="import" class="inline-flex h-8 items-center gap-1.5 rounded border border-slate-300 bg-white px-3 font-medium text-slate-800 hover:bg-slate-50" id="btnImport"></button>
+            <button type="button" data-act="export" class="inline-flex h-8 items-center gap-1.5 rounded border border-slate-300 bg-white px-3 font-medium text-slate-800 hover:bg-slate-50" id="btnExport"></button>
+            <button type="button" data-act="create" class="inline-flex h-8 items-center gap-1.5 rounded bg-blue-700 px-3 font-medium text-white hover:bg-blue-800" id="btnCreate"></button>
+          </div>
+        </div>
+      </header>
+
+      <!-- Status tabs -->
+      <div role="tablist" aria-label="Trạng thái đơn hàng" id="tabs" class="flex flex-wrap gap-1 border-b border-slate-200"></div>
+
+      <!-- Filter bar / bulk bar -->
+      <div class="relative py-3">
+        <div id="filterRow" class="flex h-8 flex-wrap items-center gap-2">
+          <div class="relative w-80">
+            <span class="pointer-events-none absolute left-2 top-2 text-slate-500" id="icSearch"></span>
+            <input id="q" type="search" aria-label="Tìm đơn hàng" placeholder="Tìm mã đơn, khách hàng, SĐT" autocomplete="off"
+              class="h-8 w-full rounded border border-slate-300 bg-white pl-8 pr-8 text-sm placeholder:text-slate-500 [&::-webkit-search-cancel-button]:hidden">
+            <button type="button" id="qClear" hidden aria-label="Xóa từ khóa tìm kiếm" class="absolute right-0.5 top-0.5 inline-flex h-7 w-7 items-center justify-center rounded text-slate-600 hover:bg-slate-100"></button>
+          </div>
+          <select id="fChannel" aria-label="Lọc theo kênh bán" class="h-8 rounded border border-slate-300 bg-white px-2 text-sm"></select>
+          <select id="fOwner" aria-label="Lọc theo nhân viên phụ trách" class="h-8 rounded border border-slate-300 bg-white px-2 text-sm"></select>
+          <button type="button" id="btnMore" aria-expanded="false" aria-controls="morePanel" class="inline-flex h-8 items-center gap-1.5 rounded border border-slate-300 bg-white px-3 font-medium text-slate-800 hover:bg-slate-50"></button>
+          <span class="ml-auto text-slate-600" id="kbdHint">Nhấn <kbd class="rounded border border-slate-300 bg-slate-50 px-1 text-xs">/</kbd> để tìm kiếm</span>
+        </div>
+
+        <div id="bulkBar" hidden class="flex h-10 items-center gap-3 rounded border border-blue-200 bg-blue-50 px-3 text-slate-900"></div>
+
+        <!-- More filters panel -->
+        <div id="morePanel" hidden role="dialog" aria-label="Bộ lọc khác" class="absolute left-0 top-12 z-20 w-96 rounded-lg border border-slate-200 bg-white p-4 shadow-lg">
+          <div class="space-y-4">
+            <div>
+              <label for="mPay" class="mb-1 block font-medium">Thanh toán</label>
+              <select id="mPay" class="h-8 w-full rounded border border-slate-300 bg-white px-2"></select>
+            </div>
+            <fieldset>
+              <legend class="mb-1 font-medium">Ngày tạo</legend>
+              <div class="flex items-center gap-2">
+                <input id="mFrom" type="date" aria-label="Ngày tạo từ" class="h-8 w-full rounded border border-slate-300 px-2">
+                <span class="text-slate-600">đến</span>
+                <input id="mTo" type="date" aria-label="Ngày tạo đến" class="h-8 w-full rounded border border-slate-300 px-2">
+              </div>
+            </fieldset>
+            <fieldset>
+              <legend class="mb-1 font-medium">Tổng tiền (VND)</legend>
+              <div class="flex items-center gap-2">
+                <input id="mMin" type="number" min="0" step="1000" placeholder="Từ" aria-label="Tổng tiền từ" class="h-8 w-full rounded border border-slate-300 px-2 text-right tabular-nums placeholder:text-slate-500">
+                <span class="text-slate-600">đến</span>
+                <input id="mMax" type="number" min="0" step="1000" placeholder="Đến" aria-label="Tổng tiền đến" class="h-8 w-full rounded border border-slate-300 px-2 text-right tabular-nums placeholder:text-slate-500">
+              </div>
+            </fieldset>
+          </div>
+          <div class="mt-4 flex items-center justify-between border-t border-slate-200 pt-3">
+            <button type="button" id="mReset" class="h-8 rounded px-2 font-medium text-blue-700 hover:bg-slate-100">Đặt lại</button>
+            <button type="button" id="mApply" class="h-8 rounded bg-blue-700 px-3 font-medium text-white hover:bg-blue-800">Áp dụng</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Applied chips -->
+      <div id="chips" class="mb-2 flex flex-wrap items-center gap-2" hidden></div>
+
+      <!-- Banner (partial failure) -->
+      <div id="banner" hidden class="mb-3 flex items-start gap-3 rounded border border-amber-300 bg-amber-50 px-3 py-2 text-amber-900" role="status"></div>
+
+      <!-- Summary -->
+      <p id="summary" role="status" aria-live="polite" class="mb-2 text-slate-600"></p>
+
+      <!-- Table -->
+      <div class="rounded-md border border-slate-200 bg-white">
+        <div class="overflow-x-auto">
+          <table id="tbl" class="w-full min-w-[1100px] border-collapse" aria-busy="false">
+            <thead class="border-b border-slate-200 bg-slate-50 text-slate-700">
+              <tr id="thead"></tr>
+            </thead>
+            <tbody id="tbody" class="divide-y divide-slate-200"></tbody>
+          </table>
+        </div>
+        <div id="pager" class="flex h-12 items-center justify-between gap-3 border-t border-slate-200 px-3"></div>
+      </div>
+    </main>
+  </div>
+</div>
+
+<!-- Overflow menu -->
+<div id="menu" hidden role="menu" class="fixed z-30 w-48 rounded-md border border-slate-200 bg-white py-1 shadow-lg"></div>
+
+<!-- Confirm dialog -->
+<dialog id="dlg" class="m-auto w-[28rem] max-w-[calc(100vw-2rem)] rounded-lg p-0 shadow-xl" aria-labelledby="dlgTitle">
+  <form method="dialog" class="p-5">
+    <h2 id="dlgTitle" class="text-base font-semibold"></h2>
+    <p id="dlgBody" class="mt-2 text-slate-700"></p>
+    <div class="mt-5 flex justify-end gap-2">
+      <button type="button" id="dlgNo" class="h-8 rounded border border-slate-300 bg-white px-3 font-medium text-slate-800 hover:bg-slate-50">Quay lại</button>
+      <button type="button" id="dlgYes" class="h-8 rounded bg-red-600 px-3 font-medium text-white hover:bg-red-700"></button>
+    </div>
+  </form>
+</dialog>
+
+<!-- Toasts -->
+<div id="toasts" class="fixed bottom-4 right-4 z-40 flex flex-col gap-2" role="status" aria-live="polite"></div>
+
+<script>
+/* ---------- helpers ---------- */
+const PATHS = {
+  search:'<circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/>',
+  x:'<path d="M18 6 6 18M6 6l12 12"/>',
+  more:'<circle cx="5" cy="12" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/>',
+  plus:'<path d="M5 12h14M12 5v14"/>',
+  download:'<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/>',
+  upload:'<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12"/>',
+  chevUp:'<path d="m18 15-6-6-6 6"/>', chevDown:'<path d="m6 9 6 6 6-6"/>',
+  updown:'<path d="m7 15 5 5 5-5M7 9l5-5 5 5"/>',
+  filter:'<path d="M22 3H2l8 9.46V19l4 2v-8.54z"/>',
+  left:'<path d="m15 18-6-6 6-6"/>', right:'<path d="m9 18 6-6-6-6"/>',
+  cart:'<circle cx="8" cy="21" r="1"/><circle cx="19" cy="21" r="1"/><path d="M2.05 2.05h2l2.66 12.42a2 2 0 0 0 2 1.58h9.78a2 2 0 0 0 1.95-1.57l1.65-7.43H5.12"/>',
+  file:'<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M8 13h8M8 17h8"/>',
+  users:'<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/>',
+  tag:'<path d="M12 2H2v10l9.29 9.29a1 1 0 0 0 1.42 0l8.58-8.58a1 1 0 0 0 0-1.42z"/><circle cx="7" cy="7" r="1"/>',
+  box:'<path d="M21 8 12 3 3 8v8l9 5 9-5z"/><path d="m3 8 9 5 9-5M12 13v8"/>',
+  truck:'<path d="M14 18V6a2 2 0 0 0-2-2H3v14h2M14 18h-4M14 9h4l3 3v6h-2"/><circle cx="7" cy="18" r="2"/><circle cx="17" cy="18" r="2"/>',
+  wallet:'<path d="M20 12V8H6a2 2 0 0 1 0-4h12v4M4 6v12a2 2 0 0 0 2 2h14v-4"/><path d="M18 12a2 2 0 0 0 0 4h4v-4z"/>',
+  chart:'<path d="M3 3v18h18M7 14l4-4 4 4 5-6"/>',
+  settings:'<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33h0a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51h0a1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82v0a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>',
+  bell:'<path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9M13.73 21a2 2 0 0 1-3.46 0"/>',
+  help:'<circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3M12 17h.01"/>',
+  alert:'<path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3zM12 9v4M12 17h.01"/>',
+  check:'<path d="M20 6 9 17l-5-5"/>'
+};
+const ic = (n, c = 'h-4 w-4') => `<svg class="${c}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${PATHS[n]}</svg>`;
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const norm = (s) => String(s).normalize('NFD').replace(/\p{Diacritic}/gu, '').replace(/đ/gi, 'd').toLowerCase();
+const nf = new Intl.NumberFormat('vi-VN');
+const cur = new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' });
+const p2 = (n) => String(n).padStart(2, '0');
+const fmtDT = (d) => `${p2(d.getDate())}/${p2(d.getMonth() + 1)}/${d.getFullYear()} ${p2(d.getHours())}:${p2(d.getMinutes())}`;
+const fmtISO = (s) => { const [y, m, d] = s.split('-'); return `${d}/${m}/${y}`; };
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+/* ---------- vocabulary ---------- */
+const TONE = {
+  neutral: 'bg-slate-100 text-slate-700', info: 'bg-blue-50 text-blue-800', success: 'bg-green-50 text-green-800',
+  warning: 'bg-amber-50 text-amber-800', danger: 'bg-red-50 text-red-800'
+};
+const STATUS = {
+  draft: { label: 'Nháp', tone: 'neutral' }, pending: { label: 'Chờ duyệt', tone: 'info' },
+  shipping: { label: 'Đang giao', tone: 'info' }, done: { label: 'Hoàn tất', tone: 'success' },
+  hold: { label: 'Tạm giữ', tone: 'warning' }, cancelled: { label: 'Đã hủy', tone: 'danger' }
+};
+const PAY = {
+  unpaid: { label: 'Chưa thanh toán', tone: 'neutral' }, partial: { label: 'Thanh toán một phần', tone: 'warning' },
+  paid: { label: 'Đã thanh toán', tone: 'success' }, overdue: { label: 'Quá hạn', tone: 'danger' }
+};
+const badge = (v) => `<span class="inline-flex h-6 items-center whitespace-nowrap rounded-full px-2 text-xs font-medium ${TONE[v.tone]}">${v.label}</span>`;
+const CHANNELS = ['Bán trực tiếp', 'Website', 'Đại lý', 'Sàn TMĐT'];
+const OWNERS = ['Nguyễn Thị Hoa', 'Trần Minh Quân', 'Lê Quốc Huy', 'Phạm Thu Trang', 'Đặng Văn Long', 'Vũ Ngọc Anh'];
+
+/* ---------- mock data ---------- */
+const NOW = new Date(2026, 10, 4, 15, 58);
+const CUSTOMERS = [
+  ['Công ty TNHH Minh Phát', '0903 112 456'], ['Công ty CP Thực phẩm Đại Dương', '0912 884 201'], ['Cửa hàng Nguyễn Văn Dũng', '0987 345 110'],
+  ['Công ty TNHH Thương mại An Khang', '0938 220 771'], ['Siêu thị Bình Minh', '0977 650 982'], ['Công ty CP Dược Hưng Long', '0909 118 334'],
+  ['Nhà phân phối Đường Việt', '0918 407 623'], ['Công ty TNHH Xây dựng Phú Gia', '0966 301 245'], ['Đại lý Trần Thị Lan', '0945 778 190'],
+  ['Công ty CP Công nghệ Tân Phát', '0932 567 008'], ['Khách sạn Hoàng Long', '0903 944 512'], ['Công ty TNHH Nội thất Đông Á', '0989 120 663'],
+  ['Hợp tác xã Nông sản Sạch', '0914 336 870'], ['Công ty CP Vận tải Thành Công', '0976 205 417'], ['Cửa hàng Lê Hoàng Nam', '0908 713 559'], ['Công ty TNHH Điện máy Hải Nam', '0937 449 126']
+];
+let seed = 20261104;
+const rnd = () => (seed = (seed * 1664525 + 1013904223) >>> 0) / 4294967296;
+const pick = (a) => a[Math.floor(rnd() * a.length)];
+function genOrders(n) {
+  const out = []; let t = NOW.getTime() - 25 * 60000;
+  const W = [['draft', 8], ['pending', 14], ['shipping', 22], ['done', 40], ['hold', 5], ['cancelled', 11]];
+  for (let i = 0; i < n; i++) {
+    let r = rnd() * 100, st = 'done';
+    for (const [k, w] of W) { if (r < w) { st = k; break; } r -= w; }
+    if (i < 4 && st === 'done') st = 'pending';
+    const c = pick(CUSTOMERS); t -= (2 + rnd() * 16) * 3600000;
+    let pay = 'unpaid';
+    if (st === 'done') pay = rnd() < .8 ? 'paid' : 'overdue';
+    else if (st === 'shipping') pay = pick(['partial', 'unpaid', 'paid']);
+    else if (st === 'pending' || st === 'hold') pay = rnd() < .2 ? 'partial' : 'unpaid';
+    const total = Math.round((2.5e6 + Math.pow(rnd(), 2) * 175e6) / 1000) * 1000;
+    out.push({ id: 'DH-' + (2048 - i), n: 2048 - i, customer: c[0], phone: c[1], status: st, pay, channel: pick(CHANNELS), owner: pick(OWNERS), created: new Date(t), total });
+  }
+  return out;
+}
+let DATA = genOrders(128);
+
+/* ---------- state & URL ---------- */
+const DEF_SORT = '-created', SIZES = [10, 25, 50, 100], SORTS = ['id', 'customer', 'created', 'total'];
+const P = { q: '', status: 'all', channel: '', owner: '', pay: '', from: '', to: '', min: '', max: '', sort: DEF_SORT, page: 1, size: 25 };
+const S = { phase: 'loading', sel: new Set(), allMatching: false, failed: null, force: new URLSearchParams(location.search).get('state') };
+
+function readUrl() {
+  const u = new URLSearchParams(location.search);
+  P.q = u.get('q') || '';
+  P.status = (u.get('status') in STATUS) ? u.get('status') : 'all';
+  P.channel = CHANNELS.includes(u.get('channel')) ? u.get('channel') : '';
+  P.owner = OWNERS.includes(u.get('owner')) ? u.get('owner') : '';
+  P.pay = (u.get('pay') in PAY) ? u.get('pay') : '';
+  const iso = /^\d{4}-\d{2}-\d{2}$/;
+  P.from = iso.test(u.get('from') || '') ? u.get('from') : '';
+  P.to = iso.test(u.get('to') || '') ? u.get('to') : '';
+  P.min = /^\d+$/.test(u.get('min') || '') ? u.get('min') : '';
+  P.max = /^\d+$/.test(u.get('max') || '') ? u.get('max') : '';
+  const s = u.get('sort') || DEF_SORT;
+  P.sort = SORTS.includes(s.replace(/^-/, '')) ? s : DEF_SORT;
+  P.page = Math.max(1, parseInt(u.get('page'), 10) || 1);
+  P.size = SIZES.includes(parseInt(u.get('size'), 10)) ? parseInt(u.get('size'), 10) : 25;
+}
+function writeUrl(push) {
+  const u = new URLSearchParams();
+  if (S.force) u.set('state', S.force);
+  if (P.q) u.set('q', P.q);
+  if (P.status !== 'all') u.set('status', P.status);
+  ['channel', 'owner', 'pay', 'from', 'to', 'min', 'max'].forEach((k) => P[k] && u.set(k, P[k]));
+  if (P.sort !== DEF_SORT) u.set('sort', P.sort);
+  if (P.page > 1) u.set('page', P.page);
+  if (P.size !== 25) u.set('size', P.size);
+  const qs = u.toString();
+  history[push ? 'pushState' : 'replaceState'](null, '', location.pathname + (qs ? '?' + qs : ''));
+}
+/* change filters: reset page and selection, replace history */
+function setP(patch, push = false) {
+  const resetsPage = !('page' in patch);
+  Object.assign(P, patch);
+  if (resetsPage) P.page = 1;
+  S.sel.clear(); S.allMatching = false;
+  writeUrl(push); render();
+}
+
+/* ---------- filtering ---------- */
+function matches(o, skipStatus) {
+  if (S.failed && !S.failed.has(o.id)) return false;
+  if (!skipStatus && P.status !== 'all' && o.status !== P.status) return false;
+  if (P.channel && o.channel !== P.channel) return false;
+  if (P.owner && o.owner !== P.owner) return false;
+  if (P.pay && o.pay !== P.pay) return false;
+  if (P.from && o.created < new Date(P.from + 'T00:00:00')) return false;
+  if (P.to && o.created > new Date(P.to + 'T23:59:59')) return false;
+  if (P.min && o.total < +P.min) return false;
+  if (P.max && o.total > +P.max) return false;
+  if (P.q) {
+    const hay = norm(o.id + ' ' + o.customer + ' ' + o.phone.replace(/\s/g, '') + ' ' + o.phone);
+    if (!norm(P.q).split(/\s+/).every((w) => hay.includes(w))) return false;
+  }
+  return true;
+}
+function getRows() {
+  const rows = DATA.filter((o) => matches(o));
+  const desc = P.sort[0] === '-', k = P.sort.replace(/^-/, '');
+  const val = { id: (o) => o.n, created: (o) => o.created.getTime(), total: (o) => o.total };
+  rows.sort((a, b) => {
+    const r = k === 'customer' ? a.customer.localeCompare(b.customer, 'vi') : val[k](a) - val[k](b);
+    return desc ? -r : r;
+  });
+  return rows;
+}
+function pageRows(rows) {
+  const pages = Math.max(1, Math.ceil(rows.length / P.size));
+  if (P.page > pages) P.page = pages;
+  return rows.slice((P.page - 1) * P.size, P.page * P.size);
+}
+
+/* ---------- render ---------- */
+function renderStatic() {
+  const groups = [
+    ['Bán hàng', [['Báo giá', 'file'], ['Đơn hàng', 'cart', true], ['Khách hàng', 'users'], ['Bảng giá', 'tag']]],
+    ['Kho', [['Tồn kho', 'box'], ['Phiếu xuất kho', 'truck']]],
+    ['Tài chính', [['Hóa đơn', 'file'], ['Công nợ phải thu', 'wallet']]],
+    ['Hệ thống', [['Báo cáo', 'chart'], ['Cài đặt', 'settings']]]
+  ];
+  $('nav').innerHTML = groups.map(([g, items]) => `<div class="mb-3"><p class="px-2 py-1 text-xs font-medium text-slate-600">${g}</p>` +
+    items.map(([l, i, a]) => `<a href="#" ${a ? 'aria-current="page"' : ''} class="flex h-8 items-center gap-2 rounded px-2 hover:bg-slate-200 ${a ? 'bg-slate-200 font-medium text-slate-900' : 'text-slate-700'}">${ic(i)}<span>${l}</span></a>`).join('') + '</div>').join('');
+  $('navHelp').innerHTML = ic('help') + '<span>Trợ giúp</span>';
+  $('btnBell').innerHTML = ic('bell');
+  $('btnImport').innerHTML = ic('upload') + 'Nhập file';
+  $('btnExport').innerHTML = ic('download') + 'Xuất file';
+  $('btnCreate').innerHTML = ic('plus') + 'Tạo đơn hàng';
+  $('icSearch').innerHTML = ic('search');
+  $('qClear').innerHTML = ic('x');
+  $('fChannel').innerHTML = '<option value="">Tất cả kênh bán</option>' + CHANNELS.map((c) => `<option>${c}</option>`).join('');
+  $('fOwner').innerHTML = '<option value="">Tất cả nhân viên</option>' + OWNERS.map((c) => `<option>${c}</option>`).join('');
+  $('mPay').innerHTML = '<option value="">Tất cả</option>' + Object.entries(PAY).map(([k, v]) => `<option value="${k}">${v.label}</option>`).join('');
+}
+
+function chipList() {
+  const c = [];
+  if (P.q) c.push({ k: 'q', label: 'Tìm: ' + P.q });
+  if (P.channel) c.push({ k: 'channel', label: 'Kênh: ' + P.channel });
+  if (P.owner) c.push({ k: 'owner', label: 'Phụ trách: ' + P.owner });
+  if (P.pay) c.push({ k: 'pay', label: 'Thanh toán: ' + PAY[P.pay].label });
+  if (P.from || P.to) c.push({ k: 'date', label: 'Ngày tạo: ' + (P.from ? fmtISO(P.from) : '…') + '–' + (P.to ? fmtISO(P.to) : '…') });
+  if (P.min || P.max) c.push({ k: 'amount', label: 'Tổng tiền: ' + (P.min ? nf.format(P.min) : '…') + '–' + (P.max ? nf.format(P.max) : '…') + ' ₫' });
+  if (S.failed) c.push({ k: 'failed', label: `Đơn lỗi thao tác hàng loạt (${S.failed.size})` });
+  return c;
+}
+
+function renderTabs() {
+  const counts = {}; let all = 0;
+  const ready = S.phase === 'ready' && DATA.length > 0;
+  DATA.forEach((o) => { if (matches(o, true)) { counts[o.status] = (counts[o.status] || 0) + 1; all++; } });
+  const tab = (key, label) => {
+    const on = P.status === key, n = key === 'all' ? all : (counts[key] || 0);
+    return `<button role="tab" type="button" data-tab="${key}" aria-selected="${on}" class="-mb-px inline-flex h-10 items-center gap-1.5 border-b-2 px-3 font-medium ${on ? 'border-blue-700 text-blue-700' : 'border-transparent text-slate-700 hover:text-slate-900'}">${label}${ready && (n > 0 || on) ? `<span class="font-normal ${on ? 'text-blue-700' : 'text-slate-600'}">${nf.format(n)}</span>` : ''}</button>`;
+  };
+  $('tabs').innerHTML = tab('all', 'Tất cả') + Object.entries(STATUS).map(([k, v]) => tab(k, v.label)).join('');
+}
+
+function renderFilters() {
+  const q = $('q'); if (document.activeElement !== q) q.value = P.q;
+  $('qClear').hidden = !q.value;
+  $('fChannel').value = P.channel; $('fOwner').value = P.owner;
+  const extra = (P.pay ? 1 : 0) + (P.from || P.to ? 1 : 0) + (P.min || P.max ? 1 : 0);
+  $('btnMore').innerHTML = ic('filter') + 'Bộ lọc khác' + (extra ? ` (${extra})` : '') + ic('chevDown');
+  const chips = chipList(), box = $('chips');
+  box.hidden = chips.length === 0;
+  box.innerHTML = chips.map((c) => `<span class="inline-flex h-6 items-center gap-1 rounded-full border border-slate-300 bg-slate-50 pl-2 pr-0.5 text-xs font-medium text-slate-800">${esc(c.label)}<button type="button" data-chip="${c.k}" aria-label="Bỏ lọc ${esc(c.label)}" class="inline-flex h-5 w-5 items-center justify-center rounded-full hover:bg-slate-200">${ic('x', 'h-3.5 w-3.5')}</button></span>`).join('') +
+    `<button type="button" data-act="clearAll" class="h-6 rounded px-2 text-sm font-medium text-blue-700 hover:bg-slate-100">Xóa tất cả</button>`;
+}
+
+function thSort(label, col, right) {
+  const active = P.sort === col || P.sort === '-' + col, dir = P.sort === col ? 'ascending' : 'descending';
+  return `<th scope="col" class="px-3 font-medium ${right ? 'text-right' : 'text-left'}" ${active ? `aria-sort="${dir}"` : ''}><button type="button" data-sort="${col}" class="group inline-flex ${right ? 'flex-row-reverse' : ''} h-10 items-center gap-1 whitespace-nowrap hover:text-slate-900">${label}${active ? ic(dir === 'ascending' ? 'chevUp' : 'chevDown') : ic('updown', 'h-4 w-4 opacity-0 group-hover:opacity-60 group-focus-visible:opacity-60')}</button></th>`;
+}
+const thPlain = (l) => `<th scope="col" class="h-10 whitespace-nowrap px-3 text-left font-medium">${l}</th>`;
+
+function renderTable() {
+  const rows = getRows(), pr = S.phase === 'ready' ? pageRows(rows) : [];
+  const table = $('tbl'); table.setAttribute('aria-busy', S.phase === 'loading');
+  const isSel = (id) => S.allMatching || S.sel.has(id);
+  const nSel = pr.filter((o) => isSel(o.id)).length;
+  $('thead').innerHTML = `<th scope="col" class="w-12 px-3 text-left"><label class="inline-flex h-6 w-6 items-center justify-center"><input id="selAll" type="checkbox" aria-label="Chọn tất cả đơn hàng trong trang này" class="h-4 w-4 accent-blue-700" ${pr.length && nSel === pr.length ? 'checked' : ''}></label></th>` +
+    thSort('Mã đơn', 'id') + thSort('Khách hàng', 'customer') + thPlain('Trạng thái') + thPlain('Thanh toán') + thPlain('Kênh bán') + thPlain('Nhân viên') +
+    thSort('Ngày tạo', 'created') + thSort('Tổng tiền (VND)', 'total', true) + '<th scope="col" class="w-28 px-3"><span class="sr-only">Thao tác</span></th>';
+  const sa = $('selAll'); if (sa) sa.indeterminate = nSel > 0 && nSel < pr.length;
+  const body = $('tbody');
+  const msgRow = (inner) => `<tr><td colspan="10" class="px-3 py-12 text-center">${inner}</td></tr>`;
+  if (S.phase === 'loading') {
+    const w = ['w-4', 'w-16', 'w-44', 'w-20', 'w-28', 'w-24', 'w-28', 'w-28', 'w-20', 'w-10'];
+    body.innerHTML = Array.from({ length: 10 }, () => `<tr class="h-10">${w.map((x, i) => `<td class="px-3 ${i === 8 ? 'text-right' : ''}"><div class="sk ${x} ${i === 8 ? 'ml-auto' : ''}"></div></td>`).join('')}</tr>`).join('');
+    return;
+  }
+  if (S.phase === 'error') {
+    body.innerHTML = msgRow(`<div class="mx-auto max-w-sm"><p class="flex items-center justify-center gap-2 font-semibold text-red-700">${ic('alert')}Không tải được danh sách đơn hàng</p><p class="mt-1 text-slate-600">Máy chủ không phản hồi. Dữ liệu đã chọn không bị mất.</p><button type="button" data-act="retry" class="mt-3 h-8 rounded bg-blue-700 px-3 font-medium text-white hover:bg-blue-800">Thử lại</button></div>`);
+    return;
+  }
+  if (!DATA.length) {
+    body.innerHTML = msgRow(`<div class="mx-auto max-w-sm"><p class="font-semibold">Chưa có đơn hàng nào</p><p class="mt-1 text-slate-600">Đơn hàng từ mọi kênh bán sẽ hiển thị tại đây.</p><button type="button" data-act="create" class="mt-3 h-8 rounded bg-blue-700 px-3 font-medium text-white hover:bg-blue-800">Tạo đơn hàng</button></div>`);
+    return;
+  }
+  if (!rows.length) {
+    body.innerHTML = msgRow(`<div class="mx-auto max-w-sm"><p class="font-semibold">${P.q ? `Không có đơn hàng nào khớp "${esc(P.q)}"` : 'Không có đơn hàng nào khớp bộ lọc'}</p><p class="mt-1 text-slate-600">Kiểm tra chính tả hoặc mở rộng khoảng ngày tạo.</p><button type="button" data-act="clearFilters" class="mt-3 h-8 rounded border border-slate-300 bg-white px-3 font-medium text-slate-800 hover:bg-slate-50">Xóa bộ lọc</button></div>`);
+    return;
+  }
+  const bulkOpen = S.allMatching || S.sel.size > 0;
+  body.innerHTML = pr.map((o) => {
+    const locked = o.status === 'done' || o.status === 'cancelled';
+    return `<tr class="h-10 hover:bg-slate-50 ${isSel(o.id) ? 'bg-blue-50/60' : ''}">
+      <td class="px-3"><label class="inline-flex h-6 w-6 items-center justify-center"><input type="checkbox" data-row="${o.id}" aria-label="Chọn đơn ${o.id}" class="h-4 w-4 accent-blue-700" ${isSel(o.id) ? 'checked' : ''}></label></td>
+      <td class="whitespace-nowrap px-3"><a href="#${o.id}" class="font-medium text-blue-700 hover:underline">${o.id}</a></td>
+      <td class="whitespace-nowrap px-3">${esc(o.customer)}</td>
+      <td class="px-3">${badge(STATUS[o.status])}</td>
+      <td class="px-3">${badge(PAY[o.pay])}</td>
+      <td class="whitespace-nowrap px-3">${o.channel}</td>
+      <td class="whitespace-nowrap px-3">${o.owner}</td>
+      <td class="whitespace-nowrap px-3 tabular-nums">${fmtDT(o.created)}</td>
+      <td class="whitespace-nowrap px-3 text-right tabular-nums">${nf.format(o.total)}</td>
+      <td class="px-3"><div class="flex items-center justify-end gap-1">
+        <button type="button" data-edit="${o.id}" aria-label="Sửa đơn ${o.id}" ${locked ? `disabled title="Đơn ${STATUS[o.status].label.toLowerCase()} không thể sửa"` : ''} class="h-6 rounded px-2 font-medium text-blue-700 hover:bg-slate-100 disabled:cursor-not-allowed disabled:text-slate-500 disabled:hover:bg-transparent">Sửa</button>
+        <button type="button" data-menu="${o.id}" aria-label="Thao tác cho đơn ${o.id}" aria-haspopup="menu" ${bulkOpen ? 'disabled title="Bỏ chọn để dùng thao tác từng đơn"' : ''} class="inline-flex h-6 w-6 items-center justify-center rounded text-slate-700 hover:bg-slate-100 disabled:cursor-not-allowed disabled:text-slate-500 disabled:hover:bg-transparent">${ic('more')}</button>
+      </div></td></tr>`;
+  }).join('');
+}
+
+function renderSummary() {
+  const el = $('summary');
+  if (S.phase !== 'ready' || !DATA.length) { el.textContent = S.phase === 'loading' ? 'Đang tải đơn hàng…' : ''; return; }
+  const rows = getRows(), sum = rows.reduce((a, o) => a + o.total, 0);
+  el.textContent = rows.length ? `${nf.format(rows.length)} đơn hàng · ${cur.format(sum)}` : 'Không có đơn hàng nào khớp';
+}
+
+function renderPager() {
+  const box = $('pager');
+  if (S.phase !== 'ready' || !DATA.length) { box.innerHTML = '<span class="text-slate-600">&nbsp;</span>'; return; }
+  const total = getRows().length, pages = Math.max(1, Math.ceil(total / P.size));
+  const from = total ? (P.page - 1) * P.size + 1 : 0, to = Math.min(total, P.page * P.size);
+  let start = Math.max(1, Math.min(P.page - 2, pages - 4)), nums = [];
+  for (let i = start; i <= Math.min(pages, start + 4); i++) nums.push(i);
+  const btn = 'inline-flex h-8 min-w-8 items-center justify-center rounded border px-2 font-medium tabular-nums';
+  box.innerHTML = `<span class="tabular-nums text-slate-700">${nf.format(from)}–${nf.format(to)} / ${nf.format(total)} đơn hàng</span>
+    <div class="flex items-center gap-3">
+      <label class="flex items-center gap-2 text-slate-700">Số dòng mỗi trang <select id="pgSize" class="h-8 rounded border border-slate-300 bg-white px-2">${SIZES.map((s) => `<option ${s === P.size ? 'selected' : ''}>${s}</option>`).join('')}</select></label>
+      <nav aria-label="Phân trang" class="flex items-center gap-1">
+        <button type="button" data-page="${P.page - 1}" ${P.page <= 1 ? 'disabled' : ''} aria-label="Trang trước" class="${btn} border-slate-300 bg-white hover:bg-slate-50 disabled:cursor-not-allowed disabled:text-slate-500 disabled:hover:bg-white">${ic('left')}</button>
+        ${nums.map((n) => `<button type="button" data-page="${n}" ${n === P.page ? 'aria-current="page"' : ''} aria-label="Trang ${n}" class="${btn} ${n === P.page ? 'border-blue-700 bg-blue-700 text-white' : 'border-slate-300 bg-white hover:bg-slate-50'}">${n}</button>`).join('')}
+        <button type="button" data-page="${P.page + 1}" ${P.page >= pages ? 'disabled' : ''} aria-label="Trang sau" class="${btn} border-slate-300 bg-white hover:bg-slate-50 disabled:cursor-not-allowed disabled:text-slate-500 disabled:hover:bg-white">${ic('right')}</button>
+      </nav></div>`;
+}
+
+function renderBulk() {
+  const bar = $('bulkBar'), rows = S.phase === 'ready' ? getRows() : [];
+  const n = S.allMatching ? rows.length : S.sel.size;
+  bar.hidden = n === 0; $('filterRow').hidden = n > 0;
+  if (!n) { $('btnMore').setAttribute('aria-expanded', 'false'); return; }
+  const pr = pageRows(rows), pageAll = pr.length > 0 && pr.every((o) => S.sel.has(o.id));
+  const bb = 'inline-flex h-8 items-center gap-1.5 rounded border border-slate-300 bg-white px-3 font-medium text-slate-800 hover:bg-slate-50';
+  bar.innerHTML = `<span class="font-medium tabular-nums">${S.allMatching ? `Đã chọn tất cả ${nf.format(n)} đơn khớp bộ lọc` : `Đã chọn ${nf.format(n)} đơn`}</span>
+    ${!S.allMatching && pageAll && rows.length > pr.length ? `<button type="button" data-act="selAllMatching" class="h-8 rounded px-2 font-medium text-blue-700 hover:bg-white">Chọn tất cả ${nf.format(rows.length)} đơn khớp</button>` : ''}
+    ${S.allMatching ? '<button type="button" data-act="clearSel" class="h-8 rounded px-2 font-medium text-blue-700 hover:bg-white">Bỏ chọn</button>' : ''}
+    <span class="mx-1 h-5 w-px bg-blue-200" aria-hidden="true"></span>
+    <button type="button" data-bulk="approve" class="${bb}">Duyệt đơn</button>
+    <button type="button" data-bulk="print" class="${bb}">In phiếu giao hàng</button>
+    <button type="button" data-bulk="export" class="${bb}">Xuất file</button>
+    <button type="button" data-bulkmore class="${bb}" aria-haspopup="menu">Thêm ${ic('chevDown')}</button>
+    <button type="button" data-act="clearSel" class="ml-auto h-8 rounded px-3 font-medium text-slate-800 hover:bg-white">Hủy chọn</button>`;
+}
+
+function render() {
+  renderTabs(); renderFilters(); renderTable(); renderSummary(); renderPager(); renderBulk();
+}
+
+/* ---------- toast, menu, dialog ---------- */
+function toast(msg, tone = 'ok') {
+  const t = document.createElement('div');
+  t.className = `flex max-w-sm items-start gap-2 rounded-md border bg-white px-3 py-2 shadow-lg ${tone === 'err' ? 'border-red-300' : 'border-slate-200'}`;
+  t.innerHTML = `<span class="mt-0.5 ${tone === 'err' ? 'text-red-700' : 'text-green-700'}">${ic(tone === 'err' ? 'alert' : 'check')}</span><span>${esc(msg)}</span>`;
+  $('toasts').appendChild(t); setTimeout(() => t.remove(), 4500);
+}
+let menuItems = [];
+function openMenu(anchor, items) {
+  menuItems = items; const m = $('menu');
+  m.innerHTML = items.map((it, i) => `${it.sep ? '<div class="my-1 border-t border-slate-200"></div>' : ''}<button type="button" role="menuitem" data-mi="${i}" ${it.disabled ? 'disabled' : ''} class="flex h-8 w-full items-center px-3 text-left hover:bg-slate-100 disabled:cursor-not-allowed disabled:text-slate-500 disabled:hover:bg-white ${it.danger ? 'text-red-700' : 'text-slate-900'}">${it.label}</button>`).join('');
+  m.hidden = false;
+  const r = anchor.getBoundingClientRect();
+  m.style.left = Math.max(8, Math.min(r.right - m.offsetWidth, innerWidth - m.offsetWidth - 8)) + 'px';
+  m.style.top = (r.bottom + m.offsetHeight + 8 > innerHeight ? r.top - m.offsetHeight - 4 : r.bottom + 4) + 'px';
+  m.querySelector('button:not([disabled])')?.focus(); m._anchor = anchor;
+}
+function closeMenu() { const m = $('menu'); if (!m.hidden) { m.hidden = true; m._anchor?.focus?.(); } }
+function confirmDlg(title, body, yes) {
+  return new Promise((res) => {
+    $('dlgTitle').textContent = title; $('dlgBody').textContent = body; $('dlgYes').textContent = yes;
+    const d = $('dlg'); d.showModal();
+    const done = (v) => { $('dlgYes').onclick = $('dlgNo').onclick = null; d.onclose = null; if (d.open) d.close(); res(v); };
+    $('dlgYes').onclick = () => done(true); $('dlgNo').onclick = () => done(false); d.onclose = () => done(false);
+  });
+}
+
+/* ---------- actions ---------- */
+const targets = () => (S.allMatching ? getRows() : DATA.filter((o) => S.sel.has(o.id)));
+function singleMenu(btn) {
+  const o = DATA.find((x) => x.id === btn.dataset.menu), locked = o.status === 'done' || o.status === 'cancelled';
+  openMenu(btn, [
+    { label: 'Xem chi tiết', run: () => toast('Mở chi tiết ' + o.id) },
+    { label: 'Nhân bản đơn', run: () => toast('Đã tạo bản nháp từ ' + o.id) },
+    { label: 'In phiếu giao hàng', run: () => toast('Đang in phiếu giao hàng ' + o.id) },
+    { label: locked ? 'Hủy đơn (đơn ' + STATUS[o.status].label.toLowerCase() + ')' : 'Hủy đơn', danger: true, sep: true, disabled: locked, run: () => runBulk('cancel', [o]) }
+  ]);
+}
+async function runBulk(kind, list, btn) {
+  const ok = [], fail = [];
+  if (kind === 'cancel') {
+    const bad = list.filter((o) => o.status === 'done' || o.status === 'cancelled').length, good = list.length - bad;
+    const subject = list.length === 1 ? `đơn ${list[0].id}` : `${nf.format(good)} đơn hàng`;
+    const body = (bad && list.length > 1 ? `${nf.format(bad)} đơn đã hoàn tất hoặc đã hủy sẽ bị bỏ qua. ` : '') + 'Hàng đang giữ kho của các đơn bị hủy sẽ được hoàn lại tồn kho; thao tác này không thể hoàn tác.';
+    if (!(await confirmDlg(`Hủy ${subject}?`, body, 'Hủy đơn'))) return;
+  }
+  if (btn) { btn.disabled = true; btn.innerHTML = `<svg class="spin h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M21 12a9 9 0 1 1-6.2-8.55"/></svg>Đang xử lý…`; }
+  await sleep(700);
+  list.forEach((o) => {
+    if (kind === 'approve') { if (o.status === 'pending') { o.status = 'shipping'; ok.push(o); } else fail.push([o, 'Chỉ duyệt được đơn ở trạng thái Chờ duyệt']); }
+    else if (kind === 'hold') { if (o.status === 'pending' || o.status === 'shipping') { o.status = 'hold'; ok.push(o); } else fail.push([o, 'Chỉ tạm giữ được đơn chờ duyệt hoặc đang giao']); }
+    else if (kind === 'cancel') { if (o.status !== 'done' && o.status !== 'cancelled') { o.status = 'cancelled'; ok.push(o); } else fail.push([o, 'Đơn đã hoàn tất hoặc đã hủy']); }
+    else if (kind === 'print') { if (o.status === 'draft' || o.status === 'cancelled') fail.push([o, 'Không in phiếu cho đơn nháp hoặc đã hủy']); else ok.push(o); }
+    else ok.push(o);
+  });
+  const verb = { approve: 'Đã duyệt', hold: 'Đã tạm giữ', cancel: 'Đã hủy', print: 'Đã gửi in phiếu giao hàng cho', export: 'Đã xuất' }[kind];
+  S.sel.clear(); S.allMatching = false;
+  if (fail.length) {
+    fail.forEach(([o]) => S.sel.add(o.id));
+    S.failedList = fail;
+    const banner = $('banner');
+    banner.hidden = false;
+    banner.innerHTML = `<span class="mt-0.5">${ic('alert')}</span><div class="flex-1"><p class="font-medium">${verb} ${nf.format(ok.length)} đơn, ${nf.format(fail.length)} đơn thất bại</p><p>${esc(fail[0][1])}${fail.length > 1 ? ' (và các lý do tương tự)' : ''}. Các đơn lỗi vẫn được chọn để bạn xử lý lại.</p></div>
+      <button type="button" data-act="viewFailed" class="h-6 rounded px-2 font-medium text-amber-900 underline hover:bg-amber-100">Xem đơn lỗi (${fail.length})</button>
+      <button type="button" data-act="closeBanner" aria-label="Đóng thông báo" class="inline-flex h-6 w-6 items-center justify-center rounded hover:bg-amber-100">${ic('x')}</button>`;
+    toast(`${verb} ${ok.length} đơn, ${fail.length} thất bại`, 'err');
+  } else {
+    $('banner').hidden = true;
+    toast(kind === 'export' ? `Đã xuất ${nf.format(ok.length)} đơn hàng ra tệp CSV` : `${verb} ${nf.format(ok.length)} đơn hàng`);
+  }
+  render();
+}
+
+/* ---------- loading ---------- */
+async function load() {
+  S.phase = 'loading'; render();
+  if (S.force === 'loading') return;
+  await sleep(S.force === 'error' ? 400 : 500);
+  if (S.force === 'error') S.phase = 'error';
+  else { S.phase = 'ready'; if (S.force === 'empty') DATA = []; }
+  render();
+}
+
+/* ---------- events ---------- */
+document.addEventListener('click', (e) => {
+  const t = e.target;
+  const menuBtn = t.closest('[data-menu]');
+  if (menuBtn && !menuBtn.disabled) { e.stopPropagation(); if (!$('menu').hidden && $('menu')._anchor === menuBtn) closeMenu(); else singleMenu(menuBtn); return; }
+  const mi = t.closest('[data-mi]');
+  if (mi) { const it = menuItems[+mi.dataset.mi]; const m = $('menu'); m.hidden = true; it.run(); return; }
+  if (!t.closest('#menu')) { $('menu').hidden = true; }
+  if (!t.closest('#morePanel') && !t.closest('#btnMore')) closeMore();
+
+  const tab = t.closest('[data-tab]'); if (tab) { setP({ status: tab.dataset.tab }, true); return; }
+  const sort = t.closest('[data-sort]');
+  if (sort) {
+    const c = sort.dataset.sort; let next;
+    if (P.sort === c) next = '-' + c;
+    else if (P.sort === '-' + c) next = DEF_SORT === '-' + c ? c : DEF_SORT;
+    else next = c;
+    setP({ sort: next }); return;
+  }
+  const pg = t.closest('[data-page]'); if (pg && !pg.disabled) { setP({ page: +pg.dataset.page }, true); window.scrollTo({ top: 0 }); return; }
+  const chip = t.closest('[data-chip]');
+  if (chip) {
+    const k = chip.dataset.chip, patch = {};
+    if (k === 'date') { patch.from = ''; patch.to = ''; } else if (k === 'amount') { patch.min = ''; patch.max = ''; }
+    else if (k === 'failed') { S.failed = null; } else patch[k] = '';
+    setP(patch); $('chips').querySelector('button')?.focus(); return;
+  }
+  const bulk = t.closest('[data-bulk]');
+  if (bulk) { runBulk(bulk.dataset.bulk, targets(), bulk); return; }
+  if (t.closest('[data-bulkmore]')) {
+    e.stopPropagation();
+    openMenu(t.closest('[data-bulkmore]'), [
+      { label: 'Tạm giữ đơn', run: () => runBulk('hold', targets()) },
+      { label: 'Hủy đơn', danger: true, sep: true, run: () => runBulk('cancel', targets()) }
+    ]); return;
+  }
+  const edit = t.closest('[data-edit]'); if (edit && !edit.disabled) { toast('Mở form sửa đơn ' + edit.dataset.edit); return; }
+  const act = t.closest('[data-act]');
+  if (act) {
+    const a = act.dataset.act;
+    if (a === 'clearAll' || a === 'clearFilters') { S.failed = null; setP({ q: '', channel: '', owner: '', pay: '', from: '', to: '', min: '', max: '' }); }
+    else if (a === 'retry') { S.force = null; writeUrl(false); load(); }
+    else if (a === 'selAllMatching') { S.allMatching = true; render(); }
+    else if (a === 'clearSel') { S.sel.clear(); S.allMatching = false; render(); }
+    else if (a === 'closeBanner') $('banner').hidden = true;
+    else if (a === 'viewFailed') { S.failed = new Set(S.sel); P.status = 'all'; P.page = 1; writeUrl(false); $('banner').hidden = true; render(); }
+    else if (a === 'create') toast('Mở form tạo đơn hàng mới');
+    else if (a === 'import') toast('Mở trình nhập đơn hàng từ file');
+    else if (a === 'export') toast('Đang xuất danh sách đơn hàng…');
+  }
+});
+document.addEventListener('change', (e) => {
+  const t = e.target;
+  if (t.id === 'selAll') {
+    const pr = pageRows(getRows());
+    if (t.checked) pr.forEach((o) => S.sel.add(o.id)); else { pr.forEach((o) => S.sel.delete(o.id)); S.allMatching = false; }
+    render();
+  } else if (t.dataset.row) {
+    if (S.allMatching) { S.sel = new Set(pageRows(getRows()).map((o) => o.id)); S.allMatching = false; }
+    t.checked ? S.sel.add(t.dataset.row) : S.sel.delete(t.dataset.row); render();
+  } else if (t.id === 'fChannel') setP({ channel: t.value });
+  else if (t.id === 'fOwner') setP({ owner: t.value });
+  else if (t.id === 'pgSize') setP({ size: +t.value });
+});
+
+let qTimer;
+$('q').addEventListener('input', (e) => {
+  const v = e.target.value.trim(); $('qClear').hidden = !e.target.value;
+  clearTimeout(qTimer);
+  if (v.length === 1) return;
+  qTimer = setTimeout(() => setP({ q: v }), 300);
+});
+$('q').addEventListener('keydown', (e) => { if (e.key === 'Enter') { clearTimeout(qTimer); setP({ q: e.target.value.trim() }); } });
+$('qClear').addEventListener('click', () => { $('q').value = ''; setP({ q: '' }); $('q').focus(); });
+
+function closeMore() { $('morePanel').hidden = true; $('btnMore').setAttribute('aria-expanded', 'false'); }
+$('btnMore').addEventListener('click', () => {
+  const p = $('morePanel');
+  if (p.hidden) {
+    $('mPay').value = P.pay; $('mFrom').value = P.from; $('mTo').value = P.to; $('mMin').value = P.min; $('mMax').value = P.max;
+    p.hidden = false; $('btnMore').setAttribute('aria-expanded', 'true'); $('mPay').focus();
+  } else closeMore();
+});
+$('mApply').addEventListener('click', () => {
+  closeMore();
+  setP({ pay: $('mPay').value, from: $('mFrom').value, to: $('mTo').value, min: $('mMin').value, max: $('mMax').value });
+  $('btnMore').focus();
+});
+$('mReset').addEventListener('click', () => { $('mPay').value = ''; $('mFrom').value = ''; $('mTo').value = ''; $('mMin').value = ''; $('mMax').value = ''; });
+
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') { if (!$('menu').hidden) closeMenu(); if (!$('morePanel').hidden) { closeMore(); $('btnMore').focus(); } }
+  if (e.key === '/' && !/^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement.tagName) && !$('filterRow').hidden) { e.preventDefault(); $('q').focus(); }
+});
+window.addEventListener('popstate', () => { readUrl(); S.sel.clear(); S.allMatching = false; render(); });
+
+/* ---------- init ---------- */
+renderStatic(); readUrl(); load();
+</script>
+</body>
+</html>

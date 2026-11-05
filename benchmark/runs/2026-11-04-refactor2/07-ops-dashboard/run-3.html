@@ -1,0 +1,352 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Operations dashboard · Northgate WMS</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+  [hidden] { display: none !important; }
+  body { font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; }
+  .tnum { font-variant-numeric: tabular-nums; }
+  @keyframes pulse2 { 50% { opacity: .5; } }
+  .sk { background: #e2e8f0; border-radius: 4px; animation: pulse2 1.4s ease-in-out infinite; }
+  :focus-visible { outline: 2px solid #1d4ed8; outline-offset: 2px; }
+</style>
+</head>
+<body class="bg-slate-50 text-slate-900 text-sm">
+
+<div class="flex min-h-screen">
+  <!-- Sidebar -->
+  <aside id="sidebar" class="hidden md:block w-60 shrink-0 border-r border-slate-200 bg-white">
+    <div class="flex h-12 items-center border-b border-slate-200 px-4 font-semibold">Northgate WMS</div>
+    <nav aria-label="Main" class="flex flex-col gap-4 p-2" id="nav"></nav>
+  </aside>
+
+  <div class="flex min-w-0 flex-1 flex-col">
+    <header class="flex h-12 items-center gap-3 border-b border-slate-200 bg-white px-4">
+      <button id="menuBtn" class="md:hidden inline-flex h-8 w-8 items-center justify-center rounded border border-slate-300 text-slate-700 hover:bg-slate-100" aria-label="Open menu" aria-expanded="false">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
+      </button>
+      <div class="flex-1"></div>
+      <button class="hidden sm:inline-flex h-8 w-64 items-center justify-between rounded border border-slate-300 bg-white px-3 text-slate-600 hover:bg-slate-50">
+        <span>Search or run a command</span><kbd class="rounded border border-slate-300 px-1 text-xs text-slate-600">Ctrl K</kbd>
+      </button>
+      <button class="inline-flex h-8 items-center rounded border border-slate-300 px-2 text-slate-700 hover:bg-slate-100" aria-label="Warehouse: Hanoi DC 1">Hanoi DC 1</button>
+      <button class="inline-flex h-8 w-8 items-center justify-center rounded-full bg-slate-200 text-xs font-medium text-slate-800" aria-label="Account menu">LT</button>
+    </header>
+
+    <main class="min-w-0 flex-1 p-6">
+      <!-- Page header -->
+      <div class="mb-4 flex flex-wrap items-center justify-between gap-3">
+        <h1 class="text-xl font-semibold">Operations dashboard</h1>
+        <div class="flex flex-wrap items-center gap-3">
+          <div class="flex items-center gap-2">
+            <label for="range" class="text-sm font-medium text-slate-700">Date range</label>
+            <select id="range" class="h-8 rounded border border-slate-300 bg-white px-2 text-sm">
+              <option value="today">Today</option>
+              <option value="7d">Last 7 days</option>
+              <option value="30d">Last 30 days</option>
+            </select>
+            <span id="rangeText" class="text-slate-600 tnum"></span>
+          </div>
+          <div class="flex items-center gap-2 text-slate-600">
+            <span id="updated" class="tnum">Updated --:--</span>
+            <span id="refreshFail" hidden class="text-red-700">Refresh failed · <button class="underline" id="refreshRetry">Retry</button></span>
+            <button id="refresh" class="inline-flex h-8 items-center gap-2 rounded border border-slate-300 bg-white px-3 text-slate-800 hover:bg-slate-100">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M21 12a9 9 0 1 1-3-6.7L21 8"/><path d="M21 3v5h-5"/></svg>Refresh
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- KPI tiles -->
+      <section aria-label="Key numbers" id="kpis" class="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-6"></section>
+
+      <div class="mt-4 grid grid-cols-1 gap-4 xl:grid-cols-3">
+        <!-- Needs attention first -->
+        <section aria-labelledby="attnH" class="rounded-md border border-slate-200 bg-white xl:col-span-1" id="attnBox">
+          <div class="flex items-center justify-between border-b border-slate-200 px-4 py-3">
+            <h2 id="attnH" class="text-base font-semibold">Needs attention</h2>
+            <span class="text-xs text-slate-600 tnum" id="attnMeta"></span>
+          </div>
+          <p role="status" class="sr-only" id="attnLive"></p>
+          <div id="attnBody" style="min-height:300px"></div>
+        </section>
+
+        <!-- Trend -->
+        <section aria-labelledby="trH" class="rounded-md border border-slate-200 bg-white xl:col-span-2" id="trBox">
+          <div class="flex items-center justify-between border-b border-slate-200 px-4 py-3">
+            <h2 id="trH" class="text-base font-semibold">Orders shipped and received</h2>
+            <button id="trToggle" class="h-8 rounded px-2 text-blue-700 underline">View as table</button>
+          </div>
+          <div id="trBody" class="p-4" style="min-height:300px"></div>
+        </section>
+      </div>
+
+      <div class="mt-4 grid grid-cols-1 gap-4 xl:grid-cols-2">
+        <section aria-labelledby="zoH" class="rounded-md border border-slate-200 bg-white" id="zoBox">
+          <div class="border-b border-slate-200 px-4 py-3"><h2 id="zoH" class="text-base font-semibold">Zone utilisation</h2></div>
+          <div id="zoBody" class="p-4" style="min-height:260px"></div>
+        </section>
+        <section aria-labelledby="stH" class="rounded-md border border-slate-200 bg-white" id="stBox">
+          <div class="border-b border-slate-200 px-4 py-3"><h2 id="stH" class="text-base font-semibold">Open orders by stage</h2></div>
+          <div id="stBody" class="p-4" style="min-height:260px"></div>
+        </section>
+      </div>
+    </main>
+  </div>
+</div>
+
+<script>
+const LOCALE = 'en-GB';
+const params = new URLSearchParams(location.search);
+const stateParam = params.get('state'); // empty | error | loading | null
+let range = ['today','7d','30d'].includes(params.get('range')) ? params.get('range') : 'today';
+const fixed = {}; // widgets whose Retry was pressed
+const nf = new Intl.NumberFormat(LOCALE);
+const nf1 = new Intl.NumberFormat(LOCALE, { maximumFractionDigits: 1 });
+const signed = new Intl.NumberFormat(LOCALE, { signDisplay: 'exceptZero', maximumFractionDigits: 1 });
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const pad = (n) => String(n).padStart(2, '0');
+const fmtDate = (d) => `${pad(d.getDate())}/${pad(d.getMonth()+1)}/${d.getFullYear()}`;
+const NOW = new Date(2026, 10, 4, 15, 58);
+
+/* ---------- Navigation ---------- */
+const ic = {
+  grid: 'M3 3h7v7H3zM14 3h7v7h-7zM3 14h7v7H3zM14 14h7v7h-7z',
+  box: 'M21 8l-9-5-9 5v8l9 5 9-5zM3 8l9 5 9-5M12 13v8',
+  truck: 'M1 6h13v10H1zM14 10h5l3 3v3h-8zM6 19a2 2 0 1 0 0-.01M18 19a2 2 0 1 0 0-.01',
+  list: 'M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01',
+  inbox: 'M22 12h-6l-2 3h-4l-2-3H2M5 5h14l3 7v7H2v-7z',
+  undo: 'M9 14L4 9l5-5M4 9h11a5 5 0 0 1 0 10h-3',
+  check: 'M9 11l3 3L22 4M21 12v7H3V5h12',
+  file: 'M14 3H6v18h12V7zM14 3v4h4',
+};
+const navGroups = [
+  { label: 'Operations', items: [['Dashboard', ic.grid, true], ['Orders', ic.list], ['Shipments', ic.truck], ['Receiving', ic.inbox], ['Pick tasks', ic.check]] },
+  { label: 'Inventory', items: [['Stock levels', ic.box], ['Cycle counts', ic.check], ['Returns', ic.undo]] },
+  { label: 'Insights', items: [['Reports', ic.file]] },
+];
+$('nav').innerHTML = navGroups.map(g => `
+  <div class="flex flex-col gap-0.5">
+    <p class="px-2 py-1 text-xs font-medium text-slate-600">${g[ 'label' ]}</p>
+    ${g.items.map(([l, p, a]) => `<a href="#" ${a ? 'aria-current="page"' : ''} class="flex h-8 items-center gap-2 rounded px-2 text-sm hover:bg-slate-100 ${a ? 'bg-slate-100 font-medium text-slate-900' : 'text-slate-700'}">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="${p}"/></svg>${l}</a>`).join('')}
+  </div>`).join('');
+$('menuBtn').onclick = () => {
+  const s = $('sidebar'); const open = s.classList.toggle('hidden');
+  $('menuBtn').setAttribute('aria-expanded', String(!open));
+};
+
+/* ---------- Mock data ---------- */
+const periodLabel = { today: 'vs yesterday', '7d': 'vs previous 7 days', '30d': 'vs previous 30 days' };
+const kpiData = {
+  today: [
+    ['Orders to ship', 1059, 6.2, '%', '/orders?status=open', 'int'],
+    ['Orders shipped', 612, 4.1, '%', '/shipments?status=shipped', 'int'],
+    ['Late shipments', 7, 2, '', '/shipments?status=late', 'int'],
+    ['Dock-to-stock time', 3.4, -0.4, ' h', '/receiving?view=dock-to-stock', 'dec'],
+    ['Inventory accuracy', 98.6, 0.2, ' pts', '/cycle-counts', 'pct'],
+    ['Pick rate (lines/h)', 118, -3.0, '%', '/pick-tasks?view=rate', 'int'],
+  ],
+  '7d': [
+    ['Orders to ship', 7312, 3.8, '%', '/orders?status=open', 'int'],
+    ['Orders shipped', 6874, 2.9, '%', '/shipments?status=shipped', 'int'],
+    ['Late shipments', 41, -6, '', '/shipments?status=late', 'int'],
+    ['Dock-to-stock time', 3.7, 0.1, ' h', '/receiving?view=dock-to-stock', 'dec'],
+    ['Inventory accuracy', 98.4, -0.1, ' pts', '/cycle-counts', 'pct'],
+    ['Pick rate (lines/h)', 115, 1.8, '%', '/pick-tasks?view=rate', 'int'],
+  ],
+  '30d': [
+    ['Orders to ship', 29840, 5.5, '%', '/orders?status=open', 'int'],
+    ['Orders shipped', 28905, 5.1, '%', '/shipments?status=shipped', 'int'],
+    ['Late shipments', 168, 12, '', '/shipments?status=late', 'int'],
+    ['Dock-to-stock time', 3.9, -0.2, ' h', '/receiving?view=dock-to-stock', 'dec'],
+    ['Inventory accuracy', 98.2, 0.4, ' pts', '/cycle-counts', 'pct'],
+    ['Pick rate (lines/h)', 112, 0.9, '%', '/pick-tasks?view=rate', 'int'],
+  ],
+};
+const attention = [
+  { count: 7, label: 'late shipments', href: '/shipments?status=late', tone: 'danger', badge: 'Overdue' },
+  { count: 4, label: 'inbound pallets waiting over 4 h at dock', href: '/receiving?status=waiting&min_hours=4', tone: 'danger', badge: 'Overdue' },
+  { count: 12, label: 'SKUs below reorder point', href: '/stock-levels?status=below_reorder', tone: 'warning', badge: 'Needs attention' },
+  { count: 3, label: 'cycle count variances to review', href: '/cycle-counts?status=variance', tone: 'warning', badge: 'Needs attention' },
+  { count: 9, label: 'orders on hold (address or payment)', href: '/orders?status=on_hold', tone: 'warning', badge: 'Due soon' },
+  { count: 2, label: 'carrier pickups missed today', href: '/shipments?status=missed_pickup', tone: 'danger', badge: 'Failed' },
+];
+function trend() {
+  const n = range === '30d' ? 30 : range === '7d' ? 7 : 0;
+  const out = [];
+  if (range === 'today') {
+    const sh = [0,0,0,0,0,0,18,46,74,92,88,81,64,70,63,16], rc = [0,0,0,0,0,0,26,38,31,22,29,34,25,18,14,5];
+    for (let h = 0; h < 16; h++) out.push({ x: pad(h + 0) + ':00', shipped: sh[h], received: rc[h] });
+    return out.slice(6).map((r, i) => ({ ...r, x: pad(i + 6) + ':00' }));
+  }
+  for (let i = n - 1; i >= 0; i--) {
+    const d = new Date(NOW); d.setDate(d.getDate() - i);
+    const wk = d.getDay() === 0 || d.getDay() === 6;
+    const base = wk ? 380 : 880 + ((i * 53) % 90);
+    out.push({ x: pad(d.getDate()) + '/' + pad(d.getMonth() + 1), shipped: base + ((i * 37) % 70), received: Math.round(base * 0.55) + ((i * 29) % 60) });
+  }
+  return out;
+}
+const zones = [
+  ['Bulk storage (A)', 94], ['Cold room (C)', 91], ['Fast-pick (B)', 87], ['Returns (R)', 71], ['Mezzanine (M)', 64], ['Dispatch staging (D)', 48],
+].sort((a, b) => b[1] - a[1]);
+const stages = [['Waiting for stock', 96, '#cbd5e1'], ['Ready to pick', 203, '#60a5fa'], ['Picking', 148, '#2563eb'], ['Packed, awaiting carrier', 247, '#1d4ed8']];
+
+/* ---------- Widget plumbing ---------- */
+function widgetState(id) {
+  if (fixed[id]) return 'ok';
+  return stateParam === 'empty' || stateParam === 'error' || stateParam === 'loading' ? stateParam : 'ok';
+}
+const skBlock = (h, w = 'w-full') => `<div class="sk ${w}" style="height:${h}px"></div>`;
+const errBox = (id, what) => `<div class="flex flex-col items-start gap-2 p-4"><p class="text-slate-800">Could not load ${what}. The other widgets are unaffected.</p><button data-retry="${id}" class="h-8 rounded border border-slate-300 bg-white px-3 text-slate-800 hover:bg-slate-100">Retry</button></div>`;
+const emptyBox = (msg, action) => `<div class="flex flex-col items-start gap-2 p-4"><p class="text-slate-700">${msg}</p>${action || ''}</div>`;
+document.addEventListener('click', (e) => {
+  const b = e.target.closest('[data-retry]'); if (b) { fixed[b.dataset.retry] = true; renderAll(true); }
+  const c = e.target.closest('[data-clear]'); if (c) { params.delete('state'); location.search = params.toString(); }
+});
+const clearAction = `<button data-clear class="h-8 rounded border border-slate-300 bg-white px-3 text-slate-800 hover:bg-slate-100">Reset to live data</button>`;
+
+/* ---------- KPIs ---------- */
+function renderKpis() {
+  const st = widgetState('kpis'); const el = $('kpis');
+  if (st === 'loading') { el.innerHTML = Array(6).fill(`<div class="rounded-md border border-slate-200 bg-white p-4" style="min-height:96px">${skBlock(12,'w-24')}<div class="mt-3">${skBlock(24,'w-16')}</div><div class="mt-2">${skBlock(12,'w-32')}</div></div>`).join(''); return; }
+  if (st === 'error') { el.innerHTML = `<div class="rounded-md border border-slate-200 bg-white sm:col-span-2 xl:col-span-6">${errBox('kpis','the key numbers')}</div>`; return; }
+  if (st === 'empty') { el.innerHTML = `<div class="rounded-md border border-slate-200 bg-white sm:col-span-2 xl:col-span-6">${emptyBox('No warehouse activity recorded in this range.', '<button class="h-8 rounded border border-slate-300 bg-white px-3 text-slate-800 hover:bg-slate-100" data-clear>Change date range</button>')}</div>`; return; }
+  el.innerHTML = kpiData[range].map(([label, v, d, unit, href, kind]) => {
+    const value = kind === 'dec' ? nf1.format(v) + ' h' : kind === 'pct' ? nf1.format(v) + '%' : nf.format(v);
+    const up = d > 0; const arrow = d === 0 ? '' : up ? '▲' : '▼';
+    const delta = `${signed.format(d).replace('-', '−')}${unit} ${periodLabel[range]}`;
+    return `<a href="${href}" class="block min-h-24 rounded-md border border-slate-200 bg-white p-4 hover:bg-slate-50">
+      <p class="text-xs font-medium text-slate-600">${label}</p>
+      <p class="mt-1 text-2xl font-semibold tnum">${value}</p>
+      <p class="text-xs text-slate-600 tnum"><span aria-hidden="true">${arrow}</span> ${delta}</p></a>`;
+  }).join('');
+}
+
+/* ---------- Needs attention ---------- */
+const toneCls = { danger: 'bg-red-50 text-red-700', warning: 'bg-amber-50 text-amber-800' };
+function renderAttention() {
+  const st = widgetState('attn'); const el = $('attnBody');
+  $('attnMeta').textContent = st === 'ok' ? 'Checked 15:58' : '';
+  if (st === 'loading') { el.innerHTML = `<div class="space-y-3 p-4">${Array(5).fill(skBlock(24)).join('')}</div>`; return; }
+  if (st === 'error') { el.innerHTML = errBox('attn', 'the attention list'); return; }
+  if (st === 'empty') { el.innerHTML = emptyBox('Nothing needs attention. Last checked 15:58.'); $('attnLive').textContent = 'Nothing needs attention'; return; }
+  const items = attention.slice(0, 5);
+  el.innerHTML = `<ul>${items.map(i => `<li class="border-b border-slate-200 last:border-0">
+    <a href="${i.href}" class="flex min-h-10 items-center gap-3 px-4 py-2 hover:bg-slate-50">
+      <span class="w-8 shrink-0 text-base font-semibold tnum">${nf.format(i.count)}</span>
+      <span class="flex-1 text-sm">${i.label}</span>
+      <span class="shrink-0 rounded-full px-2 text-xs font-medium ${toneCls[i.tone]}">${i.badge}</span>
+    </a></li>`).join('')}</ul>
+    <div class="border-t border-slate-200 px-4 py-2"><a href="/attention" class="text-sm text-blue-700 underline">View all ${attention.length} issues</a></div>`;
+  $('attnLive').textContent = `${attention.length} items need attention`;
+}
+
+/* ---------- Line chart ---------- */
+let showTable = false;
+function renderTrend() {
+  const st = widgetState('tr'); const el = $('trBody');
+  $('trToggle').hidden = st !== 'ok';
+  if (st === 'loading') { el.innerHTML = skBlock(268); return; }
+  if (st === 'error') { el.innerHTML = errBox('tr', 'the throughput chart'); return; }
+  if (st === 'empty') { el.innerHTML = emptyBox('No orders shipped or received in this range.', '<button class="h-8 rounded border border-slate-300 bg-white px-3 text-slate-800 hover:bg-slate-100" data-clear>Change date range</button>'); return; }
+  const data = trend(); const unitX = range === 'today' ? 'Hour of day' : 'Day (dd/mm)'; const unitY = range === 'today' ? 'Orders per hour' : 'Orders per day';
+  const first = data[0], last = data[data.length - 1];
+  const summary = `Orders shipped went from ${first.shipped} to ${last.shipped} and received from ${first.received} to ${last.received} between ${first.x} and ${last.x}.`;
+  $('trToggle').textContent = showTable ? 'View as chart' : 'View as table';
+  if (showTable) {
+    el.innerHTML = `<div class="max-h-64 overflow-auto"><table class="w-full text-sm"><thead><tr class="border-b border-slate-200 text-slate-700">
+      <th class="h-10 px-3 text-left font-medium">${unitX}</th><th class="px-3 text-right font-medium">Shipped</th><th class="px-3 text-right font-medium">Received</th></tr></thead>
+      <tbody>${data.map(r => `<tr class="h-10 border-b border-slate-100"><td class="px-3 tnum">${r.x}</td><td class="px-3 text-right tnum">${nf.format(r.shipped)}</td><td class="px-3 text-right tnum">${nf.format(r.received)}</td></tr>`).join('')}</tbody></table></div>`;
+    return;
+  }
+  const W = 640, H = 270, L = 56, R = 76, T = 12, B = 44;
+  const max = Math.max(...data.flatMap(d => [d.shipped, d.received]));
+  const top = Math.ceil(max / 200) * 200 || 200;
+  const xs = (i) => L + (data.length === 1 ? 0 : i * (W - L - R) / (data.length - 1));
+  const ys = (v) => T + (H - T - B) * (1 - v / top);
+  const path = (k) => data.map((d, i) => `${i ? 'L' : 'M'}${xs(i).toFixed(1)} ${ys(d[k]).toFixed(1)}`).join(' ');
+  const ticks = [0, .25, .5, .75, 1].map(f => Math.round(top * f));
+  const step = Math.ceil(data.length / 8);
+  el.innerHTML = `<div role="img" aria-label="${esc(summary)}"><svg viewBox="0 0 ${W} ${H}" class="w-full" style="height:auto;max-height:290px">
+    ${ticks.map(t => `<line x1="${L}" x2="${W - R}" y1="${ys(t)}" y2="${ys(t)}" stroke="#e2e8f0"/><text x="${L - 8}" y="${ys(t) + 4}" text-anchor="end" font-size="11" fill="#475569">${nf.format(t)}</text>`).join('')}
+    ${data.map((d, i) => i % step === 0 ? `<text x="${xs(i)}" y="${H - B + 16}" text-anchor="middle" font-size="11" fill="#475569">${d.x}</text>` : '').join('')}
+    <text x="${(L + W - R) / 2}" y="${H - 6}" text-anchor="middle" font-size="12" fill="#475569">${unitX}</text>
+    <text transform="translate(12 ${(T + H - B) / 2}) rotate(-90)" text-anchor="middle" font-size="12" fill="#475569">${unitY}</text>
+    <path d="${path('received')}" fill="none" stroke="#64748b" stroke-width="2" stroke-dasharray="5 4"/>
+    <path d="${path('shipped')}" fill="none" stroke="#1d4ed8" stroke-width="2.5"/>
+    <text x="${xs(data.length - 1) + 6}" y="${ys(last.shipped) + 4}" font-size="12" font-weight="600" fill="#1d4ed8">Shipped</text>
+    <text x="${xs(data.length - 1) + 6}" y="${ys(last.received) + 4}" font-size="12" fill="#475569">Received</text>
+  </svg></div>
+  <p class="mt-2 text-xs text-slate-600">${range === 'today' ? 'Hourly totals for ' + fmtDate(NOW) + ', 06:00 to 21:00 shifts; hours after 15:00 are forecast from the carrier schedule.' : 'Daily totals; weekends run on a reduced shift.'}</p>`;
+}
+$('trToggle').onclick = () => { showTable = !showTable; renderTrend(); };
+
+/* ---------- Bars ---------- */
+function renderZones() {
+  const st = widgetState('zo'); const el = $('zoBody');
+  if (st === 'loading') { el.innerHTML = `<div class="space-y-3">${Array(6).fill(skBlock(24)).join('')}</div>`; return; }
+  if (st === 'error') { el.innerHTML = errBox('zo', 'zone utilisation'); return; }
+  if (st === 'empty') { el.innerHTML = emptyBox('No zones are configured for this warehouse.', '<a href="/settings/zones" class="inline-flex h-8 items-center rounded border border-slate-300 bg-white px-3 text-slate-800 hover:bg-slate-100">Set up zones</a>'); return; }
+  const summary = 'Zone utilisation, highest first: ' + zones.map(z => `${z[0]} ${z[1]}%`).join(', ') + '.';
+  el.innerHTML = `<div role="img" aria-label="${esc(summary)}"><ul class="space-y-2">${zones.map(([n, v]) => `<li class="grid grid-cols-[9.5rem_1fr_3rem] items-center gap-3">
+    <span class="text-sm text-slate-800">${n}</span>
+    <span class="h-4 rounded-sm bg-slate-100"><span class="block h-4 rounded-sm ${v >= 90 ? 'bg-blue-700' : 'bg-slate-400'}" style="width:${v}%"></span></span>
+    <span class="text-right text-sm font-medium tnum">${v}%</span></li>`).join('')}</ul>
+    <div class="mt-1 grid grid-cols-[9.5rem_1fr_3rem] gap-3 text-xs text-slate-600"><span></span><div class="flex justify-between tnum"><span>0%</span><span>50%</span><span>100%</span></div><span></span></div>
+    <p class="mt-1 text-center text-xs text-slate-600 pl-[10.5rem]">Utilisation (% of bin locations occupied). Zones at 90% or more are highlighted.</p></div>`;
+}
+function renderStages() {
+  const st = widgetState('st'); const el = $('stBody');
+  if (st === 'loading') { el.innerHTML = `${skBlock(32)}<div class="mt-4 space-y-2">${Array(4).fill(skBlock(20)).join('')}</div>`; return; }
+  if (st === 'error') { el.innerHTML = errBox('st', 'open orders by stage'); return; }
+  if (st === 'empty') { el.innerHTML = emptyBox('No open orders right now.', '<a href="/orders?status=all" class="inline-flex h-8 items-center rounded border border-slate-300 bg-white px-3 text-slate-800 hover:bg-slate-100">View all orders</a>'); return; }
+  const total = stages.reduce((a, s) => a + s[1], 0);
+  const summary = `${nf.format(total)} open orders: ` + stages.map(s => `${s[0]} ${s[1]}`).join(', ') + '.';
+  el.innerHTML = `<p class="text-slate-700"><span class="text-2xl font-semibold tnum text-slate-900">${nf.format(total)}</span> open orders</p>
+    <div role="img" aria-label="${esc(summary)}" class="mt-3 flex h-8 overflow-hidden rounded-sm border border-slate-200">${stages.map(s => `<span style="width:${s[1] / total * 100}%;background:${s[2]}"></span>`).join('')}</div>
+    <p class="mt-1 text-xs text-slate-600">Share of open orders by stage (orders)</p>
+    <ul class="mt-3">${stages.map(s => `<li class="border-b border-slate-100 last:border-0"><a href="/orders?stage=${encodeURIComponent(s[0].toLowerCase().replace(/[^a-z]+/g, '_'))}" class="flex h-10 items-center gap-3 hover:bg-slate-50">
+      <span class="h-3 w-3 shrink-0 rounded-sm border border-slate-300" style="background:${s[2]}"></span>
+      <span class="flex-1">${s[0]}</span><span class="w-12 text-right font-medium tnum">${nf.format(s[1])}</span><span class="w-12 text-right text-slate-600 tnum">${Math.round(s[1] / total * 100)}%</span></a></li>`).join('')}</ul>`;
+}
+
+/* ---------- Header / refresh ---------- */
+function renderHeader() {
+  $('range').value = range;
+  const days = range === 'today' ? 0 : range === '7d' ? 6 : 29;
+  const from = new Date(NOW); from.setDate(from.getDate() - days);
+  $('rangeText').textContent = days ? `${fmtDate(from)} – ${fmtDate(NOW)}` : fmtDate(NOW);
+}
+$('range').onchange = (e) => { range = e.target.value; params.set('range', range); history.replaceState(null, '', '?' + params.toString()); renderHeader(); renderAll(false); };
+function stamp() { const t = new Date(); $('updated').textContent = `Updated ${pad(t.getHours())}:${pad(t.getMinutes())}`; }
+$('refresh').onclick = () => { $('refreshFail').hidden = true; renderAll(false); stamp(); };
+$('refreshRetry').onclick = $('refresh').onclick;
+
+function renderAll(immediate) {
+  const draw = () => { renderKpis(); renderAttention(); renderTrend(); renderZones(); renderStages(); };
+  if (immediate || stateParam === 'loading') return draw();
+  // First load / refresh: show skeletons, then resolve within about 500 ms.
+  const hold = { ...fixed };
+  const loading = ['kpis', 'attn', 'tr', 'zo', 'st'];
+  loading.forEach(k => delete fixed[k]);
+  const saved = stateParam;
+  // render skeleton by temporarily treating state as loading
+  const real = widgetState;
+  widgetState = () => 'loading'; draw(); widgetState = real;
+  Object.assign(fixed, hold);
+  setTimeout(draw, 450);
+}
+renderHeader();
+$('updated').textContent = 'Updated 15:58';
+renderAll(false);
+// Live data refresh every 5 minutes
+setInterval(() => { if (!stateParam) { renderAll(true); stamp(); } }, 300000);
+</script>
+</body>
+</html>

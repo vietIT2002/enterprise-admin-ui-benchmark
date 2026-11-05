@@ -1,0 +1,805 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Đơn hàng – Bán hàng – ERP</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+  [hidden] { display: none !important; }
+  :focus-visible { outline: 2px solid #1d4ed8; outline-offset: 2px; }
+  body { font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; color: #0f172a; }
+  thead th { position: sticky; top: 0; z-index: 2; background: #f8fafc; }
+  @keyframes pulse-sk { 50% { opacity: .45; } }
+  .sk { animation: pulse-sk 1.4s ease-in-out infinite; background: #e2e8f0; border-radius: 4px; height: 12px; }
+</style>
+</head>
+<body class="bg-white text-sm text-slate-900">
+
+<div class="flex h-screen overflow-hidden">
+  <!-- Sidebar -->
+  <aside class="hidden w-56 shrink-0 flex-col border-r border-slate-200 bg-slate-50 lg:flex" aria-label="Điều hướng chính">
+    <div class="flex h-12 items-center gap-2 border-b border-slate-200 px-4">
+      <span class="flex size-6 items-center justify-center rounded bg-blue-700 text-xs font-semibold text-white" aria-hidden="true">E</span>
+      <span class="font-semibold">ERP Hưng Phát</span>
+    </div>
+    <nav class="flex-1 overflow-y-auto px-2 py-3">
+      <p class="px-2 pb-1 text-xs font-medium text-slate-600">Bán hàng</p>
+      <ul class="mb-4 space-y-0.5">
+        <li><a href="#" class="block rounded px-2 py-1.5 text-slate-700 hover:bg-slate-100">Báo giá</a></li>
+        <li><a href="#" aria-current="page" class="block rounded bg-blue-50 px-2 py-1.5 font-medium text-blue-800">Đơn hàng</a></li>
+        <li><a href="#" class="block rounded px-2 py-1.5 text-slate-700 hover:bg-slate-100">Khách hàng</a></li>
+        <li><a href="#" class="block rounded px-2 py-1.5 text-slate-700 hover:bg-slate-100">Bảng giá</a></li>
+        <li><a href="#" class="block rounded px-2 py-1.5 text-slate-700 hover:bg-slate-100">Trả hàng</a></li>
+      </ul>
+      <p class="px-2 pb-1 text-xs font-medium text-slate-600">Kho</p>
+      <ul class="mb-4 space-y-0.5">
+        <li><a href="#" class="block rounded px-2 py-1.5 text-slate-700 hover:bg-slate-100">Tồn kho</a></li>
+        <li><a href="#" class="block rounded px-2 py-1.5 text-slate-700 hover:bg-slate-100">Phiếu giao hàng</a></li>
+      </ul>
+      <p class="px-2 pb-1 text-xs font-medium text-slate-600">Kế toán</p>
+      <ul class="mb-4 space-y-0.5">
+        <li><a href="#" class="block rounded px-2 py-1.5 text-slate-700 hover:bg-slate-100">Hóa đơn</a></li>
+        <li><a href="#" class="block rounded px-2 py-1.5 text-slate-700 hover:bg-slate-100">Công nợ phải thu</a></li>
+      </ul>
+      <p class="px-2 pb-1 text-xs font-medium text-slate-600">Hệ thống</p>
+      <ul class="space-y-0.5">
+        <li><a href="#" class="block rounded px-2 py-1.5 text-slate-700 hover:bg-slate-100">Người dùng và phân quyền</a></li>
+        <li><a href="#" class="block rounded px-2 py-1.5 text-slate-700 hover:bg-slate-100">Cài đặt</a></li>
+      </ul>
+    </nav>
+  </aside>
+
+  <div class="flex min-w-0 flex-1 flex-col">
+    <!-- Top bar -->
+    <header class="flex h-12 shrink-0 items-center justify-between border-b border-slate-200 bg-white px-6">
+      <label class="relative block w-72">
+        <span class="sr-only">Tìm kiếm toàn hệ thống</span>
+        <input type="search" placeholder="Tìm trong toàn hệ thống (Ctrl+K)" class="h-8 w-full rounded border border-slate-300 bg-slate-50 px-3 text-sm placeholder:text-slate-500">
+      </label>
+      <div class="flex items-center gap-3 text-slate-700">
+        <span>Chi nhánh Hà Nội</span>
+        <span class="flex size-8 items-center justify-center rounded-full bg-slate-200 text-xs font-medium text-slate-800" title="Lê Hoa">LH</span>
+      </div>
+    </header>
+
+    <main class="min-w-0 flex-1 overflow-y-auto" id="main">
+      <div class="px-6 pb-6 pt-4">
+        <!-- Page header -->
+        <nav aria-label="Breadcrumb" class="mb-1 text-xs text-slate-600">
+          <a href="#" class="hover:underline">Bán hàng</a> <span aria-hidden="true">/</span> <span aria-current="page">Đơn hàng</span>
+        </nav>
+        <div class="mb-3 flex flex-wrap items-center justify-between gap-3">
+          <h1 class="text-xl font-semibold">Đơn hàng</h1>
+          <div class="flex items-center gap-2">
+            <button type="button" data-act="import" class="inline-flex h-8 items-center gap-1.5 rounded border border-slate-300 bg-white px-3 font-medium text-slate-800 hover:bg-slate-50" id="btnImport"></button>
+            <button type="button" data-act="export-all" class="inline-flex h-8 items-center gap-1.5 rounded border border-slate-300 bg-white px-3 font-medium text-slate-800 hover:bg-slate-50" id="btnExport"></button>
+            <button type="button" data-act="create" class="inline-flex h-8 items-center gap-1.5 rounded bg-blue-700 px-3 font-medium text-white hover:bg-blue-800" id="btnCreate"></button>
+          </div>
+        </div>
+
+        <!-- Result banner (job / partial failure) -->
+        <div id="banner" class="mb-3" hidden></div>
+
+        <!-- Status tabs -->
+        <div id="tabs" class="mb-3 flex flex-wrap gap-x-1 border-b border-slate-200" role="group" aria-label="Lọc theo trạng thái đơn"></div>
+
+        <!-- Toolbar: filters or bulk bar -->
+        <div id="toolbar" class="relative mb-2">
+          <div id="filterRow" class="flex flex-wrap items-center gap-2">
+            <label class="relative block w-80">
+              <span class="sr-only">Tìm đơn hàng</span>
+              <span class="pointer-events-none absolute left-2.5 top-2 text-slate-500" id="icoSearch"></span>
+              <input id="q" type="search" autocomplete="off" aria-label="Tìm đơn hàng" placeholder="Tìm mã đơn, khách hàng, số điện thoại" class="h-8 w-full rounded border border-slate-300 bg-white pl-8 pr-8 text-sm placeholder:text-slate-500">
+              <button type="button" id="qClear" aria-label="Xóa nội dung tìm kiếm" class="absolute right-0.5 top-1 flex size-6 items-center justify-center rounded text-slate-600 hover:bg-slate-100" hidden></button>
+            </label>
+            <select id="fChannel" aria-label="Lọc theo kênh bán" class="h-8 rounded border border-slate-300 bg-white px-2 text-sm"></select>
+            <select id="fOwner" aria-label="Lọc theo người phụ trách" class="h-8 rounded border border-slate-300 bg-white px-2 text-sm"></select>
+            <div class="relative">
+              <button type="button" id="btnMore" aria-expanded="false" aria-controls="morePanel" class="inline-flex h-8 items-center gap-1.5 rounded border border-slate-300 bg-white px-3 font-medium text-slate-800 hover:bg-slate-50">Bộ lọc khác</button>
+              <div id="morePanel" hidden class="absolute left-0 top-9 z-30 w-80 rounded-lg border border-slate-200 bg-white p-4 shadow-lg" role="dialog" aria-label="Bộ lọc khác">
+                <div class="space-y-3">
+                  <fieldset>
+                    <legend class="mb-1 text-sm font-medium">Ngày tạo</legend>
+                    <div class="flex items-center gap-2">
+                      <input type="date" id="mFrom" aria-label="Từ ngày" class="h-8 w-full rounded border border-slate-300 px-2 text-sm">
+                      <span aria-hidden="true">–</span>
+                      <input type="date" id="mTo" aria-label="Đến ngày" class="h-8 w-full rounded border border-slate-300 px-2 text-sm">
+                    </div>
+                  </fieldset>
+                  <fieldset>
+                    <legend class="mb-1 text-sm font-medium">Tổng tiền (VND)</legend>
+                    <div class="flex items-center gap-2">
+                      <input type="number" min="0" step="1000" id="mMin" aria-label="Tổng tiền từ" placeholder="Từ" class="h-8 w-full rounded border border-slate-300 px-2 text-right text-sm tabular-nums placeholder:text-slate-500">
+                      <span aria-hidden="true">–</span>
+                      <input type="number" min="0" step="1000" id="mMax" aria-label="Tổng tiền đến" placeholder="Đến" class="h-8 w-full rounded border border-slate-300 px-2 text-right text-sm tabular-nums placeholder:text-slate-500">
+                    </div>
+                  </fieldset>
+                  <div>
+                    <label for="mPay" class="mb-1 block text-sm font-medium">Thanh toán</label>
+                    <select id="mPay" class="h-8 w-full rounded border border-slate-300 bg-white px-2 text-sm"></select>
+                  </div>
+                </div>
+                <div class="mt-4 flex justify-end gap-2 border-t border-slate-200 pt-3">
+                  <button type="button" id="mReset" class="h-8 rounded border border-slate-300 bg-white px-3 font-medium text-slate-800 hover:bg-slate-50">Đặt lại</button>
+                  <button type="button" id="mApply" class="h-8 rounded bg-blue-700 px-3 font-medium text-white hover:bg-blue-800">Áp dụng</button>
+                </div>
+              </div>
+            </div>
+            <div class="ml-auto flex items-center gap-1" role="group" aria-label="Mật độ hiển thị">
+              <button type="button" data-density="normal" class="h-8 rounded px-2.5 text-slate-700 hover:bg-slate-100 aria-pressed:bg-slate-200 aria-pressed:font-medium">Chuẩn</button>
+              <button type="button" data-density="compact" class="h-8 rounded px-2.5 text-slate-700 hover:bg-slate-100 aria-pressed:bg-slate-200 aria-pressed:font-medium">Gọn</button>
+            </div>
+          </div>
+
+          <div id="bulkBar" hidden class="flex h-10 items-center gap-3 rounded-md border border-blue-200 bg-blue-50 px-3">
+            <span id="bulkCount" class="font-medium tabular-nums"></span>
+            <button type="button" id="bulkAll" class="font-medium text-blue-700 underline hover:text-blue-800" hidden></button>
+            <div class="flex items-center gap-2" id="bulkActions"></div>
+            <button type="button" id="bulkCancel" class="ml-auto h-8 rounded px-3 font-medium text-slate-800 hover:bg-blue-100">Bỏ chọn</button>
+          </div>
+        </div>
+
+        <!-- Chips -->
+        <div id="chips" class="mb-2 flex flex-wrap items-center gap-2" hidden></div>
+
+        <!-- Summary -->
+        <div class="mb-2 flex items-center justify-between text-slate-700">
+          <p id="summary" aria-hidden="true"></p>
+          <p class="text-xs text-slate-600">Cập nhật 15:30</p>
+        </div>
+        <p id="liveCount" role="status" class="sr-only"></p>
+        <p id="liveSel" role="status" class="sr-only"></p>
+
+        <!-- Table -->
+        <div class="rounded-md border border-slate-200 bg-white">
+          <div id="tableWrap" class="max-h-[calc(100vh-390px)] min-h-[360px] overflow-auto">
+            <table class="w-full min-w-[1080px] border-collapse" id="tbl" aria-label="Danh sách đơn hàng">
+              <thead id="thead"></thead>
+              <tbody id="tbody"></tbody>
+            </table>
+          </div>
+          <div id="pager" class="flex h-12 items-center justify-between border-t border-slate-200 px-3"></div>
+        </div>
+      </div>
+    </main>
+  </div>
+</div>
+
+<div id="menu" hidden role="menu" class="fixed z-40 min-w-52 rounded-md border border-slate-200 bg-white py-1 shadow-lg"></div>
+<div id="toasts" class="fixed bottom-4 right-4 z-50 flex w-96 flex-col gap-2" aria-live="polite"></div>
+
+<script>
+/* ================= Locale and formatters ================= */
+const LOCALE = 'vi-VN', TZ = 'Asia/Ho_Chi_Minh';
+const NF = new Intl.NumberFormat(LOCALE);
+const NF_VND = new Intl.NumberFormat(LOCALE, { style: 'currency', currency: 'VND' });
+const NF_AMT = new Intl.NumberFormat(LOCALE, { minimumFractionDigits: 0, maximumFractionDigits: 0 });
+const DF_DATE = new Intl.DateTimeFormat(LOCALE, { day: '2-digit', month: '2-digit', year: 'numeric', timeZone: TZ });
+const DF_TIME = new Intl.DateTimeFormat(LOCALE, { hour: '2-digit', minute: '2-digit', hourCycle: 'h23', timeZone: TZ });
+const DF_KEY = new Intl.DateTimeFormat('en-CA', { year: 'numeric', month: '2-digit', day: '2-digit', timeZone: TZ });
+const COLLATOR = new Intl.Collator(LOCALE);
+const fmtNum = n => NF.format(n);
+const fmtMoney = n => NF_VND.format(n);
+const fmtAmt = n => NF_AMT.format(n);
+const fmtDateTime = iso => { const d = new Date(iso); return DF_DATE.format(d) + ' ' + DF_TIME.format(d); };
+const dayKey = iso => DF_KEY.format(new Date(iso));
+const fmtIsoDay = k => k ? DF_DATE.format(new Date(k + 'T00:00:00Z').getTime() + 0).replace(/^/, '') : '';
+const fmtDayKey = k => { const [y, m, d] = k.split('-'); return `${d}/${m}/${y}`; };
+const foldVi = s => String(s).normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/đ/g, 'd').replace(/Đ/g, 'D').toLowerCase();
+const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+
+/* ================= Icons ================= */
+const P = {
+  search: '<circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/>',
+  x: '<path d="M18 6 6 18M6 6l12 12"/>',
+  more: '<circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/>',
+  plus: '<path d="M5 12h14M12 5v14"/>',
+  dl: '<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/>',
+  ul: '<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12"/>',
+  up: '<path d="m18 15-6-6-6 6"/>',
+  down: '<path d="m6 9 6 6 6-6"/>',
+  sort: '<path d="m7 15 5 5 5-5M7 9l5-5 5 5"/>',
+  alert: '<circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/>',
+  check: '<path d="M20 6 9 17l-5-5"/>',
+  left: '<path d="m15 18-6-6 6-6"/>',
+  right: '<path d="m9 18 6-6-6-6"/>',
+  inbox: '<path d="M22 12h-6l-2 3h-4l-2-3H2"/><path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/>',
+  filterx: '<path d="M13 2H3l8 9.46V19l4 2v-9.54"/><path d="m16 8 6 6M22 8l-6 6"/>'
+};
+const ic = (n, cls = 'size-4') => `<svg class="${cls} shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${P[n]}</svg>`;
+
+/* ================= Vocabulary ================= */
+const TONES = {
+  neutral: 'bg-slate-100 text-slate-700',
+  info: 'bg-blue-50 text-blue-800',
+  success: 'bg-green-50 text-green-800',
+  warning: 'bg-amber-50 text-amber-800',
+  danger: 'bg-red-50 text-red-800'
+};
+const STATUS = {
+  draft:      { label: 'Nháp',          tone: 'neutral' },
+  pending:    { label: 'Chờ xác nhận',  tone: 'warning' },
+  processing: { label: 'Đang xử lý',    tone: 'info' },
+  shipping:   { label: 'Đang giao',     tone: 'info' },
+  done:       { label: 'Hoàn thành',    tone: 'success' },
+  cancelled:  { label: 'Đã hủy',        tone: 'danger' }
+};
+const STATUS_ORDER = ['draft', 'pending', 'processing', 'shipping', 'done', 'cancelled'];
+const PAY = {
+  unpaid:   { label: 'Chưa thanh toán',      tone: 'warning' },
+  partial:  { label: 'Thanh toán một phần',  tone: 'info' },
+  paid:     { label: 'Đã thanh toán',        tone: 'success' },
+  refunded: { label: 'Đã hoàn tiền',         tone: 'neutral' }
+};
+const CHANNELS = ['Cửa hàng', 'Website', 'Đại lý', 'Sàn TMĐT'];
+const OWNERS = ['Lê Hoa', 'Trần Minh Quân', 'Nguyễn Thị Lan', 'Phạm Đức Anh', 'Đặng Thu Hà', 'Võ Quốc Bảo'];
+const badge = (map, key) => `<span class="inline-flex h-6 items-center whitespace-nowrap rounded-full px-2 text-xs font-medium leading-5 ${TONES[map[key].tone]}">${map[key].label}</span>`;
+
+/* ================= Mock data ================= */
+function rng(seed) { return () => { seed |= 0; seed = seed + 0x6D2B79F5 | 0; let t = Math.imul(seed ^ seed >>> 15, 1 | seed); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
+const CUSTOMERS = ['Công ty TNHH Minh Phát', 'Công ty CP Thương mại An Bình', 'Cửa hàng Hoàng Gia', 'Công ty TNHH Đại Dương', 'Siêu thị Mini Hải Yến', 'Công ty CP Nội thất Việt Hưng', 'Nguyễn Văn Đức', 'Trần Thị Mai', 'Công ty TNHH Phúc Lộc', 'Đại lý Sao Mai', 'Công ty CP Xây dựng Đông Á', 'Lê Quang Huy', 'Phạm Thị Ngọc Ánh', 'Công ty TNHH Dịch vụ Bảo Long', 'Nhà sách Tân Việt', 'Công ty CP Thực phẩm Thanh Tâm', 'Đặng Hoàng Nam', 'Công ty TNHH Điện máy Gia Khánh', 'Cửa hàng Đức Thịnh', 'Bùi Thị Hương', 'Công ty CP Vận tải Thăng Long', 'Công ty TNHH Sản xuất Kim Ngân', 'Vũ Minh Tuấn', 'Đại lý Hồng Phúc'];
+const NOW = new Date('2026-11-05T03:30:00Z').getTime();
+function genOrders() {
+  const r = rng(20261105), list = [], N = 120;
+  for (let i = 0; i < N; i++) {
+    const age = i / (N - 1), x = r();
+    let st;
+    if (age < 0.45) st = x < .80 ? 'done' : x < .95 ? 'cancelled' : 'shipping';
+    else if (age < 0.75) st = x < .35 ? 'done' : x < .65 ? 'shipping' : x < .85 ? 'processing' : x < .95 ? 'cancelled' : 'pending';
+    else st = x < .35 ? 'pending' : x < .60 ? 'processing' : x < .80 ? 'draft' : x < .90 ? 'shipping' : x < .95 ? 'done' : 'cancelled';
+    let pay;
+    if (st === 'done') pay = 'paid';
+    else if (st === 'cancelled') pay = r() < .3 ? 'refunded' : 'unpaid';
+    else if (st === 'draft') pay = 'unpaid';
+    else { const y = r(); pay = y < .4 ? 'unpaid' : y < .65 ? 'partial' : 'paid'; }
+    const cust = CUSTOMERS[Math.floor(r() * CUSTOMERS.length)];
+    const business = /^(Công ty|Cửa hàng|Siêu thị|Đại lý|Nhà sách)/.test(cust);
+    const total = Math.round((business ? 8 + r() * r() * 180 : 0.4 + r() * r() * 20) * 1000) * 1000 + (r() < .5 ? 0 : 0);
+    const created = NOW - (N - 1 - i) * 6.1 * 3600e3 - Math.floor(r() * 3600e3);
+    const flaky = st === 'pending' && r() < .35;
+    list.push({
+      id: 'DH-' + (1200 + i), customer: cust, channel: CHANNELS[Math.floor(r() * 4)],
+      owner: OWNERS[Math.floor(r() * OWNERS.length)], status: st, pay, total,
+      createdAt: new Date(created).toISOString(), flaky
+    });
+  }
+  return list;
+}
+let ORDERS = genOrders();
+let phoneOf = o => { let h = 0; for (const c of o.id) h = (h * 31 + c.charCodeAt(0)) >>> 0; const s = String(900000000 + (h % 99999999)).padStart(9, '0'); return '0' + s.slice(0, 3) + ' ' + s.slice(3, 6) + ' ' + s.slice(6, 9); };
+const phoneCache = {}; const getPhone = o => phoneCache[o.id] || (phoneCache[o.id] = phoneOf(o));
+
+/* ================= State ================= */
+const DEF = { q: '', status: '', channel: '', owner: '', pay: '', from: '', to: '', min: '', max: '', sort: '-created_at', page: 1, size: 25 };
+let S = { ...DEF };
+let sel = { ids: new Set(), all: false };
+let mode = 'loading';            // loading | ready | error
+let forced = new URLSearchParams(location.search).get('state'); // empty | error | loading
+let busy = false;                // refetch dimming
+let density = 'normal';
+try { density = localStorage.getItem('orders.density') || 'normal'; } catch (e) {}
+let bannerState = null;          // result of last bulk run
+
+const $ = id => document.getElementById(id);
+
+function readUrl() {
+  const p = new URLSearchParams(location.search);
+  const o = { ...DEF };
+  o.q = p.get('q') || '';
+  o.status = STATUS[p.get('status')] ? p.get('status') : '';
+  o.channel = CHANNELS.includes(p.get('channel')) ? p.get('channel') : '';
+  o.owner = OWNERS.includes(p.get('owner')) ? p.get('owner') : '';
+  o.pay = PAY[p.get('pay')] ? p.get('pay') : '';
+  const dRe = /^\d{4}-\d{2}-\d{2}$/;
+  o.from = dRe.test(p.get('from') || '') ? p.get('from') : '';
+  o.to = dRe.test(p.get('to') || '') ? p.get('to') : '';
+  o.min = /^\d+$/.test(p.get('min') || '') ? p.get('min') : '';
+  o.max = /^\d+$/.test(p.get('max') || '') ? p.get('max') : '';
+  const sk = (p.get('sort') || '').replace(/^-/, '');
+  o.sort = ['number', 'customer', 'created_at', 'total'].includes(sk) ? p.get('sort') : DEF.sort;
+  o.page = Math.max(1, parseInt(p.get('page'), 10) || 1);
+  const sz = parseInt(p.get('size'), 10);
+  o.size = [10, 25, 50].includes(sz) ? sz : 25;
+  return o;
+}
+function writeUrl(push) {
+  const p = new URLSearchParams();
+  for (const k of Object.keys(DEF)) if (String(S[k]) !== String(DEF[k]) && S[k] !== '') p.set(k, S[k]);
+  if (forced) p.set('state', forced);
+  const qs = p.toString();
+  history[push ? 'pushState' : 'replaceState'](null, '', location.pathname + (qs ? '?' + qs : ''));
+}
+
+/* ================= Filtering / sorting ================= */
+function matches(o, skipStatus) {
+  if (!skipStatus && S.status && o.status !== S.status) return false;
+  if (S.channel && o.channel !== S.channel) return false;
+  if (S.owner && o.owner !== S.owner) return false;
+  if (S.pay && o.pay !== S.pay) return false;
+  if (S.from || S.to) { const k = dayKey(o.createdAt); if (S.from && k < S.from) return false; if (S.to && k > S.to) return false; }
+  if (S.min !== '' && o.total < +S.min) return false;
+  if (S.max !== '' && o.total > +S.max) return false;
+  if (S.q.trim()) {
+    const hay = foldVi(o.id + ' ' + o.customer + ' ' + getPhone(o) + ' ' + getPhone(o).replace(/\s/g, ''));
+    const needle = foldVi(S.q.trim());
+    if (!hay.includes(needle) && !hay.includes(needle.replace(/\s/g, ''))) return false;
+  }
+  return true;
+}
+function sorted(list) {
+  const desc = S.sort.startsWith('-'), key = S.sort.replace(/^-/, '');
+  const cmp = {
+    number: (a, b) => (+a.id.slice(3)) - (+b.id.slice(3)),
+    customer: (a, b) => COLLATOR.compare(a.customer, b.customer),
+    created_at: (a, b) => new Date(a.createdAt) - new Date(b.createdAt),
+    total: (a, b) => a.total - b.total
+  }[key];
+  return list.slice().sort((a, b) => (desc ? -1 : 1) * cmp(a, b) || (+b.id.slice(3)) - (+a.id.slice(3)));
+}
+const dataset = () => forced === 'empty' ? [] : ORDERS;
+const filtered = () => sorted(dataset().filter(o => matches(o)));
+const pageRows = () => { const f = filtered(); const pages = Math.max(1, Math.ceil(f.length / S.size)); if (S.page > pages) S.page = pages; return f.slice((S.page - 1) * S.size, S.page * S.size); };
+
+/* ================= Chips ================= */
+function chipList() {
+  const c = [];
+  if (S.q.trim()) c.push({ label: 'Tìm: ' + S.q.trim(), clear: ['q'] });
+  if (S.channel) c.push({ label: 'Kênh: ' + S.channel, clear: ['channel'] });
+  if (S.owner) c.push({ label: 'Phụ trách: ' + S.owner, clear: ['owner'] });
+  if (S.pay) c.push({ label: 'Thanh toán: ' + PAY[S.pay].label, clear: ['pay'] });
+  if (S.from || S.to) c.push({ label: 'Ngày tạo: ' + (S.from ? fmtDayKey(S.from) : '…') + ' – ' + (S.to ? fmtDayKey(S.to) : '…'), clear: ['from', 'to'] });
+  if (S.min !== '' || S.max !== '') c.push({ label: 'Tổng tiền: ' + (S.min !== '' ? fmtNum(+S.min) : '…') + ' – ' + (S.max !== '' ? fmtNum(+S.max) : '…') + ' ₫', clear: ['min', 'max'] });
+  return c;
+}
+
+/* ================= Render ================= */
+const COLS = [
+  { k: 'number', t: 'Mã đơn', sort: 'number' },
+  { k: 'status', t: 'Trạng thái' },
+  { k: 'customer', t: 'Khách hàng', sort: 'customer' },
+  { k: 'channel', t: 'Kênh bán' },
+  { k: 'created', t: 'Ngày tạo', sort: 'created_at' },
+  { k: 'pay', t: 'Thanh toán' },
+  { k: 'owner', t: 'Phụ trách' },
+  { k: 'total', t: 'Tổng tiền (VND)', sort: 'total', num: true }
+];
+const NCOLS = COLS.length + 2;
+
+function sortIcon(key) {
+  const cur = S.sort.replace(/^-/, '');
+  if (cur !== key) return `<span class="text-slate-500 opacity-0 group-hover:opacity-100 group-focus-visible:opacity-100">${ic('sort')}</span>`;
+  return S.sort.startsWith('-') ? ic('down') : ic('up');
+}
+function renderHead(disabledAll) {
+  const rows = pageRows();
+  const pageSel = rows.length > 0 && rows.every(o => sel.ids.has(o.id));
+  const some = rows.some(o => sel.ids.has(o.id));
+  let h = `<tr class="h-10 border-b border-slate-200 text-left text-xs font-medium text-slate-700">
+    <th class="w-10 px-3"><label class="flex size-6 items-center justify-center"><input type="checkbox" id="hdrCb" class="size-4 accent-blue-700" aria-label="Chọn tất cả dòng trong trang này" ${disabledAll ? 'disabled' : ''} ${pageSel ? 'checked' : ''}></label></th>`;
+  for (const c of COLS) {
+    const cur = S.sort.replace(/^-/, '') === c.sort;
+    const aria = c.sort && cur ? ` aria-sort="${S.sort.startsWith('-') ? 'descending' : 'ascending'}"` : '';
+    const al = c.num ? 'text-right' : 'text-left';
+    if (c.sort) h += `<th class="px-3 ${al} text-sm"${aria}><button type="button" data-sort="${c.sort}" class="group inline-flex items-center gap-1 font-medium ${c.num ? 'flex-row-reverse' : ''}">${c.t}${sortIcon(c.sort)}</button></th>`;
+    else h += `<th class="px-3 ${al} text-sm font-medium">${c.t}</th>`;
+  }
+  h += `<th class="w-28 px-3"><span class="sr-only">Thao tác</span></th></tr>`;
+  $('thead').innerHTML = h;
+  const cb = $('hdrCb'); if (cb) cb.indeterminate = some && !pageSel;
+}
+function skeletonRows() {
+  const w = [14, 70, 150, 70, 110, 90, 100, 90, 20];
+  let s = '';
+  for (let i = 0; i < 10; i++) s += `<tr class="${density === 'compact' ? 'h-8' : 'h-10'} border-b border-slate-100"><td class="px-3"><div class="sk" style="width:16px;height:16px"></div></td>${COLS.map((c, j) => `<td class="px-3"><div class="sk ${c.num ? 'ml-auto' : ''}" style="width:${[70, 80, 150, 70, 110, 100, 110, 90][j]}px"></div></td>`).join('')}<td class="px-3"></td></tr>`;
+  return s;
+}
+function stateRow(icon, title, hint, btnHtml) {
+  return `<tr><td colspan="${NCOLS}" class="px-3 py-16"><div class="mx-auto flex max-w-sm flex-col items-center text-center"><span class="mb-3 text-slate-500">${ic(icon, 'size-8')}</span><p class="font-medium">${title}</p><p class="mt-1 text-slate-600">${hint}</p><div class="mt-4">${btnHtml || ''}</div></div></td></tr>`;
+}
+function rowHtml(o, bulkOpen) {
+  const rh = density === 'compact' ? 'h-8' : 'h-10';
+  const checked = sel.ids.has(o.id) || sel.all;
+  const editable = ['draft', 'pending', 'processing'].includes(o.status);
+  const dis = bulkOpen ? 'disabled title="Bỏ chọn các dòng để dùng thao tác từng đơn"' : '';
+  return `<tr class="${rh} border-b border-slate-100 hover:bg-slate-50 ${checked ? 'bg-blue-50/60' : ''}" data-row="${o.id}">
+    <td class="px-3"><label class="flex size-6 items-center justify-center"><input type="checkbox" data-sel="${o.id}" class="size-4 accent-blue-700" aria-label="Chọn đơn ${o.id}" ${checked ? 'checked' : ''}></label></td>
+    <td class="whitespace-nowrap px-3"><a href="#${o.id}" data-open="${o.id}" class="font-medium text-blue-700 hover:underline">${o.id}</a></td>
+    <td class="px-3">${badge(STATUS, o.status)}</td>
+    <td class="px-3">${esc(o.customer)}</td>
+    <td class="whitespace-nowrap px-3 text-slate-700">${o.channel}</td>
+    <td class="whitespace-nowrap px-3 tabular-nums text-slate-700"><time datetime="${o.createdAt}">${fmtDateTime(o.createdAt)}</time></td>
+    <td class="px-3">${badge(PAY, o.pay)}</td>
+    <td class="whitespace-nowrap px-3 text-slate-700">${o.owner}</td>
+    <td class="whitespace-nowrap px-3 text-right tabular-nums">${fmtAmt(o.total)}</td>
+    <td class="px-3"><div class="flex items-center justify-end gap-1">
+      ${editable ? `<button type="button" data-edit="${o.id}" aria-label="Sửa đơn ${o.id}" class="h-6 rounded px-2 font-medium text-blue-700 hover:bg-blue-50 disabled:text-slate-500 disabled:hover:bg-transparent" ${dis}>Sửa</button>` : ''}
+      <button type="button" data-more="${o.id}" aria-label="Thao tác cho đơn ${o.id}" aria-haspopup="menu" class="flex size-6 items-center justify-center rounded text-slate-700 hover:bg-slate-100 disabled:text-slate-500 disabled:hover:bg-transparent" ${dis}>${ic('more')}</button>
+    </div></td></tr>`;
+}
+
+function renderTabs() {
+  const base = dataset().filter(o => matches(o, true));
+  const showCounts = mode === 'ready' && forced !== 'empty';
+  const mk = (key, label, n) => {
+    const on = S.status === key;
+    return `<button type="button" data-tab="${key}" ${on ? 'aria-current="true"' : ''} class="-mb-px border-b-2 px-3 py-2 ${on ? 'border-blue-700 font-medium text-blue-800' : 'border-transparent text-slate-700 hover:text-slate-900'}">${label}${showCounts ? ` <span class="tabular-nums ${on ? 'text-blue-800' : 'text-slate-600'}">${fmtNum(n)}</span>` : ''}</button>`;
+  };
+  $('tabs').innerHTML = mk('', 'Tất cả', base.length) + STATUS_ORDER.map(k => mk(k, STATUS[k].label, base.filter(o => o.status === k).length)).join('');
+}
+function renderChips() {
+  const c = chipList(), el = $('chips');
+  el.hidden = c.length === 0;
+  el.innerHTML = c.map((x, i) => `<span class="inline-flex h-6 items-center gap-1 rounded-full border border-slate-300 bg-slate-50 pl-2.5 pr-0.5 text-xs font-medium leading-5 text-slate-800">${esc(x.label)}<button type="button" data-chip="${i}" aria-label="Gỡ bộ lọc ${esc(x.label)}" class="flex size-6 items-center justify-center rounded-full hover:bg-slate-200">${ic('x')}</button></span>`).join('') + `<button type="button" id="clearAll" class="h-6 px-1 text-sm font-medium text-blue-700 hover:underline">Xóa tất cả</button>`;
+}
+function renderPager(total) {
+  const el = $('pager');
+  if (mode !== 'ready' || total === 0) { el.innerHTML = '<span class="text-slate-600">&nbsp;</span>'; return; }
+  const pages = Math.ceil(total / S.size);
+  const from = (S.page - 1) * S.size + 1, to = Math.min(total, S.page * S.size);
+  let nums = [];
+  const lo = Math.max(1, Math.min(S.page - 2, pages - 4)), hi = Math.min(pages, lo + 4);
+  for (let i = lo; i <= hi; i++) nums.push(i);
+  const pbtn = (p, label, dis, aria, cur) => `<button type="button" data-page="${p}" ${dis ? 'disabled' : ''} ${aria ? `aria-label="${aria}"` : ''} ${cur ? 'aria-current="page"' : ''} class="flex h-8 min-w-8 items-center justify-center rounded px-2 tabular-nums ${cur ? 'bg-blue-700 font-medium text-white' : 'text-slate-800 hover:bg-slate-100'} disabled:text-slate-500 disabled:hover:bg-transparent">${label}</button>`;
+  el.innerHTML = `<p class="tabular-nums text-slate-700">${fmtNum(from)}–${fmtNum(to)} của ${fmtNum(total)}</p>
+    <div class="flex items-center gap-3">
+      <label class="flex items-center gap-2 text-slate-700">Số dòng <select id="pgSize" class="h-8 rounded border border-slate-300 bg-white px-2 text-sm">${[10, 25, 50].map(n => `<option value="${n}" ${n === S.size ? 'selected' : ''}>${n}</option>`).join('')}</select></label>
+      <div class="flex items-center gap-0.5">${pbtn(S.page - 1, ic('left'), S.page <= 1, 'Trang trước')}${nums.map(n => pbtn(n, fmtNum(n), false, `Trang ${n}`, n === S.page)).join('')}${pbtn(S.page + 1, ic('right'), S.page >= pages, 'Trang sau')}</div>
+    </div>`;
+}
+function renderBulk() {
+  const n = selCount(), rows = pageRows();
+  const open = n > 0;
+  $('filterRow').hidden = open;
+  $('bulkBar').hidden = !open;
+  $('bulkBar').classList.toggle('flex', open);
+  const total = filtered().length;
+  $('liveSel').textContent = n === 0 ? '' : sel.all ? `Đã chọn tất cả ${fmtNum(n)} đơn khớp` : `Đã chọn ${fmtNum(n)} đơn`;
+  if (!open) return;
+  $('bulkCount').textContent = sel.all ? `Đã chọn tất cả ${fmtNum(n)} đơn khớp` : `Đã chọn ${fmtNum(n)} đơn`;
+  const allBtn = $('bulkAll');
+  const pageAll = rows.length > 0 && rows.every(o => sel.ids.has(o.id));
+  if (sel.all) { allBtn.hidden = false; allBtn.textContent = 'Bỏ chọn tất cả'; allBtn.dataset.mode = 'clear'; }
+  else if (pageAll && total > rows.length) { allBtn.hidden = false; allBtn.textContent = `Chọn tất cả ${fmtNum(total)} đơn khớp`; allBtn.dataset.mode = 'all'; }
+  else allBtn.hidden = true;
+  const bcls = 'inline-flex h-8 items-center gap-1.5 rounded border border-slate-300 bg-white px-3 font-medium text-slate-800 hover:bg-slate-50';
+  $('bulkActions').innerHTML = `<button type="button" data-bulk="confirm" class="${bcls}">Xác nhận đơn</button><button type="button" data-bulk="ship" class="${bcls}">Đánh dấu đang giao</button><button type="button" data-bulk="export" class="${bcls}">${ic('dl')}Xuất CSV</button><button type="button" data-bulk="more" aria-haspopup="menu" class="${bcls}">Khác ${ic('down')}</button>`;
+}
+function renderBanner() {
+  const el = $('banner'), b = bannerState;
+  if (!b) { el.hidden = true; el.innerHTML = ''; return; }
+  const allFail = b.updated === 0 && b.failed.length > 0 && b.skipped === 0;
+  const tone = allFail ? 'border-red-200 bg-red-50 text-red-800' : 'border-amber-200 bg-amber-50 text-amber-800';
+  const parts = [];
+  if (b.updated) parts.push(`${fmtNum(b.updated)} đã cập nhật`);
+  if (b.failed.length) parts.push(`${fmtNum(b.failed.length)} thất bại`);
+  if (b.skipped) parts.push(`${fmtNum(b.skipped)} bỏ qua (${b.skipHint})`);
+  const detail = b.open ? `<ul class="mt-2 max-h-40 space-y-1 overflow-auto border-t border-current/20 pt-2">${b.failed.map(f => `<li><a href="#${f.id}" data-open="${f.id}" class="font-medium underline">${f.id}</a>: ${esc(f.reason)}</li>`).join('')}</ul>` : '';
+  el.hidden = false;
+  el.innerHTML = `<div class="rounded-md border px-3 py-2 ${tone}" role="alert"><div class="flex flex-wrap items-center gap-x-3 gap-y-1">${ic('alert')}<p class="font-medium">${esc(b.title)}: ${parts.join(', ')}</p>
+    <span class="ml-auto flex items-center gap-1">${b.failed.length ? `<button type="button" data-b="view" class="h-6 rounded px-2 font-medium underline">${b.open ? 'Ẩn' : 'Xem'} thất bại (${b.failed.length})</button><button type="button" data-b="retry" class="h-6 rounded px-2 font-medium underline">Thử lại</button>` : ''}<button type="button" data-b="close" aria-label="Đóng thông báo" class="flex size-6 items-center justify-center rounded hover:bg-black/5">${ic('x')}</button></span></div>${detail}</div>`;
+}
+
+function render() {
+  const data = dataset();
+  const f = mode === 'ready' ? filtered() : [];
+  const rows = mode === 'ready' ? pageRows() : [];
+  const bulkOpen = selCount() > 0;
+  renderTabs(); renderChips();
+  // controls state
+  $('q').value !== S.q && ($('q').value = S.q);
+  $('qClear').hidden = !S.q;
+  $('fChannel').value = S.channel; $('fOwner').value = S.owner;
+  const mc = ['from', 'to', 'min', 'max', 'pay'].filter(k => S[k] !== '' && !(k === 'to' && false)).length;
+  const grp = [(S.from || S.to) ? 1 : 0, (S.min !== '' || S.max !== '') ? 1 : 0, S.pay ? 1 : 0].reduce((a, b) => a + b, 0);
+  $('btnMore').textContent = 'Bộ lọc khác' + (grp ? ` (${grp})` : '');
+  document.querySelectorAll('[data-density]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.density === density)));
+  $('tbl').setAttribute('aria-busy', String(mode === 'loading'));
+
+  renderHead(mode !== 'ready' || rows.length === 0);
+  const tb = $('tbody');
+  tb.classList.toggle('opacity-60', busy);
+  if (mode === 'loading') { tb.innerHTML = skeletonRows(); }
+  else if (mode === 'error') {
+    tb.innerHTML = stateRow('alert', 'Không tải được danh sách đơn hàng', 'Máy chủ không phản hồi. Dữ liệu đã tải trước đó (nếu có) vẫn được giữ nguyên.', `<button type="button" data-act="retry" class="h-8 rounded bg-blue-700 px-3 font-medium text-white hover:bg-blue-800">Thử lại</button>`);
+  } else if (data.length === 0) {
+    tb.innerHTML = stateRow('inbox', 'Chưa có đơn hàng nào', 'Đơn hàng từ cửa hàng, website, đại lý và sàn TMĐT sẽ xuất hiện ở đây.', `<button type="button" data-act="create" class="inline-flex h-8 items-center gap-1.5 rounded bg-blue-700 px-3 font-medium text-white hover:bg-blue-800">${ic('plus')}Tạo đơn hàng</button>`);
+  } else if (f.length === 0) {
+    const term = S.q.trim() ? `Không có đơn hàng nào khớp “${esc(S.q.trim())}”` : 'Không có đơn hàng nào khớp bộ lọc';
+    tb.innerHTML = stateRow('filterx', term, 'Kiểm tra chính tả hoặc mở rộng khoảng ngày.', `<button type="button" data-act="clear-filters" class="h-8 rounded border border-slate-300 bg-white px-3 font-medium text-slate-800 hover:bg-slate-50">Xóa bộ lọc</button>`);
+  } else tb.innerHTML = rows.map(o => rowHtml(o, bulkOpen)).join('');
+
+  // summary + live region
+  const sumTotal = f.reduce((a, o) => a + o.total, 0);
+  if (mode === 'ready' && data.length) {
+    $('summary').textContent = `${fmtNum(f.length)} đơn hàng · ${fmtMoney(sumTotal)}`;
+    $('liveCount').textContent = f.length ? `${fmtNum(f.length)} đơn hàng khớp` : 'Không có đơn hàng nào khớp';
+  } else { $('summary').textContent = ' '; $('liveCount').textContent = ''; }
+  $('summary').removeAttribute('aria-hidden');
+  renderPager(mode === 'ready' ? f.length : 0);
+  renderBulk(); renderBanner();
+  // keep the export button label honest
+  $('btnExport').disabled = mode !== 'ready' || f.length === 0;
+  $('btnExport').classList.toggle('opacity-60', $('btnExport').disabled);
+}
+
+/* ================= Selection ================= */
+const selCount = () => sel.all ? filtered().length : sel.ids.size;
+const resetSel = () => { sel = { ids: new Set(), all: false }; };
+
+/* ================= Loading ================= */
+function load() {
+  if (forced === 'loading') { mode = 'loading'; render(); return; }
+  if (forced === 'error') { mode = 'error'; render(); return; }
+  mode = 'loading'; render();
+  setTimeout(() => { mode = 'ready'; render(); }, 450);
+}
+
+/* ================= Changes ================= */
+function changed(kind, push) {
+  if (kind === 'filter') { S.page = 1; }
+  if (kind === 'filter' || kind === 'page' || kind === 'sort') resetSel();
+  if (kind === 'sort') S.page = 1;
+  writeUrl(!!push);
+  render();
+}
+
+/* ================= Toasts ================= */
+function toast(msg, opts = {}) {
+  const t = document.createElement('div');
+  t.className = 'flex items-start gap-2 rounded-md border border-slate-200 bg-white px-3 py-2.5 shadow-lg';
+  t.innerHTML = `<span class="mt-0.5 text-green-700">${ic('check')}</span><p class="flex-1">${esc(msg)}</p><button type="button" aria-label="Đóng thông báo" class="flex size-6 items-center justify-center rounded text-slate-700 hover:bg-slate-100">${ic('x')}</button>`;
+  t.querySelector('button').onclick = () => t.remove();
+  $('toasts').appendChild(t);
+  setTimeout(() => t.remove(), opts.ms || 5000);
+}
+
+/* ================= Dialog ================= */
+function confirmDlg({ title, body, cancel, action, danger }) {
+  return new Promise(res => {
+    const last = document.activeElement;
+    const w = document.createElement('div');
+    w.className = 'fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4';
+    w.innerHTML = `<div role="alertdialog" aria-modal="true" aria-labelledby="dlgT" aria-describedby="dlgB" class="w-full max-w-md rounded-lg bg-white p-6 shadow-xl">
+      <h2 id="dlgT" class="text-base font-semibold">${esc(title)}</h2>
+      <div id="dlgB" class="mt-2 space-y-1 text-slate-700">${body}</div>
+      <div class="mt-5 flex justify-end gap-2">
+        <button type="button" data-d="no" class="h-8 rounded border border-slate-300 bg-white px-3 font-medium text-slate-800 hover:bg-slate-50">${esc(cancel)}</button>
+        <button type="button" data-d="yes" class="h-8 rounded px-3 font-medium text-white ${danger ? 'bg-red-700 hover:bg-red-800' : 'bg-blue-700 hover:bg-blue-800'}">${esc(action)}</button>
+      </div></div>`;
+    document.body.appendChild(w);
+    const no = w.querySelector('[data-d=no]'), yes = w.querySelector('[data-d=yes]');
+    const done = v => { document.removeEventListener('keydown', key, true); w.remove(); last && last.isConnected && last.focus(); res(v); };
+    const key = e => {
+      if (e.key === 'Escape') { e.stopPropagation(); done(false); }
+      if (e.key === 'Tab') { e.preventDefault(); (document.activeElement === no ? yes : no).focus(); }
+    };
+    document.addEventListener('keydown', key, true);
+    no.onclick = () => done(false); yes.onclick = () => done(true);
+    w.addEventListener('mousedown', e => { if (e.target === w) done(false); });
+    no.focus();
+  });
+}
+
+/* ================= Menu ================= */
+let menuItems = [], menuBtn = null;
+function closeMenu(refocus) { const m = $('menu'); if (m.hidden) return; m.hidden = true; if (menuBtn) { menuBtn.setAttribute('aria-expanded', 'false'); refocus && menuBtn.focus(); } menuBtn = null; }
+function openMenu(btn, items) {
+  closeMenu(); menuItems = items; menuBtn = btn;
+  const m = $('menu');
+  m.innerHTML = items.map((it, i) => it.sep ? '<div role="separator" class="my-1 border-t border-slate-200"></div>' :
+    `<button type="button" role="menuitem" data-mi="${i}" ${it.disabled ? 'aria-disabled="true"' : ''} class="block w-full px-3 py-1.5 text-left ${it.disabled ? 'text-slate-500' : it.danger ? 'text-red-700 hover:bg-red-50' : 'text-slate-900 hover:bg-slate-50'}">${esc(it.label)}${it.hint ? `<span class="block text-xs text-slate-600">${esc(it.hint)}</span>` : ''}</button>`).join('');
+  m.hidden = false; btn.setAttribute('aria-expanded', 'true');
+  const r = btn.getBoundingClientRect(), mw = m.offsetWidth, mh = m.offsetHeight;
+  m.style.left = Math.max(8, Math.min(innerWidth - mw - 8, r.right - mw)) + 'px';
+  m.style.top = (r.bottom + mh + 8 > innerHeight ? r.top - mh - 4 : r.bottom + 4) + 'px';
+  const first = m.querySelector('[role=menuitem]'); first && first.focus();
+}
+$('menu').addEventListener('click', e => {
+  const b = e.target.closest('[data-mi]'); if (!b) return;
+  const it = menuItems[+b.dataset.mi];
+  if (it.disabled) return;
+  closeMenu(true); it.run && it.run();
+});
+$('menu').addEventListener('keydown', e => {
+  const items = [...$('menu').querySelectorAll('[role=menuitem]')], i = items.indexOf(document.activeElement);
+  if (e.key === 'ArrowDown') { e.preventDefault(); items[(i + 1) % items.length].focus(); }
+  else if (e.key === 'ArrowUp') { e.preventDefault(); items[(i - 1 + items.length) % items.length].focus(); }
+  else if (e.key === 'Escape') { e.preventDefault(); closeMenu(true); }
+  else if (e.key === 'Tab') closeMenu(false);
+});
+
+/* ================= Bulk actions ================= */
+const ACTIONS = {
+  confirm: { title: 'Xác nhận đơn', from: ['draft', 'pending'], to: 'processing', skipHint: 'đã xác nhận hoặc đã đóng' },
+  ship:    { title: 'Đánh dấu đang giao', from: ['processing'], to: 'shipping', skipHint: 'chưa ở trạng thái Đang xử lý' },
+  cancel:  { title: 'Hủy đơn', from: ['draft', 'pending', 'processing'], to: 'cancelled', skipHint: 'đã giao, hoàn thành hoặc đã hủy' }
+};
+function failReason(act, o) {
+  if (act === 'confirm' && o.flaky) return 'Không đủ tồn kho để giữ hàng';
+  if (act === 'cancel' && o.pay === 'paid') return 'Đơn đã thanh toán, cần hoàn tiền trước khi hủy';
+  return null;
+}
+function targetOrders() { return sel.all ? filtered() : ORDERS.filter(o => sel.ids.has(o.id)); }
+
+async function runBulk(act, list) {
+  const A = ACTIONS[act];
+  list = list || targetOrders();
+  const ok = list.filter(o => A.from.includes(o.status));
+  const skipped = list.length - ok.length;
+  if (ok.length === 0) {
+    bannerState = { title: A.title, updated: 0, failed: [], skipped, skipHint: A.skipHint, open: false, act };
+    renderBanner();
+    toast(`Không có đơn nào trong ${fmtNum(list.length)} đơn đã chọn có thể ${A.title.toLowerCase()}: tất cả ${A.skipHint}.`);
+    return;
+  }
+  if (act === 'cancel') {
+    const paid = ok.filter(o => o.pay === 'paid').length;
+    const yes = await confirmDlg({
+      title: `Hủy ${fmtNum(ok.length)} đơn hàng?`,
+      body: `<p>${skipped ? `${fmtNum(skipped)} đơn ${A.skipHint} sẽ bị bỏ qua. ` : ''}Đơn đã hủy không thể mở lại.</p>${paid ? `<p>${fmtNum(paid)} đơn đã thanh toán sẽ không hủy được cho đến khi hoàn tiền.</p>` : ''}`,
+      cancel: 'Giữ đơn', action: `Hủy ${fmtNum(ok.length)} đơn`, danger: true
+    });
+    if (!yes) return;
+  }
+  const btns = [...document.querySelectorAll('[data-bulk]')]; btns.forEach(b => b.disabled = true);
+  await new Promise(r => setTimeout(r, 450));
+  let updated = 0; const failed = [];
+  for (const o of ok) {
+    const why = failReason(act, o);
+    if (why) { failed.push({ id: o.id, reason: why }); if (act === 'confirm') o.flaky = false; continue; }
+    o.status = A.to; updated++;
+  }
+  const pageIds = pageRows().map(o => o.id);
+  sel = { ids: new Set(failed.map(f => f.id).filter(id => pageIds.includes(id))), all: false };
+  if (failed.length || skipped) bannerState = { title: A.title, updated, failed, skipped, skipHint: A.skipHint, open: false, act };
+  else { bannerState = null; toast(`${fmtNum(updated)} đơn hàng đã cập nhật`); }
+  render();
+}
+function exportCsv(list, label) {
+  const q = v => '"' + String(v).replace(/"/g, '""') + '"';
+  const stamp = iso => { const p = Object.fromEntries(new Intl.DateTimeFormat('en', { timeZone: TZ, year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).formatToParts(new Date(iso)).map(x => [x.type, x.value])); return `${p.year}-${p.month}-${p.day} ${p.hour}:${p.minute}`; };
+  const head = ['Mã đơn', 'Trạng thái', 'Khách hàng', 'Kênh bán', 'Ngày tạo (GMT+7)', 'Thanh toán', 'Phụ trách', 'Tổng tiền (VND)'];
+  const lines = [head.map(q).join(',')].concat(list.map(o => [o.id, STATUS[o.status].label, o.customer, o.channel, stamp(o.createdAt), PAY[o.pay].label, o.owner, o.total].map(q).join(',')));
+  const blob = new Blob(['﻿' + lines.join('\r\n')], { type: 'text/csv;charset=utf-8' });
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
+  a.download = `orders-${stamp(new Date().toISOString()).slice(0, 10)}.csv`; document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+  toast(`Đã xuất ${fmtNum(list.length)} đơn hàng ${label}`);
+}
+
+function rowMenu(btn, id) {
+  const o = ORDERS.find(x => x.id === id);
+  const canCancel = ACTIONS.cancel.from.includes(o.status);
+  openMenu(btn, [
+    { label: 'Xem chi tiết', run: () => toast(`Mở chi tiết đơn ${id} (bản mẫu)`) },
+    { label: 'Nhân bản đơn', run: () => toast(`Đã tạo bản nháp từ đơn ${id}`) },
+    { label: 'In phiếu giao hàng', run: () => toast(`Đang in phiếu giao hàng cho đơn ${id}`) },
+    { sep: true },
+    { label: 'Hủy đơn', danger: true, disabled: !canCancel, hint: canCancel ? '' : `Không thể hủy: đơn ${STATUS[o.status].label.toLowerCase()}`, run: () => runBulk('cancel', [o]) }
+  ]);
+}
+
+/* ================= Events ================= */
+function applyFilterPatch(patch) { Object.assign(S, patch); changed('filter', false); }
+
+document.addEventListener('click', e => {
+  const t = e.target;
+  // close popovers
+  if (!t.closest('#menu') && !t.closest('[data-more]') && !t.closest('[data-bulk=more]')) closeMenu(false);
+  if (!t.closest('#morePanel') && !t.closest('#btnMore')) closeMore(false);
+
+  let el;
+  if ((el = t.closest('[data-tab]'))) { S.status = el.dataset.tab; S.page = 1; resetSel(); writeUrl(true); render(); return; }
+  if ((el = t.closest('[data-sort]'))) {
+    const k = el.dataset.sort, cur = S.sort.replace(/^-/, '');
+    if (cur !== k) S.sort = k === 'created_at' ? 'created_at' : k;
+    else if (!S.sort.startsWith('-')) S.sort = '-' + k;
+    else S.sort = DEF.sort;
+    if (cur === k && S.sort === '-' + k && false) {}
+    if (cur === k && !S.sort.startsWith('-') && k !== 'created_at') S.sort = '-' + k;
+    changed('sort', true); return;
+  }
+  if ((el = t.closest('[data-page]'))) { S.page = +el.dataset.page; changed('page', true); $('tableWrap').scrollTop = 0; return; }
+  if ((el = t.closest('[data-chip]'))) { const c = chipList()[+el.dataset.chip]; c.clear.forEach(k => S[k] = DEF[k]); S.page = 1; resetSel(); writeUrl(false); render(); const nx = $('chips').querySelector('[data-chip]') || $('q'); nx.focus(); return; }
+  if (t.closest('#clearAll') || t.closest('[data-act=clear-filters]')) { ['q', 'channel', 'owner', 'pay', 'from', 'to', 'min', 'max'].forEach(k => S[k] = DEF[k]); S.page = 1; resetSel(); writeUrl(false); render(); $('q').focus(); return; }
+  if ((el = t.closest('[data-density]'))) { density = el.dataset.density; try { localStorage.setItem('orders.density', density); } catch (x) {} render(); return; }
+  if ((el = t.closest('[data-open]'))) { e.preventDefault(); toast(`Mở chi tiết đơn ${el.dataset.open} (bản mẫu)`); return; }
+  if ((el = t.closest('[data-edit]'))) { toast(`Mở form sửa đơn ${el.dataset.edit} (bản mẫu)`); return; }
+  if ((el = t.closest('[data-more]'))) { rowMenu(el, el.dataset.more); return; }
+  if ((el = t.closest('[data-act]'))) {
+    const a = el.dataset.act;
+    if (a === 'create') toast('Mở form Tạo đơn hàng (bản mẫu)');
+    else if (a === 'import') toast('Mở trình nhập đơn hàng: tải mẫu, ghép cột, xem trước (bản mẫu)');
+    else if (a === 'export-all') exportCsv(filtered(), 'theo bộ lọc hiện tại');
+    else if (a === 'retry') { forced = null; writeUrl(false); load(); }
+    return;
+  }
+  if ((el = t.closest('[data-bulk]'))) {
+    const a = el.dataset.bulk;
+    if (a === 'export') exportCsv(targetOrders(), 'đã chọn');
+    else if (a === 'more') openMenu(el, [{ label: 'Hủy đơn', danger: true, run: () => runBulk('cancel') }]);
+    else runBulk(a);
+    return;
+  }
+  if ((el = t.closest('[data-b]'))) {
+    const a = el.dataset.b;
+    if (a === 'close') bannerState = null;
+    else if (a === 'view') bannerState.open = !bannerState.open;
+    else if (a === 'retry') { const ids = new Set(bannerState.failed.map(f => f.id)); const act = bannerState.act; runBulk(act, ORDERS.filter(o => ids.has(o.id))); return; }
+    renderBanner(); return;
+  }
+  if (t.closest('#bulkAll')) { sel.all = $('bulkAll').dataset.mode === 'all'; if (!sel.all) resetSel(); render(); return; }
+  if (t.closest('#bulkCancel')) { resetSel(); render(); $('hdrCb') && $('hdrCb').focus(); return; }
+  if (t.closest('#qClear')) { S.q = ''; $('q').value = ''; changed('filter', false); $('q').focus(); return; }
+});
+
+document.addEventListener('change', e => {
+  const t = e.target;
+  if (t.id === 'hdrCb') {
+    const ids = pageRows().map(o => o.id);
+    const all = ids.every(i => sel.ids.has(i));
+    sel = { ids: new Set(all ? [] : ids), all: false };
+    render(); return;
+  }
+  if (t.dataset && t.dataset.sel) {
+    const ids = new Set(sel.ids);
+    t.checked ? ids.add(t.dataset.sel) : ids.delete(t.dataset.sel);
+    sel = { ids, all: false };
+    render();
+    if (selCount() === 0) { const h = $('hdrCb'); h && h.focus(); }
+    else { const c = document.querySelector(`[data-sel="${t.dataset.sel}"]`); c && c.focus(); }
+    return;
+  }
+  if (t.id === 'fChannel') applyFilterPatch({ channel: t.value });
+  if (t.id === 'fOwner') applyFilterPatch({ owner: t.value });
+  if (t.id === 'pgSize') { S.size = +t.value; S.page = 1; changed('page', false); }
+});
+
+// Search: 300ms debounce, one character waits for Enter
+let qTimer;
+$('q').addEventListener('input', e => {
+  clearTimeout(qTimer);
+  const v = e.target.value;
+  $('qClear').hidden = !v;
+  qTimer = setTimeout(() => { if (v.trim().length === 1) return; if (v !== S.q) { S.q = v; busy = false; changed('filter', false); } }, 300);
+});
+$('q').addEventListener('keydown', e => { if (e.key === 'Enter') { clearTimeout(qTimer); S.q = e.target.value; changed('filter', false); } });
+document.addEventListener('keydown', e => {
+  if (e.key === '/' && !/^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement.tagName) && !e.ctrlKey && !e.metaKey) { e.preventDefault(); $('q').focus(); }
+  if (e.key === 'Escape') { closeMore(true); }
+});
+
+// More filters panel (explicit Apply)
+function openMore() {
+  $('mFrom').value = S.from; $('mTo').value = S.to; $('mMin').value = S.min; $('mMax').value = S.max; $('mPay').value = S.pay;
+  $('morePanel').hidden = false; $('btnMore').setAttribute('aria-expanded', 'true'); $('mFrom').focus();
+}
+function closeMore(refocus) { if ($('morePanel').hidden) return; $('morePanel').hidden = true; $('btnMore').setAttribute('aria-expanded', 'false'); refocus && $('btnMore').focus(); }
+$('btnMore').addEventListener('click', () => $('morePanel').hidden ? openMore() : closeMore(true));
+$('mApply').addEventListener('click', () => {
+  let from = $('mFrom').value, to = $('mTo').value;
+  if (from && to && from > to) [from, to] = [to, from];
+  S.from = from; S.to = to; S.min = $('mMin').value.replace(/\D/g, ''); S.max = $('mMax').value.replace(/\D/g, ''); S.pay = $('mPay').value;
+  closeMore(true); changed('filter', false);
+});
+$('mReset').addEventListener('click', () => { $('mFrom').value = ''; $('mTo').value = ''; $('mMin').value = ''; $('mMax').value = ''; $('mPay').value = ''; });
+
+window.addEventListener('popstate', () => { S = readUrl(); resetSel(); render(); });
+window.addEventListener('scroll', () => closeMenu(false), true);
+
+/* ================= Boot ================= */
+$('icoSearch').innerHTML = ic('search');
+$('qClear').innerHTML = ic('x');
+$('btnImport').innerHTML = ic('ul') + 'Nhập';
+$('btnExport').innerHTML = ic('dl') + 'Xuất';
+$('btnCreate').innerHTML = ic('plus') + 'Tạo đơn hàng';
+$('fChannel').innerHTML = '<option value="">Kênh: Tất cả</option>' + CHANNELS.map(c => `<option value="${c}">Kênh: ${c}</option>`).join('');
+$('fOwner').innerHTML = '<option value="">Phụ trách: Tất cả</option>' + OWNERS.map(c => `<option value="${c}">Phụ trách: ${c}</option>`).join('');
+$('mPay').innerHTML = '<option value="">Tất cả</option>' + Object.keys(PAY).map(k => `<option value="${k}">${PAY[k].label}</option>`).join('');
+S = readUrl();
+$('q').value = S.q;
+load();
+</script>
+</body>
+</html>

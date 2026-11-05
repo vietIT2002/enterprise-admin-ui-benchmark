@@ -1,0 +1,326 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Operations dashboard – Northgate WMS</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+  body { font-size: 14px; color: #0f172a; font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  .sk { background: #e2e8f0; border-radius: 4px; }
+  :focus-visible { outline: 2px solid #1d4ed8; outline-offset: 2px; }
+</style>
+</head>
+<body class="bg-slate-50">
+<a href="#main" class="sr-only focus:not-sr-only focus:absolute focus:left-2 focus:top-2 focus:bg-white focus:p-2">Skip to content</a>
+<div class="flex min-h-screen">
+  <!-- Sidebar -->
+  <aside class="hidden w-60 shrink-0 border-r border-slate-200 bg-white lg:block">
+    <div class="flex h-12 items-center border-b border-slate-200 px-4 text-sm font-semibold">Northgate WMS</div>
+    <nav aria-label="Main" class="flex flex-col gap-4 p-2">
+      <div class="flex flex-col gap-0.5">
+        <p class="px-2 py-1 text-xs font-medium text-slate-600">Overview</p>
+        <a href="#" aria-current="page" class="flex h-8 items-center gap-2 rounded bg-slate-100 px-2 text-sm font-medium text-slate-900">
+          <svg class="size-4" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="3" y="3" width="7" height="9"/><rect x="14" y="3" width="7" height="5"/><rect x="14" y="12" width="7" height="9"/><rect x="3" y="16" width="7" height="5"/></svg>Dashboard</a>
+      </div>
+      <div class="flex flex-col gap-0.5">
+        <p class="px-2 py-1 text-xs font-medium text-slate-600">Outbound</p>
+        <a href="#" class="flex h-8 items-center rounded px-2 text-sm text-slate-700 hover:bg-slate-100">Orders</a>
+        <a href="#" class="flex h-8 items-center rounded px-2 text-sm text-slate-700 hover:bg-slate-100">Shipments</a>
+        <a href="#" class="flex h-8 items-center rounded px-2 text-sm text-slate-700 hover:bg-slate-100">Pick tasks</a>
+      </div>
+      <div class="flex flex-col gap-0.5">
+        <p class="px-2 py-1 text-xs font-medium text-slate-600">Inbound</p>
+        <a href="#" class="flex h-8 items-center rounded px-2 text-sm text-slate-700 hover:bg-slate-100">Receipts</a>
+        <a href="#" class="flex h-8 items-center rounded px-2 text-sm text-slate-700 hover:bg-slate-100">Dock appointments</a>
+      </div>
+      <div class="flex flex-col gap-0.5">
+        <p class="px-2 py-1 text-xs font-medium text-slate-600">Inventory</p>
+        <a href="#" class="flex h-8 items-center rounded px-2 text-sm text-slate-700 hover:bg-slate-100">Stock</a>
+        <a href="#" class="flex h-8 items-center rounded px-2 text-sm text-slate-700 hover:bg-slate-100">Cycle counts</a>
+        <a href="#" class="flex h-8 items-center rounded px-2 text-sm text-slate-700 hover:bg-slate-100">Locations</a>
+      </div>
+    </nav>
+  </aside>
+
+  <div class="flex min-w-0 flex-1 flex-col">
+    <header class="flex h-12 items-center justify-between border-b border-slate-200 bg-white px-4">
+      <button type="button" class="flex h-8 w-72 max-w-full items-center justify-between rounded border border-slate-300 px-3 text-sm text-slate-600">
+        <span>Search or run a command</span><kbd class="text-xs text-slate-600">Ctrl K</kbd>
+      </button>
+      <div class="flex items-center gap-3 text-sm text-slate-600">
+        <span>Warehouse: Hanoi DC-02</span>
+        <button type="button" aria-label="Account menu" class="flex size-8 items-center justify-center rounded-full bg-slate-200 text-xs font-medium text-slate-800">LH</button>
+      </div>
+    </header>
+
+    <main id="main" class="min-w-0 flex-1 p-6">
+      <!-- Page header -->
+      <div class="mb-4 flex flex-wrap items-center justify-between gap-3">
+        <h1 class="text-xl font-semibold">Operations dashboard</h1>
+        <div class="flex flex-wrap items-center gap-3">
+          <label class="flex items-center gap-2 text-sm text-slate-700">
+            <span class="sr-only">Date range</span>
+            <select id="range" class="h-8 rounded border border-slate-300 bg-white px-2 text-sm">
+              <option value="today">Today</option>
+              <option value="yesterday">Yesterday</option>
+              <option value="7d">Last 7 days</option>
+            </select>
+          </label>
+          <span id="rangeText" class="text-sm text-slate-600 tabular-nums">04/11/2026</span>
+          <span id="updated" class="text-sm text-slate-600 tabular-nums">Updated 16:30</span>
+          <button id="refresh" type="button" class="h-8 rounded border border-slate-300 bg-white px-3 text-sm hover:bg-slate-50">Refresh</button>
+        </div>
+      </div>
+      <div id="refreshFail" class="mb-3 hidden text-sm text-red-700">Refresh failed. <button type="button" id="refreshRetry" class="underline">Retry</button></div>
+      <p role="status" id="live" class="sr-only"></p>
+
+      <!-- Needs attention + KPIs -->
+      <div class="grid gap-4 xl:grid-cols-3">
+        <section aria-labelledby="attn" class="rounded-md border border-slate-200 bg-white xl:col-span-1">
+          <h2 id="attn" class="border-b border-slate-200 px-4 py-3 text-base font-semibold">Needs attention</h2>
+          <div id="attnBody" style="min-height:260px"></div>
+        </section>
+
+        <div class="xl:col-span-2">
+          <div id="kpis" class="grid grid-cols-2 gap-4 md:grid-cols-3"></div>
+        </div>
+      </div>
+
+      <!-- Charts -->
+      <div class="mt-4 grid gap-4 xl:grid-cols-3">
+        <section aria-labelledby="c1" class="rounded-md border border-slate-200 bg-white p-4 xl:col-span-2">
+          <h2 id="c1" class="text-base font-semibold">Orders shipped by hour</h2>
+          <p class="text-xs text-slate-600">Today compared with yesterday, cumulative from 06:00</p>
+          <div id="lineBody" class="mt-3" style="min-height:260px"></div>
+        </section>
+        <section aria-labelledby="c2" class="rounded-md border border-slate-200 bg-white p-4">
+          <h2 id="c2" class="text-base font-semibold">Open pick tasks by zone</h2>
+          <p class="text-xs text-slate-600">Sorted, largest first</p>
+          <div id="barBody" class="mt-3" style="min-height:260px"></div>
+        </section>
+      </div>
+
+      <!-- Dock table -->
+      <section aria-labelledby="c3" class="mt-4 rounded-md border border-slate-200 bg-white">
+        <div class="flex items-center justify-between border-b border-slate-200 px-4 py-3">
+          <h2 id="c3" class="text-base font-semibold">Inbound dock schedule</h2>
+          <a href="/dock-appointments?date=2026-11-04" class="text-sm text-blue-700 hover:underline">View all appointments</a>
+        </div>
+        <div id="dockBody" style="min-height:200px"></div>
+      </section>
+
+      <div class="mt-6 flex items-center gap-2 border-t border-slate-200 pt-3 text-xs text-slate-600">
+        <label for="demo">Demo data state</label>
+        <select id="demo" class="h-8 rounded border border-slate-300 bg-white px-2 text-sm">
+          <option value="ok">Normal</option>
+          <option value="loading">Loading</option>
+          <option value="empty">Empty</option>
+          <option value="error">Error</option>
+        </select>
+      </div>
+    </main>
+  </div>
+</div>
+
+<script>
+const locale = 'en-GB';
+const nf = new Intl.NumberFormat(locale);
+const pf = new Intl.NumberFormat(locale, { style: 'percent', signDisplay: 'exceptZero', maximumFractionDigits: 1 });
+const sf = new Intl.NumberFormat(locale, { signDisplay: 'exceptZero' });
+const $ = (id) => document.getElementById(id);
+
+// ---------- Mock data ----------
+const DATA = {
+  today: {
+    label: '04/11/2026', cmp: 'vs yesterday',
+    kpis: [
+      { label: 'Orders shipped', value: 1248, delta: pf.format(0.062), href: '/orders?status=shipped&date=today', target: 'Target 1,600 by 22:00' },
+      { label: 'Orders waiting to pick', value: 214, delta: sf.format(-38), href: '/orders?status=awaiting_pick', target: null },
+      { label: 'On-time shipping rate', value: '96.4%', delta: sf.format(0.8) + ' pts', href: '/shipments?on_time=1', target: 'Target 95%' },
+      { label: 'Units received', value: 8732, delta: pf.format(-0.031), href: '/receipts?date=today', target: null },
+      { label: 'Pick accuracy', value: '99.62%', delta: sf.format(0.04) + ' pts', href: '/pick-tasks?exceptions=1', target: 'Target 99.5%' },
+      { label: 'Dock-to-stock time', value: '3.2 h', delta: sf.format(-0.4) + ' h', href: '/receipts?status=putaway_pending', target: 'Target 4 h' }
+    ],
+    attention: [
+      { count: 7, label: 'late shipments', href: '/shipments?status=late', tone: 'danger', badge: 'Overdue' },
+      { count: 3, label: 'inbound trucks waiting over 45 min', href: '/dock-appointments?status=waiting', tone: 'danger', badge: 'Overdue' },
+      { count: 12, label: 'orders short on stock', href: '/orders?status=backorder', tone: 'warning', badge: 'Needs attention' },
+      { count: 18, label: 'locations with count variance', href: '/cycle-counts?status=variance', tone: 'warning', badge: 'Needs attention' },
+      { count: 5, label: 'carrier pickups due within 2 hours', href: '/shipments?pickup=due_soon', tone: 'warning', badge: 'Due soon' }
+    ],
+    hours: ['06', '08', '10', '12', '14', '16', '18', '20', '22'],
+    todaySeries: [0, 96, 310, 560, 842, 1248, null, null, null],
+    yestSeries: [0, 88, 290, 540, 790, 1175, 1420, 1560, 1640],
+    zones: [
+      { zone: 'Zone C – Fast pick', n: 86 }, { zone: 'Zone A – Pallet', n: 61 },
+      { zone: 'Zone D – Cold', n: 34 }, { zone: 'Zone B – Bulk', n: 22 }, { zone: 'Zone E – Returns', n: 11 }
+    ],
+    docks: [
+      { time: '16:45', carrier: 'Viettel Post Freight', door: 'Door 3', status: 'Waiting', tone: 'warning', pallets: 22 },
+      { time: '17:15', carrier: 'GHN Express', door: 'Door 1', status: 'Scheduled', tone: 'info', pallets: 14 },
+      { time: '17:30', carrier: 'Vinafco Logistics', door: 'Door 5', status: 'Scheduled', tone: 'info', pallets: 30 },
+      { time: '18:00', carrier: 'Gemadept Trucking', door: 'Door 2', status: 'Scheduled', tone: 'info', pallets: 18 },
+      { time: '15:30', carrier: 'Sotrans', door: 'Door 4', status: 'Unloaded', tone: 'success', pallets: 26 }
+    ]
+  }
+};
+DATA.yesterday = JSON.parse(JSON.stringify(DATA.today));
+DATA.yesterday.label = '03/11/2026'; DATA.yesterday.cmp = 'vs previous day';
+DATA.yesterday.hours.forEach((_, i) => DATA.yesterday.todaySeries[i] = DATA.today.yestSeries[i]);
+DATA.yesterday.attention = DATA.today.attention.slice(0, 3);
+DATA['7d'] = JSON.parse(JSON.stringify(DATA.today));
+DATA['7d'].label = '29/10/2026 – 04/11/2026'; DATA['7d'].cmp = 'vs previous 7 days';
+
+const tones = {
+  danger: 'bg-red-50 text-red-800', warning: 'bg-amber-50 text-amber-800',
+  info: 'bg-blue-50 text-blue-800', success: 'bg-green-50 text-green-800', neutral: 'bg-slate-100 text-slate-700'
+};
+
+// ---------- State ----------
+let demo = 'ok';      // ok | loading | empty | error
+let range = 'today';
+let updated = '16:30';
+let loadingNow = true;
+
+function sk(h, n = 1) { return Array.from({ length: n }, () => `<div class="sk mb-2" style="height:${h}px"></div>`).join(''); }
+function errBox(what, id) {
+  return `<div class="p-4 text-sm"><p>${what} could not be loaded.</p><button type="button" data-retry="${id}" class="mt-2 h-8 rounded border border-slate-300 bg-white px-3 hover:bg-slate-50">Retry</button></div>`;
+}
+function emptyBox(msg, action) {
+  return `<div class="p-4 text-sm"><p class="text-slate-700">${msg}</p>${action || ''}</div>`;
+}
+const changeRange = `<button type="button" data-action="range" class="mt-2 block text-blue-700 underline">Change date range</button>`;
+
+// ---------- Renderers ----------
+function renderAttention(d) {
+  const el = $('attnBody');
+  if (loadingNow || demo === 'loading') { el.innerHTML = `<div class="p-4">${sk(32, 5)}</div>`; return; }
+  if (demo === 'error') { el.innerHTML = errBox('The attention list', 'attn'); return; }
+  const items = demo === 'empty' ? [] : d.attention;
+  if (!items.length) { el.innerHTML = emptyBox(`Nothing needs attention. Checked at ${updated}.`); $('live').textContent = 'Nothing needs attention'; return; }
+  el.innerHTML = '<ul>' + items.slice(0, 5).map(i => `
+    <li class="border-b border-slate-200 last:border-0">
+      <a href="${i.href}" class="flex h-10 items-center gap-3 px-4 text-sm hover:bg-slate-50">
+        <span class="w-8 font-semibold tabular-nums">${nf.format(i.count)}</span>
+        <span class="flex-1">${i.label}</span>
+        <span class="rounded-full px-2 text-xs font-medium ${tones[i.tone]}">${i.badge}</span>
+      </a>
+    </li>`).join('') + '</ul>';
+  $('live').textContent = `${items.length} items need attention`;
+}
+
+function renderKpis(d) {
+  const el = $('kpis');
+  if (loadingNow || demo === 'loading') {
+    el.innerHTML = Array.from({ length: 6 }, () => `<div class="rounded-md border border-slate-200 bg-white p-4" style="height:104px">${sk(12).replace('mb-2','mb-3')}<div class="sk" style="height:24px;width:64px"></div></div>`).join('');
+    return;
+  }
+  if (demo === 'error') { el.innerHTML = `<div class="col-span-full rounded-md border border-slate-200 bg-white">${errBox('The key numbers', 'kpi')}</div>`; return; }
+  if (demo === 'empty') { el.innerHTML = `<div class="col-span-full rounded-md border border-slate-200 bg-white">${emptyBox('No activity recorded in this range.', changeRange)}</div>`; return; }
+  el.innerHTML = d.kpis.map(k => `
+    <a href="${k.href}" class="block rounded-md border border-slate-200 bg-white p-4 hover:bg-slate-50" style="min-height:104px">
+      <p class="text-xs font-medium text-slate-600">${k.label}</p>
+      <p class="mt-1 text-2xl font-semibold tabular-nums">${typeof k.value === 'number' ? nf.format(k.value) : k.value}</p>
+      <p class="text-xs text-slate-600 tabular-nums">${k.delta} ${d.cmp}</p>
+      ${k.target ? `<p class="text-xs text-slate-600">${k.target}</p>` : ''}
+    </a>`).join('');
+}
+
+function renderLine(d) {
+  const el = $('lineBody');
+  if (loadingNow || demo === 'loading') { el.innerHTML = sk(240); return; }
+  if (demo === 'error') { el.innerHTML = errBox('This chart', 'line'); return; }
+  if (demo === 'empty') { el.innerHTML = emptyBox('No shipments in this range.', changeRange); return; }
+  const W = 640, H = 260, L = 56, R = 70, T = 12, B = 44;
+  const maxV = 1800, iw = W - L - R, ih = H - T - B, n = d.hours.length;
+  const x = i => L + (iw * i) / (n - 1), y = v => T + ih - (ih * v) / maxV;
+  const path = s => s.map((v, i) => v == null ? null : `${x(i)},${y(v)}`).filter(Boolean).join(' ');
+  let g = '';
+  for (let v = 0; v <= maxV; v += 600) g += `<line x1="${L}" x2="${W - R}" y1="${y(v)}" y2="${y(v)}" stroke="#e2e8f0"/><text x="${L - 6}" y="${y(v) + 4}" text-anchor="end" font-size="11" fill="#475569">${v === 0 ? 0 : new Intl.NumberFormat(locale, { notation: 'compact' }).format(v)}</text>`;
+  d.hours.forEach((h, i) => g += `<text x="${x(i)}" y="${H - 24}" text-anchor="middle" font-size="11" fill="#475569">${h}:00</text>`);
+  const ts = d.todaySeries, ys = d.yestSeries;
+  const lastI = ts.reduce((a, v, i) => v != null ? i : a, 0);
+  const summary = `Orders shipped, cumulative: ${nf.format(ts[lastI])} by ${d.hours[lastI]}:00 against ${nf.format(ys[lastI])} yesterday at the same time.`;
+  el.innerHTML = `<svg viewBox="0 0 ${W} ${H}" class="w-full" role="img" aria-label="${summary}" style="height:260px">
+    ${g}
+    <text x="12" y="${T + ih / 2}" transform="rotate(-90 12 ${T + ih / 2})" text-anchor="middle" font-size="11" fill="#475569">Orders shipped (cumulative)</text>
+    <text x="${L + iw / 2}" y="${H - 6}" text-anchor="middle" font-size="11" fill="#475569">Hour of day</text>
+    <polyline fill="none" stroke="#94a3b8" stroke-width="2" stroke-dasharray="5 4" points="${path(ys)}"/>
+    <polyline fill="none" stroke="#1d4ed8" stroke-width="2.5" points="${path(ts)}"/>
+    <text x="${x(n - 1) + 6}" y="${y(ys[n - 1]) + 4}" font-size="12" fill="#475569">Yesterday</text>
+    <text x="${x(lastI) + 6}" y="${y(ts[lastI]) + 4}" font-size="12" font-weight="600" fill="#1d4ed8">Today</text>
+    <circle cx="${x(lastI)}" cy="${y(ts[lastI])}" r="3.5" fill="#1d4ed8"/>
+  </svg>
+  <p class="mt-1 text-xs text-slate-600 tabular-nums">${summary}</p>`;
+}
+
+function renderBars(d) {
+  const el = $('barBody');
+  if (loadingNow || demo === 'loading') { el.innerHTML = sk(32, 5); return; }
+  if (demo === 'error') { el.innerHTML = errBox('This chart', 'bar'); return; }
+  if (demo === 'empty') { el.innerHTML = emptyBox('No open pick tasks in this range.', changeRange); return; }
+  const zones = [...d.zones].sort((a, b) => b.n - a.n), max = Math.max(...zones.map(z => z.n));
+  const total = zones.reduce((s, z) => s + z.n, 0);
+  el.innerHTML = `<ul role="img" aria-label="Open pick tasks by zone: ${zones.map(z => z.zone + ' ' + z.n).join(', ')}" class="space-y-3">` +
+    zones.map((z, i) => `<li>
+      <div class="flex justify-between text-sm"><span>${z.zone}</span><span class="font-medium tabular-nums">${nf.format(z.n)}</span></div>
+      <div class="mt-1 h-2 rounded-sm bg-slate-100"><div class="h-2 rounded-sm" style="width:${(z.n / max) * 100}%;background:${i === 0 ? '#1d4ed8' : '#94a3b8'}"></div></div>
+    </li>`).join('') + `</ul>
+    <p class="mt-3 text-xs text-slate-600">Open pick tasks (count) · ${nf.format(total)} in total</p>`;
+}
+
+function renderDock(d) {
+  const el = $('dockBody');
+  if (loadingNow || demo === 'loading') { el.innerHTML = `<div class="p-4">${sk(32, 4)}</div>`; return; }
+  if (demo === 'error') { el.innerHTML = errBox('The dock schedule', 'dock'); return; }
+  if (demo === 'empty') { el.innerHTML = emptyBox('No inbound appointments in this range.', '<a href="/dock-appointments/new" class="mt-2 block text-blue-700 underline">Schedule appointment</a>'); return; }
+  el.innerHTML = `<div class="overflow-x-auto"><table class="w-full text-sm">
+    <thead><tr class="border-b border-slate-200 text-left text-xs font-medium text-slate-600">
+      <th class="px-4 py-2 font-medium">Arrival</th><th class="px-4 py-2 font-medium">Carrier</th><th class="px-4 py-2 font-medium">Door</th><th class="px-4 py-2 font-medium">Status</th><th class="px-4 py-2 text-right font-medium">Pallets</th><th class="px-4 py-2 text-right font-medium">Actions</th>
+    </tr></thead><tbody>` +
+    d.docks.map(r => `<tr class="h-10 border-b border-slate-200 last:border-0">
+      <td class="px-4 tabular-nums">${r.time}</td><td class="px-4">${r.carrier}</td><td class="px-4">${r.door}</td>
+      <td class="px-4"><span class="rounded-full px-2 text-xs font-medium ${tones[r.tone]}">${r.status}</span></td>
+      <td class="px-4 text-right tabular-nums">${nf.format(r.pallets)}</td>
+      <td class="px-4 text-right"><a href="/dock-appointments/${r.carrier.toLowerCase().replace(/\W+/g, '-')}" class="text-blue-700 hover:underline" aria-label="Open appointment for ${r.carrier}">Open</a></td>
+    </tr>`).join('') + `</tbody></table></div>`;
+}
+
+function render() {
+  const d = DATA[range];
+  $('rangeText').textContent = d.label;
+  $('updated').textContent = 'Updated ' + updated;
+  renderAttention(d); renderKpis(d); renderLine(d); renderBars(d); renderDock(d);
+}
+
+// ---------- Events ----------
+function reload(failRefresh) {
+  loadingNow = true; render();
+  setTimeout(() => {
+    loadingNow = false;
+    if (failRefresh) { $('refreshFail').classList.remove('hidden'); }
+    else {
+      $('refreshFail').classList.add('hidden');
+      const t = new Date(); updated = String(t.getHours()).padStart(2, '0') + ':' + String(t.getMinutes()).padStart(2, '0');
+    }
+    render();
+  }, 450);
+}
+$('range').addEventListener('change', e => { range = e.target.value; reload(); });
+$('refresh').addEventListener('click', () => reload());
+$('refreshRetry').addEventListener('click', () => reload());
+$('demo').addEventListener('change', e => { demo = e.target.value; reload(); });
+document.addEventListener('click', e => {
+  const r = e.target.closest('[data-retry]');
+  if (r) { demo = 'ok'; $('demo').value = 'ok'; reload(); }
+  if (e.target.closest('[data-action="range"]')) { demo = 'ok'; $('demo').value = 'ok'; $('range').value = 'today'; range = 'today'; reload(); }
+});
+
+// First load: skeleton resolves in ~500 ms; auto-refresh every 60 s
+render();
+setTimeout(() => { loadingNow = false; render(); }, 500);
+setInterval(() => { if (demo === 'ok') reload(); }, 60000);
+</script>
+</body>
+</html>

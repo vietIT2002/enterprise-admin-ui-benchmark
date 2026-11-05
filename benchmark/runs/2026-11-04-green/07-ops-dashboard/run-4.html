@@ -1,0 +1,341 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tổng quan vận hành kho</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+  body { font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; font-size: 14px; color: #0f172a; }
+  .tnum { font-variant-numeric: tabular-nums; }
+  @keyframes sk { 0%,100% { opacity: 1 } 50% { opacity: .5 } }
+  .sk { background: #e2e8f0; border-radius: 4px; animation: sk 1.4s ease-in-out infinite; }
+  :focus-visible { outline: 2px solid #1d4ed8; outline-offset: 2px; }
+</style>
+</head>
+<body class="bg-slate-50">
+<a href="#main" class="sr-only focus:not-sr-only focus:absolute focus:left-2 focus:top-2 focus:bg-white focus:p-2">Bỏ qua điều hướng</a>
+<div class="flex min-h-screen">
+  <aside class="hidden w-60 shrink-0 border-r border-slate-200 bg-white md:block">
+    <div class="flex h-12 items-center border-b border-slate-200 px-4 font-semibold">Kho Tân Bình</div>
+    <nav aria-label="Chính" class="flex flex-col gap-4 p-2">
+      <div class="flex flex-col gap-0.5">
+        <p class="px-2 py-1 text-xs font-medium text-slate-600">Vận hành</p>
+        <a href="#" aria-current="page" class="flex h-8 items-center rounded bg-slate-100 px-2 font-medium text-slate-900">Tổng quan</a>
+        <a href="/inbound" class="flex h-8 items-center rounded px-2 text-slate-700 hover:bg-slate-100">Nhập kho</a>
+        <a href="/outbound" class="flex h-8 items-center rounded px-2 text-slate-700 hover:bg-slate-100">Xuất kho</a>
+        <a href="/picking" class="flex h-8 items-center rounded px-2 text-slate-700 hover:bg-slate-100">Lấy hàng</a>
+      </div>
+      <div class="flex flex-col gap-0.5">
+        <p class="px-2 py-1 text-xs font-medium text-slate-600">Tồn kho</p>
+        <a href="/inventory" class="flex h-8 items-center rounded px-2 text-slate-700 hover:bg-slate-100">Hàng tồn</a>
+        <a href="/locations" class="flex h-8 items-center rounded px-2 text-slate-700 hover:bg-slate-100">Vị trí kệ</a>
+        <a href="/stocktake" class="flex h-8 items-center rounded px-2 text-slate-700 hover:bg-slate-100">Kiểm kê</a>
+      </div>
+      <div class="flex flex-col gap-0.5">
+        <p class="px-2 py-1 text-xs font-medium text-slate-600">Danh mục</p>
+        <a href="/products" class="flex h-8 items-center rounded px-2 text-slate-700 hover:bg-slate-100">Sản phẩm</a>
+        <a href="/suppliers" class="flex h-8 items-center rounded px-2 text-slate-700 hover:bg-slate-100">Nhà cung cấp</a>
+        <a href="/carriers" class="flex h-8 items-center rounded px-2 text-slate-700 hover:bg-slate-100">Đơn vị vận chuyển</a>
+      </div>
+    </nav>
+  </aside>
+
+  <div class="flex min-w-0 flex-1 flex-col">
+    <header class="flex h-12 items-center justify-between border-b border-slate-200 bg-white px-4">
+      <button type="button" class="flex h-8 w-72 max-w-full items-center justify-between rounded border border-slate-300 px-3 text-slate-600 hover:bg-slate-50">
+        <span>Tìm hoặc chạy lệnh</span><kbd class="rounded border border-slate-300 px-1 text-xs">Ctrl K</kbd>
+      </button>
+      <button type="button" aria-label="Menu tài khoản" class="flex h-8 w-8 items-center justify-center rounded-full bg-slate-200 text-xs font-medium text-slate-800">LH</button>
+    </header>
+
+    <main id="main" class="min-w-0 flex-1 p-4 md:p-6">
+      <div class="mb-4 flex flex-wrap items-center gap-3">
+        <h1 class="text-xl font-semibold">Tổng quan vận hành kho</h1>
+        <div class="flex items-center gap-2">
+          <label for="range" class="sr-only">Khoảng thời gian</label>
+          <select id="range" class="h-8 rounded border border-slate-300 bg-white px-2">
+            <option value="today">Hôm nay</option>
+            <option value="yesterday">Hôm qua</option>
+          </select>
+          <span id="rangeText" class="tnum text-slate-600"></span>
+        </div>
+        <div class="ml-auto flex items-center gap-2">
+          <label for="demo" class="text-xs font-medium text-slate-600">Xem thử trạng thái</label>
+          <select id="demo" class="h-8 rounded border border-slate-300 bg-white px-2 text-xs">
+            <option value="ok">Bình thường</option>
+            <option value="loading">Đang tải</option>
+            <option value="empty">Không có dữ liệu</option>
+            <option value="error">Lỗi</option>
+          </select>
+          <span id="updated" class="tnum text-slate-600"></span>
+          <span id="refreshFail" class="hidden text-red-700">Làm mới thất bại</span>
+          <button id="refresh" type="button" class="h-8 rounded border border-slate-300 bg-white px-3 hover:bg-slate-50">Làm mới</button>
+        </div>
+      </div>
+
+      <section aria-labelledby="attn" class="mb-4 rounded-md border border-slate-200 bg-white">
+        <div class="flex items-center justify-between border-b border-slate-200 px-4 py-3">
+          <h2 id="attn" class="text-base font-semibold">Cần xử lý</h2>
+          <span id="attnMeta" class="text-xs text-slate-600"></span>
+        </div>
+        <p id="attnLive" role="status" class="sr-only"></p>
+        <div id="attnBody"></div>
+      </section>
+
+      <section aria-label="Chỉ số chính" id="kpis" class="mb-4 grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-6"></section>
+
+      <div class="grid grid-cols-1 gap-4 xl:grid-cols-3">
+        <section aria-labelledby="t1" class="rounded-md border border-slate-200 bg-white xl:col-span-2">
+          <div class="flex items-center justify-between border-b border-slate-200 px-4 py-3">
+            <h2 id="t1" class="text-base font-semibold">Đơn xuất theo giờ</h2>
+            <button id="toggleTable" type="button" class="h-8 rounded px-2 text-blue-700 underline">Xem dạng bảng</button>
+          </div>
+          <div id="trendBody" class="p-4"></div>
+        </section>
+        <section aria-labelledby="t2" class="rounded-md border border-slate-200 bg-white">
+          <div class="border-b border-slate-200 px-4 py-3"><h2 id="t2" class="text-base font-semibold">Mức lấp đầy theo khu</h2></div>
+          <div id="zoneBody" class="p-4"></div>
+        </section>
+      </div>
+    </main>
+  </div>
+</div>
+
+<script>
+const LOCALE = 'vi-VN';
+const num = new Intl.NumberFormat(LOCALE);
+const signed = new Intl.NumberFormat(LOCALE, { signDisplay: 'exceptZero' });
+const pctS = new Intl.NumberFormat(LOCALE, { style: 'percent', signDisplay: 'exceptZero', maximumFractionDigits: 1 });
+const pct = new Intl.NumberFormat(LOCALE, { style: 'percent', maximumFractionDigits: 1 });
+const dateF = new Intl.DateTimeFormat(LOCALE, { day: '2-digit', month: '2-digit', year: 'numeric' });
+const timeF = new Intl.DateTimeFormat(LOCALE, { hour: '2-digit', minute: '2-digit', hour12: false });
+
+// Mock data -----------------------------------------------------------
+const DATA = {
+  today: {
+    label: 'hôm qua', base: new Date(2026, 10, 4),
+    kpis: [
+      { id: 'recv', label: 'Đơn nhập đã nhận', value: 38, prev: 34, href: '/inbound?status=received&date=today' },
+      { id: 'ship', label: 'Đơn xuất đã giao hãng', value: 412, prev: 389, href: '/outbound?status=shipped&date=today' },
+      { id: 'open', label: 'Đơn chờ xử lý', value: 126, prev: 141, href: '/outbound?status=pending' },
+      { id: 'late', label: 'Đơn trễ hạn giao', value: 9, prev: 5, href: '/outbound?status=late' },
+      { id: 'acc', label: 'Độ chính xác lấy hàng', value: 0.992, prev: 0.995, pct: true, href: '/picking?view=accuracy' },
+      { id: 'cap', label: 'Mức lấp đầy kho', value: 0.837, prev: 0.829, pct: true, href: '/locations?sort=fill' },
+    ],
+    hours: [8,9,10,11,12,13,14,15,16,17],
+    cur:  [22, 41, 63, 58, 30, 47, 66, 52, 33, 0],
+    prev: [19, 38, 59, 61, 28, 44, 60, 55, 49, 36],
+    nowIdx: 8,
+    zones: [['Khu A – hàng nhanh', 0.94], ['Khu C – hàng lạnh', 0.88], ['Khu B – hàng cồng kềnh', 0.81], ['Khu D – hàng trả', 0.64], ['Khu E – dự trữ', 0.52]],
+    attention: [
+      { count: 9, label: 'đơn xuất trễ hạn giao', href: '/outbound?status=late', tone: 'danger', badge: 'Quá hạn' },
+      { count: 14, label: 'chênh lệch kiểm kê chưa duyệt', href: '/stocktake?status=variance', tone: 'warning', badge: 'Chờ duyệt' },
+      { count: 6, label: 'phiếu nhập chờ kiểm chất lượng quá 4 giờ', href: '/inbound?status=qc_waiting', tone: 'warning', badge: 'Sắp trễ' },
+      { count: 23, label: 'mã hàng dưới mức tồn tối thiểu', href: '/inventory?stock=below_min', tone: 'warning', badge: 'Sắp hết' },
+      { count: 3, label: 'xe nhập chờ tại cổng quá 30 phút', href: '/inbound?status=at_gate', tone: 'danger', badge: 'Quá hạn' },
+    ],
+    attnTotal: 7
+  },
+  yesterday: {
+    label: 'hôm kia', base: new Date(2026, 10, 3),
+    kpis: [
+      { id: 'recv', label: 'Đơn nhập đã nhận', value: 34, prev: 31, href: '/inbound?status=received&date=yesterday' },
+      { id: 'ship', label: 'Đơn xuất đã giao hãng', value: 389, prev: 402, href: '/outbound?status=shipped&date=yesterday' },
+      { id: 'open', label: 'Đơn chờ xử lý', value: 141, prev: 133, href: '/outbound?status=pending' },
+      { id: 'late', label: 'Đơn trễ hạn giao', value: 5, prev: 7, href: '/outbound?status=late' },
+      { id: 'acc', label: 'Độ chính xác lấy hàng', value: 0.995, prev: 0.993, pct: true, href: '/picking?view=accuracy' },
+      { id: 'cap', label: 'Mức lấp đầy kho', value: 0.829, prev: 0.826, pct: true, href: '/locations?sort=fill' },
+    ],
+    hours: [8,9,10,11,12,13,14,15,16,17],
+    cur:  [19, 38, 59, 61, 28, 44, 60, 55, 49, 36],
+    prev: [21, 40, 62, 60, 31, 46, 63, 51, 45, 33],
+    nowIdx: 9,
+    zones: [['Khu A – hàng nhanh', 0.93], ['Khu C – hàng lạnh', 0.87], ['Khu B – hàng cồng kềnh', 0.8], ['Khu D – hàng trả', 0.61], ['Khu E – dự trữ', 0.52]],
+    attention: [],
+    attnTotal: 0
+  }
+};
+
+// State ---------------------------------------------------------------
+const state = { range: 'today', demo: 'ok', updatedAt: new Date(2026, 10, 4, 16, 30), tableView: false, widgetError: {} };
+const $ = (id) => document.getElementById(id);
+const WIDGETS = ['kpis', 'attn', 'trend', 'zone'];
+
+function widgetState(w) {
+  if (state.widgetError[w]) return 'error';
+  if (state.demo === 'loading') return 'loading';
+  if (state.demo === 'error') return 'error';
+  if (state.demo === 'empty') return 'empty';
+  return 'ok';
+}
+function errBox(w, what) {
+  return `<div class="flex min-h-[120px] flex-col items-start justify-center gap-2" role="alert">
+    <p>Không tải được ${what}.</p>
+    <button type="button" data-retry="${w}" class="h-8 rounded border border-slate-300 bg-white px-3 hover:bg-slate-50">Thử lại</button></div>`;
+}
+function emptyBox(msg, action) {
+  return `<div class="flex min-h-[120px] flex-col items-start justify-center gap-2"><p class="text-slate-600">${msg}</p>${action || ''}</div>`;
+}
+const changeRange = `<button type="button" data-action="range" class="h-8 rounded px-1 text-blue-700 underline">Đổi khoảng thời gian</button>`;
+
+// Renderers -----------------------------------------------------------
+function renderKpis() {
+  const d = DATA[state.range], s = widgetState('kpis');
+  const root = $('kpis');
+  if (s === 'loading') {
+    root.innerHTML = Array.from({ length: 6 }, () => `<div class="h-24 rounded-md border border-slate-200 bg-white p-4"><div class="sk h-3 w-28"></div><div class="sk mt-3 h-6 w-16"></div></div>`).join('');
+    return;
+  }
+  if (s === 'error') { root.className = 'mb-4'; root.innerHTML = `<div class="rounded-md border border-slate-200 bg-white p-4">${errBox('kpis', 'các chỉ số chính')}</div>`; return; }
+  if (s === 'empty') { root.className = 'mb-4'; root.innerHTML = `<div class="rounded-md border border-slate-200 bg-white p-4">${emptyBox('Chưa có giao dịch kho nào trong khoảng thời gian này.', changeRange)}</div>`; return; }
+  root.className = 'mb-4 grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-6';
+  root.innerHTML = d.kpis.map((k) => {
+    const val = k.pct ? pct.format(k.value) : num.format(k.value);
+    let delta;
+    if (k.pct) { const pp = (k.value - k.prev) * 100; delta = `${new Intl.NumberFormat(LOCALE, { signDisplay: 'exceptZero', maximumFractionDigits: 1 }).format(pp)} điểm % so với ${d.label}`; }
+    else delta = `${signed.format(k.value - k.prev)} (${pctS.format((k.value - k.prev) / k.prev)}) so với ${d.label}`;
+    return `<a href="${k.href}" class="block min-h-24 rounded-md border border-slate-200 bg-white p-4 hover:bg-slate-50">
+      <p class="text-xs font-medium text-slate-600">${k.label}</p>
+      <p class="mt-1 text-2xl font-semibold tnum">${val}</p>
+      <p class="text-xs text-slate-600 tnum">${delta}</p></a>`;
+  }).join('');
+}
+
+function renderAttention() {
+  const d = DATA[state.range], s = widgetState('attn'), body = $('attnBody');
+  $('attnMeta').textContent = '';
+  if (s === 'loading') { body.innerHTML = `<div class="space-y-2 p-4">${'<div class="sk h-6 w-full"></div>'.repeat(4)}</div>`; return; }
+  if (s === 'error') { body.innerHTML = `<div class="px-4">${errBox('attn', 'danh sách cần xử lý')}</div>`; return; }
+  const items = s === 'empty' ? [] : d.attention;
+  const checked = timeF.format(state.updatedAt);
+  if (!items.length) {
+    body.innerHTML = `<p class="p-4 text-slate-600">Không có việc nào cần xử lý. Đã kiểm tra lúc <span class="tnum">${checked}</span>.</p>`;
+    $('attnLive').textContent = 'Không có việc cần xử lý';
+    return;
+  }
+  const tone = { danger: 'bg-red-50 text-red-800', warning: 'bg-amber-50 text-amber-800' };
+  const sorted = [...items].sort((a, b) => (a.tone === b.tone ? b.count - a.count : a.tone === 'danger' ? -1 : 1)).slice(0, 5);
+  body.innerHTML = `<ul>${sorted.map((i) => `<li class="border-b border-slate-200 last:border-0">
+    <a href="${i.href}" class="flex h-10 items-center gap-3 px-4 hover:bg-slate-50">
+      <span class="w-8 font-semibold tnum">${num.format(i.count)}</span>
+      <span class="flex-1">${i.label}</span>
+      <span class="rounded-full px-2 text-xs font-medium ${tone[i.tone]}">${i.badge}</span></a></li>`).join('')}</ul>`
+    + (d.attnTotal > sorted.length ? `<div class="border-t border-slate-200 px-4 py-2"><a href="/tasks?status=open" class="text-blue-700 underline">Xem tất cả ${d.attnTotal} nhóm việc</a></div>` : '');
+  $('attnMeta').textContent = `Cập nhật lúc ${checked}`;
+  $('attnLive').textContent = `${sorted.length} nhóm việc cần xử lý`;
+}
+
+function renderTrend() {
+  const d = DATA[state.range], s = widgetState('trend'), root = $('trendBody');
+  $('toggleTable').classList.toggle('hidden', s !== 'ok');
+  if (s === 'loading') { root.innerHTML = `<div class="sk h-64 w-full"></div>`; return; }
+  if (s === 'error') { root.innerHTML = errBox('trend', 'biểu đồ đơn xuất'); return; }
+  if (s === 'empty') { root.innerHTML = emptyBox('Chưa có đơn xuất nào trong khoảng thời gian này.', changeRange); return; }
+  const n = d.nowIdx + 1;
+  const cur = d.cur.slice(0, n);
+  if (state.tableView) {
+    $('toggleTable').textContent = 'Xem dạng biểu đồ';
+    root.innerHTML = `<div class="overflow-x-auto"><table class="w-full text-left"><thead><tr class="border-b border-slate-200 text-slate-700">
+      <th class="h-10 px-2 font-medium">Giờ</th><th class="h-10 px-2 text-right font-medium">Đơn xuất (${state.range === 'today' ? 'hôm nay' : 'hôm qua'})</th><th class="h-10 px-2 text-right font-medium">Đơn xuất (${d.label})</th></tr></thead><tbody>
+      ${d.hours.map((h, i) => `<tr class="border-b border-slate-100"><td class="h-10 px-2 tnum">${String(h).padStart(2,'0')}:00</td><td class="h-10 px-2 text-right tnum">${i < n ? num.format(d.cur[i]) : '–'}</td><td class="h-10 px-2 text-right tnum">${num.format(d.prev[i])}</td></tr>`).join('')}</tbody></table></div>`;
+    return;
+  }
+  $('toggleTable').textContent = 'Xem dạng bảng';
+  const W = 720, H = 280, L = 52, R = 110, T = 12, B = 48, maxY = 80;
+  const x = (i) => L + (i * (W - L - R)) / (d.hours.length - 1);
+  const y = (v) => T + (1 - v / maxY) * (H - T - B);
+  const path = (arr) => arr.map((v, i) => `${i ? 'L' : 'M'}${x(i).toFixed(1)},${y(v).toFixed(1)}`).join(' ');
+  const grid = [0, 20, 40, 60, 80].map((v) => `<line x1="${L}" x2="${W - R}" y1="${y(v)}" y2="${y(v)}" stroke="#e2e8f0"/><text x="${L - 8}" y="${y(v) + 4}" text-anchor="end" font-size="11" fill="#475569">${v}</text>`).join('');
+  const xt = d.hours.map((h, i) => `<text x="${x(i)}" y="${H - B + 18}" text-anchor="middle" font-size="11" fill="#475569">${h}h</text>`).join('');
+  const last = n - 1;
+  const total = cur.reduce((a, b) => a + b, 0), totalPrev = d.prev.slice(0, n).reduce((a, b) => a + b, 0);
+  const summary = `Đơn xuất theo giờ từ ${d.hours[0]}h đến ${d.hours[last]}h: tổng ${total} đơn, so với ${totalPrev} đơn cùng khung giờ ${d.label}.`;
+  root.innerHTML = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="${summary}" class="h-auto w-full">
+    ${grid}${xt}
+    <text x="${(L + W - R) / 2}" y="${H - 6}" text-anchor="middle" font-size="12" fill="#475569">Giờ trong ngày (giờ bắt đầu)</text>
+    <text transform="translate(14 ${(T + H - B) / 2}) rotate(-90)" text-anchor="middle" font-size="12" fill="#475569">Đơn xuất mỗi giờ (đơn)</text>
+    <path d="${path(d.prev)}" fill="none" stroke="#94a3b8" stroke-width="2" stroke-dasharray="5 4"/>
+    <path d="${path(cur)}" fill="none" stroke="#1d4ed8" stroke-width="2.5"/>
+    <circle cx="${x(last)}" cy="${y(cur[last])}" r="4" fill="#1d4ed8"/>
+    <text x="${x(last) + 8}" y="${y(cur[last]) + 4}" font-size="12" font-weight="600" fill="#1d4ed8">${state.range === 'today' ? 'Hôm nay' : 'Hôm qua'} ${cur[last]}</text>
+    <text x="${W - R + 8}" y="${y(d.prev[d.prev.length - 1]) + 4}" font-size="12" fill="#475569">${d.label[0].toUpperCase() + d.label.slice(1)} ${d.prev[d.prev.length - 1]}</text>
+  </svg>
+  <p class="mt-2 text-xs text-slate-600 tnum">${summary}</p>`;
+}
+
+function renderZones() {
+  const d = DATA[state.range], s = widgetState('zone'), root = $('zoneBody');
+  if (s === 'loading') { root.innerHTML = `<div class="space-y-4">${'<div class="sk h-8 w-full"></div>'.repeat(5)}</div>`; return; }
+  if (s === 'error') { root.innerHTML = errBox('zone', 'mức lấp đầy theo khu'); return; }
+  if (s === 'empty') { root.innerHTML = emptyBox('Chưa có khu kho nào được cấu hình.', '<a href="/locations" class="text-blue-700 underline">Thêm khu kho</a>'); return; }
+  const rows = [...d.zones].sort((a, b) => b[1] - a[1]);
+  root.innerHTML = `<ul class="space-y-3" aria-label="Mức lấp đầy theo khu, từ cao đến thấp">${rows.map(([name, v]) => `<li>
+      <div class="mb-1 flex justify-between"><span>${name}</span><span class="font-medium tnum">${pct.format(v)}</span></div>
+      <div class="h-2 rounded bg-slate-100"><div class="h-2 rounded ${v >= 0.9 ? 'bg-blue-700' : 'bg-slate-400'}" style="width:${v * 100}%"></div></div></li>`).join('')}</ul>
+    <p class="mt-4 text-xs text-slate-600">Trục: tỷ lệ vị trí kệ đã có hàng (%), bắt đầu từ 0. Khu từ 90% trở lên được tô đậm.</p>`;
+}
+
+function renderHeader() {
+  const base = DATA[state.range].base;
+  $('rangeText').textContent = dateF.format(base);
+  $('updated').textContent = `Cập nhật ${timeF.format(state.updatedAt)}`;
+}
+
+function renderAll() { renderHeader(); renderKpis(); renderAttention(); renderTrend(); renderZones(); }
+
+// Behaviour -----------------------------------------------------------
+function setUrl() {
+  const p = new URLSearchParams(location.search);
+  p.set('range', state.range);
+  history.replaceState(null, '', '?' + p.toString());
+}
+function load(after) {
+  const prev = state.demo;
+  state.demo = 'loading'; renderAll();
+  setTimeout(() => { state.demo = prev === 'loading' ? 'ok' : prev; if (after) after(); renderAll(); }, 450);
+}
+$('range').addEventListener('change', (e) => {
+  state.range = e.target.value; setUrl();
+  const keep = $('demo').value; state.demo = 'loading'; renderAll();
+  setTimeout(() => { state.demo = keep; renderAll(); }, 450);
+});
+$('demo').addEventListener('change', (e) => {
+  state.widgetError = {};
+  const v = e.target.value;
+  if (v === 'loading') { state.demo = 'loading'; renderAll(); setTimeout(() => { state.demo = 'ok'; e.target.value = 'ok'; renderAll(); }, 1500); }
+  else { state.demo = v; renderAll(); }
+});
+$('refresh').addEventListener('click', () => {
+  const btn = $('refresh'); btn.disabled = true; btn.textContent = 'Đang làm mới…';
+  const keep = $('demo').value;
+  setTimeout(() => {
+    btn.disabled = false; btn.textContent = 'Làm mới';
+    if (keep === 'error') { $('refreshFail').classList.remove('hidden'); $('refreshFail').innerHTML = 'Làm mới thất bại'; return; }
+    $('refreshFail').classList.add('hidden');
+    state.updatedAt = new Date(); renderAll();
+  }, 500);
+});
+$('toggleTable').addEventListener('click', () => { state.tableView = !state.tableView; renderTrend(); });
+document.addEventListener('click', (e) => {
+  const r = e.target.closest('[data-retry]');
+  if (r) {
+    const w = r.dataset.retry;
+    if (state.demo === 'error') { state.demo = 'ok'; $('demo').value = 'ok'; }
+    delete state.widgetError[w];
+    state.demo === 'ok' && renderAll();
+    return;
+  }
+  if (e.target.closest('[data-action="range"]')) { $('range').focus(); }
+});
+
+// Init: read range from URL, skeleton resolves in ~500ms --------------
+const initial = new URLSearchParams(location.search).get('range');
+if (DATA[initial]) { state.range = initial; $('range').value = initial; }
+state.demo = 'loading'; renderAll();
+setTimeout(() => { state.demo = 'ok'; renderAll(); }, 500);
+// Auto refresh every 60s (operational dashboard)
+setInterval(() => { if (state.demo === 'ok') { state.updatedAt = new Date(); renderHeader(); } }, 60000);
+</script>
+</body>
+</html>

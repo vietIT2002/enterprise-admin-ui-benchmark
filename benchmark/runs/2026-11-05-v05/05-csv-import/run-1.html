@@ -1,0 +1,762 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Import products - Inventory</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+  [hidden] { display: none !important; }
+  :focus-visible { outline: 2px solid #1d4ed8; outline-offset: 2px; }
+  body { font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; line-height: 1.5; }
+  .skel { background: #e2e8f0; border-radius: 4px; animation: pulse 1.4s ease-in-out infinite; }
+  @keyframes pulse { 50% { opacity: .5; } }
+  dialog::backdrop { background: rgba(15, 23, 42, .4); }
+  @media (prefers-reduced-motion: reduce) { .skel, .animate-spin { animation: none; } }
+</style>
+</head>
+<body class="bg-white text-sm text-slate-900">
+<a href="#main" class="sr-only focus:not-sr-only focus:absolute focus:left-2 focus:top-2 focus:z-50 focus:rounded focus:bg-white focus:px-3 focus:py-2">Skip to content</a>
+<div class="flex min-h-screen">
+  <aside class="hidden w-14 shrink-0 border-r border-slate-200 bg-slate-50 md:block lg:w-60" aria-label="Sidebar">
+    <div class="flex h-12 items-center gap-2 border-b border-slate-200 px-3">
+      <span class="flex h-8 w-8 shrink-0 items-center justify-center rounded bg-blue-700 text-xs font-semibold text-white" aria-hidden="true">NK</span>
+      <span class="hidden truncate font-semibold lg:inline">Nam Khang Trading</span>
+    </div>
+    <nav id="nav" aria-label="Main" class="flex flex-col gap-4 p-2"></nav>
+  </aside>
+  <div class="flex min-w-0 flex-1 flex-col">
+    <header class="flex h-12 shrink-0 items-center justify-between border-b border-slate-200 bg-white px-4">
+      <p class="text-slate-600">Warehouse HCM-01</p>
+      <div class="relative flex items-center gap-1">
+        <button id="bell" type="button" data-act="bell" aria-expanded="false" aria-controls="notif" class="relative inline-flex h-8 w-8 items-center justify-center rounded hover:bg-slate-100"></button>
+        <div id="notif" hidden class="absolute right-0 top-10 z-30 w-96 max-w-[calc(100vw-2rem)] rounded-lg border border-slate-200 bg-white shadow-lg"></div>
+        <button type="button" aria-label="Account menu" title="Lê Hoa" class="inline-flex h-8 w-8 items-center justify-center rounded-full bg-slate-200 text-xs font-semibold text-slate-800 hover:bg-slate-300">LH</button>
+      </div>
+    </header>
+    <main id="main" class="flex min-w-0 flex-1 flex-col p-6 pb-0"></main>
+  </div>
+</div>
+<div id="toasts" role="status" aria-live="polite" class="pointer-events-none fixed bottom-20 right-4 z-40 flex w-96 max-w-[calc(100vw-2rem)] flex-col gap-2"></div>
+<dialog id="dlg" class="w-[28rem] max-w-[calc(100vw-2rem)] rounded-lg border border-slate-200 p-0 text-sm text-slate-900 shadow-xl" aria-labelledby="dlg-title"></dialog>
+<input id="file-input" type="file" accept=".csv,text/csv" class="sr-only" tabindex="-1" aria-hidden="true">
+
+<script>
+/* ---------- Locale and formatters (one place) ---------- */
+const LOCALE = 'vi-VN', TZ = 'Asia/Ho_Chi_Minh';
+const _c = new Map();
+const nf = (o = {}) => { const k = JSON.stringify(o); if (!_c.has(k)) _c.set(k, new Intl.NumberFormat(LOCALE, o)); return _c.get(k); };
+const fmtNum = (v) => nf().format(v);
+const fmtVnd = (v) => nf({ style: 'currency', currency: 'VND' }).format(v);
+const fmtAmt = (v) => nf({ minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(v);
+const dfm = (o) => new Intl.DateTimeFormat(LOCALE, { timeZone: TZ, ...o });
+const fmtDT = (d) => dfm({ day: '2-digit', month: '2-digit', year: 'numeric' }).format(d) + ' ' + dfm({ hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).format(d);
+const fold = (s) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/đ/g, 'd').replace(/Đ/g, 'D').toLowerCase();
+const headerKey = (h) => fold(h).replace(/[\s_-]+/g, ' ').trim();
+const fmtBytes = (b) => b >= 1048576 ? nf({ maximumFractionDigits: 1 }).format(b / 1048576) + ' MB' : nf({ maximumFractionDigits: 1 }).format(b / 1024) + ' KB';
+const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const $ = (s, r = document) => r.querySelector(s);
+const plural = (n, one, many) => n === 1 ? one : many;
+
+/* ---------- Icons (one set, 16px) ---------- */
+const P = {
+  check: '<path d="M20 6 9 17l-5-5"/>',
+  alert: '<circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/>',
+  upload: '<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12"/>',
+  download: '<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/>',
+  file: '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/>',
+  left: '<path d="m15 18-6-6 6-6"/>', right: '<path d="m9 18 6-6-6-6"/>',
+  bell: '<path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9M10.3 21a1.94 1.94 0 0 0 3.4 0"/>',
+  box: '<path d="M21 8 12 3 3 8v8l9 5 9-5zM3 8l9 5 9-5M12 13v8"/>',
+  layers: '<path d="m12 2 10 5-10 5L2 7zM2 17l10 5 10-5M2 12l10 5 10-5"/>',
+  truck: '<path d="M1 3h15v13H1zM16 8h4l3 3v5h-7zM5.5 21a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5zM18.5 21a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5z"/>',
+  cart: '<circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.7 13.4a2 2 0 0 0 2 1.6h9.7a2 2 0 0 0 2-1.6L23 6H6"/>',
+  users: '<path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM23 21v-2a4 4 0 0 0-3-3.9M16 3.1a4 4 0 0 1 0 7.8"/>',
+  chart: '<path d="M3 3v18h18M7 14v4M12 8v10M17 11v7"/>',
+  settings: '<circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M4.2 4.2l2.1 2.1M17.7 17.7l2.1 2.1M2 12h3M19 12h3M4.2 19.8l2.1-2.1M17.7 6.3l2.1-2.1"/>',
+  help: '<circle cx="12" cy="12" r="10"/><path d="M9.1 9a3 3 0 0 1 5.8 1c0 2-3 3-3 3M12 17h.01"/>',
+  info: '<circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/>',
+  x: '<path d="M18 6 6 18M6 6l12 12"/>',
+};
+const ic = (n, cls = '') => `<svg class="h-4 w-4 shrink-0 ${cls}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${P[n]}</svg>`;
+const spin = `<svg class="h-4 w-4 shrink-0 animate-spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" aria-hidden="true"><circle cx="12" cy="12" r="9" opacity=".25"/><path d="M21 12a9 9 0 0 0-9-9" stroke-linecap="round"/></svg>`;
+
+const BTN = 'inline-flex h-8 items-center justify-center gap-2 rounded px-3 text-sm font-medium whitespace-nowrap disabled:cursor-not-allowed disabled:opacity-60';
+const B = {
+  p: `${BTN} bg-blue-700 text-white hover:bg-blue-800`,
+  o: `${BTN} border border-slate-300 bg-white text-slate-900 hover:bg-slate-50`,
+  l: 'inline-flex items-center gap-1 rounded text-sm font-medium text-blue-700 underline-offset-2 hover:underline',
+};
+const BADGE = {
+  success: 'bg-green-50 text-green-800', danger: 'bg-red-50 text-red-800', info: 'bg-blue-50 text-blue-800',
+  warning: 'bg-amber-50 text-amber-800', neutral: 'bg-slate-100 text-slate-700',
+};
+const badge = (tone, text, icon) => `<span class="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium ${BADGE[tone]}">${icon ? ic(icon, 'h-3 w-3') : ''}${esc(text)}</span>`;
+
+/* ---------- Reference data (mock) ---------- */
+const CATS = ['Văn phòng phẩm', 'Điện gia dụng', 'Điện tử', 'Đồ uống', 'Thực phẩm khô', 'Vệ sinh'];
+const UNITS = ['cái', 'hộp', 'thùng', 'cuộn', 'kg', 'bộ', 'chai', 'gói'];
+const FIELDS = [
+  { key: 'sku', label: 'SKU', req: 1, al: ['sku', 'ma sku', 'ma hang', 'ma san pham', 'product code', 'item code', 'code'] },
+  { key: 'name', label: 'Product name', req: 1, al: ['name', 'product name', 'ten', 'ten san pham', 'ten hang', 'ten hang hoa'] },
+  { key: 'category', label: 'Category', al: ['category', 'nhom hang', 'danh muc', 'loai', 'nhom'] },
+  { key: 'unit', label: 'Unit', req: 1, al: ['unit', 'don vi', 'dvt', 'don vi tinh', 'uom'] },
+  { key: 'cost', label: 'Cost price', unit: 'VND', al: ['cost', 'cost price', 'gia von', 'gia nhap', 'purchase price'] },
+  { key: 'price', label: 'Sale price', unit: 'VND', req: 1, al: ['price', 'sale price', 'selling price', 'gia ban', 'gia ban le'] },
+  { key: 'stock', label: 'Stock', al: ['stock', 'qty', 'quantity', 'on hand', 'ton kho', 'so luong', 'so luong ton'] },
+  { key: 'reorder', label: 'Reorder level', al: ['reorder level', 'reorder point', 'min stock', 'ton toi thieu', 'muc dat hang lai'] },
+  { key: 'barcode', label: 'Barcode', al: ['barcode', 'ma vach', 'ean', 'gtin'] },
+];
+const F = Object.fromEntries(FIELDS.map((f) => [f.key, f]));
+const GUIDE = {
+  sku: 'Capital letters, digits and hyphens, 3 to 20 characters, e.g. VPP-001',
+  name: 'Up to 120 characters',
+  category: 'One of: ' + CATS.join(', '),
+  unit: 'One of: ' + UNITS.join(', '),
+  cost: 'A number, e.g. 1.250.000 or 1250000. Not above the sale price',
+  price: 'A number, e.g. 1.250.000 or 1250000',
+  stock: 'A whole number, 0 or more',
+  reorder: 'A whole number, 0 or more',
+  barcode: '8 or 13 digits',
+};
+const LIMITS = { bytes: 10 * 1048576, rows: 5000 };
+
+const BASE = [
+  ['VPP-001', 'Bút bi Thiên Long TL-027 (xanh)', 'Văn phòng phẩm', 'hộp', 38000, 52000, 420, 100, '8934563138165'],
+  ['VPP-002', 'Giấy A4 Double A 70gsm', 'Văn phòng phẩm', 'thùng', 285000, 342000, 96, 30, '8851234500012'],
+  ['VPP-003', 'Sổ tay lò xo A5 200 trang', 'Văn phòng phẩm', 'cái', 14500, 24000, 310, 80, '8935001200017'],
+  ['VPP-004', 'Kẹp giấy Deli 32mm', 'Văn phòng phẩm', 'hộp', 6200, 11000, 540, 120, '6921734900326'],
+  ['VPP-005', 'Băng keo trong 48mm x 100y', 'Văn phòng phẩm', 'cuộn', 9800, 16000, 700, 200, '8935001200055'],
+  ['DGD-001', 'Ấm đun siêu tốc Sunhouse 1,8L', 'Điện gia dụng', 'cái', 215000, 329000, 64, 15, '8938505510014'],
+  ['DGD-002', 'Nồi cơm điện Panasonic SR-CP108', 'Điện gia dụng', 'cái', 890000, 1250000, 28, 10, '8938505510021'],
+  ['DGD-003', 'Quạt đứng Senko DD1612', 'Điện gia dụng', 'cái', 420000, 585000, 41, 12, '8938505510038'],
+  ['DGD-004', 'Bàn ủi hơi nước Philips GC1905', 'Điện gia dụng', 'cái', 360000, 499000, 19, 8, '8710103830011'],
+  ['DGD-005', 'Máy xay sinh tố Kangaroo KG-3B', 'Điện gia dụng', 'cái', 540000, 790000, 22, 8, '8938505510045'],
+  ['DT-001', 'Chuột không dây Logitech M331', 'Điện tử', 'cái', 245000, 349000, 87, 20, '5099206067033'],
+  ['DT-002', 'Bàn phím cơ Keychron K2', 'Điện tử', 'cái', 1650000, 2190000, 14, 5, '6975102030011'],
+  ['DT-003', 'Cáp sạc USB-C 1m Anker', 'Điện tử', 'cái', 78000, 129000, 260, 60, '0194644025013'],
+  ['DT-004', 'Sạc dự phòng 10.000 mAh Xiaomi', 'Điện tử', 'cái', 290000, 420000, 55, 15, '6934177700012'],
+  ['DT-005', 'Tai nghe Bluetooth JBL Tune 510BT', 'Điện tử', 'cái', 620000, 890000, 33, 10, '6925281900013'],
+  ['DU-001', 'Cà phê rang xay Trung Nguyên Sáng Tạo 3', 'Đồ uống', 'gói', 62000, 85000, 180, 50, '8935039500011'],
+  ['DU-002', 'Trà ô long Tâm Châu 200g', 'Đồ uống', 'gói', 48000, 69000, 140, 40, '8936070300019'],
+  ['DU-003', 'Nước suối Aquafina 500ml (24 chai)', 'Đồ uống', 'thùng', 68000, 92000, 75, 25, '8934588100014'],
+  ['DU-004', 'Sữa tươi Vinamilk không đường 1L', 'Đồ uống', 'hộp', 29500, 38000, 320, 100, '8934673100013'],
+  ['TP-001', 'Gạo ST25 túi 5kg', 'Thực phẩm khô', 'gói', 118000, 152000, 90, 30, '8936100200017'],
+  ['TP-002', 'Mì Hảo Hảo tôm chua cay (thùng 30 gói)', 'Thực phẩm khô', 'thùng', 112000, 139000, 58, 20, '8934563138011'],
+  ['TP-003', 'Nước mắm Nam Ngư 750ml', 'Thực phẩm khô', 'chai', 31000, 44000, 210, 60, '8934804000017'],
+  ['TP-004', 'Dầu ăn Neptune 1L', 'Thực phẩm khô', 'chai', 42000, 56000, 170, 50, '8934567000019'],
+  ['VS-001', 'Nước rửa chén Sunlight 750g', 'Vệ sinh', 'chai', 27000, 38000, 230, 60, '8934868100016'],
+  ['VS-002', 'Nước lau sàn Sunlight 1L', 'Vệ sinh', 'chai', 36000, 49000, 150, 40, '8934868100023'],
+  ['VS-003', 'Giấy vệ sinh Pulppy 10 cuộn', 'Vệ sinh', 'gói', 58000, 79000, 200, 50, '8936033100014'],
+  ['VS-004', 'Khẩu trang y tế 4 lớp (hộp 50)', 'Vệ sinh', 'hộp', 21000, 35000, 410, 100, '8936033100021'],
+  ['VS-005', 'Nước rửa tay Lifebuoy 500ml', 'Vệ sinh', 'chai', 45000, 62000, 120, 30, '8934868100030'],
+  ['VPP-006', 'Bút lông bảng Thiên Long WB-03', 'Văn phòng phẩm', 'hộp', 44000, 63000, 150, 40, '8934563240011'],
+  ['VPP-007', 'Bìa còng Kingjim 7cm A4', 'Văn phòng phẩm', 'cái', 28000, 41000, 220, 60, '8935212300019'],
+  ['DGD-006', 'Lò vi sóng Sharp R-205VN', 'Điện gia dụng', 'cái', 1380000, 1790000, 9, 4, '8934711200021'],
+  ['DGD-007', 'Bình giữ nhiệt Lock&Lock 500ml', 'Điện gia dụng', 'cái', 185000, 269000, 73, 20, '8809214300035'],
+  ['DT-006', 'Loa Bluetooth Sony SRS-XB13', 'Điện tử', 'cái', 980000, 1350000, 18, 6, '4548736100054'],
+  ['DT-007', 'Ổ cứng SSD Samsung T7 1TB', 'Điện tử', 'cái', 2250000, 2890000, 11, 4, '8806092500123'],
+  ['DU-005', 'Nước cam ép Twister 320ml (24 chai)', 'Đồ uống', 'thùng', 168000, 215000, 44, 15, '8934588800010'],
+  ['TP-005', 'Đường tinh luyện Biên Hòa 1kg', 'Thực phẩm khô', 'kg', 19500, 26000, 380, 100, '8935024100016'],
+  ['TP-006', 'Muối i-ốt Bạc Liêu 500g', 'Thực phẩm khô', 'gói', 4500, 8000, 620, 150, '8935007800019'],
+  ['VS-006', 'Bột giặt OMO Comfort 3kg', 'Vệ sinh', 'gói', 132000, 169000, 88, 25, '8934868100061'],
+  ['VS-007', 'Nước xả Comfort 3,2L', 'Vệ sinh', 'chai', 118000, 152000, 47, 15, '8934868100078'],
+  ['VS-008', 'Găng tay cao su Sunhouse (size M)', 'Vệ sinh', 'bộ', 15000, 25000, 190, 50, '8938505510052'],
+];
+const EXISTING_SKUS = ['VPP-002', 'VPP-004', 'DGD-001', 'DGD-002', 'DT-001', 'DT-003', 'DU-001', 'TP-003', 'VS-001', 'VS-003', 'VPP-006', 'DT-006', 'VS-007', 'ZZ-900', 'ZZ-901'];
+
+/* Sample file as Excel writes it with Vietnamese regional settings: semicolon-separated, UTF-8 with BOM, vi-VN numbers. */
+function sampleCsv() {
+  const head = ['SKU', 'Tên sản phẩm', 'Nhóm hàng', 'ĐVT', 'Giá vốn', 'Giá bán', 'Tồn kho', 'Mức đặt hàng lại', 'Mã vạch', 'Ghi chú', 'Mã nội bộ'];
+  const rows = BASE.map((r) => r.slice());
+  rows[2][0] = 'vpp 003';          // bad SKU format
+  rows[5][1] = '';                 // missing name
+  rows[11][5] = 'Liên hệ';         // price is text
+  rows[14][0] = 'DT-004';          // duplicate of row 15
+  rows[17][2] = 'Đồ chơi';         // unknown category
+  rows[24][4] = 52000;             // cost above price
+  rows[26][8] = '12345';           // short barcode
+  const out = rows.map((r, i) => [r[0], r[1], r[2], r[3], fmtNum(r[4]), r[5] === 'Liên hệ' ? r[5] : fmtNum(r[5]), fmtNum(r[6]), fmtNum(r[7]), r[8], i % 9 === 0 ? 'Hàng mới' : '', 'NB-' + String(1000 + i * 7)]);
+  const q = (v) => /[;"\n]/.test(v) ? '"' + String(v).replace(/"/g, '""') + '"' : v;
+  return '﻿' + [head, ...out].map((r) => r.map(q).join(';')).join('\r\n') + '\r\n';
+}
+
+/* ---------- CSV parsing ---------- */
+function detectDelim(text) {
+  const line = text.replace(/^﻿/, '').split(/\r?\n/)[0] || '';
+  let inQ = false; const c = { ',': 0, ';': 0, '\t': 0 };
+  for (const ch of line) { if (ch === '"') inQ = !inQ; else if (!inQ && ch in c) c[ch]++; }
+  const best = Object.entries(c).sort((a, b) => b[1] - a[1])[0];
+  return best[1] ? best[0] : ',';
+}
+function parseCsv(text, d) {
+  text = text.replace(/^﻿/, '');
+  const rows = []; let row = [], f = '', q = false;
+  for (let i = 0; i < text.length; i++) {
+    const ch = text[i];
+    if (q) { if (ch === '"') { if (text[i + 1] === '"') { f += '"'; i++; } else q = false; } else f += ch; }
+    else if (ch === '"') q = true;
+    else if (ch === d) { row.push(f); f = ''; }
+    else if (ch === '\n' || ch === '\r') { if (ch === '\r' && text[i + 1] === '\n') i++; row.push(f); f = ''; rows.push(row); row = []; }
+    else f += ch;
+  }
+  if (f !== '' || row.length) { row.push(f); rows.push(row); }
+  return rows.filter((r) => r.some((c) => c.trim() !== ''));
+}
+const DELIM_NAME = { ',': 'Comma', ';': 'Semicolon', '\t': 'Tab' };
+/* vi-VN numbers: "." thousands, "," decimals. Returns NaN when it is not a number. */
+function parseVi(s) {
+  s = String(s).replace(/[\s₫đ]|VND/gi, '');
+  if (!s) return NaN;
+  if (/^-?\d+$/.test(s)) return Number(s);
+  if (/^-?\d{1,3}(\.\d{3})+(,\d+)?$/.test(s)) return Number(s.replace(/\./g, '').replace(',', '.'));
+  if (/^-?\d+,\d+$/.test(s)) return Number(s.replace(',', '.'));
+  if (/^-?\d+\.\d{1,2}$/.test(s)) return Number(s);
+  return NaN;
+}
+function downloadText(name, text) {
+  const url = URL.createObjectURL(new Blob(['﻿' + text.replace(/^﻿/, '')], { type: 'text/csv;charset=utf-8' }));
+  const a = document.createElement('a'); a.href = url; a.download = name; document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+const csvLine = (cells, d) => cells.map((v) => /[",;\n\t]/.test(v) ? '"' + String(v).replace(/"/g, '""') + '"' : v).join(d);
+
+/* ---------- State ---------- */
+const params = new URLSearchParams(location.search);
+let pageState = params.get('state') || '';          // '', 'loading', 'error', 'empty'
+let ready = false, loadFailed = false;
+const STEPS = ['Upload', 'Map columns', 'Review', 'Import'];
+const fresh = () => ({
+  step: 0, file: null, delim: ',', delimMode: 'auto', headers: [], data: [], mapping: [], remembered: false,
+  triedNext: false, uploadError: '', option: 'create', filter: 'all', page: 1, size: 25, checking: false, V: null, runMsg: '', showLog: false, focus: '',
+});
+let S = fresh();
+let J = null;                    // import job
+let notes = [];                  // notifications
+let toastId = 0;
+const catalog = () => pageState === 'empty' ? new Set() : new Set(EXISTING_SKUS);
+const catalogTotal = () => pageState === 'empty' ? 0 : 1284;
+const dirty = () => !!S.file && S.step < 3;
+
+/* ---------- Mapping ---------- */
+function autoMap(headers) {
+  const used = new Set();
+  return headers.map((h) => {
+    const k = headerKey(h);
+    const f = FIELDS.find((x) => !used.has(x.key) && (headerKey(x.label) === k || x.al.includes(k)));
+    if (f) { used.add(f.key); return f.key; }
+    return '';
+  });
+}
+const sig = () => S.headers.map(headerKey).join('|');
+function loadRemembered() {
+  try { const m = JSON.parse(localStorage.getItem('import.mapping.products') || '{}')[sig()]; if (m && m.length === S.headers.length) return m; } catch (e) { /* storage unavailable */ }
+  return null;
+}
+function saveRemembered() {
+  try { const all = JSON.parse(localStorage.getItem('import.mapping.products') || '{}'); all[sig()] = S.mapping; localStorage.setItem('import.mapping.products', JSON.stringify(all)); } catch (e) { /* ignore */ }
+}
+function mapIssues() {
+  const dup = {}; const used = {};
+  S.mapping.forEach((k, i) => { if (!k) return; if (used[k] !== undefined) dup[i] = used[k]; else used[k] = i; });
+  const missing = FIELDS.filter((f) => f.req && used[f.key] === undefined);
+  return { dup, used, missing };
+}
+
+/* ---------- Validation (same rules as the product form) ---------- */
+function validate() {
+  const { used } = mapIssues();
+  const idx = (k) => used[k] === undefined ? -1 : used[k];
+  const cat = catalog();
+  const get = (r, k) => { const i = idx(k); return i < 0 ? '' : String(r[i] ?? '').trim(); };
+  const rows = S.data.map((raw, i) => ({ n: i + 2, raw, errors: [], rec: {}, num: {} }));
+  const seen = {};
+  rows.forEach((r) => {
+    const rec = {}; FIELDS.forEach((f) => { rec[f.key] = get(r.raw, f.key); }); r.rec = rec;
+    const err = (f, kind, msg) => r.errors.push({ f, kind, msg });
+    if (!rec.sku) err('sku', 'Missing required value', 'SKU is required');
+    else if (!/^[A-Z0-9][A-Z0-9-]{2,19}$/.test(rec.sku)) err('sku', 'Invalid format', `SKU '${rec.sku}' can only have capital letters, digits and hyphens`);
+    if (!rec.name) err('name', 'Missing required value', 'Product name is required');
+    else if (rec.name.length > 120) err('name', 'Invalid format', 'Product name is longer than 120 characters');
+    if (rec.category && !CATS.includes(rec.category)) err('category', 'Unknown category or unit', `Category '${rec.category}' does not exist`);
+    if (!rec.unit) err('unit', 'Missing required value', 'Unit is required');
+    else if (!UNITS.includes(rec.unit)) err('unit', 'Unknown category or unit', `Unit '${rec.unit}' is not valid`);
+    [['price', true], ['cost', false], ['stock', false], ['reorder', false]].forEach(([k, req]) => {
+      const v = rec[k];
+      if (!v) { if (req) err(k, 'Missing required value', `${F[k].label} is required`); return; }
+      const n = parseVi(v);
+      if (Number.isNaN(n)) err(k, 'Invalid number', `${F[k].label} '${v}' is not a number`);
+      else if (n < 0) err(k, 'Invalid number', `${F[k].label} cannot be negative`);
+      else if ((k === 'stock' || k === 'reorder') && !Number.isInteger(n)) err(k, 'Invalid number', `${F[k].label} must be a whole number`);
+      else r.num[k] = n;
+    });
+    if (r.num.cost != null && r.num.price != null && r.num.cost > r.num.price) err('cost', 'Invalid number', 'Cost price is higher than sale price');
+    if (rec.barcode && !/^(\d{8}|\d{13})$/.test(rec.barcode)) err('barcode', 'Invalid format', `Barcode '${rec.barcode}' must be 8 or 13 digits`);
+    if (rec.sku) (seen[rec.sku] = seen[rec.sku] || []).push(r);
+  });
+  Object.entries(seen).forEach(([sku, list]) => {
+    if (list.length > 1) list.forEach((r) => { const other = list.find((x) => x !== r); r.errors.push({ f: 'sku', kind: 'Duplicate SKU', msg: `SKU ${sku} also appears in row ${other.n}` }); });
+  });
+  rows.forEach((r) => { r.exists = !!r.rec.sku && cat.has(r.rec.sku); });
+  const kinds = {};
+  rows.forEach((r) => { new Set(r.errors.map((e) => e.kind)).forEach((k) => { kinds[k] = (kinds[k] || 0) + 1; }); });
+  return { rows, kinds };
+}
+const outcome = (r) => {
+  if (r.errors.length) return 'error';
+  const o = S.option;
+  if (r.exists) return o === 'create' ? 'skip' : 'update';
+  return o === 'update' ? 'skip' : 'create';
+};
+function tally() {
+  const t = { create: 0, update: 0, skip: 0, error: 0, valid: 0, isNew: 0, isExisting: 0 };
+  S.V.rows.forEach((r) => { const o = outcome(r); t[o]++; if (o !== 'error') { t.valid++; r.exists ? t.isExisting++ : t.isNew++; } });
+  t.act = t.create + t.update;
+  return t;
+}
+
+/* ---------- Toasts and dialogs ---------- */
+function toast(text, tone = 'success', link) {
+  const id = 't' + (++toastId);
+  const el = document.createElement('div');
+  el.id = id;
+  el.className = 'pointer-events-auto flex items-start gap-2 rounded-lg border border-slate-200 bg-white p-3 shadow-lg';
+  el.innerHTML = `<span class="${tone === 'success' ? 'text-green-700' : 'text-blue-700'} mt-0.5">${ic(tone === 'success' ? 'check' : 'info')}</span><p class="flex-1">${esc(text)}${link ? ` <button type="button" data-act="${link.act}" class="${B.l}">${esc(link.label)}</button>` : ''}</p><button type="button" data-act="close-toast" data-id="${id}" aria-label="Dismiss notification" class="inline-flex h-6 w-6 items-center justify-center rounded text-slate-600 hover:bg-slate-100">${ic('x')}</button>`;
+  $('#toasts').appendChild(el);
+  setTimeout(() => el.remove(), 8000);
+}
+function ask(o) {
+  return new Promise((res) => {
+    const d = $('#dlg');
+    d.innerHTML = `<div class="p-6"><h2 id="dlg-title" class="text-base font-semibold">${esc(o.title)}</h2><p class="mt-2 text-slate-600">${esc(o.body)}</p></div><div class="flex justify-end gap-2 border-t border-slate-200 px-6 py-3"><button type="button" id="dlg-cancel" class="${B.o}">${esc(o.cancel)}</button><button type="button" id="dlg-ok" class="${o.danger ? BTN + ' bg-red-700 text-white hover:bg-red-800' : B.p}">${esc(o.ok)}</button></div>`;
+    d.returnValue = '';
+    $('#dlg-cancel').onclick = () => d.close('no');
+    $('#dlg-ok').onclick = () => d.close('yes');
+    d.onclose = () => res(d.returnValue === 'yes');
+    d.showModal();
+    $('#dlg-cancel').focus();
+  });
+}
+
+/* ---------- Layout pieces ---------- */
+const NAV = [
+  ['Inventory', [['Products', 'box', true], ['Stock levels', 'layers'], ['Purchase orders', 'truck'], ['Suppliers', 'users']]],
+  ['Sales', [['Orders', 'cart'], ['Customers', 'users']]],
+  ['Insights', [['Reports', 'chart']]],
+  ['Administration', [['Settings', 'settings'], ['Help', 'help']]],
+];
+$('#nav').innerHTML = NAV.map(([g, items]) => `<div class="flex flex-col gap-0.5"><p class="hidden px-2 py-1 text-xs font-medium text-slate-600 lg:block">${g}</p>${items.map(([l, i, a]) => `<a href="#" data-nav="${l}" title="${l}" aria-label="${l}" ${a ? 'aria-current="page"' : ''} class="flex h-8 items-center gap-2 rounded px-2 text-sm text-slate-800 hover:bg-slate-200/60 ${a ? 'bg-slate-200 font-medium' : ''}">${ic(i)}<span class="hidden truncate lg:inline">${l}</span></a>`).join('')}</div>`).join('');
+
+function renderBell() {
+  const unread = notes.filter((n) => !n.read).length;
+  const b = $('#bell');
+  b.setAttribute('aria-label', unread ? `Notifications, ${unread} unread` : 'Notifications');
+  b.innerHTML = ic('bell') + (unread ? `<span class="absolute -right-0.5 -top-0.5 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-red-700 px-1 text-[10px] font-semibold text-white" aria-hidden="true">${unread}</span>` : '');
+  $('#notif').innerHTML = `<div class="border-b border-slate-200 px-4 py-3 font-semibold">Notifications</div>` + (notes.length
+    ? `<ul>${notes.map((n) => `<li class="flex gap-3 border-b border-slate-100 px-4 py-3 last:border-0"><span class="mt-0.5 ${n.tone === 'danger' ? 'text-red-700' : 'text-green-700'}">${ic(n.tone === 'danger' ? 'alert' : 'check')}</span><div class="flex-1"><p>${esc(n.text)}${n.read ? '' : ' <span class="sr-only">(unread)</span>'}</p><p class="mt-0.5 text-xs text-slate-600"><time>${esc(n.time)}</time></p><button type="button" data-act="open-results" class="${B.l} mt-1">View results</button></div>${n.read ? '' : '<span class="mt-2 h-2 w-2 shrink-0 rounded-full bg-blue-700" aria-hidden="true"></span>'}</li>`).join('')}</ul>`
+    : `<p class="px-4 py-6 text-slate-600">No notifications yet. Finished imports and exports appear here.</p>`);
+}
+
+function stepper() {
+  const items = STEPS.map((name, i) => {
+    const done = i < S.step, cur = i === S.step;
+    const canClick = done && S.file && S.step < 3;
+    const circle = cur ? 'bg-blue-700 text-white' : done ? 'bg-blue-50 text-blue-800 border border-blue-700' : 'border border-slate-300 text-slate-600';
+    const inner = `<span class="flex h-6 w-6 items-center justify-center rounded-full text-xs font-semibold ${circle}">${done ? ic('check', 'h-3 w-3') : i + 1}</span><span class="${cur ? 'font-semibold text-slate-900' : done ? 'font-medium text-slate-900' : 'text-slate-600'}">${name}${done ? '<span class="sr-only"> (completed)</span>' : ''}</span>`;
+    return `<li class="flex items-center gap-3" ${cur ? 'aria-current="step"' : ''}>${canClick ? `<button type="button" data-act="goto" data-step="${i}" class="flex items-center gap-2 rounded px-1 py-1 hover:bg-slate-50">${inner}</button>` : `<span class="flex items-center gap-2 px-1 py-1">${inner}</span>`}${i < STEPS.length - 1 ? '<span class="hidden h-px w-10 bg-slate-300 sm:block" aria-hidden="true"></span>' : ''}</li>`;
+  }).join('');
+  return `<nav aria-label="Import progress"><ol class="flex flex-wrap items-center gap-x-3 gap-y-1">${items}</ol></nav>`;
+}
+
+function banner() {
+  if (!J || !J.bg) return '';
+  if (J.status === 'running') {
+    const pct = Math.round(J.done / J.total * 100);
+    return `<div class="mb-4 rounded-lg border border-blue-200 bg-blue-50 p-3 text-blue-900"><div class="flex flex-wrap items-center justify-between gap-2"><p class="font-medium">Importing products: ${fmtNum(J.done)} of ${fmtNum(J.total)} (${pct}%)</p><button type="button" data-act="stop" class="${B.o}">Stop import</button></div><div class="mt-2 h-2 overflow-hidden rounded-full bg-blue-100" role="progressbar" aria-label="Import progress" aria-valuemin="0" aria-valuemax="${J.total}" aria-valuenow="${J.done}"><div class="h-full bg-blue-700" style="width:${pct}%"></div></div><p class="mt-1 text-xs text-blue-900">The page stays usable. You will get a notification when the import finishes.</p></div>`;
+  }
+  const r = J.res; const bad = r.failed > 0 || J.status === 'stopped';
+  return `<div class="mb-4 flex flex-wrap items-center justify-between gap-2 rounded-lg border p-3 ${bad ? 'border-amber-200 bg-amber-50 text-amber-900' : 'border-green-200 bg-green-50 text-green-900'}" role="status"><p class="font-medium">${ic(bad ? 'alert' : 'check', 'mr-1 inline')}${esc(resultLine())}</p><div class="flex gap-2"><button type="button" data-act="open-results" class="${B.o}">View results</button><button type="button" data-act="dismiss-banner" class="${B.o}">Dismiss</button></div></div>`;
+}
+
+/* ---------- Steps ---------- */
+function skeletonPanel(label) {
+  return `<div aria-busy="true" aria-label="${label}"><div class="skel h-6 w-48"></div><div class="skel mt-3 h-4 w-96 max-w-full"></div><div class="mt-6 rounded-lg border border-slate-200">${Array.from({ length: 6 }, () => '<div class="flex gap-4 border-b border-slate-100 px-3 py-3 last:border-0"><div class="skel h-4 w-24"></div><div class="skel h-4 flex-1"></div><div class="skel h-4 w-20"></div></div>').join('')}</div></div>`;
+}
+
+function stepUpload() {
+  const f = S.file;
+  const guide = FIELDS.map((x) => `<tr class="h-10 border-b border-slate-100 last:border-0"><td class="px-3 font-medium">${esc(x.label)}${x.unit ? ` <span class="font-normal text-slate-600">(${x.unit})</span>` : ''}</td><td class="px-3">${x.req ? badge('warning', 'Required') : '<span class="text-slate-600">Optional</span>'}</td><td class="px-3 text-slate-600">${esc(GUIDE[x.key])}</td></tr>`).join('');
+  return `
+  <h2 id="panel-title" tabindex="-1" class="text-base font-semibold">Upload file</h2>
+  <p class="mt-1 text-slate-600">Add or update products from a CSV file.${catalogTotal() === 0 ? ' No products exist yet, so every valid row will create a new product.' : ` The catalog has ${fmtNum(catalogTotal())} products.`}</p>
+  ${catalogTotal() === 0 ? `<div class="mt-4 rounded-lg border border-slate-200 bg-slate-50 p-4"><p class="font-medium">No products yet</p><p class="mt-1 text-slate-600">Upload a file to add your first products, or download the template to see the format.</p></div>` : ''}
+  <section class="mt-6" aria-labelledby="h-tpl"><h3 id="h-tpl" class="font-semibold">1. Download the template</h3>
+    <p class="mt-1 text-slate-600">It holds the header row and one example row. Column names in the template are matched automatically in the next step.</p>
+    <div class="mt-2"><button type="button" data-act="template" class="${B.o}">${ic('download')}Download template (CSV, UTF-8 with BOM)</button></div>
+    <div class="mt-3 overflow-x-auto rounded-lg border border-slate-200"><table class="w-full text-left"><caption class="sr-only">Column guide</caption><thead class="border-b border-slate-200 bg-slate-50"><tr class="h-10"><th scope="col" class="px-3 font-medium">Column</th><th scope="col" class="px-3 font-medium">Required</th><th scope="col" class="px-3 font-medium">Format</th></tr></thead><tbody>${guide}</tbody></table></div>
+  </section>
+  <section class="mt-6" aria-labelledby="h-up"><h3 id="h-up" class="font-semibold">2. Upload your file</h3>
+    <p class="mt-1 text-slate-600">CSV · up to 10 MB · up to ${fmtNum(LIMITS.rows)} rows</p>
+    ${f ? `<div class="mt-2 flex flex-wrap items-center gap-3 rounded-lg border border-slate-200 p-3"><span class="text-slate-600">${ic('file')}</span><div class="min-w-0 flex-1"><p class="truncate font-medium">${esc(f.name)}</p><p class="text-xs text-slate-600">${fmtBytes(f.size)} · ${DELIM_NAME[S.delim]}-separated · ${fmtNum(S.data.length)} rows</p></div><button type="button" data-act="choose" class="${B.o}">Replace file</button></div>`
+    : `<div id="dropzone" data-drop class="mt-2 flex flex-col items-center rounded-lg border-2 border-dashed border-slate-300 bg-slate-50 px-6 py-8 text-center"><span class="text-slate-600">${ic('upload', 'h-6 w-6')}</span><p class="mt-2 font-medium">Drag a CSV file here</p><p class="text-slate-600">or</p><div class="mt-2 flex flex-wrap justify-center gap-2"><button type="button" id="choose-btn" data-act="choose" class="${B.p}">Choose file</button><button type="button" data-act="sample" class="${B.o}">Use sample file (products-2026-11.csv)</button></div></div>`}
+    <p id="upload-error" tabindex="-1" role="alert" class="mt-2 ${S.uploadError ? 'flex' : 'hidden'} items-start gap-2 text-red-700">${S.uploadError ? ic('alert', 'mt-0.5') + '<span>' + esc(S.uploadError) + '</span>' : ''}</p>
+  </section>`;
+}
+
+function stepMap() {
+  const { dup, used, missing } = mapIssues();
+  const reqList = FIELDS.filter((f) => f.req).map((f) => {
+    const i = used[f.key];
+    const ok = i !== undefined;
+    return `<li class="flex items-center gap-2">${ok ? `<span class="text-green-700">${ic('check')}</span><span>${esc(f.label)}* <span class="text-slate-600">from column “${esc(S.headers[i])}”</span></span>` : S.triedNext ? `<span class="text-red-700">${ic('alert')}</span><span id="req-err-${f.key}" tabindex="-1" class="font-medium text-red-700">Map a column to ${esc(f.label)}</span>` : `<span class="text-slate-600">${ic('info')}</span><span>${esc(f.label)}* <span class="text-slate-600">not mapped yet</span></span>`}</li>`;
+  }).join('');
+  const rows = S.headers.map((h, i) => {
+    const samples = S.data.slice(0, 3).map((r) => r[i]).filter((v) => v !== undefined && String(v).trim() !== '');
+    const val = S.mapping[i];
+    const isDup = dup[i] !== undefined;
+    const opts = `<option value="">Don't import</option>` + FIELDS.map((f) => `<option value="${f.key}" ${val === f.key ? 'selected' : ''}>${esc(f.label)}${f.unit ? ' (' + f.unit + ')' : ''}${f.req ? ' *' : ''}</option>`).join('');
+    return `<tr class="border-b border-slate-100 last:border-0 align-middle"><th scope="row" class="h-10 px-3 py-1 text-left font-medium">${esc(h)}</th><td class="px-3 py-1 text-slate-600"><span class="block max-w-[28rem] truncate" title="${esc(samples.join(' | '))}">${samples.length ? esc(samples.join(' · ')) : '—<span class="sr-only">Not set</span>'}</span></td><td class="px-3 py-1"><label class="sr-only" for="map-${i}">Import column ${esc(h)} as</label><select id="map-${i}" data-map="${i}" ${isDup ? `aria-invalid="true" aria-describedby="map-err-${i}"` : ''} class="h-8 w-60 rounded border ${isDup ? 'border-red-600' : 'border-slate-300'} bg-white px-2 text-sm">${opts}</select>${isDup ? `<p id="map-err-${i}" class="mt-1 flex items-center gap-1 text-red-700">${ic('alert')}${esc(F[val].label)} is already mapped to column “${esc(S.headers[dup[i]])}”</p>` : ''}</td></tr>`;
+  }).join('');
+  const ignored = S.headers.filter((h, i) => !S.mapping[i]);
+  return `
+  <h2 id="panel-title" tabindex="-1" class="text-base font-semibold">Map columns</h2>
+  <p class="mt-1 text-slate-600">Choose which product field each column in your file fills. Columns were matched by name where possible.</p>
+  <div class="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2">
+    <p class="text-slate-600">${DELIM_NAME[S.delim]}-separated · ${fmtNum(S.data.length)} rows</p>
+    <label class="flex items-center gap-2"><span class="text-slate-600">Separator</span><select id="delim" data-delim class="h-8 rounded border border-slate-300 bg-white px-2 text-sm"><option value="auto" ${S.delimMode === 'auto' ? 'selected' : ''}>Detect automatically</option><option value="," ${S.delimMode === ',' ? 'selected' : ''}>Comma</option><option value=";" ${S.delimMode === ';' ? 'selected' : ''}>Semicolon</option><option value="	" ${S.delimMode === '\t' ? 'selected' : ''}>Tab</option></select></label>
+    ${S.remembered ? `<p class="flex items-center gap-1 text-slate-600">${ic('check', 'text-green-700')}Mapping from your last import applied</p>` : ''}
+  </div>
+  <div class="mt-4 rounded-lg border border-slate-200 p-4"><h3 class="font-semibold">Required fields</h3><p class="text-slate-600">Required: ${FIELDS.filter((f) => f.req).map((f) => f.label + '*').join(', ')}</p><ul class="mt-2 grid gap-1 sm:grid-cols-2">${reqList}</ul></div>
+  <div class="mt-4 overflow-x-auto rounded-lg border border-slate-200"><table class="w-full text-left"><caption class="sr-only">Column mapping</caption><thead class="border-b border-slate-200 bg-slate-50"><tr class="h-10"><th scope="col" class="px-3 font-medium">File column</th><th scope="col" class="px-3 font-medium">Sample values</th><th scope="col" class="px-3 font-medium">Import as</th></tr></thead><tbody>${rows}</tbody></table></div>
+  <p class="mt-3 text-slate-600">${ignored.length ? `${ignored.length} ${plural(ignored.length, 'column won\'t', 'columns won\'t')} be imported: ${ignored.map(esc).join(', ')}.` : 'Every column in the file will be imported.'}</p>`;
+}
+
+function reviewTable() {
+  const V = S.V; let rows = V.rows;
+  if (S.filter === 'errors') rows = rows.filter((r) => r.errors.length);
+  const total = rows.length, pages = Math.max(1, Math.ceil(total / S.size));
+  if (S.page > pages) S.page = pages;
+  const start = (S.page - 1) * S.size, slice = rows.slice(start, start + S.size);
+  const errCell = (r, f, content, right) => {
+    const e = r.errors.find((x) => x.f === f);
+    const empty = content === '' || content == null;
+    const body = e ? `<span class="inline-flex items-center gap-1 text-red-700" title="${esc(e.msg)}">${ic('alert', 'h-3 w-3')}${empty ? '<span class="sr-only">Missing</span>—' : esc(content)}</span>` : empty ? '<span aria-hidden="true">—</span><span class="sr-only">Not set</span>' : esc(content);
+    return `<td class="h-10 px-3 ${right ? 'text-right tabular-nums' : ''} ${e ? 'bg-red-50' : ''}"><span class="block ${right ? '' : 'max-w-[18rem] truncate'}" ${right || !content ? '' : `title="${esc(content)}"`}>${body}</span></td>`;
+  };
+  const num = (r, k) => r.num[k] != null ? fmtAmt(r.num[k]) : r.rec[k];
+  const body = slice.map((r) => {
+    const o = outcome(r);
+    let res;
+    if (o === 'error') { const first = r.errors[0]; res = `<span class="inline-flex max-w-[26rem] items-center gap-1 text-red-700" title="${esc(r.errors.map((e) => e.msg).join('; '))}">${ic('alert')}<span class="truncate">${esc(first.msg)}${r.errors.length > 1 ? ` (+${r.errors.length - 1} more)` : ''}</span></span>`; }
+    else if (o === 'create') res = badge('success', 'Will create');
+    else if (o === 'update') res = badge('info', 'Will update');
+    else res = badge('neutral', r.exists ? 'Skipped: SKU exists' : 'Skipped: SKU is new');
+    return `<tr class="border-b border-slate-100 last:border-0 ${o === 'error' ? 'bg-red-50/40' : ''}"><td class="h-10 px-3 text-right tabular-nums text-slate-600">${r.n}</td>${errCell(r, 'sku', r.rec.sku)}${errCell(r, 'name', r.rec.name)}${errCell(r, 'category', r.rec.category)}${errCell(r, 'unit', r.rec.unit)}${errCell(r, 'cost', num(r, 'cost'), 1)}${errCell(r, 'price', num(r, 'price'), 1)}${errCell(r, 'stock', num(r, 'stock'), 1)}<td class="h-10 px-3">${res}</td></tr>`;
+  }).join('');
+  const th = (t, right) => `<th scope="col" class="px-3 font-medium ${right ? 'text-right' : ''}">${t}</th>`;
+  return `<div class="overflow-x-auto rounded-lg border border-slate-200"><table class="w-full text-left"><caption class="sr-only">Preview of rows to import</caption><thead class="border-b border-slate-200 bg-slate-50"><tr class="h-10">${th('Row', 1)}${th('SKU')}${th('Product name')}${th('Category')}${th('Unit')}${th('Cost price (VND)', 1)}${th('Sale price (VND)', 1)}${th('Stock', 1)}${th('Result')}</tr></thead><tbody>${body || `<tr><td colspan="9" class="px-3 py-8 text-center text-slate-600">No rows match this filter. <button type="button" data-act="filter" data-v="all" class="${B.l}">Show all rows</button></td></tr>`}</tbody></table></div>
+  <div class="mt-3 flex flex-wrap items-center justify-between gap-2"><p class="text-slate-600 tabular-nums">${total ? `${fmtNum(start + 1)}–${fmtNum(start + slice.length)} of ${fmtNum(total)} rows` : '0 rows'}</p><div class="flex items-center gap-2"><label class="flex items-center gap-2 text-slate-600">Rows per page<select data-size id="size" class="h-8 rounded border border-slate-300 bg-white px-2 text-sm text-slate-900">${[25, 50, 100].map((n) => `<option ${n === S.size ? 'selected' : ''}>${n}</option>`).join('')}</select></label><button type="button" id="pg-prev" data-act="page" data-d="-1" aria-label="Previous page" class="${B.o} w-8 px-0" ${S.page <= 1 ? 'disabled' : ''}>${ic('left')}</button><span class="tabular-nums text-slate-600">Page ${S.page} of ${pages}</span><button type="button" id="pg-next" data-act="page" data-d="1" aria-label="Next page" class="${B.o} w-8 px-0" ${S.page >= pages ? 'disabled' : ''}>${ic('right')}</button></div></div>`;
+}
+
+function stepReview() {
+  if (S.checking) return `<h2 id="panel-title" tabindex="-1" class="text-base font-semibold">Review</h2><p class="mt-1 flex items-center gap-2 text-slate-600" role="status">${spin}Checking ${fmtNum(S.data.length)} rows…</p><div class="mt-4">${skeletonPanel('Checking rows')}</div>`;
+  const V = S.V, t = tally(), errN = t.error;
+  const kinds = Object.entries(V.kinds).map(([k, n]) => `${k} ${n}`).join(' · ');
+  const noCatalog = catalogTotal() === 0;
+  const opt = (v, label, desc, dis) => `<label class="flex items-start gap-2 ${dis ? 'text-slate-600' : ''}"><input type="radio" name="opt" id="opt-${v}" value="${v}" data-opt ${S.option === v ? 'checked' : ''} ${dis ? 'disabled' : ''} class="mt-1 h-4 w-4 accent-blue-700"><span><span class="font-medium">${label}</span><span class="block text-slate-600">${desc}</span></span></label>`;
+  let decision;
+  if (!t.valid) decision = `<p class="text-red-700">${ic('alert', 'mr-1 inline')}No row can be imported. Fix the errors in your file and upload it again.</p>`;
+  else decision = `<p>${errN ? `${fmtNum(errN)} ${plural(errN, 'row with errors', 'rows with errors')} will be skipped. Fix ${plural(errN, 'it', 'them')} in the file and upload it again, or import the ${fmtNum(t.act)} ${plural(t.act, 'valid row', 'valid rows')} now.` : 'Every row is valid.'}${t.skip ? ` ${fmtNum(t.skip)} valid ${plural(t.skip, 'row is', 'rows are')} skipped by the option above.` : ''}</p>`;
+  return `
+  <h2 id="panel-title" tabindex="-1" class="text-base font-semibold">Review</h2>
+  <p class="mt-1 text-slate-600 tabular-nums" id="summary-line">${fmtNum(V.rows.length)} rows · ${fmtNum(t.valid + 0)} valid · ${fmtNum(errN)} with errors</p>
+  ${errN ? `<div class="mt-3 flex items-start gap-2 rounded-lg border border-red-200 bg-red-50 p-3 text-red-900">${ic('alert', 'mt-0.5')}<div><p class="font-medium">${fmtNum(errN)} ${plural(errN, 'row has', 'rows have')} errors</p><p>${esc(kinds)}</p></div></div>` : ''}
+  <fieldset class="mt-4 rounded-lg border border-slate-200 p-4"><legend class="px-1 font-semibold">Rows whose SKU already exists</legend>
+    <div class="mt-1 grid gap-3 lg:grid-cols-3">${opt('create', 'Create new only', 'Existing SKUs are skipped', false)}${opt('update', 'Update existing by SKU', noCatalog ? 'Unavailable: no products exist yet' : 'New SKUs are skipped', noCatalog)}${opt('both', 'Create and update', noCatalog ? 'Unavailable: no products exist yet' : 'Matches by SKU, creates the rest', noCatalog)}</div>
+    <p class="mt-3 text-slate-600 tabular-nums">${fmtNum(t.isNew)} new · ${fmtNum(t.isExisting)} existing (matched by SKU). With an update option, an empty cell keeps the current value.</p>
+  </fieldset>
+  <div class="mt-4 flex flex-wrap items-center justify-between gap-2">
+    <div role="group" aria-label="Filter rows" class="inline-flex rounded border border-slate-300">
+      <button type="button" id="flt-all" data-act="filter" data-v="all" aria-pressed="${S.filter === 'all'}" class="h-8 rounded-l px-3 text-sm ${S.filter === 'all' ? 'bg-slate-100 font-semibold' : 'bg-white hover:bg-slate-50'}">All rows (${fmtNum(V.rows.length)})</button>
+      <button type="button" id="flt-errors" data-act="filter" data-v="errors" aria-pressed="${S.filter === 'errors'}" class="h-8 rounded-r border-l border-slate-300 px-3 text-sm ${S.filter === 'errors' ? 'bg-slate-100 font-semibold' : 'bg-white hover:bg-slate-50'}">Errors only (${fmtNum(errN)})</button>
+    </div>
+    <button type="button" data-act="dl-failed" class="${B.o}" ${errN ? '' : 'disabled'}>${ic('download')}Download failed rows (${fmtNum(errN)})</button>
+  </div>
+  <div class="mt-3">${reviewTable()}</div>
+  <div class="mt-4 rounded-lg border border-slate-200 bg-slate-50 p-4" id="decision" aria-live="polite">${decision}${S.runMsg ? `<p class="mt-2 flex items-center gap-1 font-medium text-red-700" role="alert">${ic('alert')}${esc(S.runMsg)}</p>` : ''}</div>`;
+}
+
+function resultLine() {
+  const r = J.res;
+  const parts = [`${fmtNum(r.created)} created`];
+  if (r.updated) parts.push(`${fmtNum(r.updated)} updated`);
+  if (r.failed) parts.push(`${fmtNum(r.failed)} failed`);
+  return `${J.status === 'stopped' ? 'Import stopped' : 'Import finished'}: ${parts.join(' · ')}`;
+}
+
+function stepImport() {
+  if (!J) return '';
+  if (J.status === 'running') {
+    const pct = Math.round(J.done / J.total * 100);
+    return `
+    <h2 id="panel-title" tabindex="-1" class="text-base font-semibold">Importing products</h2>
+    <div class="mt-4 rounded-lg border border-slate-200 p-4">
+      <p class="font-medium tabular-nums">Importing ${fmtNum(J.done)} of ${fmtNum(J.total)} <span class="font-normal text-slate-600">(${pct}%)</span></p>
+      <div class="mt-3 h-2 overflow-hidden rounded-full bg-slate-100" role="progressbar" aria-label="Import progress" aria-valuemin="0" aria-valuemax="${J.total}" aria-valuenow="${J.done}"><div class="h-full bg-blue-700" style="width:${pct}%"></div></div>
+      <p class="mt-3 text-slate-600">You can leave this page. You'll get a notification when it's done.</p>
+      <div class="mt-4 flex gap-2"><button type="button" data-act="bg" class="${B.p}">Run in background</button><button type="button" data-act="stop" class="${B.o}">Stop import</button></div>
+    </div>
+    <p id="progress-live" role="status" class="sr-only"></p>`;
+  }
+  const r = J.res, bad = r.failed > 0 || J.status === 'stopped';
+  const fig = (label, v, tone) => `<div class="rounded-lg border border-slate-200 p-4"><p class="text-slate-600">${label}</p><p class="mt-1 text-2xl font-semibold tabular-nums">${fmtNum(v)}</p>${tone ? `<div class="mt-1">${badge(tone[0], tone[1], tone[2])}</div>` : ''}</div>`;
+  const mapDesc = S.mapping.map((k, i) => k ? `${S.headers[i]} → ${F[k].label}` : '').filter(Boolean).join('; ');
+  return `
+  <h2 id="panel-title" tabindex="-1" class="text-base font-semibold">${J.status === 'stopped' ? 'Import stopped' : 'Import finished'}</h2>
+  <div class="mt-3 flex items-start gap-2 rounded-lg border p-3 ${bad ? 'border-amber-200 bg-amber-50 text-amber-900' : 'border-green-200 bg-green-50 text-green-900'}" role="status">${ic(bad ? 'alert' : 'check', 'mt-0.5')}<p class="font-medium">${esc(resultLine())}${J.status === 'stopped' ? `. ${fmtNum(J.total - J.done)} ${plural(J.total - J.done, 'row was', 'rows were')} not imported.` : ''}</p></div>
+  <div class="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">${fig('Created', r.created, r.created ? ['success', 'Added to catalog', 'check'] : null)}${fig('Updated', r.updated, null)}${fig('Skipped', r.skipped, r.skipped ? ['neutral', 'Not changed'] : null)}${fig('Failed', r.failed, r.failed ? ['danger', 'Needs fixing', 'alert'] : null)}</div>
+  ${J.serverFail.length ? `<p class="mt-3 flex items-start gap-2 text-red-700">${ic('alert', 'mt-0.5')}<span>${esc(J.serverFail.map((x) => `Row ${x.n}: ${x.msg}`).join('; '))}</span></p>` : ''}
+  <div class="mt-4 flex flex-wrap items-center gap-2">
+    <button type="button" data-act="dl-failed-final" class="${B.o}" ${r.failed ? '' : 'disabled'}>${ic('download')}Download failed rows (${fmtNum(r.failed)})</button>
+    <button type="button" id="log-btn" data-act="log" aria-expanded="${S.showLog}" class="${B.o}">View import log</button>
+    <a href="#products?import=${J.id}" data-nav-result class="${B.o}">View imported products</a>
+    <button type="button" data-act="another" class="${B.o}">Import another file</button>
+  </div>
+  <section id="log" ${S.showLog ? '' : 'hidden'} class="mt-4 rounded-lg border border-slate-200 p-4" aria-label="Import log"><h3 class="font-semibold">Import log #${J.id}</h3>
+    <dl class="mt-2 grid gap-x-6 gap-y-1 sm:grid-cols-[10rem_1fr]">
+      <dt class="text-slate-600">File</dt><dd>${esc(J.file)}</dd>
+      <dt class="text-slate-600">Imported by</dt><dd>Lê Hoa</dd>
+      <dt class="text-slate-600">Started</dt><dd><time datetime="${J.started.toISOString()}" class="tabular-nums">${fmtDT(J.started)}</time> (GMT+7)</dd>
+      <dt class="text-slate-600">Option</dt><dd>${esc(J.optionLabel)}, key: SKU</dd>
+      <dt class="text-slate-600">Mapping</dt><dd>${esc(mapDesc || J.mapDesc)}</dd>
+      <dt class="text-slate-600">Counts</dt><dd class="tabular-nums">${r.created} created · ${r.updated} updated · ${r.skipped} skipped · ${r.failed} failed</dd>
+    </dl>
+    <p class="mt-3 text-slate-600">The log keeps each row's outcome for 30 days.</p>
+  </section>`;
+}
+
+/* ---------- Page render ---------- */
+function bar() {
+  const t = S.V && S.step === 2 && !S.checking ? tally() : null;
+  const left = dirty() ? `<span class="flex items-center gap-1 text-slate-700"><span class="h-2 w-2 rounded-full bg-amber-500" aria-hidden="true"></span>Unsaved changes: nothing is imported until you confirm</span>` : '<span></span>';
+  let right = '';
+  if (S.step === 0) right = `<button type="button" data-act="next" class="${B.p}">Next: Map columns${ic('right')}</button>`;
+  if (S.step === 1) right = `<button type="button" data-act="back" class="${B.o}">${ic('left')}Back</button><button type="button" data-act="next" class="${B.p}">Next: Review${ic('right')}</button>`;
+  if (S.step === 2) {
+    if (S.checking) right = '';
+    else if (t && !t.valid) right = `<button type="button" data-act="reset" class="${B.p}">Upload a new file</button>`;
+    else right = `<button type="button" data-act="back" class="${B.o}">${ic('left')}Back</button><button type="button" data-act="reset" class="${B.o}">Upload a new file</button><button type="button" id="run-btn" data-act="run" class="${B.p}">Import ${fmtNum(t.act)} ${plural(t.act, 'product', 'products')}</button>`;
+  }
+  if (S.step === 3 || !right) return '';
+  return `<div class="sticky bottom-0 z-10 -mx-6 mt-6 flex flex-wrap items-center justify-between gap-2 border-t border-slate-200 bg-white px-6 py-3">${left}<div class="flex items-center gap-2">${right}</div></div>`;
+}
+
+function render() {
+  const fid = document.activeElement && document.activeElement.id;
+  let panel;
+  if (!ready && !loadFailed) panel = skeletonPanel('Loading import');
+  else if (loadFailed) panel = `<div class="rounded-lg border border-red-200 bg-red-50 p-6" role="alert"><p class="flex items-center gap-2 font-semibold text-red-900">${ic('alert')}Couldn't load the product catalog</p><p class="mt-1 text-red-900">The import needs the existing SKUs to check for duplicates. Nothing was changed.</p><div class="mt-3"><button type="button" id="retry" data-act="retry" class="${B.o}">Retry</button></div></div>`;
+  else panel = [stepUpload, stepMap, stepReview, stepImport][S.step]();
+  const showStepper = ready || loadFailed;
+  $('#main').innerHTML = `
+    <nav aria-label="Breadcrumb" class="mb-2"><ol class="flex flex-wrap items-center gap-1 text-slate-600"><li><a href="#" data-nav="Inventory" class="inline-flex min-h-6 items-center hover:text-slate-900 hover:underline">Inventory</a></li><li aria-hidden="true">/</li><li><a href="#" data-nav="Products" class="inline-flex min-h-6 items-center hover:text-slate-900 hover:underline">Products</a></li><li aria-hidden="true">/</li><li><span aria-current="page" class="text-slate-900">Import</span></li></ol></nav>
+    <div class="mb-4 flex flex-wrap items-center justify-between gap-2"><h1 class="text-xl font-semibold">Import products</h1>${S.file && S.step < 3 ? `<p class="text-slate-600">File: ${esc(S.file.name)}</p>` : ''}</div>
+    ${banner()}
+    <div class="mb-5 border-b border-slate-200 pb-4">${stepper()}</div>
+    <div class="max-w-6xl flex-1">${panel}</div>
+    ${bar()}`;
+  renderBell();
+  if (S.focus) {
+    const el = $(S.focus === 'title' ? '#panel-title' : S.focus);
+    if (el) el.focus({ preventScroll: false });
+    S.focus = '';
+  } else if (fid) { const el = document.getElementById(fid); if (el) el.focus({ preventScroll: true }); }
+}
+
+/* ---------- File handling ---------- */
+function fileError(msg) { S.uploadError = msg; S.focus = '#upload-error'; render(); }
+function acceptText(name, size, text, hadReplacement) {
+  if (hadReplacement || text.includes('�')) return fileError("This file isn't UTF-8, so Vietnamese letters can't be read. In Excel, save it as CSV UTF-8 (comma delimited) and upload it again.");
+  const d = detectDelim(text);
+  const rows = parseCsv(text, d);
+  if (rows.length < 2) return fileError('This file has no data rows. Add at least one product under the header row.');
+  if (rows.length - 1 > LIMITS.rows) return fileError(`This file has ${fmtNum(rows.length - 1)} rows. The limit is ${fmtNum(LIMITS.rows)}. Split it into smaller files.`);
+  S = { ...fresh(), file: { name, size, text }, delim: d };
+  S.headers = rows[0]; S.data = rows.slice(1);
+  const mem = loadRemembered();
+  S.mapping = mem || autoMap(S.headers); S.remembered = !!mem;
+  S.step = 0;
+  render();
+  toast(`${name} loaded: ${fmtNum(S.data.length)} rows`, 'info');
+}
+function reparse(mode) {
+  S.delimMode = mode;
+  S.delim = mode === 'auto' ? detectDelim(S.file.text) : mode;
+  const rows = parseCsv(S.file.text, S.delim);
+  S.headers = rows[0] || []; S.data = rows.slice(1);
+  S.mapping = autoMap(S.headers); S.remembered = false; S.triedNext = false;
+}
+async function handleFile(file) {
+  if (!file) return;
+  const ext = (file.name.split('.').pop() || '').toLowerCase();
+  if (ext === 'xlsx' || ext === 'xls') return fileError('Excel files are not read directly. In Excel, choose Save as > CSV UTF-8 and upload that file.');
+  if (ext !== 'csv') return fileError(`“${file.name}” is not a CSV file. Only .csv files are accepted.`);
+  if (file.size > LIMITS.bytes) return fileError(`“${file.name}” is ${fmtBytes(file.size)}. The limit is 10 MB.`);
+  const buf = await file.arrayBuffer();
+  const text = new TextDecoder('utf-8').decode(buf);
+  acceptText(file.name, file.size, text, false);
+}
+function useSample() {
+  const t = sampleCsv();
+  acceptText('products-2026-11.csv', new Blob([t]).size, t, false);
+}
+
+/* ---------- Import job ---------- */
+const OPT_LABEL = { create: 'Create new only', update: 'Update existing by SKU', both: 'Create and update' };
+let timer = null;
+function startJob() {
+  const t = tally();
+  const queue = S.V.rows.filter((r) => ['create', 'update'].includes(outcome(r))).map((r) => ({ n: r.n, sku: r.rec.sku, kind: outcome(r) }));
+  const lastCreate = [...queue].reverse().find((q) => q.kind === 'create');
+  const failAt = queue.length >= 6 && lastCreate ? lastCreate : null;
+  J = {
+    id: 218, file: S.file.name, started: new Date(), status: 'running', bg: false, total: queue.length, done: 0, queue, failAt,
+    optionLabel: OPT_LABEL[S.option], mapDesc: '', serverFail: [], skippedOpt: t.skip, invalid: t.error, created: 0, updated: 0, res: null,
+  };
+  S.mapping.forEach((k, i) => { if (k) J.mapDesc += (J.mapDesc ? '; ' : '') + `${S.headers[i]} → ${F[k].label}`; });
+  S.step = 3; S.focus = 'title'; S.showLog = false;
+  render();
+  clearInterval(timer);
+  timer = setInterval(tick, 140);
+}
+function summarize() {
+  J.res = { created: J.created, updated: J.updated, skipped: J.skippedOpt, failed: J.invalid + J.serverFail.length };
+}
+function tick() {
+  const step = Math.max(1, Math.ceil(J.total / 22));
+  const upto = Math.min(J.total, J.done + step);
+  for (let i = J.done; i < upto; i++) {
+    const q = J.queue[i];
+    if (J.failAt && q === J.failAt) J.serverFail.push({ n: q.n, sku: q.sku, msg: `SKU ${q.sku} was created by Trần Minh Quân a moment ago` });
+    else if (q.kind === 'create') J.created++; else J.updated++;
+  }
+  J.done = upto;
+  if (J.done >= J.total) { clearInterval(timer); J.status = 'done'; finishJob(); return; }
+  if (S.step === 3 || J.bg) refreshProgress();
+}
+function refreshProgress() {
+  const pct = Math.round(J.done / J.total * 100);
+  document.querySelectorAll('[role="progressbar"]').forEach((p) => { p.setAttribute('aria-valuenow', J.done); p.firstElementChild.style.width = pct + '%'; });
+  const txt = (el) => { if (el) el.innerHTML = el.innerHTML.replace(/\d[\d.]* of [\d.]+( \(\d+%\))?/, `${fmtNum(J.done)} of ${fmtNum(J.total)}${el.dataset.pct === '0' ? '' : ` (${pct}%)`}`); };
+  document.querySelectorAll('#main p.font-medium').forEach((p) => { if (/\d of \d/.test(p.textContent) && /Importing/.test(p.textContent)) txt(p); });
+  const live = $('#progress-live'); if (live && pct % 25 < 5) live.textContent = `Importing ${fmtNum(J.done)} of ${fmtNum(J.total)}`;
+}
+function finishJob() {
+  summarize();
+  const time = fmtDT(new Date());
+  const failed = J.res.failed > 0;
+  if (J.bg) {
+    notes.unshift({ text: resultLine() + (failed ? '' : ''), tone: failed ? 'danger' : 'success', time, read: false });
+    if (!failed) toast(resultLine(), 'success', { act: 'open-results', label: 'View results' });
+  } else if (!failed) toast(resultLine());
+  else notes.unshift({ text: resultLine(), tone: 'danger', time, read: true });
+  S.focus = J.bg ? '' : 'title';
+  render();
+}
+
+/* ---------- Actions ---------- */
+function goStep(n, focus = 'title') { S.step = n; S.focus = focus; S.runMsg = ''; render(); window.scrollTo({ top: 0 }); }
+function toReview() {
+  S.step = 2; S.checking = true; S.V = null; S.filter = 'all'; S.page = 1; S.focus = 'title'; render();
+  setTimeout(() => { S.V = validate(); S.checking = false; render(); }, 450);
+}
+function failedCsv() {
+  const d = S.delim === '\t' ? ',' : S.delim;
+  const lines = [csvLine([...S.headers, 'Error'], d)];
+  S.V.rows.filter((r) => r.errors.length).forEach((r) => lines.push(csvLine([...S.headers.map((h, i) => r.raw[i] ?? ''), r.errors.map((e) => e.msg).join(' | ')], d)));
+  if (J) J.serverFail.forEach((x) => { const r = S.V.rows.find((y) => y.n === x.n); if (r) lines.push(csvLine([...S.headers.map((h, i) => r.raw[i] ?? ''), x.msg], d)); });
+  return lines.join('\r\n') + '\r\n';
+}
+async function leaveTo(label) {
+  if (!dirty()) { toast(`Navigation to ${label} is not part of this demo`, 'info'); return; }
+  const ok = await ask({ title: 'Leave this import?', body: `“${S.file.name}” and your column mapping will be discarded. Nothing has been imported yet.`, cancel: 'Stay on this page', ok: 'Leave page', danger: true });
+  if (ok) { S = fresh(); render(); toast('Import discarded', 'info'); }
+}
+
+document.addEventListener('click', async (e) => {
+  const nav = e.target.closest('a[data-nav]');
+  if (nav) { e.preventDefault(); return leaveTo(nav.dataset.nav); }
+  if (e.target.closest('[data-nav-result]')) { e.preventDefault(); return toast('The product list filtered to import #218 opens here', 'info'); }
+  const el = e.target.closest('[data-act]');
+  if (!el) { const n = $('#notif'); if (!n.hidden && !e.target.closest('#notif')) { n.hidden = true; $('#bell').setAttribute('aria-expanded', 'false'); } return; }
+  const act = el.dataset.act;
+  switch (act) {
+    case 'bell': { const n = $('#notif'); n.hidden = !n.hidden; el.setAttribute('aria-expanded', String(!n.hidden)); if (!n.hidden) { notes.forEach((x) => { x.read = true; }); setTimeout(renderBell, 0); } break; }
+    case 'close-toast': document.getElementById(el.dataset.id)?.remove(); break;
+    case 'choose': $('#file-input').click(); break;
+    case 'sample': useSample(); break;
+    case 'template': downloadText('products-template.csv', 'SKU,Product name,Category,Unit,Cost price,Sale price,Stock,Reorder level,Barcode\r\nVPP-001,Bút bi Thiên Long TL-027 (xanh),Văn phòng phẩm,hộp,38000,52000,420,100,8934563138165\r\n'); toast('Template downloaded: products-template.csv', 'info'); break;
+    case 'goto': goStep(Number(el.dataset.step)); break;
+    case 'back': goStep(S.step - 1); break;
+    case 'retry': loadFailed = false; pageState = ''; ready = false; render(); setTimeout(() => { ready = true; render(); }, 500); break;
+    case 'next':
+      if (S.step === 0) {
+        if (!S.file) { S.uploadError = 'Choose a CSV file to continue.'; S.focus = '#choose-btn'; render(); $('#upload-error')?.focus(); break; }
+        goStep(1);
+      } else if (S.step === 1) {
+        const { dup, missing } = mapIssues();
+        if (missing.length || Object.keys(dup).length) {
+          S.triedNext = true; render();
+          const first = missing[0] ? $('#req-err-' + missing[0].key) : $('#map-' + Object.keys(dup)[0]);
+          first?.focus(); break;
+        }
+        saveRemembered(); toReview();
+      }
+      break;
+    case 'filter': S.filter = el.dataset.v; S.page = 1; render(); break;
+    case 'page': S.page += Number(el.dataset.d); render(); break;
+    case 'dl-failed': downloadText('products-failed-rows.csv', failedCsv()); toast(`Failed rows downloaded: ${tally().error}`, 'info'); break;
+    case 'dl-failed-final': downloadText('products-failed-rows.csv', failedCsv()); toast(`Failed rows downloaded: ${J.res.failed}`, 'info'); break;
+    case 'reset': S = fresh(); render(); break;
+    case 'another': S = fresh(); J = J && J.status === 'running' ? J : null; render(); break;
+    case 'log': S.showLog = !S.showLog; render(); break;
+    case 'run': {
+      const t = tally();
+      if (J && J.status === 'running') { S.runMsg = 'Another import is still running. Wait for it to finish or stop it first.'; render(); break; }
+      if (!t.act) { S.runMsg = 'No row can be imported with this option. Choose another option or upload a new file.'; render(); break; }
+      S.runMsg = ''; startJob(); break;
+    }
+    case 'bg': {
+      J.bg = true; S = fresh(); S.focus = 'title'; render(); toast('Import continues in the background', 'info'); break;
+    }
+    case 'stop': {
+      const ok = await ask({ title: 'Stop import?', body: `${fmtNum(J.done)} ${plural(J.done, 'row is', 'rows are')} already imported and will be kept.`, cancel: 'Keep importing', ok: 'Stop import', danger: true });
+      if (ok && J && J.status === 'running') { clearInterval(timer); J.status = 'stopped'; summarize(); finishJob(); }
+      break;
+    }
+    case 'open-results': J.bg = false; $('#notif').hidden = true; S.step = 3; S.focus = 'title'; S.showLog = false; if (!S.file) { S.file = null; } render(); break;
+    case 'dismiss-banner': J.bg = false; J = null; render(); break;
+  }
+});
+document.addEventListener('change', (e) => {
+  const t = e.target;
+  if (t.matches('[data-map]')) { S.mapping[Number(t.dataset.map)] = t.value; S.remembered = false; render(); }
+  else if (t.matches('[data-delim]')) { reparse(t.value); render(); }
+  else if (t.matches('[data-opt]')) { S.option = t.value; S.page = 1; S.runMsg = ''; render(); }
+  else if (t.matches('[data-size]')) { S.size = Number(t.value); S.page = 1; render(); }
+  else if (t.id === 'file-input') { handleFile(t.files[0]); t.value = ''; }
+});
+document.addEventListener('dragover', (e) => { if (e.target.closest('[data-drop]')) { e.preventDefault(); e.target.closest('[data-drop]').classList.add('bg-blue-50', 'border-blue-700'); } });
+document.addEventListener('dragleave', (e) => { e.target.closest?.('[data-drop]')?.classList.remove('bg-blue-50', 'border-blue-700'); });
+document.addEventListener('drop', (e) => { if (e.target.closest('[data-drop]')) { e.preventDefault(); handleFile(e.dataTransfer.files[0]); } });
+document.addEventListener('keydown', (e) => { if (e.key === 'Escape') { const n = $('#notif'); if (!n.hidden) { n.hidden = true; $('#bell').setAttribute('aria-expanded', 'false'); $('#bell').focus(); } } });
+window.addEventListener('beforeunload', (e) => { if (dirty()) { e.preventDefault(); e.returnValue = ''; } });
+
+/* ---------- Boot: ?state=loading | error | empty ---------- */
+render();
+if (pageState === 'loading') { /* skeleton held */ }
+else if (pageState === 'error') setTimeout(() => { loadFailed = true; render(); }, 500);
+else setTimeout(() => { ready = true; render(); }, 500);
+</script>
+</body>
+</html>

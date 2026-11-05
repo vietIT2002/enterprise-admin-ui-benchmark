@@ -1,0 +1,551 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tiếp nhận nhân viên mới – Nhân sự</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+  [hidden] { display: none !important; }
+  body { font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; color: #0f172a; }
+  .field { height: 32px; }
+  .inp { width: 100%; height: 32px; border: 1px solid #94a3b8; border-radius: 4px; padding: 0 10px; font-size: 14px; background: #fff; color: #0f172a; }
+  textarea.inp { height: auto; padding: 6px 10px; }
+  .inp:focus { outline: 2px solid #1d4ed8; outline-offset: 1px; border-color: #1d4ed8; }
+  .inp[aria-invalid="true"] { border-color: #b91c1c; }
+  .inp[readonly] { background: #f8fafc; color: #475569; }
+  .skel { background: linear-gradient(90deg,#e2e8f0,#f1f5f9,#e2e8f0); background-size: 200% 100%; animation: sh 1.2s infinite; border-radius: 4px; }
+  @keyframes sh { from { background-position: 200% 0 } to { background-position: -200% 0 } }
+  @media (prefers-reduced-motion: reduce) { .skel, .spin { animation: none !important; } }
+  .err { display: flex; gap: 4px; align-items: center; font-size: 14px; color: #b91c1c; margin-top: 4px; }
+  .help { font-size: 14px; color: #475569; margin-top: 4px; }
+  label.lbl { display: block; font-size: 14px; font-weight: 500; margin-bottom: 4px; }
+  .sec { border: 1px solid #e2e8f0; border-radius: 6px; background: #fff; }
+  .sec > h2 { font-size: 16px; font-weight: 600; padding: 12px 24px; border-bottom: 1px solid #e2e8f0; }
+  .sec > .body { padding: 24px; }
+  .grid-f { display: grid; gap: 24px 16px; grid-template-columns: repeat(12, minmax(0,1fr)); }
+  .grid-f > div { grid-column: span 12; }
+  @media (min-width: 768px) {
+    .c3 { grid-column: span 3 !important; } .c4 { grid-column: span 4 !important; } .c5 { grid-column: span 5 !important; }
+    .c6 { grid-column: span 6 !important; } .c8 { grid-column: span 8 !important; } .c12 { grid-column: span 12 !important; }
+  }
+  .spin { animation: spin 1s linear infinite; } @keyframes spin { to { transform: rotate(360deg) } }
+</style>
+</head>
+<body class="bg-slate-50 text-sm">
+<div class="flex min-h-screen">
+  <!-- Sidebar -->
+  <aside class="hidden lg:flex w-56 shrink-0 flex-col border-r border-slate-200 bg-white">
+    <div class="h-14 flex items-center px-4 border-b border-slate-200 font-semibold text-base">Công ty Minh Phát <span class="ml-2 text-xs font-normal text-slate-600">HRM</span></div>
+    <nav class="p-2 space-y-4" aria-label="Điều hướng chính">
+      <div>
+        <p class="px-2 py-1 text-xs text-slate-600">Nhân sự</p>
+        <a href="#/dashboard" data-nav class="flex h-8 items-center rounded px-2 text-slate-700 hover:bg-slate-100">Tổng quan</a>
+        <a href="#/employees" data-nav aria-current="page" class="flex h-8 items-center rounded px-2 bg-blue-50 font-medium text-blue-700">Nhân viên</a>
+        <a href="#/contracts" data-nav class="flex h-8 items-center rounded px-2 text-slate-700 hover:bg-slate-100">Hợp đồng</a>
+        <a href="#/leave" data-nav class="flex h-8 items-center rounded px-2 text-slate-700 hover:bg-slate-100">Nghỉ phép</a>
+      </div>
+      <div>
+        <p class="px-2 py-1 text-xs text-slate-600">Hệ thống</p>
+        <a href="#/roles" data-nav class="flex h-8 items-center rounded px-2 text-slate-700 hover:bg-slate-100">Vai trò và quyền</a>
+        <a href="#/settings" data-nav class="flex h-8 items-center rounded px-2 text-slate-700 hover:bg-slate-100">Cài đặt</a>
+      </div>
+    </nav>
+  </aside>
+
+  <div class="flex-1 min-w-0 flex flex-col">
+    <header class="h-14 flex items-center justify-between border-b border-slate-200 bg-white px-6">
+      <span class="text-slate-600">Quản lý nhân sự</span>
+      <div class="flex items-center gap-2"><span class="text-slate-700">Lê Thu Hà (HR admin)</span>
+        <span class="inline-flex h-8 w-8 items-center justify-center rounded-full bg-slate-200 text-xs font-medium text-slate-700" aria-hidden="true">LH</span></div>
+    </header>
+
+    <main id="scroll" class="flex-1 min-w-0 scroll-pb-20">
+      <div class="mx-auto max-w-4xl px-6 pt-6">
+        <nav aria-label="Breadcrumb" class="text-slate-600">
+          <a href="#/employees" data-nav class="underline hover:text-blue-700">Nhân viên</a> <span aria-hidden="true">/</span> <span class="text-slate-900">Tiếp nhận nhân viên mới</span>
+        </nav>
+        <div class="mt-2 flex flex-wrap items-center justify-between gap-2">
+          <div>
+            <h1 class="text-2xl font-semibold">Tiếp nhận nhân viên mới</h1>
+            <p class="mt-1 text-slate-600">Mã nhân viên NV-0248 · <span class="inline-flex items-center rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-700">Bản nháp</span></p>
+          </div>
+          <p class="text-slate-600">* Bắt buộc</p>
+        </div>
+      </div>
+
+      <!-- Loading -->
+      <div id="stLoading" class="mx-auto max-w-4xl px-6 py-6 space-y-6" hidden aria-busy="true" aria-label="Đang tải biểu mẫu">
+        <div class="sec p-6 space-y-4"><div class="skel h-5 w-48"></div><div class="grid grid-cols-2 gap-4"><div class="skel h-8"></div><div class="skel h-8"></div><div class="skel h-8"></div><div class="skel h-8"></div></div></div>
+        <div class="sec p-6 space-y-4"><div class="skel h-5 w-56"></div><div class="grid grid-cols-2 gap-4"><div class="skel h-8"></div><div class="skel h-8"></div><div class="skel h-8"></div><div class="skel h-8"></div></div></div>
+        <div class="sec p-6 space-y-4"><div class="skel h-5 w-40"></div><div class="grid grid-cols-2 gap-4"><div class="skel h-8"></div><div class="skel h-8"></div></div></div>
+      </div>
+
+      <!-- Load error -->
+      <div id="stError" class="mx-auto max-w-4xl px-6 py-6" hidden>
+        <div class="rounded-md border border-red-200 bg-red-50 p-6" role="alert">
+          <p class="font-medium text-red-800">Không tải được danh mục phòng ban và quản lý.</p>
+          <p class="mt-1 text-red-800">Chưa có dữ liệu nào bị mất. Kiểm tra kết nối rồi thử lại.</p>
+          <button id="retry" type="button" class="mt-3 h-8 rounded bg-blue-700 px-3 font-medium text-white hover:bg-blue-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-700">Thử lại</button>
+        </div>
+      </div>
+
+      <form id="form" novalidate class="mx-auto max-w-4xl">
+        <div class="px-6 py-6 space-y-6">
+          <div role="alert" id="banner"></div>
+          <div role="status" id="summaryWrap"></div>
+
+          <!-- 1 Personal -->
+          <section class="sec" aria-labelledby="h-personal">
+            <h2 id="h-personal">1. Thông tin cá nhân</h2>
+            <div class="body"><div class="grid-f">
+              <div class="c4"><label class="lbl" for="lastName">Họ và tên đệm <span aria-hidden="true">*</span></label><input class="inp" id="lastName" name="lastName" autocomplete="off" placeholder="Nguyễn Văn" aria-required="true"></div>
+              <div class="c4"><label class="lbl" for="firstName">Tên <span aria-hidden="true">*</span></label><input class="inp" id="firstName" name="firstName" autocomplete="off" placeholder="An" aria-required="true"></div>
+              <div class="c4"><label class="lbl" for="dob">Ngày sinh <span aria-hidden="true">*</span></label><input class="inp" type="date" id="dob" name="dob" aria-required="true"></div>
+              <div class="c4"><label class="lbl" for="gender">Giới tính <span aria-hidden="true">*</span></label>
+                <select class="inp" id="gender" name="gender" aria-required="true"><option value="">Chọn</option><option>Nam</option><option>Nữ</option><option>Khác</option></select></div>
+              <div class="c4"><label class="lbl" for="nationality">Quốc tịch</label><input class="inp" id="nationality" name="nationality" value="Việt Nam"></div>
+              <div class="c4"><label class="lbl" for="marital">Tình trạng hôn nhân</label>
+                <select class="inp" id="marital" name="marital"><option>Độc thân</option><option>Đã kết hôn</option><option>Khác</option></select></div>
+              <div class="c4"><label class="lbl" for="idNo">Số CCCD <span aria-hidden="true">*</span></label><input class="inp" id="idNo" name="idNo" inputmode="numeric" maxlength="12" placeholder="079090001234" aria-required="true" aria-describedby="idNo-help"><p class="help" id="idNo-help">12 chữ số</p></div>
+              <div class="c4"><label class="lbl" for="idDate">Ngày cấp</label><input class="inp" type="date" id="idDate" name="idDate"></div>
+              <div class="c4"><label class="lbl" for="idPlace">Nơi cấp</label><input class="inp" id="idPlace" name="idPlace" placeholder="Cục Cảnh sát QLHC về TTXH"></div>
+              <div class="c6"><label class="lbl" for="email">Email cá nhân <span aria-hidden="true">*</span></label><input class="inp" type="email" id="email" name="email" placeholder="ten@gmail.com" aria-required="true"></div>
+              <div class="c3"><label class="lbl" for="phone">Số điện thoại <span aria-hidden="true">*</span></label><input class="inp" type="tel" id="phone" name="phone" inputmode="tel" placeholder="0901 234 567" aria-required="true"></div>
+              <div class="c12"><label class="lbl" for="address">Địa chỉ thường trú <span aria-hidden="true">*</span></label><input class="inp" id="address" name="address" placeholder="Số nhà, đường, phường/xã" aria-required="true"></div>
+              <div class="c4"><label class="lbl" for="city">Tỉnh/Thành phố <span aria-hidden="true">*</span></label>
+                <select class="inp" id="city" name="city" aria-required="true"><option value="">Chọn</option><option>TP. Hồ Chí Minh</option><option>Hà Nội</option><option>Đà Nẵng</option><option>Cần Thơ</option><option>Hải Phòng</option></select></div>
+            </div></div>
+          </section>
+
+          <!-- 2 Job & contract -->
+          <section class="sec" aria-labelledby="h-job">
+            <h2 id="h-job">2. Công việc và hợp đồng</h2>
+            <div class="body space-y-6">
+              <div class="grid-f">
+                <div class="c6"><label class="lbl" for="dept">Phòng ban <span aria-hidden="true">*</span></label><select class="inp" id="dept" name="dept" aria-required="true"></select></div>
+                <div class="c6"><label class="lbl" for="title">Chức danh <span aria-hidden="true">*</span></label><input class="inp" id="title" name="title" placeholder="Chuyên viên kế toán" aria-required="true"></div>
+                <div class="c6"><label class="lbl" for="manager">Quản lý trực tiếp <span aria-hidden="true">*</span></label><select class="inp" id="manager" name="manager" aria-required="true"></select></div>
+                <div class="c6"><label class="lbl" for="location">Địa điểm làm việc</label>
+                  <select class="inp" id="location" name="location"><option>Trụ sở – 12 Nguyễn Huệ, Q.1</option><option>Chi nhánh Hà Nội – 45 Láng Hạ</option><option>Chi nhánh Đà Nẵng – 88 Bạch Đằng</option></select></div>
+                <div class="c4"><label class="lbl" for="workType">Hình thức làm việc</label>
+                  <select class="inp" id="workType" name="workType"><option>Toàn thời gian</option><option>Bán thời gian</option><option>Hybrid</option></select></div>
+                <div class="c4"><label class="lbl" for="startDate">Ngày bắt đầu làm việc <span aria-hidden="true">*</span></label><input class="inp" type="date" id="startDate" name="startDate" aria-required="true"></div>
+                <div class="c4"><label class="lbl" for="workEmail">Email công ty</label><input class="inp" id="workEmail" name="workEmail" readonly aria-describedby="we-help"><p class="help" id="we-help">Tự tạo từ họ tên khi lưu</p></div>
+              </div>
+              <div class="border-t border-slate-200 pt-6">
+                <h3 class="mb-4 font-semibold">Hợp đồng lao động</h3>
+                <div class="grid-f">
+                  <div class="c6"><label class="lbl" for="contractType">Loại hợp đồng <span aria-hidden="true">*</span></label>
+                    <select class="inp" id="contractType" name="contractType" aria-required="true">
+                      <option value="">Chọn</option><option value="2">Thử việc (2 tháng)</option><option value="12">Xác định thời hạn (12 tháng)</option><option value="24">Xác định thời hạn (24 tháng)</option><option value="0">Không xác định thời hạn</option></select></div>
+                  <div class="c3"><label class="lbl" for="cStart">Hiệu lực từ <span aria-hidden="true">*</span></label><input class="inp" type="date" id="cStart" name="cStart" aria-required="true"></div>
+                  <div class="c3"><p class="mb-1 text-sm font-medium">Hiệu lực đến</p><p id="cEnd" class="flex h-8 items-center text-slate-700 tabular-nums">–</p></div>
+                  <div class="c4"><label class="lbl" for="salary">Lương cơ bản (VND/tháng) <span aria-hidden="true">*</span></label><input class="inp text-right tabular-nums" id="salary" name="salary" inputmode="decimal" placeholder="15.000.000" aria-required="true"></div>
+                  <div class="c4"><label class="lbl" for="allowance">Phụ cấp (VND/tháng)</label><input class="inp text-right tabular-nums" id="allowance" name="allowance" inputmode="decimal" placeholder="0"></div>
+                  <div class="c4"><p class="mb-1 text-sm font-medium">Tổng thu nhập (VND/tháng)</p><p id="gross" class="flex h-8 items-center justify-end font-semibold tabular-nums">0</p></div>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <!-- 3 Bank & tax -->
+          <section class="sec" aria-labelledby="h-bank">
+            <h2 id="h-bank">3. Ngân hàng và thuế</h2>
+            <div class="body"><div class="grid-f">
+              <div class="c6"><label class="lbl" for="bank">Ngân hàng <span aria-hidden="true">*</span></label>
+                <select class="inp" id="bank" name="bank" aria-required="true"><option value="">Chọn</option><option>Vietcombank</option><option>Techcombank</option><option>BIDV</option><option>VietinBank</option><option>ACB</option><option>MB Bank</option></select></div>
+              <div class="c6"><label class="lbl" for="branch">Chi nhánh</label><input class="inp" id="branch" name="branch" placeholder="Sở giao dịch TP.HCM"></div>
+              <div class="c6"><label class="lbl" for="acc">Số tài khoản <span aria-hidden="true">*</span></label><input class="inp tabular-nums" id="acc" name="acc" inputmode="numeric" placeholder="0071001234567" aria-required="true"></div>
+              <div class="c6"><label class="lbl" for="accName">Tên chủ tài khoản <span aria-hidden="true">*</span></label><input class="inp" id="accName" name="accName" placeholder="NGUYEN VAN AN" aria-required="true" aria-describedby="an-help"><p class="help" id="an-help">Không dấu, viết hoa, trùng với họ tên</p></div>
+              <div class="c4"><label class="lbl" for="tax">Mã số thuế cá nhân</label><input class="inp tabular-nums" id="tax" name="tax" inputmode="numeric" placeholder="8012345678" aria-describedby="tax-help"><p class="help" id="tax-help">10 hoặc 13 chữ số</p></div>
+              <div class="c4"><label class="lbl" for="si">Số sổ BHXH</label><input class="inp tabular-nums" id="si" name="si" inputmode="numeric" placeholder="7912345678" aria-describedby="si-help"><p class="help" id="si-help">10 chữ số</p></div>
+              <div class="c3"><label class="lbl" for="deps">Người phụ thuộc</label><input class="inp text-right tabular-nums" id="deps" name="deps" inputmode="numeric" value="0"></div>
+            </div></div>
+          </section>
+
+          <!-- 4 Emergency contacts -->
+          <section class="sec" aria-labelledby="h-ec">
+            <h2 id="h-ec">4. Người liên hệ khẩn cấp</h2>
+            <div class="body space-y-4">
+              <p class="text-slate-600">Cần ít nhất một người. Tối đa 3 người; người liên hệ chính được gọi trước.</p>
+              <div id="contacts" class="space-y-4"></div>
+              <button type="button" id="addContact" class="h-8 rounded border border-slate-300 bg-white px-3 font-medium text-slate-800 hover:bg-slate-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-700">Thêm người liên hệ</button>
+            </div>
+          </section>
+
+          <!-- 5 Documents -->
+          <section class="sec" aria-labelledby="h-doc">
+            <h2 id="h-doc">5. Giấy tờ</h2>
+            <div class="body space-y-4">
+              <div class="flex flex-wrap items-center justify-between gap-2">
+                <p class="text-slate-600" id="docNeed">Cần nộp: CCCD, sơ yếu lý lịch, bằng cấp cao nhất, ảnh 3x4. Định dạng PDF, JPG, PNG; tối đa 10 MB mỗi tệp.</p>
+                <div><input type="file" id="fileIn" class="sr-only" multiple accept=".pdf,.jpg,.jpeg,.png">
+                  <label for="fileIn" class="inline-flex h-8 cursor-pointer items-center rounded border border-slate-300 bg-white px-3 font-medium text-slate-800 hover:bg-slate-50 focus-within:outline focus-within:outline-2 focus-within:outline-blue-700">Tải giấy tờ lên</label></div>
+              </div>
+              <div class="overflow-x-auto rounded border border-slate-200">
+                <table class="w-full text-sm" id="docTable">
+                  <caption class="sr-only">Giấy tờ đã tải lên</caption>
+                  <thead class="bg-slate-50 text-slate-700"><tr class="h-10 border-b border-slate-200">
+                    <th scope="col" class="px-3 text-left font-medium">Tên tệp</th>
+                    <th scope="col" class="px-3 text-left font-medium">Loại giấy tờ</th>
+                    <th scope="col" class="px-3 text-left font-medium">Định dạng</th>
+                    <th scope="col" class="px-3 text-right font-medium">Dung lượng</th>
+                    <th scope="col" class="px-3 text-left font-medium">Trạng thái</th>
+                    <th scope="col" class="px-3 text-right font-medium">Thao tác</th></tr></thead>
+                  <tbody id="docBody"></tbody>
+                </table>
+                <div id="docEmpty" class="px-4 py-8 text-center" hidden>
+                  <p class="font-medium">Chưa có giấy tờ nào</p>
+                  <p class="mt-1 text-slate-600">Tải lên CCCD, sơ yếu lý lịch, bằng cấp và ảnh 3x4 của nhân viên.</p>
+                </div>
+              </div>
+              <div id="docErr"></div>
+            </div>
+          </section>
+
+          <p class="text-slate-600">Lần thay đổi gần nhất: Lê Thu Hà, 04/11/2026 15:58 · <a href="#/history" data-nav class="text-blue-700 underline">Xem lịch sử</a></p>
+        </div>
+
+        <!-- Sticky bar -->
+        <div class="sticky bottom-0 z-10 flex flex-wrap items-center justify-end gap-3 border-t border-slate-200 bg-white px-6 py-3">
+          <span id="status" role="status" class="mr-auto text-slate-600 sm:mr-0"></span>
+          <button type="button" id="cancel" class="h-8 rounded border border-slate-300 bg-white px-3 font-medium text-slate-800 hover:bg-slate-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-700">Hủy</button>
+          <button type="button" id="draft" class="h-8 rounded border border-slate-300 bg-white px-3 font-medium text-slate-800 hover:bg-slate-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-700">Lưu nháp</button>
+          <button type="submit" id="save" class="inline-flex h-8 items-center gap-2 rounded bg-blue-700 px-3 font-medium text-white hover:bg-blue-800 disabled:opacity-70 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-700">
+            <svg id="saveSpin" class="spin h-4 w-4" hidden viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" aria-hidden="true"><path d="M12 2a10 10 0 0 1 10 10"/></svg><span id="saveLbl">Tiếp nhận nhân viên</span></button>
+        </div>
+      </form>
+    </main>
+  </div>
+</div>
+
+<!-- Leave dialog -->
+<dialog id="leaveDlg" class="rounded-lg p-0 shadow-xl backdrop:bg-slate-900/40" aria-labelledby="ld-t">
+  <div class="w-[420px] max-w-[90vw] p-6">
+    <h2 id="ld-t" class="text-base font-semibold">Bạn có thay đổi chưa lưu. Rời trang mà không lưu?</h2>
+    <p class="mt-2 text-slate-600">Thông tin đã nhập cho nhân viên mới sẽ bị mất nếu bạn rời đi.</p>
+    <div class="mt-6 flex justify-end gap-3">
+      <button type="button" id="stay" class="h-8 rounded border border-slate-300 bg-white px-3 font-medium hover:bg-slate-50">Ở lại</button>
+      <button type="button" id="leave" class="h-8 rounded bg-red-600 px-3 font-medium text-white hover:bg-red-700">Rời trang</button>
+    </div>
+  </div>
+</dialog>
+
+<!-- Toast -->
+<div id="toast" role="status" class="fixed bottom-20 right-6 z-20 max-w-sm rounded-md bg-slate-900 px-4 py-3 text-white shadow-lg" hidden></div>
+
+<script>
+(function () {
+  var $ = function (s, r) { return (r || document).querySelector(s); };
+  var $$ = function (s, r) { return Array.prototype.slice.call((r || document).querySelectorAll(s)); };
+  var form = $('#form');
+  var params = new URLSearchParams(location.search);
+  var dirty = false, submitting = false, submittedOnce = false;
+  var fmtMoney = new Intl.NumberFormat('vi-VN');
+
+  // ---------- Mock data ----------
+  var DEPTS = ['Kế toán', 'Kinh doanh', 'Kỹ thuật', 'Marketing', 'Nhân sự', 'Vận hành kho'];
+  var MANAGERS = [
+    ['Trần Minh Quân', 'Giám đốc tài chính'], ['Phạm Thị Lan', 'Trưởng phòng Kinh doanh'],
+    ['Võ Hoàng Nam', 'Trưởng phòng Kỹ thuật'], ['Đặng Thùy Linh', 'Trưởng phòng Marketing'],
+    ['Lê Thu Hà', 'Trưởng phòng Nhân sự'], ['Bùi Quốc Bảo', 'Quản lý kho']
+  ];
+  var RELATIONS = ['Vợ/chồng', 'Cha', 'Mẹ', 'Anh/chị/em', 'Con', 'Bạn bè', 'Khác'];
+  var REQUIRED_DOCS = ['CCCD', 'Sơ yếu lý lịch', 'Bằng cấp', 'Ảnh 3x4'];
+  var docs = [
+    { id: 1, name: 'cccd-mat-truoc-sau.pdf', type: 'CCCD', fmt: 'PDF', size: 1.4 * 1048576 },
+    { id: 2, name: 'so-yeu-ly-lich.pdf', type: 'Sơ yếu lý lịch', fmt: 'PDF', size: 412 * 1024 },
+    { id: 3, name: 'anh-the-3x4.jpg', type: 'Ảnh 3x4', fmt: 'JPG', size: 238 * 1024 }
+  ];
+  var nextDocId = 10;
+  var contacts = [];
+  var contactSeq = 0;
+  var EXISTING_IDS = { '079090001234': 'Nguyễn Văn Bình (NV-0112)' };
+
+  function fmtSize(b) { return b >= 1048576 ? new Intl.NumberFormat('vi-VN', { maximumFractionDigits: 1 }).format(b / 1048576) + ' MB' : Math.round(b / 1024) + ' KB'; }
+  function esc(s) { return String(s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
+  var ALERT_ICON = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true" class="shrink-0"><circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/></svg>';
+
+  // ---------- Reference data ----------
+  function fillRefs() {
+    $('#dept').innerHTML = '<option value="">Chọn</option>' + DEPTS.map(function (d) { return '<option>' + d + '</option>'; }).join('');
+    $('#manager').innerHTML = '<option value="">Chọn</option>' + MANAGERS.map(function (m) { return '<option value="' + m[0] + '">' + m[0] + ' – ' + m[1] + '</option>'; }).join('');
+  }
+
+  // ---------- Rules ----------
+  var rules = {
+    lastName: { req: 'Nhập họ và tên đệm' }, firstName: { req: 'Nhập tên' },
+    dob: { req: 'Chọn ngày sinh', fn: function (v) { var a = (Date.now() - new Date(v)) / 31557600000; return a < 18 ? 'Nhân viên phải đủ 18 tuổi' : a > 70 ? 'Kiểm tra lại ngày sinh' : ''; } },
+    gender: { req: 'Chọn giới tính' },
+    idNo: { req: 'Nhập số CCCD gồm 12 chữ số', fn: function (v) { return /^\d{12}$/.test(v) ? '' : 'Số CCCD gồm đúng 12 chữ số'; } },
+    email: { req: 'Nhập email như ten@gmail.com', fn: function (v) { return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v) ? '' : 'Nhập email như ten@gmail.com'; } },
+    phone: { req: 'Nhập số điện thoại', fn: function (v) { return /^0\d{9}$/.test(v.replace(/\s/g, '')) ? '' : 'Nhập số điện thoại 10 chữ số, bắt đầu bằng 0'; } },
+    address: { req: 'Nhập địa chỉ thường trú' }, city: { req: 'Chọn tỉnh/thành phố' },
+    dept: { req: 'Chọn phòng ban' }, title: { req: 'Nhập chức danh' }, manager: { req: 'Chọn quản lý trực tiếp' },
+    startDate: { req: 'Chọn ngày bắt đầu làm việc' },
+    contractType: { req: 'Chọn loại hợp đồng' },
+    cStart: { req: 'Chọn ngày hiệu lực', fn: function (v) { var s = $('#startDate').value; return s && v < s ? 'Hợp đồng không thể bắt đầu trước ngày làm việc' : ''; } },
+    salary: { req: 'Nhập lương cơ bản', fn: function (v) { var n = num(v); return n < 5000000 ? 'Lương cơ bản tối thiểu 5.000.000 VND' : ''; } },
+    bank: { req: 'Chọn ngân hàng' },
+    acc: { req: 'Nhập số tài khoản', fn: function (v) { return /^\d{8,16}$/.test(v) ? '' : 'Số tài khoản gồm 8 đến 16 chữ số'; } },
+    accName: { req: 'Nhập tên chủ tài khoản' },
+    tax: { fn: function (v) { return !v || /^\d{10}(\d{3})?$/.test(v.replace('-', '')) ? '' : 'Nhập 10 hoặc 13 chữ số'; } },
+    si: { fn: function (v) { return !v || /^\d{10}$/.test(v) ? '' : 'Số sổ BHXH gồm 10 chữ số'; } }
+  };
+  function ruleFor(name) {
+    if (rules[name]) return rules[name];
+    var m = /^ec(\d+)_(name|rel|phone)$/.exec(name);
+    if (!m) return null;
+    if (m[2] === 'name') return { req: 'Nhập họ tên người liên hệ' };
+    if (m[2] === 'rel') return { req: 'Chọn mối quan hệ' };
+    return { req: 'Nhập số điện thoại người liên hệ', fn: function (v) { return /^0\d{9}$/.test(v.replace(/\s/g, '')) ? '' : 'Nhập số điện thoại 10 chữ số, bắt đầu bằng 0'; } };
+  }
+  function num(v) { return Number(String(v || '').replace(/\./g, '').replace(/,/g, '.')) || 0; }
+  function labelOf(el) {
+    var l = form.querySelector('label[for="' + el.id + '"]');
+    if (l) return l.textContent.replace('*', '').trim();
+    return el.getAttribute('aria-label') || el.name;
+  }
+
+  function check(el) {
+    var r = ruleFor(el.name); if (!r) return '';
+    var v = (el.value || '').trim();
+    if (!v) return r.req || '';
+    return r.fn ? r.fn(v) : '';
+  }
+  function setErr(el, msg) {
+    var id = el.id + '-err', old = document.getElementById(id);
+    if (old) old.remove();
+    var desc = (el.getAttribute('aria-describedby') || '').split(' ').filter(function (x) { return x && x !== id; });
+    if (msg) {
+      el.setAttribute('aria-invalid', 'true');
+      var p = document.createElement('p'); p.id = id; p.className = 'err'; p.innerHTML = ALERT_ICON + '<span></span>'; p.lastChild.textContent = msg;
+      el.insertAdjacentElement('afterend', p);
+      // place after help text if any
+      var help = el.parentNode.querySelector('.help'); if (help) help.insertAdjacentElement('afterend', p);
+      desc.push(id);
+    } else el.removeAttribute('aria-invalid');
+    if (desc.length) el.setAttribute('aria-describedby', desc.join(' ')); else el.removeAttribute('aria-describedby');
+  }
+  function fields() { return $$('input, select, textarea', form).filter(function (e) { return e.name && e.type !== 'file'; }); }
+
+  // blur validate, then live re-check when invalid
+  form.addEventListener('focusout', function (e) {
+    var el = e.target; if (!el.name || !ruleFor(el.name)) return;
+    if (el.name === 'salary' || el.name === 'allowance') formatMoney(el);
+    setErr(el, check(el)); refreshSummary();
+  });
+  form.addEventListener('input', function (e) {
+    var el = e.target; setDirty(true);
+    if (el.getAttribute('aria-invalid') === 'true') { setErr(el, check(el)); refreshSummary(); }
+    if (el.name === 'salary' || el.name === 'allowance') updateGross();
+    if (el.name === 'contractType' || el.name === 'cStart') updateEnd();
+    if (el.name === 'firstName' || el.name === 'lastName') updateWorkEmail();
+    if (el.name === 'startDate' && !$('#cStart').value) { $('#cStart').value = el.value; updateEnd(); }
+  });
+  form.addEventListener('change', function (e) { var el = e.target; if (el.name === 'contractType' || el.name === 'cStart') updateEnd(); });
+
+  function formatMoney(el) { var n = num(el.value); el.value = el.value.trim() ? fmtMoney.format(n) : ''; updateGross(); }
+  function updateGross() { $('#gross').textContent = fmtMoney.format(num($('#salary').value) + num($('#allowance').value)); }
+  function updateEnd() {
+    var t = $('#contractType').value, s = $('#cStart').value, out = $('#cEnd');
+    if (t === '0') { out.textContent = 'Không thời hạn'; return; }
+    if (!t || !s) { out.textContent = '–'; return; }
+    var d = new Date(s); d.setMonth(d.getMonth() + Number(t)); d.setDate(d.getDate() - 1);
+    out.textContent = new Intl.DateTimeFormat('vi-VN').format(d);
+  }
+  function updateWorkEmail() {
+    var strip = function (s) { return s.normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/đ/g, 'd').replace(/Đ/g, 'D').toLowerCase().replace(/[^a-z\s]/g, '').trim(); };
+    var f = strip($('#firstName').value).replace(/\s+/g, ''), l = strip($('#lastName').value).split(/\s+/).filter(Boolean).map(function (w) { return w[0]; }).join('');
+    $('#workEmail').value = f ? f + l + '@minhphat.vn' : '';
+  }
+
+  // ---------- Emergency contacts ----------
+  function addContact(primary) {
+    if (contacts.length >= 3) return;
+    var id = ++contactSeq; contacts.push(id); renderContacts(); setDirty(true);
+    var n = $('#ec' + id + '_name'); if (n && arguments.length === 0) n.focus();
+  }
+  function renderContacts() {
+    var keep = {}; fields().forEach(function (e) { if (/^ec\d/.test(e.name)) keep[e.name] = e.value; });
+    var primary = (form.querySelector('input[name="ecPrimary"]:checked') || {}).value;
+    if (!primary || contacts.indexOf(Number(primary)) < 0) primary = contacts[0];
+    $('#contacts').innerHTML = contacts.map(function (id, i) {
+      var isP = Number(primary) === id;
+      return '<fieldset class="rounded border border-slate-200 p-4" data-ec="' + id + '">' +
+        '<legend class="px-1 font-medium">Người liên hệ ' + (i + 1) + (isP ? ' <span class="ml-1 inline-flex items-center rounded-full bg-blue-50 px-2 py-0.5 text-xs font-medium text-blue-700">Liên hệ chính</span>' : '') + '</legend>' +
+        '<div class="grid-f">' +
+        '<div class="c5"><label class="lbl" for="ec' + id + '_name">Họ và tên <span aria-hidden="true">*</span></label><input class="inp" id="ec' + id + '_name" name="ec' + id + '_name" aria-required="true" autocomplete="off"></div>' +
+        '<div class="c3"><label class="lbl" for="ec' + id + '_rel">Quan hệ <span aria-hidden="true">*</span></label><select class="inp" id="ec' + id + '_rel" name="ec' + id + '_rel" aria-required="true"><option value="">Chọn</option>' + RELATIONS.map(function (r) { return '<option>' + r + '</option>'; }).join('') + '</select></div>' +
+        '<div class="c4"><label class="lbl" for="ec' + id + '_phone">Số điện thoại <span aria-hidden="true">*</span></label><input class="inp" type="tel" id="ec' + id + '_phone" name="ec' + id + '_phone" inputmode="tel" aria-required="true" placeholder="0912 345 678"></div>' +
+        '</div>' +
+        '<div class="mt-4 flex flex-wrap items-center justify-between gap-2">' +
+        '<label class="inline-flex min-h-6 items-center gap-2"><input type="radio" name="ecPrimary" value="' + id + '"' + (isP ? ' checked' : '') + '> Đặt làm liên hệ chính</label>' +
+        (contacts.length > 1 ? '<button type="button" data-rm-ec="' + id + '" class="inline-flex h-8 items-center rounded px-2 font-medium text-red-700 hover:bg-red-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-red-700" aria-label="Xóa người liên hệ ' + (i + 1) + '">Xóa</button>' : '') +
+        '</div></fieldset>';
+    }).join('');
+    Object.keys(keep).forEach(function (k) { var e = form.elements[k]; if (e) e.value = keep[k]; });
+    $('#addContact').hidden = contacts.length >= 3;
+  }
+  $('#addContact').addEventListener('click', function () { addContact(); });
+  $('#contacts').addEventListener('click', function (e) {
+    var b = e.target.closest('[data-rm-ec]'); if (!b) return;
+    var id = Number(b.dataset.rmEc); contacts = contacts.filter(function (x) { return x !== id; });
+    renderContacts(); setDirty(true); $('#addContact').focus(); toast('Đã xóa một người liên hệ khẩn cấp');
+  });
+  $('#contacts').addEventListener('change', function (e) { if (e.target.name === 'ecPrimary') { renderContacts(); } });
+
+  // ---------- Documents ----------
+  function renderDocs() {
+    var body = $('#docBody');
+    body.innerHTML = docs.map(function (d) {
+      return '<tr class="h-10 border-b border-slate-100 last:border-0">' +
+        '<td class="px-3 py-1.5 font-medium">' + esc(d.name) + '</td>' +
+        '<td class="px-3">' + esc(d.type) + '</td><td class="px-3">' + d.fmt + '</td>' +
+        '<td class="px-3 text-right tabular-nums">' + fmtSize(d.size) + '</td>' +
+        '<td class="px-3"><span class="inline-flex items-center rounded-full bg-green-50 px-2 py-0.5 text-xs font-medium text-green-800">Đã tải lên</span></td>' +
+        '<td class="px-3 text-right whitespace-nowrap"><button type="button" data-doc-prev="' + d.id + '" class="h-8 rounded px-2 font-medium text-blue-700 hover:bg-blue-50" aria-label="Xem trước ' + esc(d.name) + '">Xem trước</button>' +
+        '<button type="button" data-doc-dl="' + d.id + '" class="h-8 rounded px-2 font-medium text-blue-700 hover:bg-blue-50" aria-label="Tải xuống ' + esc(d.name) + '">Tải xuống</button>' +
+        '<button type="button" data-doc-rm="' + d.id + '" class="h-8 rounded px-2 font-medium text-red-700 hover:bg-red-50" aria-label="Xóa ' + esc(d.name) + '">Xóa</button></td></tr>';
+    }).join('');
+    $('#docTable').hidden = !docs.length; $('#docEmpty').hidden = !!docs.length;
+    var have = docs.map(function (d) { return d.type; });
+    var miss = REQUIRED_DOCS.filter(function (t) { return have.indexOf(t) < 0; });
+    $('#docNeed').textContent = (miss.length ? 'Còn thiếu: ' + miss.join(', ') + '. ' : 'Đã đủ giấy tờ bắt buộc. ') + 'Định dạng PDF, JPG, PNG; tối đa 10 MB mỗi tệp.';
+  }
+  $('#docBody').addEventListener('click', function (e) {
+    var b = e.target.closest('button'); if (!b) return;
+    if (b.dataset.docRm) { var d = docs.filter(function (x) { return x.id == b.dataset.docRm; })[0]; docs = docs.filter(function (x) { return x.id != b.dataset.docRm; }); renderDocs(); setDirty(true); toast('Đã xóa ' + d.name); }
+    else if (b.dataset.docPrev) toast('Mở xem trước (dữ liệu mẫu)');
+    else if (b.dataset.docDl) toast('Đang tải xuống (dữ liệu mẫu)');
+  });
+  $('#fileIn').addEventListener('change', function (e) {
+    var bad = [];
+    Array.prototype.forEach.call(e.target.files, function (f) {
+      var ext = (f.name.split('.').pop() || '').toLowerCase();
+      if (['pdf', 'jpg', 'jpeg', 'png'].indexOf(ext) < 0) return bad.push(f.name + ': định dạng không hỗ trợ');
+      if (f.size > 10 * 1048576) return bad.push(f.name + ': vượt quá 10 MB');
+      var lower = f.name.toLowerCase(), type = /cccd|cmnd/.test(lower) ? 'CCCD' : /bang|degree/.test(lower) ? 'Bằng cấp' : /anh|photo/.test(lower) ? 'Ảnh 3x4' : /ly-lich|cv/.test(lower) ? 'Sơ yếu lý lịch' : 'Khác';
+      docs.push({ id: nextDocId++, name: f.name, type: type, fmt: ext.toUpperCase().replace('JPEG', 'JPG'), size: f.size });
+    });
+    $('#docErr').innerHTML = bad.length ? '<p class="err" role="alert">' + ALERT_ICON + '<span>' + esc(bad.join('; ')) + '</span></p>' : '';
+    e.target.value = ''; renderDocs(); setDirty(true);
+  });
+
+  // ---------- Dirty, status ----------
+  function setDirty(v) {
+    dirty = v;
+    var s = $('#status');
+    if (v) s.innerHTML = '<span aria-hidden="true" class="mr-1.5 inline-block h-1.5 w-1.5 rounded-full bg-amber-500"></span>Có thay đổi chưa lưu';
+    else if (!s.dataset.keep) s.textContent = '';
+  }
+  window.addEventListener('beforeunload', function (e) { if (dirty) { e.preventDefault(); e.returnValue = ''; } });
+
+  // guard for in-app navigation
+  var pendingNav = null;
+  function guardedNav(go) {
+    if (!dirty) return go();
+    pendingNav = go; $('#leaveDlg').showModal(); $('#stay').focus();
+  }
+  document.addEventListener('click', function (e) {
+    var a = e.target.closest('a[data-nav]'); if (!a) return;
+    e.preventDefault(); var href = a.getAttribute('href');
+    guardedNav(function () { toast('Điều hướng tới ' + href.replace('#/', '') + ' (dữ liệu mẫu)'); });
+  });
+  $('#cancel').addEventListener('click', function () { guardedNav(function () { resetAll(); toast('Đã hủy tiếp nhận'); }); });
+  $('#stay').addEventListener('click', function () { pendingNav = null; $('#leaveDlg').close(); });
+  $('#leave').addEventListener('click', function () { $('#leaveDlg').close(); var g = pendingNav; pendingNav = null; dirty = false; if (g) g(); });
+
+  function resetAll() {
+    form.reset(); fields().forEach(function (e) { setErr(e, ''); });
+    contacts = []; addContact(true); docs = []; renderDocs(); updateEnd(); updateGross(); $('#summaryWrap').innerHTML = ''; $('#banner').innerHTML = '';
+    var s = $('#status'); delete s.dataset.keep; s.textContent = ''; dirty = false; $('#nationality').value = 'Việt Nam';
+  }
+
+  // ---------- Summary ----------
+  function refreshSummary() {
+    var bad = fields().filter(function (e) { return e.getAttribute('aria-invalid') === 'true'; });
+    var w = $('#summaryWrap');
+    if (!submittedOnce || bad.length < 3) { w.innerHTML = ''; return; }
+    w.innerHTML = '<div class="rounded-md border border-red-200 bg-red-50 p-4 text-red-800"><p class="font-medium">' + bad.length + ' trường cần chỉnh sửa</p><ul class="mt-2 list-disc pl-5">' +
+      bad.map(function (e) { var m = $('#' + e.id + '-err span'); return '<li><a href="#' + e.id + '" data-jump="' + e.id + '" class="inline-flex min-h-6 items-center underline">' + esc(labelOf(e)) + ': ' + esc(m ? m.textContent : '') + '</a></li>'; }).join('') + '</ul></div>';
+  }
+  $('#summaryWrap').addEventListener('click', function (e) {
+    var a = e.target.closest('[data-jump]'); if (!a) return; e.preventDefault(); var t = document.getElementById(a.dataset.jump); if (t) { t.scrollIntoView({ block: 'center' }); t.focus(); }
+  });
+
+  // ---------- Save ----------
+  function validateAll() {
+    var first = null;
+    fields().forEach(function (e) { var m = check(e); setErr(e, m); if (m && !first) first = e; });
+    return first;
+  }
+  function setBusy(b) {
+    submitting = b; $('#save').disabled = b; $('#draft').disabled = b; $('#saveSpin').hidden = !b;
+    form.setAttribute('aria-busy', b);
+  }
+  function nowHM() { return new Intl.DateTimeFormat('vi-VN', { hour: '2-digit', minute: '2-digit', hour12: false }).format(new Date()); }
+
+  $('#draft').addEventListener('click', function () {
+    if (submitting) return;
+    setBusy(true);
+    setTimeout(function () {
+      setBusy(false); dirty = false; var s = $('#status'); s.dataset.keep = '1'; s.textContent = 'Đã lưu nháp ' + nowHM();
+      $('#summaryWrap').innerHTML = ''; toast('Đã lưu nháp NV-0248');
+    }, 500);
+  });
+
+  form.addEventListener('submit', function (e) {
+    e.preventDefault(); if (submitting) return;
+    submittedOnce = true; $('#banner').innerHTML = '';
+    var first = validateAll();
+    if (!docs.length) { $('#docErr').innerHTML = '<p class="err" role="alert">' + ALERT_ICON + '<span>Tải lên ít nhất giấy tờ CCCD của nhân viên</span></p>'; if (!first) first = $('#fileIn'); }
+    else if (!docs.some(function (d) { return d.type === 'CCCD'; })) { $('#docErr').innerHTML = '<p class="err" role="alert">' + ALERT_ICON + '<span>Còn thiếu giấy tờ CCCD</span></p>'; if (!first) first = $('#fileIn'); }
+    else $('#docErr').innerHTML = '';
+    refreshSummary();
+    if (first) { first.scrollIntoView({ block: 'center' }); if (first.type === 'file') $('label[for="fileIn"]').focus && $('label[for="fileIn"]').scrollIntoView(); else first.focus(); return; }
+    setBusy(true);
+    setTimeout(function () {
+      var idv = $('#idNo').value.trim();
+      if (EXISTING_IDS[idv]) {
+        setBusy(false);
+        var el = $('#idNo'); setErr(el, 'Số CCCD đã được dùng cho ' + EXISTING_IDS[idv]); el.focus();
+        $('#banner').innerHTML = '<p class="rounded-md border border-red-200 bg-red-50 p-3 text-red-800">Chưa tiếp nhận được nhân viên. Dữ liệu bạn nhập vẫn được giữ; sửa số CCCD rồi lưu lại.</p>';
+        return;
+      }
+      setBusy(false); dirty = false;
+      var name = ($('#lastName').value + ' ' + $('#firstName').value).trim();
+      var s = $('#status'); delete s.dataset.keep; s.textContent = '';
+      toast('Nhân viên NV-0248 ' + name + ' đã được tiếp nhận');
+      $('#summaryWrap').innerHTML = ''; submittedOnce = false;
+    }, 900);
+  });
+
+  // ---------- Toast ----------
+  var tt;
+  function toast(msg) { var t = $('#toast'); t.textContent = msg; t.hidden = false; clearTimeout(tt); tt = setTimeout(function () { t.hidden = true; }, 4000); }
+
+  // ---------- Page state ----------
+  function showState(s) {
+    $('#stLoading').hidden = s !== 'loading'; $('#stError').hidden = s !== 'error'; form.hidden = s !== 'ready';
+  }
+  function load() {
+    var st = params.get('state');
+    if (st === 'loading') return showState('loading');
+    showState('loading');
+    setTimeout(function () {
+      if (st === 'error') return showState('error');
+      fillRefs(); showState('ready');
+    }, st ? 0 : 450);
+  }
+  $('#retry').addEventListener('click', function () { params.delete('state'); history.replaceState(null, '', location.pathname); showState('loading'); setTimeout(function () { fillRefs(); showState('ready'); }, 450); });
+
+  // init
+  contacts = []; addContact(true); renderDocs(); updateGross(); updateEnd();
+  if (params.get('state') === 'empty') { docs = []; renderDocs(); }
+  load();
+})();
+</script>
+</body>
+</html>

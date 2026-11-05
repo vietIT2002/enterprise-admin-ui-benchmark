@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Equipment Register - Maintenance</title>
+<script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-slate-50 text-slate-800">
+<div class="max-w-7xl mx-auto px-4 sm:px-6 py-6">
+  <header class="mb-5">
+    <h1 class="text-2xl font-semibold text-slate-900">Equipment List</h1>
+    <p class="text-sm text-slate-500">Factory maintenance system &middot; Plant 1 &middot; Data as of <span id="asof"></span></p>
+  </header>
+
+  <section class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-5" id="summary"></section>
+
+  <div class="flex flex-col sm:flex-row gap-3 mb-3">
+    <input id="q" type="search" placeholder="Search by name, ID or location" class="flex-1 rounded-md border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+    <select id="status" class="rounded-md border border-slate-300 px-3 py-2 text-sm bg-white">
+      <option value="">All statuses</option>
+      <option>Running</option><option>Idle</option><option>Under maintenance</option><option>Fault</option>
+    </select>
+    <select id="area" class="rounded-md border border-slate-300 px-3 py-2 text-sm bg-white"><option value="">All areas</option></select>
+  </div>
+
+  <div class="bg-white border border-slate-200 rounded-lg overflow-x-auto">
+    <table class="w-full text-sm">
+      <thead class="bg-slate-100 text-left text-xs uppercase tracking-wide text-slate-600">
+        <tr id="head"></tr>
+      </thead>
+      <tbody id="rows" class="divide-y divide-slate-100"></tbody>
+    </table>
+    <div id="empty" class="hidden p-8 text-center text-slate-500">No equipment matches the current filters.</div>
+  </div>
+  <p id="count" class="text-xs text-slate-500 mt-2"></p>
+</div>
+
+<script>
+const TODAY = new Date('2026-11-05');
+const data = [
+ ['EQ-1001','CNC Lathe Mazak QT-200','Machining Hall A / Bay 1','Running','2026-09-14','2026-12-14'],
+ ['EQ-1002','CNC Milling Haas VF-4','Machining Hall A / Bay 2','Running','2026-10-02','2027-01-02'],
+ ['EQ-1003','Hydraulic Press 250T','Press Shop / Line 1','Fault','2026-08-21','2026-11-02'],
+ ['EQ-1004','Injection Molder Engel 500','Molding / Cell 3','Running','2026-10-20','2027-01-20'],
+ ['EQ-1005','Robotic Welder Fanuc ARC Mate','Welding / Cell 2','Under maintenance','2026-11-04','2026-11-18'],
+ ['EQ-1006','Air Compressor Atlas GA75','Utilities / Room 2','Running','2026-07-30','2026-11-10'],
+ ['EQ-1007','Conveyor Line C-12','Assembly / Line 2','Running','2026-09-05','2026-12-05'],
+ ['EQ-1008','Paint Booth Dual-Zone','Finishing / Bay 4','Idle','2026-06-18','2026-11-30'],
+ ['EQ-1009','Laser Cutter Trumpf 3030','Sheet Metal / Bay 1','Running','2026-10-11','2027-01-11'],
+ ['EQ-1010','Overhead Crane 10T','Warehouse / Aisle 3','Running','2026-05-27','2026-11-04'],
+ ['EQ-1011','Packaging Machine Bosch SVE','Packing / Line 1','Idle','2026-09-29','2026-12-29'],
+ ['EQ-1012','Industrial Chiller Carrier 30XA','Utilities / Roof','Running','2026-08-08','2026-11-22'],
+ ['EQ-1013','CMM Zeiss Contura','Quality Lab','Running','2026-10-27','2027-04-27'],
+ ['EQ-1014','Forklift Toyota 8FGU25 #3','Warehouse / Dock','Under maintenance','2026-11-03','2026-11-12'],
+ ['EQ-1015','Grinder Okamoto ACC-63','Machining Hall B / Bay 2','Fault','2026-07-12','2026-10-28'],
+ ['EQ-1016','Heat Treatment Furnace F2','Heat Treat / Bay 1','Running','2026-09-22','2026-12-22'],
+];
+const cols=[['id','Equipment ID'],['name','Machine'],['loc','Location'],['status','Status'],['last','Last service'],['next','Next inspection']];
+let sortKey='next', sortDir=1;
+const rows=data.map(d=>({id:d[0],name:d[1],loc:d[2],status:d[3],last:d[4],next:d[5]}));
+const fmt=s=>new Date(s).toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'});
+const days=s=>Math.round((new Date(s)-TODAY)/864e5);
+const badge={'Running':'bg-green-100 text-green-800','Idle':'bg-slate-200 text-slate-700','Under maintenance':'bg-amber-100 text-amber-800','Fault':'bg-red-100 text-red-800'};
+document.getElementById('asof').textContent=fmt(TODAY);
+[...new Set(rows.map(r=>r.loc.split(' / ')[0]))].sort().forEach(a=>{const o=document.createElement('option');o.textContent=a;document.getElementById('area').appendChild(o)});
+
+function nextCell(r){
+  const d=days(r.next);
+  let note,cls;
+  if(d<0){note=`Overdue by ${-d} day${-d>1?'s':''}`;cls='text-red-700 font-medium'}
+  else if(d<=14){note=d===0?'Due today':`Due in ${d} day${d>1?'s':''}`;cls='text-amber-700 font-medium'}
+  else{note=`In ${d} days`;cls='text-slate-500'}
+  return `<div>${fmt(r.next)}</div><div class="text-xs ${cls}">${note}</div>`;
+}
+function render(){
+  const q=document.getElementById('q').value.toLowerCase(),st=document.getElementById('status').value,ar=document.getElementById('area').value;
+  let list=rows.filter(r=>(!st||r.status===st)&&(!ar||r.loc.startsWith(ar))&&(!q||(r.id+r.name+r.loc).toLowerCase().includes(q)));
+  list.sort((a,b)=>String(a[sortKey]).localeCompare(String(b[sortKey]))*sortDir);
+  document.getElementById('head').innerHTML=cols.map(([k,l])=>`<th class="px-4 py-3 font-semibold"><button data-k="${k}" class="uppercase tracking-wide hover:text-slate-900">${l}${sortKey===k?(sortDir>0?' &#9650;':' &#9660;'):''}</button></th>`).join('');
+  document.getElementById('rows').innerHTML=list.map(r=>`<tr class="hover:bg-slate-50">
+    <td class="px-4 py-3 font-mono text-xs text-slate-600">${r.id}</td>
+    <td class="px-4 py-3 font-medium text-slate-900">${r.name}</td>
+    <td class="px-4 py-3 text-slate-600">${r.loc}</td>
+    <td class="px-4 py-3"><span class="inline-block rounded px-2 py-0.5 text-xs font-medium ${badge[r.status]}">${r.status}</span></td>
+    <td class="px-4 py-3 text-slate-600">${fmt(r.last)}</td>
+    <td class="px-4 py-3">${nextCell(r)}</td></tr>`).join('');
+  document.getElementById('empty').classList.toggle('hidden',list.length>0);
+  document.getElementById('count').textContent=`Showing ${list.length} of ${rows.length} machines`;
+  document.querySelectorAll('#head button').forEach(b=>b.onclick=()=>{const k=b.dataset.k;sortDir=sortKey===k?-sortDir:1;sortKey=k;render()});
+}
+const overdue=rows.filter(r=>days(r.next)<0).length, soon=rows.filter(r=>days(r.next)>=0&&days(r.next)<=14).length;
+const tiles=[['Total machines',rows.length,'text-slate-900'],['Fault',rows.filter(r=>r.status==='Fault').length,'text-red-700'],['Inspections overdue',overdue,'text-red-700'],['Due within 14 days',soon,'text-amber-700']];
+document.getElementById('summary').innerHTML=tiles.map(t=>`<div class="bg-white border border-slate-200 rounded-lg p-4"><div class="text-xs text-slate-500">${t[0]}</div><div class="text-2xl font-semibold ${t[2]}">${t[1]}</div></div>`).join('');
+['q','status','area'].forEach(i=>document.getElementById(i).addEventListener('input',render));
+render();
+</script>
+</body>
+</html>

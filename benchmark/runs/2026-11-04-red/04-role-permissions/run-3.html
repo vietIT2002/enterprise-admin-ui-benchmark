@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Roles &amp; Permissions</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script>tailwind.config={theme:{extend:{fontFamily:{sans:['Inter','system-ui','sans-serif']}}}}</script>
+</head>
+<body class="bg-slate-50 text-slate-900 font-sans antialiased">
+<div class="min-h-screen flex flex-col">
+  <header class="bg-white border-b border-slate-200 px-4 sm:px-6 py-3 flex items-center justify-between">
+    <div class="flex items-center gap-3">
+      <div class="h-8 w-8 rounded-md bg-indigo-600 text-white grid place-items-center text-sm font-semibold">A</div>
+      <nav class="text-sm text-slate-500" aria-label="Breadcrumb">Settings <span class="mx-1">/</span> <span class="text-slate-900 font-medium">Roles &amp; permissions</span></nav>
+    </div>
+    <div class="text-sm text-slate-500 hidden sm:block">Signed in as <span class="font-medium text-slate-700">Mai Tran</span></div>
+  </header>
+
+  <main class="flex-1 p-4 sm:p-6 max-w-7xl w-full mx-auto">
+    <div class="flex flex-wrap items-end justify-between gap-3 mb-5">
+      <div>
+        <h1 class="text-xl font-semibold">Roles &amp; permissions</h1>
+        <p class="text-sm text-slate-500">Control what each role can do in every module.</p>
+      </div>
+      <button id="newRole" class="rounded-md bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium px-3.5 py-2 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2">New role</button>
+    </div>
+
+    <div class="grid lg:grid-cols-[300px_1fr] gap-5">
+      <aside class="bg-white border border-slate-200 rounded-lg overflow-hidden self-start">
+        <div class="p-3 border-b border-slate-200">
+          <label for="roleSearch" class="sr-only">Search roles</label>
+          <input id="roleSearch" type="search" placeholder="Search roles" class="w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500">
+        </div>
+        <ul id="roleList" class="divide-y divide-slate-100 max-h-[70vh] overflow-auto"></ul>
+      </aside>
+
+      <section class="bg-white border border-slate-200 rounded-lg min-w-0" aria-labelledby="roleTitle">
+        <div class="p-4 sm:p-5 border-b border-slate-200 flex flex-wrap items-start justify-between gap-3">
+          <div class="min-w-0">
+            <div class="flex items-center gap-2 flex-wrap">
+              <h2 id="roleTitle" class="text-lg font-semibold"></h2>
+              <span id="roleBadge"></span>
+            </div>
+            <p id="roleDesc" class="text-sm text-slate-500 mt-1"></p>
+            <p id="roleMeta" class="text-xs text-slate-400 mt-1"></p>
+          </div>
+          <div class="flex gap-2">
+            <button id="resetBtn" class="rounded-md border border-slate-300 bg-white hover:bg-slate-50 text-sm font-medium px-3 py-2 disabled:opacity-40 disabled:cursor-not-allowed focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500">Discard</button>
+            <button id="saveBtn" class="rounded-md bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium px-3.5 py-2 disabled:opacity-40 disabled:cursor-not-allowed focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2">Save changes</button>
+          </div>
+        </div>
+        <div id="lockNote" class="hidden px-5 py-2.5 bg-amber-50 border-b border-amber-200 text-sm text-amber-800">This is a system role. Its permissions cannot be edited.</div>
+
+        <div class="overflow-x-auto">
+          <table class="w-full text-sm min-w-[620px]">
+            <thead>
+              <tr class="text-left text-xs uppercase tracking-wide text-slate-500 bg-slate-50 border-b border-slate-200">
+                <th scope="col" class="px-5 py-3 font-medium">Module</th>
+                <th scope="col" class="px-3 py-3 font-medium text-center">View</th>
+                <th scope="col" class="px-3 py-3 font-medium text-center">Create</th>
+                <th scope="col" class="px-3 py-3 font-medium text-center">Edit</th>
+                <th scope="col" class="px-3 py-3 font-medium text-center">Delete</th>
+                <th scope="col" class="px-3 py-3 font-medium text-center">Approve</th>
+                <th scope="col" class="px-3 py-3 font-medium text-center">All</th>
+              </tr>
+            </thead>
+            <tbody id="matrix" class="divide-y divide-slate-100"></tbody>
+          </table>
+        </div>
+        <div class="px-5 py-3 border-t border-slate-200 text-xs text-slate-500 flex justify-between flex-wrap gap-2">
+          <span id="summary"></span>
+          <span id="dirty" class="text-amber-700 font-medium"></span>
+        </div>
+      </section>
+    </div>
+  </main>
+</div>
+<div id="toast" role="status" aria-live="polite" class="fixed bottom-4 right-4 bg-slate-900 text-white text-sm px-4 py-2.5 rounded-md shadow-lg opacity-0 pointer-events-none transition-opacity"></div>
+
+<script>
+const ACTIONS=['view','create','edit','delete','approve'];
+const MODULES=[
+ {id:'dashboard',name:'Dashboard',desc:'KPIs and overview',only:['view']},
+ {id:'users',name:'Users',desc:'Accounts and invitations'},
+ {id:'orders',name:'Orders',desc:'Sales orders and fulfilment'},
+ {id:'invoices',name:'Invoices',desc:'Billing and payments'},
+ {id:'expenses',name:'Expense claims',desc:'Employee reimbursements'},
+ {id:'inventory',name:'Inventory',desc:'Products and stock levels'},
+ {id:'reports',name:'Reports',desc:'Analytics and exports',only:['view','create']},
+ {id:'settings',name:'Settings',desc:'Company configuration',only:['view','edit']},
+ {id:'audit',name:'Audit log',desc:'Security events',only:['view']}
+];
+const full=()=>Object.fromEntries(MODULES.map(m=>[m.id,Object.fromEntries(ACTIONS.filter(a=>!m.only||m.only.includes(a)).map(a=>[a,true]))]));
+const mk=(o)=>{const p=Object.fromEntries(MODULES.map(m=>[m.id,{}]));for(const k in o)o[k].split(' ').forEach(a=>p[k][a]=true);return p};
+const roles=[
+ {id:1,name:'Super Admin',desc:'Unrestricted access to every module.',system:true,members:3,updated:'12 Jan 2026',perms:full()},
+ {id:2,name:'Finance Manager',desc:'Manages billing and approves spend.',members:6,updated:'28 Oct 2026',perms:mk({dashboard:'view',invoices:'view create edit delete approve',expenses:'view edit approve',orders:'view',reports:'view create',audit:'view'})},
+ {id:3,name:'Operations Lead',desc:'Runs orders and inventory day to day.',members:9,updated:'02 Nov 2026',perms:mk({dashboard:'view',orders:'view create edit approve',inventory:'view create edit delete',users:'view',reports:'view'})},
+ {id:4,name:'Support Agent',desc:'Handles customer requests, read-mostly.',members:24,updated:'19 Sep 2026',perms:mk({dashboard:'view',orders:'view edit',users:'view',invoices:'view'})},
+ {id:5,name:'HR Admin',desc:'Manages staff accounts and expense claims.',members:4,updated:'07 Oct 2026',perms:mk({dashboard:'view',users:'view create edit delete',expenses:'view approve',reports:'view'})},
+ {id:6,name:'Auditor',desc:'Read-only access for compliance reviews.',members:2,updated:'30 Jun 2026',perms:mk({dashboard:'view',users:'view',orders:'view',invoices:'view',expenses:'view',inventory:'view',reports:'view',audit:'view'})}
+];
+let selected=1, draft=null, q='';
+const $=s=>document.querySelector(s);
+const clone=o=>JSON.parse(JSON.stringify(o));
+const cur=()=>roles.find(r=>r.id===selected);
+const allowed=(m,a)=>!m.only||m.only.includes(a);
+const countOf=r=>MODULES.reduce((n,m)=>n+ACTIONS.filter(a=>allowed(m,a)&&r.perms[m.id][a]).length,0);
+const total=MODULES.reduce((n,m)=>n+ACTIONS.filter(a=>allowed(m,a)).length,0);
+const esc=s=>s.replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+
+function select(id){
+  if(isDirty()&&!confirm('Discard unsaved changes?'))return;
+  selected=id;draft=clone(cur().perms);render();
+}
+function isDirty(){return draft&&JSON.stringify(draft)!==JSON.stringify(cur().perms)}
+
+function renderList(){
+  const list=roles.filter(r=>r.name.toLowerCase().includes(q));
+  $('#roleList').innerHTML=list.length?list.map(r=>`
+   <li><button data-id="${r.id}" aria-current="${r.id===selected}" class="w-full text-left px-4 py-3 flex items-center justify-between gap-3 hover:bg-slate-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-indigo-500 ${r.id===selected?'bg-indigo-50 border-l-2 border-indigo-600':'border-l-2 border-transparent'}">
+     <span class="min-w-0"><span class="block text-sm font-medium truncate">${esc(r.name)}</span>
+     <span class="block text-xs text-slate-500">${r.members} members &middot; ${countOf(r)}/${total} permissions</span></span>
+     ${r.system?'<span class="text-[11px] font-medium rounded bg-slate-100 text-slate-600 px-1.5 py-0.5">System</span>':''}
+   </button></li>`).join(''):'<li class="px-4 py-6 text-sm text-slate-500 text-center">No roles match your search.</li>';
+}
+
+function renderMatrix(){
+  const r=cur(), lock=r.system;
+  $('#matrix').innerHTML=MODULES.map(m=>{
+    const cells=ACTIONS.map(a=>{
+      if(!allowed(m,a))return `<td class="px-3 py-3 text-center text-slate-300" aria-label="Not applicable">&mdash;</td>`;
+      return `<td class="px-3 py-3 text-center"><input type="checkbox" data-m="${m.id}" data-a="${a}" ${draft[m.id][a]?'checked':''} ${lock?'disabled':''} aria-label="${esc(m.name)}: ${a}" class="h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 disabled:opacity-50 cursor-pointer disabled:cursor-not-allowed"></td>`;
+    }).join('');
+    const acts=ACTIONS.filter(a=>allowed(m,a));
+    const all=acts.every(a=>draft[m.id][a]);
+    return `<tr class="hover:bg-slate-50/60"><th scope="row" class="px-5 py-3 text-left font-normal"><div class="font-medium">${esc(m.name)}</div><div class="text-xs text-slate-500">${esc(m.desc)}</div></th>${cells}
+      <td class="px-3 py-3 text-center"><input type="checkbox" data-row="${m.id}" ${all?'checked':''} ${lock?'disabled':''} aria-label="All permissions for ${esc(m.name)}" class="h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 disabled:opacity-50 cursor-pointer disabled:cursor-not-allowed"></td></tr>`;
+  }).join('');
+}
+
+function renderHead(){
+  const r=cur();
+  $('#roleTitle').textContent=r.name;
+  $('#roleDesc').textContent=r.desc;
+  $('#roleMeta').textContent=`${r.members} members · Updated ${r.updated}`;
+  $('#roleBadge').innerHTML=r.system?'<span class="text-[11px] font-medium rounded bg-slate-100 text-slate-600 px-1.5 py-0.5">System role</span>':'<span class="text-[11px] font-medium rounded bg-indigo-50 text-indigo-700 px-1.5 py-0.5">Custom role</span>';
+  $('#lockNote').classList.toggle('hidden',!r.system);
+}
+function renderStatus(){
+  const d=isDirty(), r=cur();
+  const n=MODULES.reduce((s,m)=>s+ACTIONS.filter(a=>allowed(m,a)&&draft[m.id][a]).length,0);
+  $('#summary').textContent=`${n} of ${total} permissions granted`;
+  $('#dirty').textContent=d?'Unsaved changes':'';
+  $('#saveBtn').disabled=!d||r.system;
+  $('#resetBtn').disabled=!d;
+}
+function render(){renderList();renderHead();renderMatrix();renderStatus()}
+
+$('#roleList').addEventListener('click',e=>{const b=e.target.closest('button[data-id]');if(b)select(+b.dataset.id)});
+$('#roleSearch').addEventListener('input',e=>{q=e.target.value.toLowerCase().trim();renderList()});
+$('#matrix').addEventListener('change',e=>{
+  const t=e.target;
+  if(t.dataset.row){const m=MODULES.find(x=>x.id===t.dataset.row);ACTIONS.filter(a=>allowed(m,a)).forEach(a=>draft[m.id][a]=t.checked);}
+  else{
+    const {m,a}=t.dataset;draft[m][a]=t.checked;
+    // sensible dependency: any write/approve implies view; removing view clears the rest
+    if(t.checked&&a!=='view'&&allowed(MODULES.find(x=>x.id===m),'view'))draft[m].view=true;
+    if(!t.checked&&a==='view')ACTIONS.forEach(x=>draft[m][x]=false);
+  }
+  renderMatrix();renderStatus();
+});
+$('#saveBtn').addEventListener('click',()=>{
+  const r=cur();r.perms=clone(draft);
+  MODULES.forEach(m=>ACTIONS.forEach(a=>{if(!r.perms[m.id][a])delete r.perms[m.id][a]}));
+  draft=clone(r.perms);r.updated=new Date().toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'});
+  render();toast(`Permissions for ${r.name} saved`);
+});
+$('#resetBtn').addEventListener('click',()=>{draft=clone(cur().perms);render()});
+$('#newRole').addEventListener('click',()=>{
+  const name=prompt('Name for the new role');
+  if(!name||!name.trim())return;
+  if(isDirty()&&!confirm('Discard unsaved changes?'))return;
+  const id=Math.max(...roles.map(r=>r.id))+1;
+  roles.push({id,name:name.trim(),desc:'Custom role with no permissions yet.',members:0,updated:'Today',perms:mk({dashboard:'view'})});
+  selected=id;draft=clone(cur().perms);render();toast('Role created');
+});
+let tt;function toast(m){const t=$('#toast');t.textContent=m;t.classList.remove('opacity-0');clearTimeout(tt);tt=setTimeout(()=>t.classList.add('opacity-0'),2200)}
+draft=clone(cur().perms);render();
+</script>
+</body>
+</html>

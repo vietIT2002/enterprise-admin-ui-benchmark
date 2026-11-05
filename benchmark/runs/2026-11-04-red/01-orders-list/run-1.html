@@ -1,0 +1,415 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sales Orders - Northwind ERP</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+tailwind.config = { theme: { extend: { fontFamily: { sans: ['Inter','ui-sans-serif','system-ui','Segoe UI','sans-serif'] } } } };
+</script>
+<style>
+  body { font-feature-settings: "cv11","ss01"; }
+  .tabnum { font-variant-numeric: tabular-nums; }
+  :focus-visible { outline: 2px solid #4f46e5; outline-offset: 2px; }
+  .drawer { transition: transform .2s ease; }
+  @media (prefers-reduced-motion: reduce) { .drawer { transition: none; } }
+</style>
+</head>
+<body class="bg-slate-50 text-slate-800 font-sans antialiased">
+
+<div class="flex min-h-screen">
+  <!-- Sidebar -->
+  <aside class="hidden lg:flex w-60 shrink-0 flex-col bg-slate-900 text-slate-300">
+    <div class="h-16 flex items-center gap-2 px-5 border-b border-slate-800">
+      <div class="h-8 w-8 rounded-lg bg-indigo-500 grid place-items-center text-white font-bold">N</div>
+      <div class="leading-tight"><div class="text-sm font-semibold text-white">Northwind ERP</div><div class="text-xs text-slate-400">Sales module</div></div>
+    </div>
+    <nav class="flex-1 px-3 py-4 text-sm space-y-6" aria-label="Main">
+      <div>
+        <p class="px-2 mb-2 text-xs font-medium uppercase tracking-wider text-slate-500">Sales</p>
+        <ul class="space-y-0.5">
+          <li><a href="#" class="flex items-center gap-3 rounded-md px-2 py-2 hover:bg-slate-800">Dashboard</a></li>
+          <li><a href="#" aria-current="page" class="flex items-center gap-3 rounded-md px-2 py-2 bg-slate-800 text-white font-medium">Orders <span class="ml-auto text-xs rounded-full bg-indigo-500 text-white px-2 py-0.5">12</span></a></li>
+          <li><a href="#" class="flex items-center gap-3 rounded-md px-2 py-2 hover:bg-slate-800">Quotations</a></li>
+          <li><a href="#" class="flex items-center gap-3 rounded-md px-2 py-2 hover:bg-slate-800">Invoices</a></li>
+          <li><a href="#" class="flex items-center gap-3 rounded-md px-2 py-2 hover:bg-slate-800">Returns</a></li>
+        </ul>
+      </div>
+      <div>
+        <p class="px-2 mb-2 text-xs font-medium uppercase tracking-wider text-slate-500">Operations</p>
+        <ul class="space-y-0.5">
+          <li><a href="#" class="flex items-center gap-3 rounded-md px-2 py-2 hover:bg-slate-800">Customers</a></li>
+          <li><a href="#" class="flex items-center gap-3 rounded-md px-2 py-2 hover:bg-slate-800">Inventory</a></li>
+          <li><a href="#" class="flex items-center gap-3 rounded-md px-2 py-2 hover:bg-slate-800">Shipping</a></li>
+          <li><a href="#" class="flex items-center gap-3 rounded-md px-2 py-2 hover:bg-slate-800">Reports</a></li>
+        </ul>
+      </div>
+    </nav>
+    <div class="p-4 border-t border-slate-800 flex items-center gap-3">
+      <div class="h-9 w-9 rounded-full bg-slate-700 grid place-items-center text-sm font-medium text-white">MR</div>
+      <div class="leading-tight min-w-0"><div class="text-sm text-white truncate">Maya Ramirez</div><div class="text-xs text-slate-400 truncate">Sales Manager</div></div>
+    </div>
+  </aside>
+
+  <!-- Main -->
+  <div class="flex-1 min-w-0 flex flex-col">
+    <header class="h-16 bg-white border-b border-slate-200 flex items-center justify-between px-4 sm:px-6">
+      <nav aria-label="Breadcrumb" class="text-sm text-slate-500"><span>Sales</span> <span class="mx-1">/</span> <span class="text-slate-900 font-medium">Orders</span></nav>
+      <div class="flex items-center gap-3">
+        <span class="hidden sm:inline text-xs text-slate-500">Fiscal period: Q4 2026</span>
+        <button class="h-9 px-3 rounded-md border border-slate-300 text-sm hover:bg-slate-50">Help</button>
+      </div>
+    </header>
+
+    <main class="flex-1 px-4 sm:px-6 py-6 max-w-[1400px] w-full mx-auto">
+      <div class="flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <h1 class="text-2xl font-semibold text-slate-900">Sales orders</h1>
+          <p class="text-sm text-slate-500 mt-1">Track, fulfil and invoice customer orders across all channels.</p>
+        </div>
+        <div class="flex gap-2">
+          <button id="exportAll" class="h-10 px-4 rounded-md border border-slate-300 bg-white text-sm font-medium hover:bg-slate-50">Export CSV</button>
+          <button id="newOrder" class="h-10 px-4 rounded-md bg-indigo-600 text-white text-sm font-medium hover:bg-indigo-700">New order</button>
+        </div>
+      </div>
+
+      <!-- KPIs -->
+      <section aria-label="Summary" class="mt-6 grid grid-cols-2 lg:grid-cols-4 gap-4" id="kpis"></section>
+
+      <!-- Table card -->
+      <section class="mt-6 bg-white rounded-xl border border-slate-200 shadow-sm">
+        <!-- status tabs -->
+        <div class="border-b border-slate-200 px-4 overflow-x-auto">
+          <div role="tablist" aria-label="Order status" id="tabs" class="flex gap-1 min-w-max"></div>
+        </div>
+
+        <!-- toolbar -->
+        <div class="p-4 flex flex-wrap items-end gap-3">
+          <div class="flex-1 min-w-[220px]">
+            <label for="q" class="block text-xs font-medium text-slate-600 mb-1">Search</label>
+            <input id="q" type="search" placeholder="Order no., customer, PO or email" class="w-full h-10 rounded-md border border-slate-300 px-3 text-sm placeholder:text-slate-400 focus:border-indigo-500">
+          </div>
+          <div>
+            <label for="fPay" class="block text-xs font-medium text-slate-600 mb-1">Payment</label>
+            <select id="fPay" class="h-10 rounded-md border border-slate-300 bg-white px-3 text-sm">
+              <option value="">All payments</option><option>Paid</option><option>Partial</option><option>Unpaid</option><option>Refunded</option>
+            </select>
+          </div>
+          <div>
+            <label for="fCh" class="block text-xs font-medium text-slate-600 mb-1">Channel</label>
+            <select id="fCh" class="h-10 rounded-md border border-slate-300 bg-white px-3 text-sm">
+              <option value="">All channels</option><option>Direct</option><option>Distributor</option><option>Web store</option><option>Marketplace</option>
+            </select>
+          </div>
+          <div>
+            <label for="fRange" class="block text-xs font-medium text-slate-600 mb-1">Date</label>
+            <select id="fRange" class="h-10 rounded-md border border-slate-300 bg-white px-3 text-sm">
+              <option value="0">Any time</option><option value="7">Last 7 days</option><option value="30">Last 30 days</option><option value="90">Last 90 days</option>
+            </select>
+          </div>
+          <div>
+            <label for="sort" class="block text-xs font-medium text-slate-600 mb-1">Sort by</label>
+            <select id="sort" class="h-10 rounded-md border border-slate-300 bg-white px-3 text-sm">
+              <option value="date-desc">Newest first</option><option value="date-asc">Oldest first</option>
+              <option value="total-desc">Total: high to low</option><option value="total-asc">Total: low to high</option>
+              <option value="cust-asc">Customer A-Z</option>
+            </select>
+          </div>
+          <button id="reset" class="h-10 px-3 text-sm text-indigo-700 font-medium hover:underline">Clear filters</button>
+        </div>
+
+        <!-- bulk bar -->
+        <div id="bulk" class="hidden items-center gap-3 flex-wrap px-4 py-2.5 bg-indigo-50 border-y border-indigo-100 text-sm" role="region" aria-label="Bulk actions">
+          <span class="font-medium text-indigo-900"><span id="selCount">0</span> selected</span>
+          <div class="flex flex-wrap gap-2">
+            <button data-bulk="confirm" class="h-8 px-3 rounded-md bg-white border border-indigo-200 text-indigo-800 hover:bg-indigo-100">Confirm</button>
+            <button data-bulk="ship" class="h-8 px-3 rounded-md bg-white border border-indigo-200 text-indigo-800 hover:bg-indigo-100">Mark as shipped</button>
+            <button data-bulk="invoice" class="h-8 px-3 rounded-md bg-white border border-indigo-200 text-indigo-800 hover:bg-indigo-100">Create invoices</button>
+            <button data-bulk="export" class="h-8 px-3 rounded-md bg-white border border-indigo-200 text-indigo-800 hover:bg-indigo-100">Export</button>
+            <button data-bulk="cancel" class="h-8 px-3 rounded-md bg-white border border-red-200 text-red-700 hover:bg-red-50">Cancel orders</button>
+          </div>
+          <button id="clearSel" class="ml-auto text-indigo-800 hover:underline">Clear selection</button>
+        </div>
+
+        <!-- table -->
+        <div class="overflow-x-auto">
+          <table class="w-full text-sm min-w-[900px]">
+            <thead class="bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
+              <tr>
+                <th scope="col" class="w-12 pl-4 py-3 text-left"><input id="all" type="checkbox" aria-label="Select all orders on this page" class="h-4 w-4 rounded border-slate-300 text-indigo-600"></th>
+                <th scope="col" class="px-3 py-3 text-left font-medium">Order</th>
+                <th scope="col" class="px-3 py-3 text-left font-medium">Customer</th>
+                <th scope="col" class="px-3 py-3 text-left font-medium">Date</th>
+                <th scope="col" class="px-3 py-3 text-left font-medium">Status</th>
+                <th scope="col" class="px-3 py-3 text-left font-medium">Payment</th>
+                <th scope="col" class="px-3 py-3 text-right font-medium">Items</th>
+                <th scope="col" class="px-3 py-3 text-right font-medium">Total</th>
+                <th scope="col" class="px-3 pr-4 py-3 text-right font-medium"><span class="sr-only">Actions</span></th>
+              </tr>
+            </thead>
+            <tbody id="rows" class="divide-y divide-slate-100"></tbody>
+          </table>
+          <div id="empty" class="hidden py-16 text-center">
+            <p class="text-slate-900 font-medium">No orders match your filters</p>
+            <p class="text-sm text-slate-500 mt-1">Try a different search term or clear the filters.</p>
+            <button id="emptyReset" class="mt-4 h-9 px-4 rounded-md border border-slate-300 text-sm hover:bg-slate-50">Clear filters</button>
+          </div>
+        </div>
+
+        <!-- pagination -->
+        <div class="flex flex-wrap items-center justify-between gap-3 px-4 py-3 border-t border-slate-200 text-sm text-slate-600">
+          <div id="range" aria-live="polite"></div>
+          <div class="flex items-center gap-3">
+            <label for="pp" class="text-xs text-slate-500">Rows per page</label>
+            <select id="pp" class="h-9 rounded-md border border-slate-300 bg-white px-2 text-sm"><option>10</option><option selected>15</option><option>25</option><option>50</option></select>
+            <div class="flex gap-1">
+              <button id="prev" class="h-9 px-3 rounded-md border border-slate-300 hover:bg-slate-50 disabled:opacity-40 disabled:hover:bg-white">Previous</button>
+              <button id="next" class="h-9 px-3 rounded-md border border-slate-300 hover:bg-slate-50 disabled:opacity-40 disabled:hover:bg-white">Next</button>
+            </div>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+</div>
+
+<!-- Detail drawer -->
+<div id="overlay" class="hidden fixed inset-0 bg-slate-900/40 z-30"></div>
+<aside id="drawer" class="drawer fixed inset-y-0 right-0 z-40 w-full sm:w-[420px] bg-white shadow-2xl translate-x-full flex flex-col" role="dialog" aria-modal="true" aria-labelledby="dTitle" aria-hidden="true">
+  <div class="h-16 px-5 border-b border-slate-200 flex items-center justify-between">
+    <h2 id="dTitle" class="font-semibold text-slate-900"></h2>
+    <button id="dClose" class="h-9 w-9 rounded-md hover:bg-slate-100 text-slate-500" aria-label="Close order details">&#10005;</button>
+  </div>
+  <div id="dBody" class="flex-1 overflow-y-auto p-5 space-y-6 text-sm"></div>
+  <div class="p-4 border-t border-slate-200 flex gap-2">
+    <button class="flex-1 h-10 rounded-md border border-slate-300 text-sm font-medium hover:bg-slate-50">Print</button>
+    <button class="flex-1 h-10 rounded-md bg-indigo-600 text-white text-sm font-medium hover:bg-indigo-700">Open full order</button>
+  </div>
+</aside>
+
+<!-- Toast -->
+<div id="toast" class="fixed bottom-5 left-1/2 -translate-x-1/2 z-50 hidden rounded-lg bg-slate-900 text-white text-sm px-4 py-3 shadow-lg" role="status" aria-live="polite"></div>
+
+<script>
+(function () {
+  // ---------- Mock data ----------
+  var customers = [
+    ['Acme Industrial Supply','purchasing@acme-industrial.com'],['Brightline Logistics','ap@brightline.io'],
+    ['Cedar & Pine Hardware','orders@cedarpine.com'],['Delta Medical Group','procurement@deltamed.org'],
+    ['Evergreen Foods Co.','buyer@evergreenfoods.com'],['Fulton Automotive','parts@fultonauto.com'],
+    ['Granite Peak Builders','office@granitepeak.build'],['Harbor Electronics','sales@harborelec.com'],
+    ['Ironwood Furniture','supply@ironwoodfurn.com'],['Juniper Labs','ops@juniperlabs.co'],
+    ['Keystone Retail Partners','po@keystoneretail.com'],['Lumen Solar','orders@lumensolar.com']
+  ];
+  var channels = ['Direct','Distributor','Web store','Marketplace'];
+  var statuses = ['Draft','Confirmed','Processing','Shipped','Delivered','Cancelled'];
+  var payments = ['Paid','Partial','Unpaid','Refunded'];
+  var seed = 20261104;
+  function rnd() { seed = (seed * 1664525 + 1013904223) % 4294967296; return seed / 4294967296; }
+  function pick(a) { return a[Math.floor(rnd() * a.length)]; }
+  var today = new Date(2026, 10, 4);
+  var orders = [];
+  for (var i = 0; i < 64; i++) {
+    var c = pick(customers), age = Math.floor(rnd() * 100);
+    var d = new Date(today); d.setDate(d.getDate() - age);
+    var st = age < 4 ? pick(['Draft','Confirmed','Processing']) : age < 14 ? pick(['Confirmed','Processing','Shipped','Shipped','Cancelled']) : pick(['Delivered','Delivered','Delivered','Shipped','Cancelled']);
+    var pay = st === 'Cancelled' ? pick(['Refunded','Unpaid']) : st === 'Draft' ? 'Unpaid' : st === 'Delivered' ? pick(['Paid','Paid','Paid','Partial']) : pick(payments.slice(0,3));
+    var n = 1 + Math.floor(rnd() * 12);
+    orders.push({
+      id: 'SO-' + (24180 - i), po: 'PO-' + (100000 + Math.floor(rnd() * 899999)),
+      customer: c[0], email: c[1], date: d, status: st, payment: pay, channel: pick(channels),
+      items: n, total: Math.round((n * (40 + rnd() * 900)) * 100) / 100
+    });
+  }
+
+  var badge = {
+    Draft:'bg-slate-100 text-slate-700 ring-slate-300', Confirmed:'bg-blue-50 text-blue-800 ring-blue-200',
+    Processing:'bg-amber-50 text-amber-800 ring-amber-200', Shipped:'bg-violet-50 text-violet-800 ring-violet-200',
+    Delivered:'bg-emerald-50 text-emerald-800 ring-emerald-200', Cancelled:'bg-red-50 text-red-800 ring-red-200',
+    Paid:'bg-emerald-50 text-emerald-800 ring-emerald-200', Partial:'bg-amber-50 text-amber-800 ring-amber-200',
+    Unpaid:'bg-slate-100 text-slate-700 ring-slate-300', Refunded:'bg-red-50 text-red-800 ring-red-200'
+  };
+  var dot = { Draft:'bg-slate-400', Confirmed:'bg-blue-500', Processing:'bg-amber-500', Shipped:'bg-violet-500', Delivered:'bg-emerald-500', Cancelled:'bg-red-500', Paid:'bg-emerald-500', Partial:'bg-amber-500', Unpaid:'bg-slate-400', Refunded:'bg-red-500' };
+  function pill(t) { return '<span class="inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-medium ring-1 ring-inset ' + badge[t] + '"><span class="h-1.5 w-1.5 rounded-full ' + dot[t] + '" aria-hidden="true"></span>' + t + '</span>'; }
+
+  var money = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' });
+  var dfmt = new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+  function esc(s) { return String(s).replace(/[&<>"]/g, function (m) { return { '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;' }[m]; }); }
+  function $(id) { return document.getElementById(id); }
+
+  // ---------- State ----------
+  var state = { tab: 'All', q: '', pay: '', ch: '', range: 0, sort: 'date-desc', page: 1, pp: 15, sel: new Set() };
+
+  function filtered(ignoreTab) {
+    var q = state.q.trim().toLowerCase();
+    var out = orders.filter(function (o) {
+      if (!ignoreTab && state.tab !== 'All' && o.status !== state.tab) return false;
+      if (state.pay && o.payment !== state.pay) return false;
+      if (state.ch && o.channel !== state.ch) return false;
+      if (state.range && (today - o.date) / 864e5 > state.range) return false;
+      if (q && (o.id + ' ' + o.customer + ' ' + o.po + ' ' + o.email).toLowerCase().indexOf(q) < 0) return false;
+      return true;
+    });
+    var s = state.sort.split('-'), dir = s[1] === 'asc' ? 1 : -1;
+    out.sort(function (a, b) {
+      var r = s[0] === 'date' ? a.date - b.date : s[0] === 'total' ? a.total - b.total : a.customer.localeCompare(b.customer);
+      return r * dir || a.id.localeCompare(b.id);
+    });
+    return out;
+  }
+
+  // ---------- Render ----------
+  function renderKpis() {
+    var open = orders.filter(function (o) { return ['Confirmed','Processing'].indexOf(o.status) >= 0; });
+    var unpaid = orders.filter(function (o) { return o.payment === 'Unpaid' && o.status !== 'Cancelled' && o.status !== 'Draft'; });
+    var month = orders.filter(function (o) { return o.date.getMonth() === 10 && o.status !== 'Cancelled'; });
+    var sum = function (a) { return a.reduce(function (t, o) { return t + o.total; }, 0); };
+    var k = [
+      ['Orders this month', month.length, money.format(sum(month)) + ' in sales'],
+      ['Awaiting fulfilment', open.length, money.format(sum(open)) + ' open value'],
+      ['Awaiting payment', unpaid.length, money.format(sum(unpaid)) + ' outstanding'],
+      ['Ready to ship', orders.filter(function (o) { return o.status === 'Processing'; }).length, 'Processing orders']
+    ];
+    $('kpis').innerHTML = k.map(function (x) {
+      return '<div class="bg-white rounded-xl border border-slate-200 p-4 shadow-sm"><p class="text-xs font-medium text-slate-500">' + x[0] + '</p><p class="mt-1 text-2xl font-semibold text-slate-900 tabnum">' + x[1] + '</p><p class="mt-1 text-xs text-slate-500 tabnum">' + x[2] + '</p></div>';
+    }).join('');
+  }
+
+  function renderTabs() {
+    var base = filtered(true), tabs = ['All'].concat(statuses);
+    $('tabs').innerHTML = tabs.map(function (t) {
+      var n = t === 'All' ? base.length : base.filter(function (o) { return o.status === t; }).length;
+      var on = state.tab === t;
+      return '<button role="tab" aria-selected="' + on + '" data-tab="' + t + '" class="px-3 py-3 text-sm border-b-2 -mb-px whitespace-nowrap ' + (on ? 'border-indigo-600 text-indigo-700 font-medium' : 'border-transparent text-slate-600 hover:text-slate-900') + '">' + t + ' <span class="ml-1 text-xs rounded-full px-1.5 py-0.5 tabnum ' + (on ? 'bg-indigo-100 text-indigo-700' : 'bg-slate-100 text-slate-600') + '">' + n + '</span></button>';
+    }).join('');
+  }
+
+  function render() {
+    var list = filtered(false), total = list.length;
+    var pages = Math.max(1, Math.ceil(total / state.pp));
+    if (state.page > pages) state.page = pages;
+    var start = (state.page - 1) * state.pp, view = list.slice(start, start + state.pp);
+
+    $('rows').innerHTML = view.map(function (o) {
+      var on = state.sel.has(o.id);
+      return '<tr class="' + (on ? 'bg-indigo-50/60' : 'hover:bg-slate-50') + '">' +
+        '<td class="pl-4 py-3"><input type="checkbox" data-sel="' + o.id + '" ' + (on ? 'checked' : '') + ' aria-label="Select order ' + o.id + '" class="h-4 w-4 rounded border-slate-300 text-indigo-600"></td>' +
+        '<td class="px-3 py-3"><button data-open="' + o.id + '" class="font-medium text-indigo-700 hover:underline tabnum">' + o.id + '</button><div class="text-xs text-slate-500">' + o.po + '</div></td>' +
+        '<td class="px-3 py-3"><div class="font-medium text-slate-900">' + esc(o.customer) + '</div><div class="text-xs text-slate-500">' + o.channel + '</div></td>' +
+        '<td class="px-3 py-3 text-slate-600 whitespace-nowrap">' + dfmt.format(o.date) + '</td>' +
+        '<td class="px-3 py-3">' + pill(o.status) + '</td>' +
+        '<td class="px-3 py-3">' + pill(o.payment) + '</td>' +
+        '<td class="px-3 py-3 text-right tabnum text-slate-600">' + o.items + '</td>' +
+        '<td class="px-3 py-3 text-right tabnum font-medium text-slate-900">' + money.format(o.total) + '</td>' +
+        '<td class="px-3 pr-4 py-3 text-right"><button data-open="' + o.id + '" class="h-8 px-3 rounded-md border border-slate-300 text-xs font-medium hover:bg-slate-50">View</button></td></tr>';
+    }).join('');
+
+    $('empty').classList.toggle('hidden', total > 0);
+    $('range').textContent = total ? 'Showing ' + (start + 1) + '-' + (start + view.length) + ' of ' + total + ' orders' : '0 orders';
+    $('prev').disabled = state.page <= 1;
+    $('next').disabled = state.page >= pages;
+
+    var ids = view.map(function (o) { return o.id; });
+    var selOnPage = ids.filter(function (id) { return state.sel.has(id); }).length;
+    $('all').checked = ids.length > 0 && selOnPage === ids.length;
+    $('all').indeterminate = selOnPage > 0 && selOnPage < ids.length;
+
+    var n = state.sel.size;
+    $('bulk').classList.toggle('hidden', n === 0);
+    $('bulk').classList.toggle('flex', n > 0);
+    $('selCount').textContent = n;
+    renderTabs();
+  }
+
+  function toast(msg) {
+    var t = $('toast'); t.textContent = msg; t.classList.remove('hidden');
+    clearTimeout(toast.h); toast.h = setTimeout(function () { t.classList.add('hidden'); }, 3200);
+  }
+
+  // ---------- Events ----------
+  var debounce;
+  $('q').addEventListener('input', function (e) { clearTimeout(debounce); debounce = setTimeout(function () { state.q = e.target.value; state.page = 1; render(); }, 150); });
+  [['fPay','pay'],['fCh','ch'],['sort','sort']].forEach(function (p) { $(p[0]).addEventListener('change', function (e) { state[p[1]] = e.target.value; state.page = 1; render(); }); });
+  $('fRange').addEventListener('change', function (e) { state.range = +e.target.value; state.page = 1; render(); });
+  $('pp').addEventListener('change', function (e) { state.pp = +e.target.value; state.page = 1; render(); });
+  function reset() {
+    state.q = ''; state.pay = ''; state.ch = ''; state.range = 0; state.tab = 'All'; state.page = 1;
+    $('q').value = ''; $('fPay').value = ''; $('fCh').value = ''; $('fRange').value = '0'; render();
+  }
+  $('reset').addEventListener('click', reset); $('emptyReset').addEventListener('click', reset);
+  $('prev').addEventListener('click', function () { state.page--; render(); });
+  $('next').addEventListener('click', function () { state.page++; render(); });
+  $('tabs').addEventListener('click', function (e) { var b = e.target.closest('[data-tab]'); if (b) { state.tab = b.dataset.tab; state.page = 1; render(); } });
+
+  $('rows').addEventListener('change', function (e) {
+    var id = e.target.dataset.sel; if (!id) return;
+    e.target.checked ? state.sel.add(id) : state.sel.delete(id); render();
+  });
+  $('rows').addEventListener('click', function (e) { var b = e.target.closest('[data-open]'); if (b) openDrawer(b.dataset.open, b); });
+  $('all').addEventListener('change', function (e) {
+    var list = filtered(false).slice((state.page - 1) * state.pp, state.page * state.pp);
+    list.forEach(function (o) { e.target.checked ? state.sel.add(o.id) : state.sel.delete(o.id); }); render();
+  });
+  $('clearSel').addEventListener('click', function () { state.sel.clear(); render(); });
+
+  var nextStatus = { confirm: 'Confirmed', ship: 'Shipped', cancel: 'Cancelled' };
+  $('bulk').addEventListener('click', function (e) {
+    var b = e.target.closest('[data-bulk]'); if (!b) return;
+    var act = b.dataset.bulk, n = state.sel.size;
+    if (act === 'cancel' && !window.confirm('Cancel ' + n + ' selected order(s)? This cannot be undone.')) return;
+    var changed = 0, skipped = 0;
+    orders.forEach(function (o) {
+      if (!state.sel.has(o.id)) return;
+      if (act === 'export') { changed++; return; }
+      if (act === 'invoice') { if (o.status === 'Cancelled' || o.status === 'Draft') skipped++; else changed++; return; }
+      if (o.status === 'Cancelled' || o.status === 'Delivered' || (act === 'confirm' && o.status !== 'Draft') || (act === 'ship' && ['Confirmed','Processing'].indexOf(o.status) < 0)) { skipped++; return; }
+      o.status = nextStatus[act]; if (act === 'cancel' && o.payment === 'Paid') o.payment = 'Refunded'; changed++;
+    });
+    var verb = { confirm:'confirmed', ship:'marked as shipped', cancel:'cancelled', invoice:'invoiced', export:'exported' }[act];
+    toast(changed + ' order(s) ' + verb + (skipped ? ', ' + skipped + ' skipped (not eligible)' : ''));
+    if (act !== 'export' && act !== 'invoice') state.sel.clear();
+    renderKpis(); render();
+  });
+  $('exportAll').addEventListener('click', function () { toast('Exporting ' + filtered(false).length + ' orders to CSV...'); });
+  $('newOrder').addEventListener('click', function () { toast('New order form would open here'); });
+
+  // ---------- Drawer ----------
+  var lastFocus;
+  function openDrawer(id, trigger) {
+    var o = orders.filter(function (x) { return x.id === id; })[0]; if (!o) return;
+    lastFocus = trigger;
+    $('dTitle').textContent = 'Order ' + o.id;
+    var sub = o.total * 0.92, tax = o.total - sub;
+    var lines = '';
+    for (var i = 0; i < Math.min(o.items, 4); i++) {
+      lines += '<li class="flex justify-between py-2"><span class="text-slate-700">Item SKU-' + (3000 + (o.items * 37 + i * 101) % 900) + '</span><span class="text-slate-500 tabnum">x ' + (1 + (i + o.items) % 5) + '</span></li>';
+    }
+    if (o.items > 4) lines += '<li class="py-2 text-xs text-slate-500">+ ' + (o.items - 4) + ' more line items</li>';
+    $('dBody').innerHTML =
+      '<div class="flex gap-2">' + pill(o.status) + pill(o.payment) + '</div>' +
+      '<dl class="grid grid-cols-2 gap-4"><div><dt class="text-xs text-slate-500">Customer</dt><dd class="font-medium">' + esc(o.customer) + '</dd></div>' +
+      '<div><dt class="text-xs text-slate-500">Contact</dt><dd class="break-all">' + esc(o.email) + '</dd></div>' +
+      '<div><dt class="text-xs text-slate-500">Order date</dt><dd>' + dfmt.format(o.date) + '</dd></div>' +
+      '<div><dt class="text-xs text-slate-500">Customer PO</dt><dd class="tabnum">' + o.po + '</dd></div>' +
+      '<div><dt class="text-xs text-slate-500">Channel</dt><dd>' + o.channel + '</dd></div>' +
+      '<div><dt class="text-xs text-slate-500">Line items</dt><dd class="tabnum">' + o.items + '</dd></div></dl>' +
+      '<div><h3 class="text-xs font-medium uppercase tracking-wide text-slate-500 mb-1">Items</h3><ul class="divide-y divide-slate-100 border-y border-slate-100">' + lines + '</ul></div>' +
+      '<dl class="space-y-1 tabnum"><div class="flex justify-between"><dt class="text-slate-500">Subtotal</dt><dd>' + money.format(sub) + '</dd></div><div class="flex justify-between"><dt class="text-slate-500">Tax</dt><dd>' + money.format(tax) + '</dd></div><div class="flex justify-between font-semibold text-slate-900 pt-1 border-t border-slate-200"><dt>Total</dt><dd>' + money.format(o.total) + '</dd></div></dl>';
+    $('overlay').classList.remove('hidden');
+    var d = $('drawer'); d.classList.remove('translate-x-full'); d.setAttribute('aria-hidden', 'false');
+    $('dClose').focus();
+  }
+  function closeDrawer() {
+    $('overlay').classList.add('hidden');
+    var d = $('drawer'); d.classList.add('translate-x-full'); d.setAttribute('aria-hidden', 'true');
+    if (lastFocus) lastFocus.focus();
+  }
+  $('dClose').addEventListener('click', closeDrawer); $('overlay').addEventListener('click', closeDrawer);
+  document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && $('drawer').getAttribute('aria-hidden') === 'false') closeDrawer(); });
+
+  renderKpis(); render();
+})();
+</script>
+</body>
+</html>

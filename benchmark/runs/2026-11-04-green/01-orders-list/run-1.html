@@ -1,0 +1,618 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Orders · Sales · Minh Phát ERP</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style type="text/tailwindcss">
+  @layer components {
+    .btn { @apply inline-flex h-8 items-center justify-center gap-1.5 whitespace-nowrap rounded px-3 text-sm font-medium focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-700 disabled:cursor-not-allowed disabled:opacity-50; }
+    .btn-primary { @apply btn bg-blue-700 text-white hover:bg-blue-800; }
+    .btn-outline { @apply btn border border-slate-300 bg-white text-slate-900 hover:bg-slate-50; }
+    .btn-ghost { @apply btn text-slate-700 hover:bg-slate-100; }
+    .btn-link { @apply btn px-1 text-blue-700 hover:underline; }
+    .btn-danger { @apply btn bg-red-700 text-white hover:bg-red-800; }
+    .field { @apply h-8 rounded border border-slate-300 bg-white px-2 text-sm text-slate-900 placeholder:text-slate-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-blue-700; }
+    .badge { @apply inline-flex h-6 items-center whitespace-nowrap rounded-full px-2 text-xs font-medium; }
+    .b-neutral { @apply bg-slate-100 text-slate-700; }
+    .b-info { @apply bg-blue-50 text-blue-800; }
+    .b-success { @apply bg-green-50 text-green-800; }
+    .b-warning { @apply bg-amber-50 text-amber-800; }
+    .b-danger { @apply bg-red-50 text-red-800; }
+    .th { @apply h-10 whitespace-nowrap bg-slate-50 px-3 text-left text-xs font-medium text-slate-600; }
+    .td { @apply h-10 whitespace-nowrap px-3 py-0 text-sm text-slate-900; }
+    .pop { @apply absolute left-0 top-9 z-30 min-w-[200px] rounded-md border border-slate-200 bg-white p-2 shadow-md; }
+    .chk { @apply size-4 cursor-pointer rounded border-slate-400 accent-blue-700; }
+  }
+</style>
+</head>
+<body class="bg-white text-slate-900 antialiased" style="font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif">
+
+<div class="flex min-h-screen">
+  <!-- Sidebar -->
+  <aside class="hidden w-60 shrink-0 border-r border-slate-200 bg-slate-50 lg:block">
+    <div class="flex h-12 items-center border-b border-slate-200 px-4 text-sm font-semibold">Minh Phát Trading</div>
+    <nav aria-label="Main" class="flex flex-col gap-4 p-2" id="nav"></nav>
+  </aside>
+
+  <div class="flex min-w-0 flex-1 flex-col">
+    <header class="flex h-12 items-center justify-end gap-2 border-b border-slate-200 px-4">
+      <label class="flex items-center gap-2 text-xs text-slate-600">Demo data state
+        <select id="demo" class="field text-xs" aria-label="Demo data state">
+          <option value="ready">Normal</option><option value="loading">Loading</option><option value="error">Error</option><option value="empty">No orders yet</option>
+        </select>
+      </label>
+      <button class="btn-ghost size-8 !px-0" aria-label="Help" id="ic-help"></button>
+      <button class="btn-ghost size-8 !px-0" aria-label="Notifications, 3 unread" id="ic-bell"></button>
+      <button class="flex size-8 items-center justify-center rounded-full bg-slate-200 text-xs font-medium text-slate-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-700" aria-label="Account menu">LH</button>
+    </header>
+
+    <main class="min-w-0 flex-1 p-6">
+      <!-- Page header -->
+      <nav aria-label="Breadcrumb" class="mb-1">
+        <ol class="flex items-center gap-1 text-sm text-slate-600">
+          <li><a href="#sales" class="inline-flex min-h-6 items-center hover:text-slate-900 hover:underline">Sales</a></li>
+          <li aria-hidden="true">/</li>
+          <li><span aria-current="page" class="text-slate-900">Orders</span></li>
+        </ol>
+      </nav>
+      <div class="mb-4 flex flex-wrap items-center justify-between gap-2">
+        <h1 class="text-xl font-semibold">Orders</h1>
+        <div class="flex items-center gap-2">
+          <a href="#import" class="btn-outline" id="btn-import"></a>
+          <button class="btn-outline" id="btn-export"></button>
+          <a href="#orders/new" class="btn-primary" id="btn-create"></a>
+        </div>
+      </div>
+
+      <!-- Status tabs -->
+      <div role="tablist" aria-label="Order status" id="tabs" class="flex flex-wrap gap-1 border-b border-slate-200"></div>
+
+      <!-- Filter row -->
+      <div class="mt-3 flex flex-wrap items-center gap-2" id="filters">
+        <div class="relative">
+          <span class="pointer-events-none absolute left-2 top-2 text-slate-500" id="ic-search"></span>
+          <input id="q" type="search" autocomplete="off" aria-label="Search orders" placeholder="Search order no., customer, salesperson" class="field w-[300px] pl-8">
+        </div>
+        <div class="relative"><button class="btn-outline" data-pop="pay" aria-expanded="false" aria-haspopup="true" id="tr-pay"></button><div class="pop" id="pop-pay" hidden></div></div>
+        <div class="relative"><button class="btn-outline" data-pop="channel" aria-expanded="false" aria-haspopup="true" id="tr-channel"></button><div class="pop" id="pop-channel" hidden></div></div>
+        <label class="flex items-center"><span class="sr-only">Order date</span>
+          <select id="range" class="field" aria-label="Order date">
+            <option value="">Order date: any time</option><option value="today">Today</option><option value="7">Last 7 days</option><option value="30">Last 30 days</option><option value="month">This month</option>
+          </select>
+        </label>
+        <div class="relative">
+          <button class="btn-outline" data-pop="more" aria-expanded="false" aria-haspopup="true" id="tr-more"></button>
+          <div class="pop !w-[280px]" id="pop-more" hidden>
+            <div class="flex flex-col gap-3 p-1">
+              <label class="flex flex-col gap-1 text-xs font-medium text-slate-700">Salesperson
+                <select id="d-owner" class="field text-sm font-normal"></select></label>
+              <fieldset class="flex flex-col gap-1">
+                <legend class="mb-1 text-xs font-medium text-slate-700">Total (VND)</legend>
+                <div class="flex items-center gap-2">
+                  <input id="d-min" type="number" min="0" step="1000000" inputmode="numeric" aria-label="Total from (VND)" placeholder="From" class="field w-full text-right tabular-nums">
+                  <span class="text-slate-500" aria-hidden="true">–</span>
+                  <input id="d-max" type="number" min="0" step="1000000" inputmode="numeric" aria-label="Total to (VND)" placeholder="To" class="field w-full text-right tabular-nums">
+                </div>
+              </fieldset>
+            </div>
+            <div class="mt-2 flex justify-end gap-2 border-t border-slate-200 pt-2">
+              <button class="btn-ghost" data-act="more-reset">Reset</button>
+              <button class="btn-primary" data-act="more-apply">Apply</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Chips -->
+      <div id="chips" class="mt-2 flex flex-wrap items-center gap-2 empty:hidden"></div>
+
+      <!-- Banner -->
+      <div id="banner" class="mt-3 empty:hidden"></div>
+
+      <!-- Summary -->
+      <p id="summary" class="mb-2 mt-3 text-sm text-slate-600" aria-hidden="true"></p>
+      <p id="live" role="status" class="sr-only"></p>
+
+      <!-- Table block -->
+      <div class="rounded-md border border-slate-200 bg-white">
+        <div id="bulk" class="hidden h-10 items-center gap-3 border-b border-slate-200 bg-blue-50 px-3 text-sm text-blue-900"></div>
+        <div class="max-h-[calc(100vh-300px)] min-h-[320px] overflow-auto">
+          <table class="w-full min-w-[1120px] border-collapse" id="tbl">
+            <thead class="sticky top-0 z-10 border-b border-slate-200 bg-slate-50" id="thead"></thead>
+            <tbody id="tbody" class="divide-y divide-slate-100"></tbody>
+          </table>
+        </div>
+        <div id="pager" class="flex h-12 flex-wrap items-center justify-between gap-3 border-t border-slate-200 px-3 text-sm"></div>
+      </div>
+    </main>
+  </div>
+</div>
+
+<!-- Floating menu -->
+<div id="menu" role="menu" hidden class="fixed z-40 min-w-[180px] rounded-md border border-slate-200 bg-white py-1 shadow-md"></div>
+
+<!-- Dialog -->
+<dialog id="dlg" class="w-[440px] max-w-[92vw] rounded-lg border border-slate-200 p-0 shadow-lg backdrop:bg-slate-900/40" aria-labelledby="dlg-title">
+  <div class="p-5">
+    <h2 id="dlg-title" class="text-base font-semibold"></h2>
+    <p id="dlg-body" class="mt-2 text-sm text-slate-700"></p>
+  </div>
+  <div class="flex justify-end gap-2 border-t border-slate-200 px-5 py-3">
+    <button class="btn-outline" id="dlg-cancel"></button>
+    <button class="btn-danger" id="dlg-ok"></button>
+  </div>
+</dialog>
+
+<!-- Toasts -->
+<div id="toasts" role="status" aria-live="polite" class="fixed right-4 top-14 z-50 flex flex-col gap-2"></div>
+
+<script>
+/* ---------- icons ---------- */
+const P = {
+  search:'<circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/>',
+  plus:'<path d="M12 5v14M5 12h14"/>',
+  down:'<path d="m6 9 6 6 6-6"/>',
+  up:'<path d="m6 15 6-6 6 6"/>',
+  x:'<path d="M18 6 6 18M6 6l12 12"/>',
+  more:'<circle cx="5" cy="12" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/>',
+  upload:'<path d="M12 15V4m0 0L8 8m4-4 4 4M4 15v4h16v-4"/>',
+  download:'<path d="M12 4v11m0 0-4-4m4 4 4-4M4 19h16"/>',
+  help:'<circle cx="12" cy="12" r="9"/><path d="M9.5 9a2.5 2.5 0 1 1 3.5 2.3c-.7.4-1 .9-1 1.7M12 17h.01"/>',
+  bell:'<path d="M6 8a6 6 0 1 1 12 0c0 7 3 8 3 8H3s3-1 3-8M10 20a2 2 0 0 0 4 0"/>',
+  cart:'<circle cx="9" cy="20" r="1"/><circle cx="18" cy="20" r="1"/><path d="M3 4h2l2.5 11h11L21 7H6"/>',
+  file:'<path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8zM14 3v5h5"/>',
+  users:'<circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c.5-3.5 3-5.5 6.5-5.5s6 2 6.5 5.5M17 11a3 3 0 0 0 0-6M21.5 19c-.3-2.4-1.6-4-3.5-4.7"/>',
+  box:'<path d="M21 8 12 3 3 8v8l9 5 9-5zM3 8l9 5 9-5M12 13v8"/>',
+  layers:'<path d="m12 3 9 5-9 5-9-5zM3 13l9 5 9-5"/>',
+  home:'<path d="M3 11 12 4l9 7M5 10v10h14V10"/>',
+  card:'<rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 10h18"/>',
+  chart:'<path d="M4 20V4m0 16h16M8 16v-5m4 5V8m4 8v-3"/>',
+  alert:'<path d="M12 3 2 20h20zM12 10v5M12 18h.01"/>',
+  check:'<path d="m5 12 5 5 9-10"/>'
+};
+const ic = (n, c='') => `<svg class="size-4 shrink-0 ${c}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${P[n]}</svg>`;
+const $ = s => document.querySelector(s);
+const esc = s => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
+/* ---------- static shell ---------- */
+const NAV = [
+  ['Sales', [['Orders','cart',true],['Quotations','file'],['Customers','users'],['Invoices','card']]],
+  ['Inventory', [['Products','box'],['Stock levels','layers'],['Warehouses','home']]],
+  ['Finance', [['Payments','card'],['Reports','chart']]]
+];
+$('#nav').innerHTML = NAV.map(([g, items]) => `<div class="flex flex-col gap-0.5"><p class="px-2 py-1 text-xs font-medium text-slate-600">${g}</p>${
+  items.map(([l, i, a]) => `<a href="#${l.toLowerCase().replace(/ /g,'-')}" ${a?'aria-current="page"':''} class="flex h-8 items-center gap-2 rounded px-2 text-sm text-slate-800 hover:bg-slate-200 ${a?'bg-slate-200 font-medium text-slate-900':''}">${ic(i)}<span>${l}</span></a>`).join('')}</div>`).join('');
+$('#ic-help').innerHTML = ic('help'); $('#ic-bell').innerHTML = ic('bell'); $('#ic-search').innerHTML = ic('search');
+$('#btn-import').innerHTML = ic('upload') + 'Import';
+$('#btn-export').innerHTML = ic('download') + 'Export';
+$('#btn-create').innerHTML = ic('plus') + 'Create order';
+
+/* ---------- mock data ---------- */
+const TODAY = new Date(2026, 10, 4);
+const CUSTOMERS = ['Công ty TNHH Minh Phát','Công ty CP Thương mại Đại Dương','Siêu thị Bách Hóa Xanh Q7','Cửa hàng Nguyễn Văn Hùng','Công ty TNHH Dược phẩm Hà An','Nhà phân phối Đông Nam','Công ty CP Xây dựng Hòa Bình','Tập đoàn Điện máy Phú Thịnh','Công ty TNHH Nội thất Đường Sáng','Đại lý Trần Thị Mai','Công ty CP Logistics Việt Tiến','Nhà hàng Hương Việt','Công ty TNHH Cơ khí Đức Long','Chuỗi cửa hàng Tiện Lợi 24h','Công ty CP Thực phẩm Sao Mai','Trường Quốc tế Á Châu'];
+const REPS = ['Lê Thu Hà','Nguyễn Quốc Anh','Phạm Minh Đức','Đặng Thanh Vân','Võ Hoàng Nam'];
+const CHANNELS = ['Direct','Website','Marketplace','Distributor'];
+const STATUS = { Draft:'neutral', Pending:'info', Confirmed:'info', Shipping:'info', Completed:'success', Cancelled:'neutral' };
+const PAYTONE = { Paid:'success', Unpaid:'neutral', Partial:'warning', Overdue:'danger' };
+const STATUS_LIST = Object.keys(STATUS);
+const PAY_LIST = Object.keys(PAYTONE);
+
+let seed = 20261104; const rnd = () => (seed = (seed * 1664525 + 1013904223) % 4294967296) / 4294967296;
+const pick = a => a[Math.floor(rnd() * a.length)];
+let ORDERS = Array.from({ length: 96 }, (_, i) => {
+  const age = Math.floor(i * 0.58 + rnd() * 1.5);
+  const d = new Date(TODAY); d.setDate(d.getDate() - age);
+  const r = rnd();
+  let status = age < 3 ? (r < .4 ? 'Draft' : 'Pending') : age < 9 ? (r < .3 ? 'Pending' : r < .55 ? 'Confirmed' : 'Shipping') : (r < .08 ? 'Cancelled' : r < .14 ? 'Shipping' : 'Completed');
+  let pay = status === 'Completed' ? (rnd() < .88 ? 'Paid' : 'Overdue') : status === 'Cancelled' ? 'Unpaid' : pick(['Paid','Unpaid','Partial','Unpaid']);
+  return { id: 'DH-' + (1096 - i), ts: d.getTime(), customer: pick(CUSTOMERS), channel: pick(CHANNELS), rep: pick(REPS), status, pay,
+    total: Math.round((2e6 + rnd() * rnd() * 118e6) / 1000) * 1000 };
+});
+let nextNo = 1097;
+
+/* ---------- formatting ---------- */
+const nf = new Intl.NumberFormat('vi-VN');
+const vnd = n => nf.format(n) + ' ₫';
+const dfmt = new Intl.DateTimeFormat('en-GB', { day:'2-digit', month:'2-digit', year:'numeric' });
+const norm = s => s.normalize('NFD').replace(/\p{Diacritic}/gu, '').replace(/đ/gi, 'd').toLowerCase();
+const badge = (t, tone) => `<span class="badge b-${tone}">${t}</span>`;
+
+/* ---------- state ---------- */
+const DEF = { status:'', q:'', pay:[], channel:[], range:'', owner:'', min:'', max:'', sort:'-date', page:1, size:25 };
+let S = { ...DEF, pay:[], channel:[] };
+let selected = new Set(), allMatching = false, view = 'loading', failed = [], showFailed = false, bannerTone = 'warning', bannerText = '';
+const sp = new URLSearchParams(location.search);
+(function readUrl() {
+  const st = sp.get('status'); if (STATUS_LIST.includes(st)) S.status = st;
+  S.q = sp.get('q') || '';
+  S.pay = sp.getAll('pay').filter(v => PAY_LIST.includes(v));
+  S.channel = sp.getAll('channel').filter(v => CHANNELS.includes(v));
+  if (['today','7','30','month'].includes(sp.get('range'))) S.range = sp.get('range');
+  if (REPS.includes(sp.get('owner'))) S.owner = sp.get('owner');
+  if (/^\d+$/.test(sp.get('min') || '')) S.min = sp.get('min');
+  if (/^\d+$/.test(sp.get('max') || '')) S.max = sp.get('max');
+  if (['date','-date','id','-id','customer','-customer','total','-total'].includes(sp.get('sort'))) S.sort = sp.get('sort');
+  if ([25,50,100].includes(+sp.get('size'))) S.size = +sp.get('size');
+  S.page = Math.max(1, parseInt(sp.get('page')) || 1);
+  if (['error','empty','loading'].includes(sp.get('state'))) $('#demo').value = sp.get('state');
+})();
+function syncUrl() {
+  const p = new URLSearchParams();
+  if (S.status) p.set('status', S.status);
+  if (S.q) p.set('q', S.q);
+  S.pay.forEach(v => p.append('pay', v)); S.channel.forEach(v => p.append('channel', v));
+  ['range','owner','min','max'].forEach(k => S[k] && p.set(k, S[k]));
+  if (S.sort !== DEF.sort) p.set('sort', S.sort);
+  if (S.page > 1) p.set('page', S.page);
+  if (S.size !== DEF.size) p.set('size', S.size);
+  history.replaceState(null, '', location.pathname + (p.toString() ? '?' + p : ''));
+}
+
+/* ---------- querying ---------- */
+function inRange(ts) {
+  if (!S.range) return true;
+  const day = 864e5, t0 = new Date(TODAY).getTime();
+  if (S.range === 'today') return ts >= t0;
+  if (S.range === 'month') return ts >= new Date(2026, 10, 1).getTime();
+  return ts >= t0 - (+S.range - 1) * day;
+}
+function match(o, ignoreStatus) {
+  if (!ignoreStatus && S.status && o.status !== S.status) return false;
+  if (S.pay.length && !S.pay.includes(o.pay)) return false;
+  if (S.channel.length && !S.channel.includes(o.channel)) return false;
+  if (S.owner && o.rep !== S.owner) return false;
+  if (S.min !== '' && o.total < +S.min) return false;
+  if (S.max !== '' && o.total > +S.max) return false;
+  if (!inRange(o.ts)) return false;
+  if (S.q) { const n = norm(S.q); if (!norm(o.id + ' ' + o.customer + ' ' + o.rep).includes(n)) return false; }
+  return true;
+}
+function sorted(list) {
+  const desc = S.sort.startsWith('-'), key = S.sort.replace('-', '');
+  const f = { date:(a,b)=>a.ts-b.ts, id:(a,b)=>(+a.id.slice(3))-(+b.id.slice(3)), total:(a,b)=>a.total-b.total, customer:(a,b)=>a.customer.localeCompare(b.customer,'vi') }[key];
+  return [...list].sort((a,b) => (desc ? -1 : 1) * f(a,b) || b.ts - a.ts);
+}
+const filtered = () => sorted(ORDERS.filter(o => match(o)));
+const totalPages = n => Math.max(1, Math.ceil(n / S.size));
+
+/* ---------- rendering ---------- */
+const COLS = [
+  ['select'], ['id','Order no.',true], ['status','Status'], ['customer','Customer',true], ['channel','Channel'], ['rep','Salesperson'],
+  ['date','Order date',true], ['pay','Payment'], ['total','Total (VND)',true,'r'], ['act']
+];
+function renderHead(pageRows) {
+  const sel = pageRows.length && pageRows.every(o => selected.has(o.id) || allMatching);
+  const some = !sel && pageRows.some(o => selected.has(o.id));
+  $('#thead').innerHTML = '<tr>' + COLS.map(([k, label, sortable, al]) => {
+    if (k === 'select') return `<th class="th w-10"><input type="checkbox" class="chk" id="chk-all" aria-label="Select all rows on this page" ${sel?'checked':''} ${view!=='ready'?'disabled':''}></th>`;
+    if (k === 'act') return `<th class="th text-right"><span class="sr-only">Actions</span></th>`;
+    const sk = k === 'id' ? 'id' : k, asc = S.sort === sk, desc = S.sort === '-' + sk;
+    const aria = asc ? 'ascending' : desc ? 'descending' : null;
+    const right = al === 'r' ? 'text-right' : '';
+    const inner = sortable
+      ? `<button class="group inline-flex h-8 items-center gap-1 rounded font-medium hover:text-slate-900 focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-700 ${al==='r'?'flex-row-reverse':''}" data-sort="${sk}">${label}<span class="${aria?'':'opacity-0 group-hover:opacity-100 group-focus-visible:opacity-100'}">${ic(desc?'down':'up')}</span></button>`
+      : label;
+    return `<th scope="col" class="th ${right}" ${aria?`aria-sort="${aria}"`:''}>${inner}</th>`;
+  }).join('') + '</tr>';
+  const c = $('#chk-all'); if (c) c.indeterminate = some;
+}
+function stateRow(html) { return `<tr><td colspan="${COLS.length}" class="px-6 py-14 text-center">${html}</td></tr>`; }
+function renderTable() {
+  const tb = $('#tbody'), tbl = $('#tbl');
+  const demo = $('#demo').value;
+  const all = filtered();
+  const pages = totalPages(all.length);
+  if (S.page > pages) S.page = pages;
+  const rows = all.slice((S.page - 1) * S.size, S.page * S.size);
+  tbl.setAttribute('aria-busy', view === 'loading');
+  renderHead(view === 'ready' ? rows : []);
+  if (view === 'loading') {
+    tb.innerHTML = Array.from({ length: 10 }, () => `<tr class="h-10" aria-hidden="true">${COLS.map((c,i) => `<td class="td"><div class="h-4 animate-pulse rounded bg-slate-100 motion-reduce:animate-none ${i===0?'w-4':i===8?'ml-auto w-20':'w-full'}"></div></td>`).join('')}</tr>`).join('');
+    return;
+  }
+  if (view === 'error') {
+    tb.innerHTML = stateRow(`<p class="text-base font-medium">Couldn't load orders</p><p class="mt-1 text-sm text-slate-600">Check your connection and try again.</p><button class="btn-outline mt-3" data-act="retry">Retry</button>`);
+    return;
+  }
+  if (demo === 'empty' || ORDERS.length === 0) {
+    tb.innerHTML = stateRow(`<p class="text-base font-medium">No orders yet</p><p class="mx-auto mt-1 max-w-sm text-sm text-slate-600">Orders from every sales channel appear here.</p><a href="#orders/new" class="btn-primary mt-3">${ic('plus')}Create order</a>`);
+    return;
+  }
+  if (!rows.length) {
+    const what = S.q ? `No orders match “${esc(S.q)}”` : 'No orders match these filters';
+    tb.innerHTML = stateRow(`<p class="text-base font-medium">${what}</p><p class="mt-1 text-sm text-slate-600">Check the spelling or widen the date range.</p><button class="btn-outline mt-3" data-act="clear">Clear filters</button>`);
+    return;
+  }
+  const lock = (allMatching || selected.size) ? 'disabled' : '';
+  tb.innerHTML = rows.map(o => {
+    const on = allMatching || selected.has(o.id);
+    return `<tr class="h-10 hover:bg-slate-50 ${on?'bg-blue-50/60':''}">
+      <td class="td w-10"><input type="checkbox" class="chk" data-row="${o.id}" aria-label="Select order ${o.id}" ${on?'checked':''}></td>
+      <td class="td"><a href="#order-${o.id}" class="font-medium text-blue-700 hover:underline">${o.id}</a></td>
+      <td class="td">${badge(o.status, STATUS[o.status])}</td>
+      <td class="td">${esc(o.customer)}</td>
+      <td class="td text-slate-700">${o.channel}</td>
+      <td class="td text-slate-700">${esc(o.rep)}</td>
+      <td class="td tabular-nums">${dfmt.format(o.ts)}</td>
+      <td class="td">${badge(o.pay, PAYTONE[o.pay])}</td>
+      <td class="td text-right tabular-nums">${nf.format(o.total)}</td>
+      <td class="td py-1 text-right"><a href="#edit-${o.id}" class="btn-ghost" aria-label="Edit order ${o.id}">Edit</a>
+        <button class="btn-ghost size-8 !px-0 align-middle" data-menu="${o.id}" aria-haspopup="menu" aria-label="Actions for order ${o.id}" ${lock}>${ic('more')}</button></td>
+    </tr>`;
+  }).join('');
+}
+function renderTabs() {
+  const base = ORDERS.filter(o => match(o, true));
+  const counts = s => s ? base.filter(o => o.status === s).length : base.length;
+  const ready = view === 'ready' && $('#demo').value !== 'empty';
+  $('#tabs').innerHTML = ['', ...STATUS_LIST].map(s => {
+    const on = S.status === s;
+    return `<button role="tab" aria-selected="${on}" data-tab="${s}" class="-mb-px inline-flex h-9 items-center gap-1.5 border-b-2 px-3 text-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-700 ${on?'border-blue-700 font-medium text-slate-900':'border-transparent text-slate-600 hover:text-slate-900'}">${s || 'All'}${ready ? ` <span class="tabular-nums text-slate-600 font-normal">${counts(s)}</span>` : ''}</button>`;
+  }).join('');
+}
+const RANGE_LBL = { today:'Today', 7:'Last 7 days', 30:'Last 30 days', month:'This month' };
+function chipList() {
+  const c = [];
+  if (S.q) c.push({ k:'q', v:S.q, l:`Search: ${S.q}` });
+  S.pay.forEach(v => c.push({ k:'pay', v, l:`Payment: ${v}` }));
+  S.channel.forEach(v => c.push({ k:'channel', v, l:`Channel: ${v}` }));
+  if (S.range) c.push({ k:'range', v:S.range, l:`Created: ${RANGE_LBL[S.range]}` });
+  if (S.owner) c.push({ k:'owner', v:S.owner, l:`Salesperson: ${S.owner}` });
+  if (S.min !== '') c.push({ k:'min', v:S.min, l:`Total from ${nf.format(S.min)} ₫` });
+  if (S.max !== '') c.push({ k:'max', v:S.max, l:`Total up to ${nf.format(S.max)} ₫` });
+  return c;
+}
+function renderChips() {
+  const c = chipList();
+  $('#chips').innerHTML = c.length ? c.map(x => `<span class="inline-flex h-6 items-center gap-0.5 rounded-full border border-slate-300 bg-slate-50 pl-2 pr-0.5 text-xs font-medium text-slate-800">${esc(x.l)}<button class="inline-flex size-6 items-center justify-center rounded-full hover:bg-slate-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-700" data-chip="${x.k}" data-val="${esc(x.v)}" aria-label="Remove filter ${esc(x.l)}">${ic('x')}</button></span>`).join('') + `<button class="btn-link !h-6" data-act="clear">Clear all</button>` : '';
+}
+function renderTriggers() {
+  const t = (k, label, arr) => $('#tr-' + k).innerHTML = `${label}${arr.length ? ': ' + (arr.length === 1 ? arr[0] : arr.length + ' selected') : ''}${ic('down')}`;
+  t('pay', 'Payment', S.pay); t('channel', 'Channel', S.channel);
+  const n = (S.owner ? 1 : 0) + (S.min !== '' || S.max !== '' ? 1 : 0);
+  $('#tr-more').innerHTML = `More filters${n ? ` (${n})` : ''}${ic('down')}`;
+  $('#range').value = S.range;
+}
+function renderSummary(all) {
+  const ready = view === 'ready' && $('#demo').value !== 'empty';
+  const sum = all.reduce((a, o) => a + o.total, 0);
+  const txt = !ready ? '' : all.length ? `${nf.format(all.length)} ${all.length === 1 ? 'order' : 'orders'} · ${vnd(sum)}` : '';
+  $('#summary').textContent = txt || ' ';
+  $('#live').textContent = !ready ? '' : all.length ? `${all.length} orders match` : 'No orders match';
+}
+function renderBulk(all) {
+  const el = $('#bulk');
+  const n = allMatching ? all.length : selected.size;
+  if (!n || view !== 'ready') { el.classList.add('hidden'); el.classList.remove('flex'); el.innerHTML = ''; return; }
+  const pageRows = all.slice((S.page - 1) * S.size, S.page * S.size);
+  const pageAll = pageRows.length && pageRows.every(o => selected.has(o.id));
+  let more = '';
+  if (allMatching) more = `<span>All ${nf.format(all.length)} matching selected</span><button class="btn-link" data-act="clear-sel">Clear selection</button>`;
+  else if (pageAll && all.length > pageRows.length) more = `<button class="btn-link" data-act="all-matching">Select all ${nf.format(all.length)} matching</button>`;
+  el.className = 'flex h-10 items-center gap-3 border-b border-slate-200 bg-blue-50 px-3 text-sm text-blue-900';
+  el.innerHTML = `<span class="font-medium tabular-nums">${nf.format(n)} selected</span>${more}
+    <span class="mx-1 h-5 w-px bg-blue-200"></span>
+    <button class="btn-outline" data-act="bulk-confirm">Confirm orders</button>
+    <button class="btn-outline" data-act="bulk-export">${ic('download')}Export selected</button>
+    <button class="btn-outline" data-act="bulk-more" aria-haspopup="menu">More${ic('down')}</button>
+    <button class="btn-ghost ml-auto" data-act="clear-sel">Cancel</button>`;
+}
+function renderPager(all) {
+  const el = $('#pager');
+  if (view !== 'ready' || !all.length) { el.innerHTML = `<span class="text-slate-600">${view==='ready'?'0 orders':'&nbsp;'}</span>`; return; }
+  const pages = totalPages(all.length), a = (S.page - 1) * S.size + 1, b = Math.min(S.page * S.size, all.length);
+  const btn = (p, l, dis, cur) => `<button class="btn ${cur?'bg-blue-700 text-white':'text-slate-800 hover:bg-slate-100'} min-w-8 !px-2" data-page="${p}" ${dis?'disabled':''} ${cur?'aria-current="page"':''} aria-label="${typeof l==='number'?'Page '+l:l}">${typeof l==='number'?l:(l==='Previous page'?'Previous':'Next')}</button>`;
+  el.innerHTML = `<span class="tabular-nums text-slate-600">${a}–${b} of ${nf.format(all.length)}</span>
+    <div class="flex items-center gap-3">
+      <label class="flex items-center gap-2 text-slate-600">Rows per page
+        <select id="size" class="field">${[25,50,100].map(n => `<option ${n===S.size?'selected':''}>${n}</option>`).join('')}</select></label>
+      <nav aria-label="Pagination" class="flex items-center gap-1">${btn(S.page-1,'Previous page',S.page===1)}${Array.from({length:pages},(_,i)=>btn(i+1,i+1,false,i+1===S.page)).join('')}${btn(S.page+1,'Next page',S.page===pages)}</nav>
+    </div>`;
+}
+function renderBanner() {
+  const el = $('#banner');
+  if (!bannerText) { el.innerHTML = ''; return; }
+  const tone = bannerTone === 'danger' ? 'bg-red-50 text-red-900 border-red-200' : 'bg-amber-50 text-amber-900 border-amber-200';
+  el.innerHTML = `<div role="status" class="rounded-md border ${tone} px-3 py-2 text-sm"><div class="flex flex-wrap items-center gap-3">${ic('alert')}<span class="font-medium">${esc(bannerText)}</span>
+    <button class="btn-link" data-act="toggle-failed" aria-expanded="${showFailed}">View failed (${failed.length})</button>
+    <button class="btn-ghost ml-auto" data-act="dismiss">Dismiss</button></div>
+    ${showFailed ? `<ul class="mt-2 list-disc pl-9 text-sm">${failed.map(f => `<li>${esc(f.id)}: ${esc(f.reason)}</li>`).join('')}</ul>` : ''}</div>`;
+}
+function render() {
+  syncUrl();
+  const all = view === 'ready' ? filtered() : [];
+  renderTabs(); renderTriggers(); renderChips(); renderBanner();
+  renderSummary(view === 'ready' ? all : []);
+  renderTable();
+  renderBulk(all.length || view === 'ready' ? filtered() : []);
+  renderPager(view === 'ready' && $('#demo').value !== 'empty' ? filtered() : []);
+}
+
+/* ---------- selection / reset helpers ---------- */
+function resetSel() { selected = new Set(); allMatching = false; }
+function change(patch, keepPage) { Object.assign(S, patch); if (!keepPage) S.page = 1; resetSel(); render(); }
+function load(ms = 500) { view = 'loading'; render(); setTimeout(() => { const d = $('#demo').value; view = d === 'error' ? 'error' : 'ready'; render(); }, ms); }
+
+/* ---------- toast ---------- */
+function toast(msg) {
+  const t = document.createElement('div');
+  t.className = 'flex items-center gap-2 rounded-md border border-slate-200 bg-white px-3 py-2 text-sm shadow-md';
+  t.innerHTML = `<span class="text-green-700">${ic('check')}</span><span>${esc(msg)}</span><button class="btn-ghost -mr-1 size-6 !h-6 !px-0" aria-label="Dismiss notification">${ic('x')}</button>`;
+  $('#toasts').appendChild(t);
+  let timer, left = 5000;
+  const kill = () => t.remove();
+  const start = () => timer = setTimeout(kill, left);
+  t.addEventListener('mouseenter', () => clearTimeout(timer)); t.addEventListener('mouseleave', start); t.addEventListener('focusin', () => clearTimeout(timer)); t.addEventListener('focusout', start);
+  t.querySelector('button').onclick = kill; start();
+}
+
+/* ---------- popovers & menus ---------- */
+let openPop = null;
+function closePops(focusBack) {
+  document.querySelectorAll('.pop').forEach(p => p.hidden = true);
+  document.querySelectorAll('[data-pop]').forEach(b => b.setAttribute('aria-expanded', 'false'));
+  const m = $('#menu'); m.hidden = true;
+  if (focusBack && openPop) { const b = document.querySelector(`[data-pop="${openPop}"]`); b && b.focus(); }
+  openPop = null;
+}
+function fillPop(k) {
+  if (k === 'pay' || k === 'channel') {
+    const opts = k === 'pay' ? PAY_LIST : CHANNELS, cur = S[k];
+    $('#pop-' + k).innerHTML = `<div class="flex flex-col" role="group" aria-label="${k==='pay'?'Payment':'Channel'}">${opts.map(o => `<label class="flex h-8 cursor-pointer items-center gap-2 rounded px-2 text-sm hover:bg-slate-50"><input type="checkbox" class="chk" data-f="${k}" value="${o}" ${cur.includes(o)?'checked':''}>${o}</label>`).join('')}</div>${cur.length?`<div class="mt-1 border-t border-slate-200 pt-1"><button class="btn-link" data-clearf="${k}">Clear</button></div>`:''}`;
+  } else {
+    $('#d-owner').innerHTML = `<option value="">Anyone</option>` + REPS.map(r => `<option ${S.owner===r?'selected':''}>${r}</option>`).join('');
+    $('#d-min').value = S.min; $('#d-max').value = S.max;
+  }
+}
+function showMenu(btn, items) {
+  const m = $('#menu'), r = btn.getBoundingClientRect();
+  m.innerHTML = items.map(i => i === '-' ? '<div class="my-1 border-t border-slate-200"></div>' : `<button role="menuitem" class="flex h-8 w-full items-center px-3 text-left text-sm ${i.danger?'text-red-700':'text-slate-900'} hover:bg-slate-100 focus-visible:bg-slate-100 focus-visible:outline-none" data-mi="${i.act}" data-id="${i.id||''}">${i.label}</button>`).join('');
+  m.hidden = false;
+  const w = m.offsetWidth, h = m.offsetHeight;
+  m.style.left = Math.max(8, Math.min(r.right - w, innerWidth - w - 8)) + 'px';
+  m.style.top = (r.bottom + h + 8 > innerHeight ? r.top - h - 4 : r.bottom + 4) + 'px';
+  m.querySelector('button').focus();
+  m._anchor = btn;
+}
+
+/* ---------- dialog & bulk actions ---------- */
+function confirmDialog({ title, body, ok, cancel, onOk }) {
+  $('#dlg-title').textContent = title; $('#dlg-body').textContent = body;
+  $('#dlg-ok').textContent = ok; $('#dlg-cancel').textContent = cancel;
+  $('#dlg-ok').onclick = () => { $('#dlg').close(); onOk(); };
+  $('#dlg-cancel').onclick = () => $('#dlg').close();
+  $('#dlg').showModal(); $('#dlg-cancel').focus();
+}
+const REASON = { Shipping:'Order is already shipped', Completed:'Order is already completed', Cancelled:'Order is already cancelled', Confirmed:'Order is already confirmed' };
+function targetIds() { return allMatching ? filtered().map(o => o.id) : [...selected]; }
+function runBulk(ids, kind) {
+  const ok = [], bad = [];
+  ids.forEach(id => {
+    const o = ORDERS.find(x => x.id === id);
+    const allowed = kind === 'confirm' ? ['Draft','Pending'] : ['Draft','Pending','Confirmed'];
+    if (allowed.includes(o.status)) { o.status = kind === 'confirm' ? 'Confirmed' : 'Cancelled'; ok.push(id); }
+    else bad.push({ id, reason: REASON[o.status] || 'Order cannot be changed' });
+  });
+  const verb = kind === 'confirm' ? 'confirmed' : 'cancelled', one = ids.length === 1;
+  failed = bad; showFailed = false;
+  resetSel();
+  if (!bad.length) { bannerText = ''; toast(one ? `Order ${ids[0]} ${verb}` : `${ok.length} orders ${verb}`); }
+  else {
+    bannerTone = ok.length ? 'warning' : 'danger';
+    bannerText = ok.length ? `${ok.length} ${verb}, ${bad.length} failed` : `${bad.length} ${bad.length===1?'order':'orders'} couldn't be ${verb}`;
+    bad.forEach(b => selected.add(b.id));
+    if (ok.length) toast(`${ok.length} ${ok.length===1?'order':'orders'} ${verb}`);
+  }
+  render();
+}
+function cancelFlow(ids) {
+  const blocked = ids.filter(id => !['Draft','Pending','Confirmed'].includes(ORDERS.find(o => o.id === id).status)).length;
+  const t = ids.length === 1 ? `Cancel order ${ids[0]}?` : `Cancel ${nf.format(ids.length)} orders?`;
+  const b = (blocked ? `${blocked} already shipped, completed or cancelled and will be skipped. ` : '') + "Cancelled orders can't be reopened.";
+  confirmDialog({ title:t, body:b, ok: ids.length === 1 ? 'Cancel order' : 'Cancel orders', cancel: ids.length === 1 ? 'Keep order' : 'Keep orders', onOk: () => runBulk(ids, 'cancel') });
+}
+
+/* ---------- events ---------- */
+let qTimer;
+$('#q').value = S.q;
+$('#q').addEventListener('input', e => {
+  clearTimeout(qTimer); const v = e.target.value.trim();
+  if (v.length === 1) return;
+  qTimer = setTimeout(() => change({ q: v }), 300);
+});
+$('#q').addEventListener('keydown', e => { if (e.key === 'Enter') { clearTimeout(qTimer); change({ q: e.target.value.trim() }); } });
+$('#range').addEventListener('change', e => change({ range: e.target.value }));
+$('#demo').addEventListener('change', () => { resetSel(); bannerText = ''; load(400); });
+
+document.addEventListener('change', e => {
+  const t = e.target;
+  if (t.id === 'chk-all') {
+    const rows = filtered().slice((S.page - 1) * S.size, S.page * S.size);
+    allMatching = false; rows.forEach(o => t.checked ? selected.add(o.id) : selected.delete(o.id)); render();
+  } else if (t.dataset.row) {
+    if (allMatching) { allMatching = false; selected = new Set(filtered().map(o => o.id)); }
+    t.checked ? selected.add(t.dataset.row) : selected.delete(t.dataset.row); render();
+  } else if (t.dataset.f) {
+    const k = t.dataset.f, cur = new Set(S[k]); t.checked ? cur.add(t.value) : cur.delete(t.value);
+    change({ [k]: [...cur] }); fillPop(k);
+  } else if (t.id === 'size') change({ size: +t.value });
+});
+
+document.addEventListener('click', e => {
+  const t = e.target.closest('button, a, [data-pop]');
+  const menu = $('#menu');
+  if (!e.target.closest('.pop') && !e.target.closest('[data-pop]') && !e.target.closest('#menu')) closePops(false);
+  if (!t) return;
+  if (t.dataset.pop) {
+    const k = t.dataset.pop, was = openPop === k; closePops(false);
+    if (!was) { fillPop(k); $('#pop-' + k).hidden = false; t.setAttribute('aria-expanded', 'true'); openPop = k; const f = $('#pop-' + k).querySelector('input,select'); f && f.focus(); }
+    return;
+  }
+  if (t.dataset.clearf) { change({ [t.dataset.clearf]: [] }); fillPop(t.dataset.clearf); return; }
+  if (t.dataset.tab !== undefined && t.hasAttribute('role')) return change({ status: t.dataset.tab });
+  if (t.dataset.sort) {
+    const k = t.dataset.sort; let s = S.sort;
+    s = s === k ? '-' + k : s === '-' + k ? DEF.sort : k;
+    return change({ sort: s });
+  }
+  if (t.dataset.page) return change({ page: +t.dataset.page }, true);
+  if (t.dataset.chip) {
+    const k = t.dataset.chip, v = t.dataset.val;
+    if (k === 'pay' || k === 'channel') change({ [k]: S[k].filter(x => x !== v) });
+    else { if (k === 'q') $('#q').value = ''; change({ [k]: '' }); }
+    const next = $('#chips button[data-chip]') || $('#q'); next.focus(); return;
+  }
+  if (t.dataset.menu) {
+    const id = t.dataset.menu;
+    return showMenu(t, [{ label:'View order', act:'view', id }, { label:'Duplicate', act:'dup', id }, { label:'Print invoice', act:'print', id }, '-', { label:'Cancel order', act:'cancel', id, danger:true }]);
+  }
+  if (t.dataset.mi) {
+    const id = t.dataset.id, a = t.dataset.mi; menu.hidden = true;
+    if (a === 'view') location.hash = 'order-' + id;
+    if (a === 'print') toast(`Invoice for ${id} sent to the printer`);
+    if (a === 'dup') { const o = ORDERS.find(x => x.id === id); const n = 'DH-' + nextNo++; ORDERS.unshift({ ...o, id:n, ts:TODAY.getTime(), status:'Draft', pay:'Unpaid' }); S.sort = DEF.sort; change({}); toast(`Order ${n} created as a draft copy of ${id}`); }
+    if (a === 'cancel') cancelFlow([id]);
+    if (a === 'bulk-print') toast(`Delivery notes for ${targetIds().length} orders ready to print`);
+    if (a === 'bulk-cancel') cancelFlow(targetIds());
+    return;
+  }
+  const a = t.dataset.act;
+  if (a === 'clear') { $('#q').value = ''; change({ q:'', pay:[], channel:[], range:'', owner:'', min:'', max:'' }); $('#q').focus(); }
+  else if (a === 'retry') { $('#demo').value = 'ready'; load(500); }
+  else if (a === 'all-matching') { allMatching = true; render(); }
+  else if (a === 'clear-sel') { resetSel(); render(); }
+  else if (a === 'more-apply') { change({ owner:$('#d-owner').value, min:$('#d-min').value, max:$('#d-max').value }); closePops(true); }
+  else if (a === 'more-reset') { $('#d-owner').value = ''; $('#d-min').value = ''; $('#d-max').value = ''; }
+  else if (a === 'bulk-confirm') {
+    const n = targetIds().length;
+    confirmDialog({ title:`Confirm ${nf.format(n)} ${n===1?'order':'orders'}?`, body:'Confirmed orders are released to the warehouse. Orders that are already shipped, completed or cancelled will be skipped.', ok:'Confirm orders', cancel:'Cancel', onOk: () => runBulk(targetIds(), 'confirm') });
+    $('#dlg-ok').className = 'btn-primary';
+  }
+  else if (a === 'bulk-export') toast(`Exported ${nf.format(targetIds().length)} orders to CSV`);
+  else if (a === 'bulk-more') showMenu(t, [{ label:'Print delivery notes', act:'bulk-print' }, '-', { label:'Cancel orders', act:'bulk-cancel', danger:true }]);
+  else if (a === 'toggle-failed') { showFailed = !showFailed; renderBanner(); }
+  else if (a === 'dismiss') { bannerText = ''; failed = []; renderBanner(); }
+  if (t.id === 'btn-export') toast(`Exported ${nf.format(filtered().length)} orders to CSV`);
+});
+// reset dialog confirm button style for destructive flows
+$('#dlg').addEventListener('close', () => { $('#dlg-ok').className = 'btn-danger'; });
+
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') { if (openPop || !$('#menu').hidden) { const a = $('#menu')._anchor; const wasMenu = !$('#menu').hidden; closePops(!wasMenu); if (wasMenu && a) a.focus(); } }
+  if (e.key === '/' && !/INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName) && !$('#dlg').open) { e.preventDefault(); $('#q').focus(); }
+  if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+    const m = $('#menu'); if (m.hidden) return;
+    e.preventDefault(); const items = [...m.querySelectorAll('button')], i = items.indexOf(document.activeElement);
+    items[(i + (e.key === 'ArrowDown' ? 1 : -1) + items.length) % items.length].focus();
+  }
+});
+window.addEventListener('beforeunload', () => {});
+
+/* ---------- boot ---------- */
+render();
+setTimeout(() => { view = $('#demo').value === 'error' ? 'error' : 'ready'; render(); }, 500);
+</script>
+</body>
+</html>

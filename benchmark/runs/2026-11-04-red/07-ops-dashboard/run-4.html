@@ -1,0 +1,324 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Vận hành kho - Tổng quan hôm nay</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+tailwind.config = { theme: { extend: { fontFamily: { sans: ['Inter','system-ui','Segoe UI','sans-serif'] } } } };
+</script>
+<style>
+  body { font-variant-numeric: tabular-nums; }
+  .focus-ring:focus-visible { outline: 2px solid #1d4ed8; outline-offset: 2px; }
+  .bar { transition: height .3s; }
+  @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+</head>
+<body class="bg-slate-50 text-slate-900 font-sans antialiased">
+
+<a href="#main" class="sr-only focus:not-sr-only focus:absolute focus:m-2 focus:bg-white focus:px-3 focus:py-2 focus:rounded">Bỏ qua tới nội dung</a>
+
+<header class="bg-white border-b border-slate-200">
+  <div class="max-w-7xl mx-auto px-4 sm:px-6 py-4 flex flex-wrap items-center gap-x-6 gap-y-3 justify-between">
+    <div>
+      <h1 class="text-xl font-semibold tracking-tight">Vận hành kho</h1>
+      <p class="text-sm text-slate-600">Kho trung tâm Bình Dương (KHO-BD01) · <span id="today"></span></p>
+    </div>
+    <div class="flex flex-wrap items-center gap-3">
+      <label class="text-sm text-slate-700 flex items-center gap-2">Kho
+        <select id="warehouse" class="focus-ring border border-slate-300 rounded-md px-2 py-1.5 bg-white text-sm">
+          <option>KHO-BD01 · Bình Dương</option><option>KHO-HN02 · Hà Nội</option><option>KHO-DN03 · Đà Nẵng</option>
+        </select>
+      </label>
+      <label class="text-sm text-slate-700 flex items-center gap-2">Khoảng xu hướng
+        <select id="range" class="focus-ring border border-slate-300 rounded-md px-2 py-1.5 bg-white text-sm">
+          <option value="7">7 ngày</option><option value="14" selected>14 ngày</option>
+        </select>
+      </label>
+      <span class="text-xs text-slate-600" role="status">Cập nhật <time id="updated">--:--</time></span>
+      <button id="refresh" class="focus-ring text-sm font-medium bg-blue-700 hover:bg-blue-800 text-white rounded-md px-3 py-1.5">Làm mới</button>
+    </div>
+  </div>
+</header>
+
+<main id="main" class="max-w-7xl mx-auto px-4 sm:px-6 py-6 space-y-6">
+
+  <!-- Cần xử lý gấp banner -->
+  <section aria-label="Cảnh báo" id="alertBar" class="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-900 flex flex-wrap items-center justify-between gap-2"></section>
+
+  <!-- KPIs -->
+  <section aria-labelledby="kpi-h">
+    <h2 id="kpi-h" class="text-sm font-semibold text-slate-700 uppercase tracking-wide mb-3">Chỉ số trong ngày</h2>
+    <div id="kpis" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4"></div>
+  </section>
+
+  <!-- Trends -->
+  <section aria-labelledby="trend-h" class="grid grid-cols-1 lg:grid-cols-3 gap-4">
+    <h2 id="trend-h" class="sr-only">Xu hướng</h2>
+    <div class="lg:col-span-2 bg-white rounded-lg border border-slate-200 p-4">
+      <div class="flex flex-wrap justify-between items-start gap-2 mb-3">
+        <div>
+          <h3 class="font-semibold">Đơn nhập và xuất theo ngày</h3>
+          <p class="text-sm text-slate-600">Số dòng hàng đã hoàn tất mỗi ngày</p>
+        </div>
+        <ul class="flex gap-4 text-sm text-slate-700">
+          <li class="flex items-center gap-1.5"><span class="inline-block w-3 h-3 rounded-sm bg-blue-700"></span>Xuất kho</li>
+          <li class="flex items-center gap-1.5"><span class="inline-block w-3 h-3 rounded-sm bg-amber-500"></span>Nhập kho</li>
+        </ul>
+      </div>
+      <div id="trendChart" class="relative"></div>
+      <div id="tip" class="hidden absolute z-10 pointer-events-none bg-slate-900 text-white text-xs rounded px-2 py-1.5 shadow"></div>
+    </div>
+
+    <div class="bg-white rounded-lg border border-slate-200 p-4">
+      <h3 class="font-semibold">Công suất theo khu</h3>
+      <p class="text-sm text-slate-600 mb-3">Tỷ lệ vị trí đã sử dụng</p>
+      <ul id="zones" class="space-y-3"></ul>
+    </div>
+  </section>
+
+  <section class="grid grid-cols-1 lg:grid-cols-3 gap-4">
+    <!-- Tasks -->
+    <div class="lg:col-span-2 bg-white rounded-lg border border-slate-200">
+      <div class="p-4 flex flex-wrap items-center justify-between gap-3 border-b border-slate-200">
+        <div>
+          <h2 class="font-semibold">Việc cần xử lý</h2>
+          <p class="text-sm text-slate-600" id="taskCount"></p>
+        </div>
+        <div class="flex gap-1" role="group" aria-label="Lọc theo mức ưu tiên" id="filters"></div>
+      </div>
+      <ul id="tasks" class="divide-y divide-slate-100"></ul>
+    </div>
+
+    <!-- Docks -->
+    <div class="bg-white rounded-lg border border-slate-200">
+      <div class="p-4 border-b border-slate-200">
+        <h2 class="font-semibold">Lịch cửa dock</h2>
+        <p class="text-sm text-slate-600">Xe sắp tới và đang xử lý</p>
+      </div>
+      <ul id="docks" class="divide-y divide-slate-100"></ul>
+    </div>
+  </section>
+
+</main>
+
+<footer class="max-w-7xl mx-auto px-4 sm:px-6 pb-8 text-xs text-slate-500">Dữ liệu mô phỏng cho mục đích minh hoạ.</footer>
+
+<script>
+const $ = s => document.querySelector(s);
+const fmt = n => n.toLocaleString('vi-VN');
+const esc = s => String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+
+// ---------- mock data ----------
+function seeded(seed){ return () => (seed = (seed * 16807) % 2147483647) / 2147483647; }
+const rnd = seeded(20261104);
+const DAYS = 14;
+const history = [];
+for (let i = DAYS - 1; i >= 0; i--) {
+  const d = new Date(2026, 10, 4 - i);
+  const wd = d.getDay();
+  const base = wd === 0 ? 0.45 : wd === 6 ? 0.75 : 1;
+  history.push({
+    date: d,
+    out: Math.round((3900 + rnd() * 700) * base + (DAYS - i) * 18),
+    inb: Math.round((2600 + rnd() * 800) * base),
+  });
+}
+
+const kpis = [
+  { label: 'Đơn chờ lấy hàng', value: 342, unit: 'đơn', delta: -8.2, good: 'down', note: 'so với hôm qua', spark: [410,398,385,402,371,360,342] },
+  { label: 'Đã xuất hôm nay', value: 4286, unit: 'dòng hàng', delta: 5.4, good: 'up', note: 'mục tiêu 5.200', spark: [3900,4100,4020,4300,4180,4150,4286], target: 5200 },
+  { label: 'Đúng hạn giao (OTIF)', value: 96.3, unit: '%', delta: -1.1, good: 'up', note: 'mục tiêu 98%', spark: [97.8,97.5,97.9,97.1,96.8,96.9,96.3], dec: 1 },
+  { label: 'Độ chính xác tồn kho', value: 99.42, unit: '%', delta: 0.12, good: 'up', note: 'kiểm kê chu kỳ', spark: [99.2,99.3,99.25,99.3,99.38,99.4,99.42], dec: 2 },
+];
+
+const zones = [
+  { name: 'Khu A · Hàng nhanh', pct: 91 },
+  { name: 'Khu B · Pallet', pct: 78 },
+  { name: 'Khu C · Kệ nhiều tầng', pct: 64 },
+  { name: 'Khu D · Lạnh (2-8°C)', pct: 87 },
+  { name: 'Khu E · Hàng trả về', pct: 42 },
+];
+
+const tasks = [
+  { id: 'T-1042', pri: 'high', title: 'Đơn SO-88213 trễ hạn giao 4 giờ', meta: 'Chưa lấy hàng · Khách: Co.opXtra', owner: 'Nguyễn Văn Hậu', due: 'Quá hạn 4g', action: 'Ưu tiên lấy hàng' },
+  { id: 'T-1043', pri: 'high', title: 'Khu D nhiệt độ vượt 8,4°C trong 12 phút', meta: 'Cảm biến D-03 · Lô vắc-xin VX-2210', owner: 'Trần Thị Mai', due: 'Ngay', action: 'Kiểm tra' },
+  { id: 'T-1044', pri: 'high', title: 'Chênh lệch kiểm kê SKU-40871 (-36 thùng)', meta: 'Vị trí A-14-03 · Giá trị ~ 18,4 triệu đ', owner: 'Lê Quốc Bảo', due: '11:30', action: 'Đếm lại' },
+  { id: 'T-1045', pri: 'med', title: 'PO-5521 nhập thiếu 2 pallet so với ASN', meta: 'NCC: Vinamilk · Dock 3', owner: 'Phạm Thu Hà', due: '14:00', action: 'Liên hệ NCC' },
+  { id: 'T-1046', pri: 'med', title: 'SKU-10234 dưới mức tồn tối thiểu (còn 12/60)', meta: 'Đề xuất bổ sung 240 đơn vị', owner: 'Võ Minh Tuấn', due: 'Hôm nay', action: 'Tạo PR' },
+  { id: 'T-1047', pri: 'med', title: '18 pallet chờ cất hàng quá 3 giờ', meta: 'Khu nhận hàng · Cần xe nâng', owner: 'Đặng Văn Long', due: '13:00', action: 'Phân công' },
+  { id: 'T-1048', pri: 'low', title: 'Lô LOT-2311-B hết hạn trong 14 ngày', meta: '320 thùng · Khu C-07', owner: 'Trần Thị Mai', due: '10/11', action: 'Lên kế hoạch' },
+  { id: 'T-1049', pri: 'low', title: '7 đơn trả hàng chờ kiểm tra chất lượng', meta: 'Khu E · Chờ QC', owner: 'Lê Quốc Bảo', due: '06/11', action: 'Mở danh sách' },
+];
+
+const docks = [
+  { dock: 'D1', carrier: 'Giao Hàng Nhanh', type: 'Xuất', time: '08:30', status: 'Đang bốc hàng', st: 'active' },
+  { dock: 'D2', carrier: 'Viettel Post', type: 'Xuất', time: '09:15', status: 'Đang bốc hàng', st: 'active' },
+  { dock: 'D3', carrier: 'Vinamilk', type: 'Nhập', time: '09:00', status: 'Trễ 35 phút', st: 'late' },
+  { dock: 'D4', carrier: 'Unilever VN', type: 'Nhập', time: '10:30', status: 'Đã đến, chờ dock', st: 'wait' },
+  { dock: 'D5', carrier: 'J&T Express', type: 'Xuất', time: '11:00', status: 'Đã lên lịch', st: 'plan' },
+  { dock: 'D6', carrier: 'Nestlé', type: 'Nhập', time: '13:30', status: 'Đã lên lịch', st: 'plan' },
+];
+
+// ---------- render ----------
+function spark(vals, color){
+  const w=88,h=28,min=Math.min(...vals),max=Math.max(...vals),r=max-min||1;
+  const pts=vals.map((v,i)=>`${(i/(vals.length-1)*(w-4)+2).toFixed(1)},${(h-3-((v-min)/r)*(h-6)).toFixed(1)}`).join(' ');
+  return `<svg width="${w}" height="${h}" viewBox="0 0 ${w} ${h}" aria-hidden="true"><polyline points="${pts}" fill="none" stroke="${color}" stroke-width="1.75" stroke-linejoin="round" stroke-linecap="round"/></svg>`;
+}
+
+function renderKpis(){
+  $('#kpis').innerHTML = kpis.map(k => {
+    const up = k.delta > 0;
+    const good = (k.good === 'up') === up;
+    const cls = good ? 'text-emerald-700 bg-emerald-50' : 'text-red-700 bg-red-50';
+    const val = k.dec ? k.value.toLocaleString('vi-VN',{minimumFractionDigits:k.dec}) : fmt(k.value);
+    const bar = k.target ? `<div class="mt-3 h-1.5 rounded-full bg-slate-100" role="progressbar" aria-valuenow="${Math.round(k.value/k.target*100)}" aria-valuemin="0" aria-valuemax="100" aria-label="Tiến độ so với mục tiêu"><div class="h-full rounded-full bg-blue-700" style="width:${Math.min(100,k.value/k.target*100)}%"></div></div>` : '';
+    return `<article class="bg-white rounded-lg border border-slate-200 p-4">
+      <h3 class="text-sm text-slate-600">${k.label}</h3>
+      <div class="mt-1 flex items-end justify-between gap-2">
+        <p class="text-3xl font-semibold tracking-tight">${val}<span class="text-sm font-normal text-slate-600 ml-1">${k.unit}</span></p>
+        ${spark(k.spark, good ? '#047857' : '#b91c1c')}
+      </div>
+      <p class="mt-2 text-xs flex items-center gap-2">
+        <span class="inline-flex items-center gap-1 rounded px-1.5 py-0.5 font-medium ${cls}"><span aria-hidden="true">${up?'▲':'▼'}</span>${Math.abs(k.delta).toLocaleString('vi-VN')}${k.unit==='%'?' đ.%':'%'}<span class="sr-only">${good?' tốt hơn':' kém hơn'}</span></span>
+        <span class="text-slate-600">${k.note}</span>
+      </p>${bar}
+    </article>`;
+  }).join('');
+}
+
+function renderAlert(){
+  const high = tasks.filter(t => t.pri === 'high').length;
+  $('#alertBar').innerHTML = `<p><strong>${high} việc khẩn</strong> cần xử lý ngay: đơn trễ hạn, nhiệt độ khu lạnh và chênh lệch tồn kho.</p>
+    <a href="#tasks" data-filter="high" class="focus-ring font-medium underline underline-offset-2">Xem việc khẩn</a>`;
+  $('#alertBar a').addEventListener('click', () => setFilter('high'));
+}
+
+function renderTrend(){
+  const n = +$('#range').value;
+  const data = history.slice(-n);
+  const W=720,H=260,pl=44,pr=8,pt=10,pb=28;
+  const max = Math.ceil(Math.max(...data.map(d=>Math.max(d.out,d.inb)))/1000)*1000;
+  const iw=W-pl-pr, ih=H-pt-pb, gw=iw/data.length, bw=Math.min(16, gw*0.34);
+  const y = v => pt + ih - v/max*ih;
+  let s = `<svg viewBox="0 0 ${W} ${H}" class="w-full h-auto" role="img" aria-label="Biểu đồ cột đơn nhập và xuất ${n} ngày gần nhất">`;
+  for (let i=0;i<=4;i++){
+    const v=max/4*i, yy=y(v);
+    s += `<line x1="${pl}" x2="${W-pr}" y1="${yy}" y2="${yy}" stroke="#e2e8f0"/><text x="${pl-6}" y="${yy+4}" text-anchor="end" font-size="11" fill="#475569">${fmt(v)}</text>`;
+  }
+  data.forEach((d,i)=>{
+    const cx = pl + gw*i + gw/2;
+    const wk = d.date.getDay()===0;
+    s += `<g class="col" data-i="${i}" tabindex="0" aria-label="${d.date.toLocaleDateString('vi-VN')}: xuất ${fmt(d.out)}, nhập ${fmt(d.inb)}">
+      <rect x="${cx-gw/2}" y="${pt}" width="${gw}" height="${ih}" fill="transparent"/>
+      <rect class="bar" x="${cx-bw-1}" y="${y(d.out)}" width="${bw}" height="${ih-(y(d.out)-pt)}" rx="2" fill="#1d4ed8"/>
+      <rect class="bar" x="${cx+1}" y="${y(d.inb)}" width="${bw}" height="${ih-(y(d.inb)-pt)}" rx="2" fill="#f59e0b"/>
+    </g>`;
+    if (n<=7 || i%2===0 || i===data.length-1) s += `<text x="${cx}" y="${H-8}" text-anchor="middle" font-size="11" fill="${wk?'#b91c1c':'#475569'}">${d.date.getDate()}/${d.date.getMonth()+1}</text>`;
+  });
+  s += `</svg>`;
+  const tot = data.reduce((a,d)=>a+d.out,0), avg = Math.round(tot/n);
+  $('#trendChart').innerHTML = s + `<p class="text-sm text-slate-600 mt-2">Trung bình xuất <strong class="text-slate-900">${fmt(avg)}</strong> dòng/ngày · Chủ nhật hiển thị nhãn đỏ do sản lượng thấp.</p>`;
+  const tip = $('#tip'), box = $('#trendChart');
+  const show = (g, ev) => {
+    const d = data[+g.dataset.i];
+    tip.innerHTML = `<div class="font-medium">${d.date.toLocaleDateString('vi-VN',{weekday:'long',day:'numeric',month:'numeric'})}</div><div>Xuất: ${fmt(d.out)}</div><div>Nhập: ${fmt(d.inb)}</div>`;
+    tip.classList.remove('hidden');
+    const r = g.getBoundingClientRect(), p = box.parentElement.getBoundingClientRect();
+    tip.style.left = Math.min(p.width-130, Math.max(4, r.left - p.left + r.width/2 - 55)) + 'px';
+    tip.style.top = (r.top - p.top + 20) + 'px';
+  };
+  box.querySelectorAll('.col').forEach(g => {
+    g.addEventListener('mouseenter', e => show(g,e));
+    g.addEventListener('focus', e => show(g,e));
+    g.addEventListener('mouseleave', () => tip.classList.add('hidden'));
+    g.addEventListener('blur', () => tip.classList.add('hidden'));
+  });
+}
+
+function renderZones(){
+  $('#zones').innerHTML = zones.map(z => {
+    const c = z.pct >= 90 ? 'bg-red-600' : z.pct >= 80 ? 'bg-amber-500' : 'bg-blue-700';
+    const tag = z.pct >= 90 ? '<span class="text-red-700 font-medium">Gần đầy</span>' : z.pct >= 80 ? '<span class="text-amber-800 font-medium">Cao</span>' : '';
+    return `<li><div class="flex justify-between text-sm mb-1"><span>${z.name}</span><span class="font-medium">${z.pct}% ${tag}</span></div>
+      <div class="h-2 rounded-full bg-slate-100" role="progressbar" aria-label="${z.name}" aria-valuenow="${z.pct}" aria-valuemin="0" aria-valuemax="100"><div class="h-full rounded-full ${c}" style="width:${z.pct}%"></div></div></li>`;
+  }).join('');
+}
+
+const PRI = {
+  high: { t: 'Khẩn', c: 'bg-red-50 text-red-800 ring-red-200' },
+  med:  { t: 'Quan trọng', c: 'bg-amber-50 text-amber-900 ring-amber-200' },
+  low:  { t: 'Thấp', c: 'bg-slate-100 text-slate-700 ring-slate-200' },
+};
+let filter = 'all';
+const done = new Set();
+
+function renderFilters(){
+  const opts = [['all','Tất cả'],['high','Khẩn'],['med','Quan trọng'],['low','Thấp']];
+  $('#filters').innerHTML = opts.map(([k,l]) => {
+    const n = k==='all' ? tasks.filter(t=>!done.has(t.id)).length : tasks.filter(t=>t.pri===k && !done.has(t.id)).length;
+    return `<button data-k="${k}" aria-pressed="${filter===k}" class="focus-ring text-sm rounded-md px-2.5 py-1.5 border ${filter===k?'bg-slate-900 text-white border-slate-900':'bg-white text-slate-700 border-slate-300 hover:bg-slate-50'}">${l} <span class="${filter===k?'text-slate-200':'text-slate-500'}">${n}</span></button>`;
+  }).join('');
+  $('#filters').querySelectorAll('button').forEach(b => b.onclick = () => setFilter(b.dataset.k));
+}
+
+function renderTasks(){
+  const list = tasks.filter(t => (filter==='all' || t.pri===filter) && !done.has(t.id));
+  $('#taskCount').textContent = `${list.length} việc đang mở · ${done.size} đã xử lý trong phiên`;
+  $('#tasks').innerHTML = list.length ? list.map(t => `
+    <li class="p-4 flex flex-col sm:flex-row sm:items-center gap-3">
+      <div class="flex-1 min-w-0">
+        <div class="flex flex-wrap items-center gap-2">
+          <span class="text-xs font-medium rounded px-1.5 py-0.5 ring-1 ring-inset ${PRI[t.pri].c}">${PRI[t.pri].t}</span>
+          <span class="text-xs text-slate-500">${t.id}</span>
+          <span class="text-xs ${t.pri==='high'?'text-red-700 font-medium':'text-slate-600'}">Hạn: ${esc(t.due)}</span>
+        </div>
+        <p class="mt-1 font-medium">${esc(t.title)}</p>
+        <p class="text-sm text-slate-600">${esc(t.meta)} · Phụ trách: ${esc(t.owner)}</p>
+      </div>
+      <div class="flex gap-2 shrink-0">
+        <button class="focus-ring text-sm font-medium border border-slate-300 rounded-md px-3 py-1.5 hover:bg-slate-50" data-act="${t.id}">${esc(t.action)}</button>
+        <button class="focus-ring text-sm text-slate-700 rounded-md px-3 py-1.5 hover:bg-slate-100" data-done="${t.id}" aria-label="Đánh dấu đã xử lý ${t.id}">Xong</button>
+      </div>
+    </li>`).join('') : `<li class="p-8 text-center text-slate-600">Không còn việc nào trong mục này.</li>`;
+  $('#tasks').querySelectorAll('[data-done]').forEach(b => b.onclick = () => { done.add(b.dataset.done); renderFilters(); renderTasks(); });
+  $('#tasks').querySelectorAll('[data-act]').forEach(b => b.onclick = () => { b.textContent = 'Đã mở ✓'; });
+}
+function setFilter(k){ filter = k; renderFilters(); renderTasks(); }
+
+function renderDocks(){
+  const S = {
+    active:{c:'bg-blue-50 text-blue-800 ring-blue-200'},
+    late:{c:'bg-red-50 text-red-800 ring-red-200'},
+    wait:{c:'bg-amber-50 text-amber-900 ring-amber-200'},
+    plan:{c:'bg-slate-100 text-slate-700 ring-slate-200'},
+  };
+  $('#docks').innerHTML = docks.map(d => `
+    <li class="p-4 flex items-center gap-3">
+      <span class="w-9 h-9 rounded-md bg-slate-900 text-white text-sm font-semibold grid place-items-center shrink-0">${d.dock}</span>
+      <div class="flex-1 min-w-0">
+        <p class="font-medium truncate">${esc(d.carrier)}</p>
+        <p class="text-sm text-slate-600">${d.type} · ${d.time}</p>
+      </div>
+      <span class="text-xs font-medium rounded px-1.5 py-0.5 ring-1 ring-inset text-right ${S[d.st].c}">${d.status}</span>
+    </li>`).join('');
+}
+
+function stamp(){
+  const n = new Date();
+  $('#updated').textContent = n.toLocaleTimeString('vi-VN',{hour:'2-digit',minute:'2-digit'});
+  $('#updated').dateTime = n.toISOString();
+}
+$('#today').textContent = new Date(2026,10,4).toLocaleDateString('vi-VN',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
+
+$('#range').addEventListener('change', renderTrend);
+$('#refresh').addEventListener('click', () => { stamp(); renderAll(); });
+$('#warehouse').addEventListener('change', () => { stamp(); });
+
+function renderAll(){ renderKpis(); renderAlert(); renderTrend(); renderZones(); renderFilters(); renderTasks(); renderDocks(); }
+renderAll(); stamp();
+</script>
+</body>
+</html>

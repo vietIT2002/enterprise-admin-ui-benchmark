@@ -1,0 +1,521 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Equipment – Plant maintenance</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+  [hidden] { display: none !important; }
+  body { font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; }
+  .skel { background: linear-gradient(90deg,#f1f5f9,#e2e8f0,#f1f5f9); background-size: 200% 100%; animation: sh 1.2s infinite; border-radius: 4px; }
+  @keyframes sh { 0%{background-position:200% 0} 100%{background-position:-200% 0} }
+  :focus-visible { outline: 2px solid #1d4ed8; outline-offset: 2px; }
+</style>
+</head>
+<body class="bg-slate-50 text-slate-900 text-sm">
+<a href="#main" class="sr-only focus:not-sr-only focus:absolute focus:left-2 focus:top-2 focus:bg-white focus:px-3 focus:py-2 focus:border rounded">Skip to content</a>
+<div class="flex min-h-screen">
+  <!-- Sidebar -->
+  <aside class="hidden md:flex w-60 shrink-0 flex-col border-r border-slate-200 bg-white" aria-label="Primary">
+    <div class="h-14 px-4 flex items-center border-b border-slate-200 font-semibold">Plant maintenance</div>
+    <nav class="p-2 text-sm flex-1">
+      <p class="px-3 pt-3 pb-1 text-xs font-medium text-slate-600">Operations</p>
+      <a href="#" class="flex items-center gap-2 h-8 px-3 rounded text-slate-700 hover:bg-slate-100">Overview</a>
+      <a href="#" aria-current="page" class="flex items-center gap-2 h-8 px-3 rounded bg-blue-50 text-blue-800 font-medium">Equipment</a>
+      <a href="#" class="flex items-center gap-2 h-8 px-3 rounded text-slate-700 hover:bg-slate-100">Work orders</a>
+      <a href="#" class="flex items-center gap-2 h-8 px-3 rounded text-slate-700 hover:bg-slate-100">Inspections</a>
+      <p class="px-3 pt-4 pb-1 text-xs font-medium text-slate-600">Resources</p>
+      <a href="#" class="flex items-center gap-2 h-8 px-3 rounded text-slate-700 hover:bg-slate-100">Spare parts</a>
+      <a href="#" class="flex items-center gap-2 h-8 px-3 rounded text-slate-700 hover:bg-slate-100">Technicians</a>
+      <a href="#" class="flex items-center gap-2 h-8 px-3 rounded text-slate-700 hover:bg-slate-100">Settings</a>
+    </nav>
+  </aside>
+
+  <div class="flex-1 min-w-0 flex flex-col">
+    <header class="h-14 bg-white border-b border-slate-200 px-4 md:px-6 flex items-center justify-between">
+      <span class="text-slate-600">Hai Phong plant</span>
+      <span class="text-slate-700">Nguyen Van An · Maintenance planner</span>
+    </header>
+
+    <main id="main" class="p-4 md:p-6 flex-1">
+      <!-- Page header -->
+      <div class="flex flex-wrap items-start justify-between gap-3 mb-4">
+        <div>
+          <nav aria-label="Breadcrumb" class="text-xs text-slate-600 mb-1"><a href="#" class="hover:underline">Operations</a> / Equipment</nav>
+          <h1 class="text-xl font-semibold">Equipment</h1>
+        </div>
+        <div class="flex items-center gap-2">
+          <button id="exportBtn" class="h-8 px-3 rounded border border-slate-300 bg-white hover:bg-slate-50">Export CSV</button>
+          <button id="addBtn" class="h-8 px-3 rounded bg-blue-700 text-white hover:bg-blue-800">Add equipment</button>
+        </div>
+      </div>
+
+      <!-- Tabs -->
+      <div role="tablist" aria-label="Equipment views" id="tabs" class="flex gap-1 border-b border-slate-200 overflow-x-auto"></div>
+
+      <!-- Filter bar -->
+      <div class="flex flex-wrap items-center gap-2 mt-3">
+        <label class="sr-only" for="q">Search equipment</label>
+        <input id="q" type="search" placeholder="Search by name, ID or location" class="h-8 w-64 px-3 rounded border border-slate-300 bg-white placeholder:text-slate-500">
+        <label class="sr-only" for="fLoc">Location</label>
+        <select id="fLoc" class="h-8 px-2 rounded border border-slate-300 bg-white"></select>
+        <label class="sr-only" for="fStatus">Status</label>
+        <select id="fStatus" class="h-8 px-2 rounded border border-slate-300 bg-white"></select>
+        <label class="sr-only" for="fType">Equipment type</label>
+        <select id="fType" class="h-8 px-2 rounded border border-slate-300 bg-white"></select>
+      </div>
+      <div id="chips" class="flex flex-wrap items-center gap-2 mt-2" hidden></div>
+
+      <p id="summary" class="mt-3 mb-2 text-slate-600" aria-live="polite"></p>
+
+      <!-- Bulk bar -->
+      <div id="bulk" hidden class="mb-2 flex flex-wrap items-center gap-3 rounded-md border border-blue-200 bg-blue-50 px-3 py-1.5">
+        <span id="bulkCount" class="font-medium text-blue-900"></span>
+        <button id="selAll" class="text-blue-700 underline" hidden></button>
+        <span class="flex-1"></span>
+        <button id="bulkSchedule" class="h-8 px-3 rounded border border-slate-300 bg-white hover:bg-slate-50">Schedule inspection</button>
+        <button id="bulkExport" class="h-8 px-3 rounded border border-slate-300 bg-white hover:bg-slate-50">Export selected</button>
+        <button id="bulkClear" class="h-8 px-3 rounded text-slate-700 hover:bg-white">Clear selection</button>
+      </div>
+
+      <!-- Table card -->
+      <div class="bg-white border border-slate-200 rounded-md">
+        <div class="overflow-x-auto">
+          <table class="w-full text-left" id="tbl">
+            <caption class="sr-only">Equipment list, sorted with items needing attention first by default</caption>
+            <thead class="border-b border-slate-200 bg-slate-50 text-slate-700">
+              <tr>
+                <th class="w-10 px-3 h-10"><input type="checkbox" id="selPage" class="h-4 w-4 align-middle" aria-label="Select all rows on this page"></th>
+                <th class="px-3 font-medium" data-col="name" aria-sort="none"><button class="sortBtn inline-flex items-center gap-1">Equipment <span class="arrow text-slate-500" aria-hidden="true"></span></button></th>
+                <th class="px-3 font-medium" data-col="location" aria-sort="none"><button class="sortBtn inline-flex items-center gap-1">Location <span class="arrow text-slate-500" aria-hidden="true"></span></button></th>
+                <th class="px-3 font-medium" data-col="status" aria-sort="none"><button class="sortBtn inline-flex items-center gap-1">Status <span class="arrow text-slate-500" aria-hidden="true"></span></button></th>
+                <th class="px-3 font-medium" data-col="last" aria-sort="none"><button class="sortBtn inline-flex items-center gap-1">Last service <span class="arrow text-slate-500" aria-hidden="true"></span></button></th>
+                <th class="px-3 font-medium" data-col="next" aria-sort="none"><button class="sortBtn inline-flex items-center gap-1">Next inspection <span class="arrow text-slate-500" aria-hidden="true"></span></button></th>
+                <th class="px-3 font-medium w-40"><span class="sr-only">Actions</span></th>
+              </tr>
+            </thead>
+            <tbody id="tbody"></tbody>
+          </table>
+        </div>
+
+        <div id="stateBox" hidden class="py-16 px-4 text-center"></div>
+
+        <div id="pager" class="flex flex-wrap items-center justify-between gap-3 border-t border-slate-200 px-3 py-2 text-slate-700">
+          <div class="flex items-center gap-2">
+            <label for="pageSize">Rows per page</label>
+            <select id="pageSize" class="h-8 px-2 rounded border border-slate-300 bg-white">
+              <option>10</option><option>25</option><option>50</option>
+            </select>
+          </div>
+          <span id="range" aria-live="polite"></span>
+          <div class="flex items-center gap-1">
+            <button id="prev" class="h-8 px-3 rounded border border-slate-300 bg-white hover:bg-slate-50 disabled:opacity-50 disabled:hover:bg-white">Previous</button>
+            <span id="pageNo" class="px-2"></span>
+            <button id="next" class="h-8 px-3 rounded border border-slate-300 bg-white hover:bg-slate-50 disabled:opacity-50 disabled:hover:bg-white">Next</button>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+</div>
+
+<!-- Row action menu -->
+<div id="menu" hidden role="menu" class="fixed z-30 w-52 rounded-md border border-slate-200 bg-white py-1 shadow-lg"></div>
+<!-- Toast -->
+<div id="toast" hidden role="status" class="fixed bottom-4 right-4 z-40 rounded-md bg-slate-900 text-white px-4 py-2 shadow-lg"></div>
+
+<script>
+(function () {
+  var TODAY = new Date(2026, 10, 5); // 05 Nov 2026
+  var DAY = 86400000;
+  function d(y, m, day) { return new Date(y, m - 1, day); }
+
+  var STATUS = {
+    operational: { label: 'Operational', tone: 'success' },
+    standby: { label: 'Standby', tone: 'neutral' },
+    maintenance: { label: 'Under maintenance', tone: 'info' },
+    down: { label: 'Out of service', tone: 'danger' }
+  };
+  var TONE = {
+    success: 'bg-green-50 text-green-800 border-green-200',
+    neutral: 'bg-slate-100 text-slate-700 border-slate-200',
+    info: 'bg-blue-50 text-blue-800 border-blue-200',
+    warning: 'bg-amber-50 text-amber-800 border-amber-200',
+    danger: 'bg-red-50 text-red-800 border-red-200'
+  };
+
+  // id, name, type, location, status, last service, next inspection
+  var RAW = [
+    ['CNC-204', 'Haas VF-4 machining centre', 'CNC machine', 'CNC bay', 'operational', d(2026,8,14), d(2026,10,24)],
+    ['CNC-207', 'Mazak QT-200 lathe', 'CNC machine', 'CNC bay', 'maintenance', d(2026,10,30), d(2026,11,12)],
+    ['CNC-211', 'DMG Mori NLX 2500', 'CNC machine', 'CNC bay', 'operational', d(2026,9,2), d(2026,12,2)],
+    ['PRS-101', 'Aida 250 t stamping press', 'Press', 'Press shop', 'operational', d(2026,7,21), d(2026,11,8)],
+    ['PRS-102', 'Aida 400 t stamping press', 'Press', 'Press shop', 'down', d(2026,10,2), d(2026,10,29)],
+    ['PRS-105', 'Komatsu H1F 160 t press', 'Press', 'Press shop', 'operational', d(2026,9,18), d(2027,1,18)],
+    ['CNV-301', 'Main assembly conveyor', 'Conveyor', 'Line 1 – Assembly', 'operational', d(2026,10,6), d(2026,11,20)],
+    ['CNV-302', 'Packaging conveyor A', 'Conveyor', 'Line 2 – Packaging', 'operational', d(2026,8,28), d(2026,11,3)],
+    ['CNV-303', 'Packaging conveyor B', 'Conveyor', 'Line 2 – Packaging', 'standby', d(2026,6,12), d(2026,12,12)],
+    ['ROB-401', 'Fanuc M-20iD welding robot', 'Robot', 'Line 1 – Assembly', 'operational', d(2026,9,25), d(2026,11,25)],
+    ['ROB-402', 'Fanuc M-20iD welding robot', 'Robot', 'Line 1 – Assembly', 'operational', d(2026,9,25), d(2026,11,25)],
+    ['ROB-405', 'ABB IRB 6700 palletiser', 'Robot', 'Warehouse', 'maintenance', d(2026,11,2), d(2026,11,9)],
+    ['CMP-501', 'Atlas Copco GA 90 compressor', 'Compressor', 'Utilities room', 'operational', d(2026,10,10), d(2026,11,28)],
+    ['CMP-502', 'Atlas Copco GA 55 compressor', 'Compressor', 'Utilities room', 'standby', d(2026,7,3), d(2026,10,15)],
+    ['BLR-601', 'Cleaver-Brooks steam boiler', 'Boiler', 'Boiler house', 'operational', d(2026,8,5), d(2026,11,14)],
+    ['BLR-602', 'Viessmann hot water boiler', 'Boiler', 'Boiler house', 'operational', d(2026,10,19), d(2027,2,19)],
+    ['PNT-701', 'Dürr spray booth 1', 'Paint booth', 'Paint shop', 'operational', d(2026,9,9), d(2026,12,9)],
+    ['PNT-702', 'Dürr spray booth 2', 'Paint booth', 'Paint shop', 'maintenance', d(2026,11,4), d(2026,11,18)],
+    ['PNT-710', 'Curing oven', 'Oven', 'Paint shop', 'operational', d(2026,8,20), d(2026,11,1)],
+    ['FLT-801', 'Toyota 8FD25 forklift', 'Forklift', 'Warehouse', 'operational', d(2026,10,1), d(2026,11,30)],
+    ['FLT-802', 'Toyota 8FD25 forklift', 'Forklift', 'Warehouse', 'operational', d(2026,9,12), d(2026,11,6)],
+    ['FLT-803', 'Hyster H3.0 forklift', 'Forklift', 'Warehouse', 'down', d(2026,8,2), d(2026,9,30)],
+    ['GEN-901', 'Cummins 500 kVA generator', 'Generator', 'Utilities room', 'standby', d(2026,6,28), d(2026,12,28)],
+    ['CHL-911', 'Carrier 30XA chiller', 'Chiller', 'Utilities room', 'operational', d(2026,10,15), d(2027,1,15)],
+    ['PKG-121', 'Krones shrink wrapper', 'Packaging machine', 'Line 2 – Packaging', 'operational', d(2026,9,30), d(2026,11,17)],
+    ['PKG-122', 'Bosch case packer', 'Packaging machine', 'Line 2 – Packaging', 'operational', d(2026,10,22), d(2027,1,22)],
+    ['PKG-125', 'Videojet 1860 coder', 'Packaging machine', 'Line 2 – Packaging', 'operational', d(2026,10,27), d(2026,12,27)],
+    ['CRN-131', 'Overhead crane 10 t', 'Crane', 'Press shop', 'operational', d(2026,7,15), d(2026,11,10)],
+    ['GRN-141', 'Okamoto surface grinder', 'Grinder', 'CNC bay', 'operational', d(2026,10,8), d(2026,12,20)],
+    ['TST-151', 'Zeiss CMM inspection station', 'Test equipment', 'Quality lab', 'operational', d(2026,9,5), d(2026,11,22)]
+  ];
+  var DATA = RAW.map(function (r) {
+    return { id: r[0], name: r[1], type: r[2], location: r[3], status: r[4], last: r[5], next: r[6] };
+  });
+
+  function daysUntil(date) { return Math.round((date - TODAY) / DAY); }
+  function group(e) {
+    var n = daysUntil(e.next);
+    return n < 0 ? 0 : n <= 14 ? 1 : 2;
+  }
+  function plural(n, w) { return n + ' ' + w + (n === 1 ? '' : 's'); }
+  function inspLabel(e) {
+    var n = daysUntil(e.next);
+    if (n < 0) return { text: 'Overdue ' + plural(-n, 'day'), tone: 'danger' };
+    if (n === 0) return { text: 'Due today', tone: 'warning' };
+    if (n <= 14) return { text: 'Due in ' + plural(n, 'day'), tone: 'warning' };
+    return { text: 'In ' + plural(n, 'day'), tone: null };
+  }
+  var fmtDate = new Intl.DateTimeFormat('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+  function esc(s) { return String(s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
+
+  // ---------- state ----------
+  var params = new URLSearchParams(location.search);
+  var mode = params.get('state'); // empty | error | loading | null
+  var S = {
+    tab: 'all', q: '', loc: '', status: '', type: '',
+    sort: 'attention', dir: 'asc', page: 1, size: 10,
+    sel: new Set(), allMatching: false,
+    phase: mode === 'loading' ? 'loading' : (mode === 'error' ? 'error' : (mode === 'empty' ? 'empty' : 'loading'))
+  };
+  var rows = mode === 'empty' ? [] : DATA;
+
+  var $ = function (id) { return document.getElementById(id); };
+
+  // ---------- filtering / sorting ----------
+  function tabMatch(e) {
+    if (S.tab === 'attention') return group(e) < 2;
+    if (S.tab === 'maintenance') return e.status === 'maintenance';
+    if (S.tab === 'down') return e.status === 'down';
+    return true;
+  }
+  function filtered(ignoreTab) {
+    var q = S.q.trim().toLowerCase();
+    return rows.filter(function (e) {
+      if (!ignoreTab && !tabMatch(e)) return false;
+      if (S.loc && e.location !== S.loc) return false;
+      if (S.status && e.status !== S.status) return false;
+      if (S.type && e.type !== S.type) return false;
+      if (q && (e.id + ' ' + e.name + ' ' + e.location + ' ' + e.type).toLowerCase().indexOf(q) < 0) return false;
+      return true;
+    });
+  }
+  function sorted(list) {
+    var a = list.slice();
+    var m = S.dir === 'asc' ? 1 : -1;
+    if (S.sort === 'attention') {
+      a.sort(function (x, y) { return (group(x) - group(y)) || (x.next - y.next); });
+    } else {
+      a.sort(function (x, y) {
+        var r;
+        if (S.sort === 'last') r = x.last - y.last;
+        else if (S.sort === 'next') r = x.next - y.next;
+        else if (S.sort === 'status') r = STATUS[x.status].label.localeCompare(STATUS[y.status].label);
+        else r = String(x[S.sort]).localeCompare(String(y[S.sort]));
+        return r * m;
+      });
+    }
+    return a;
+  }
+
+  // ---------- render ----------
+  function badge(text, tone) {
+    return '<span class="inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-medium whitespace-nowrap ' + TONE[tone] + '">' + esc(text) + '</span>';
+  }
+
+  function renderTabs() {
+    var base = filtered(true);
+    var counts = {
+      all: base.length,
+      attention: base.filter(function (e) { return group(e) < 2; }).length,
+      maintenance: base.filter(function (e) { return e.status === 'maintenance'; }).length,
+      down: base.filter(function (e) { return e.status === 'down'; }).length
+    };
+    var defs = [['all', 'All'], ['attention', 'Needs attention'], ['maintenance', 'Under maintenance'], ['down', 'Out of service']];
+    $('tabs').innerHTML = defs.map(function (t) {
+      var on = S.tab === t[0];
+      return '<button role="tab" aria-selected="' + on + '" data-tab="' + t[0] + '" class="whitespace-nowrap px-3 h-10 border-b-2 ' +
+        (on ? 'border-blue-700 text-blue-800 font-medium' : 'border-transparent text-slate-700 hover:text-slate-900') + '">' +
+        t[1] + ' <span class="tabular-nums text-slate-600">' + counts[t[0]] + '</span></button>';
+    }).join('');
+  }
+
+  function fillSelects() {
+    function opts(sel, label, values) {
+      var cur = sel.value;
+      sel.innerHTML = '<option value="">' + label + '</option>' + values.map(function (v) {
+        return '<option value="' + esc(v[0]) + '">' + esc(v[1]) + '</option>';
+      }).join('');
+      sel.value = cur;
+    }
+    var uniq = function (k) { return Array.from(new Set(DATA.map(function (e) { return e[k]; }))).sort(); };
+    opts($('fLoc'), 'All locations', uniq('location').map(function (v) { return [v, v]; }));
+    opts($('fType'), 'All types', uniq('type').map(function (v) { return [v, v]; }));
+    opts($('fStatus'), 'All statuses', Object.keys(STATUS).map(function (k) { return [k, STATUS[k].label]; }));
+  }
+
+  function renderChips() {
+    var chips = [];
+    if (S.q) chips.push(['q', 'Search: ' + S.q]);
+    if (S.loc) chips.push(['loc', 'Location: ' + S.loc]);
+    if (S.status) chips.push(['status', 'Status: ' + STATUS[S.status].label]);
+    if (S.type) chips.push(['type', 'Type: ' + S.type]);
+    var box = $('chips');
+    box.hidden = !chips.length;
+    box.innerHTML = chips.map(function (c) {
+      return '<span class="inline-flex items-center gap-1 rounded-full border border-slate-300 bg-white pl-3 pr-1 h-7 text-xs text-slate-800">' + esc(c[1]) +
+        '<button data-chip="' + c[0] + '" class="h-5 w-5 rounded-full hover:bg-slate-100" aria-label="Remove filter ' + esc(c[1]) + '">&times;</button></span>';
+    }).join('') + (chips.length ? '<button id="clearAll" class="text-blue-700 underline text-xs ml-1">Clear all</button>' : '');
+  }
+
+  function stateBox(html) {
+    $('stateBox').hidden = !html;
+    $('stateBox').innerHTML = html || '';
+  }
+
+  function render() {
+    renderTabs();
+    renderChips();
+    var tbody = $('tbody');
+
+    // sort header indicators
+    document.querySelectorAll('#tbl th[data-col]').forEach(function (th) {
+      var active = S.sort === th.dataset.col;
+      th.setAttribute('aria-sort', active ? (S.dir === 'asc' ? 'ascending' : 'descending') : 'none');
+      th.querySelector('.arrow').textContent = active ? (S.dir === 'asc' ? '↑' : '↓') : '';
+    });
+    var nextTh = document.querySelector('#tbl th[data-col="next"]');
+    if (S.sort === 'attention') {
+      nextTh.setAttribute('aria-sort', 'ascending');
+      nextTh.querySelector('.arrow').textContent = '↑';
+    }
+
+    if (S.phase === 'loading') {
+      $('summary').textContent = 'Loading equipment…';
+      tbody.innerHTML = Array.from({ length: 8 }).map(function () {
+        return '<tr class="border-b border-slate-100 h-10"><td class="px-3"><div class="skel h-4 w-4"></div></td>' +
+          [48, 28, 24, 20, 24, 20].map(function (w, i) { return '<td class="px-3"><div class="skel h-4" style="width:' + (i === 0 ? 70 : 60) + '%"></div></td>'; }).join('') + '</tr>';
+      }).join('');
+      stateBox(''); $('pager').hidden = true; $('bulk').hidden = true;
+      return;
+    }
+    $('pager').hidden = false;
+
+    if (S.phase === 'error') {
+      $('summary').textContent = '';
+      tbody.innerHTML = '';
+      stateBox('<p class="font-medium text-base">Could not load equipment</p><p class="text-slate-600 mt-1">The maintenance service did not respond. Your filters are kept.</p>' +
+        '<button id="retry" class="mt-4 h-8 px-3 rounded bg-blue-700 text-white hover:bg-blue-800">Retry</button>');
+      $('pager').hidden = true; $('bulk').hidden = true;
+      return;
+    }
+
+    if (!rows.length) {
+      $('summary').textContent = '0 machines';
+      tbody.innerHTML = '';
+      stateBox('<p class="font-medium text-base">No equipment yet</p><p class="text-slate-600 mt-1">Register each machine with its location and service schedule to start tracking inspections.</p>' +
+        '<button id="emptyAdd" class="mt-4 h-8 px-3 rounded bg-blue-700 text-white hover:bg-blue-800">Add equipment</button>');
+      $('pager').hidden = true; $('bulk').hidden = true;
+      return;
+    }
+
+    var list = sorted(filtered(false));
+    var total = list.length;
+    var pages = Math.max(1, Math.ceil(total / S.size));
+    if (S.page > pages) S.page = pages;
+    var start = (S.page - 1) * S.size;
+    var pageRows = list.slice(start, start + S.size);
+
+    var over = list.filter(function (e) { return group(e) === 0; }).length;
+    var soon = list.filter(function (e) { return group(e) === 1; }).length;
+    $('summary').textContent = plural(total, 'machine') + ' · ' + over + ' overdue · ' + soon + ' due within 14 days';
+
+    if (!total) {
+      tbody.innerHTML = '';
+      stateBox('<p class="font-medium text-base">No equipment matches these filters</p><p class="text-slate-600 mt-1">Try a different search or remove a filter.</p>' +
+        '<button id="clearAll2" class="mt-4 h-8 px-3 rounded border border-slate-300 bg-white hover:bg-slate-50">Clear filters</button>');
+      $('pager').hidden = true; renderBulk(list, pageRows);
+      return;
+    }
+    stateBox('');
+
+    var prevGroup = -1;
+    tbody.innerHTML = pageRows.map(function (e) {
+      var st = STATUS[e.status];
+      var il = inspLabel(e);
+      var checked = S.allMatching || S.sel.has(e.id);
+      return '<tr class="border-b border-slate-100 h-10 hover:bg-slate-50' + (checked ? ' bg-blue-50/50' : '') + '">' +
+        '<td class="px-3"><input type="checkbox" class="rowSel h-4 w-4 align-middle" data-id="' + e.id + '" aria-label="Select ' + esc(e.id) + '"' + (checked ? ' checked' : '') + '></td>' +
+        '<td class="px-3 whitespace-nowrap"><a href="#" class="font-medium text-blue-700 hover:underline">' + esc(e.id) + '</a> <span class="text-slate-700">' + esc(e.name) + '</span></td>' +
+        '<td class="px-3 whitespace-nowrap">' + esc(e.location) + '</td>' +
+        '<td class="px-3">' + badge(st.label, st.tone) + '</td>' +
+        '<td class="px-3 whitespace-nowrap">' + fmtDate.format(e.last) + '</td>' +
+        '<td class="px-3 whitespace-nowrap"><span class="mr-2">' + fmtDate.format(e.next) + '</span>' +
+          (il.tone ? badge(il.text, il.tone) : '<span class="text-xs text-slate-600">' + il.text + '</span>') + '</td>' +
+        '<td class="px-3 whitespace-nowrap text-right"><button class="logBtn h-8 px-2 rounded text-blue-700 hover:bg-blue-50" data-id="' + e.id + '">Log service</button>' +
+          '<button class="menuBtn h-8 w-8 rounded hover:bg-slate-100" data-id="' + e.id + '" aria-haspopup="menu" aria-label="Actions for ' + esc(e.id) + '">&#8943;</button></td></tr>';
+    }).join('');
+
+    $('range').textContent = (start + 1) + '–' + (start + pageRows.length) + ' of ' + total;
+    $('pageNo').textContent = 'Page ' + S.page + ' of ' + pages;
+    $('prev').disabled = S.page <= 1;
+    $('next').disabled = S.page >= pages;
+    $('pageSize').value = String(S.size);
+    renderBulk(list, pageRows);
+  }
+
+  function renderBulk(list, pageRows) {
+    var n = S.allMatching ? list.length : S.sel.size;
+    $('bulk').hidden = n === 0;
+    $('bulkCount').textContent = n + ' selected';
+    var allOnPage = pageRows.length && pageRows.every(function (e) { return S.allMatching || S.sel.has(e.id); });
+    var someOnPage = pageRows.some(function (e) { return S.allMatching || S.sel.has(e.id); });
+    var sp = $('selPage');
+    sp.checked = !!allOnPage;
+    sp.indeterminate = !allOnPage && someOnPage;
+    var btn = $('selAll');
+    if (S.allMatching) {
+      btn.hidden = false; btn.textContent = 'Clear selection of all ' + list.length;
+    } else if (allOnPage && list.length > pageRows.length) {
+      btn.hidden = false; btn.textContent = 'Select all ' + list.length + ' matching';
+    } else btn.hidden = true;
+  }
+
+  // ---------- events ----------
+  function resetSel() { S.sel.clear(); S.allMatching = false; }
+  function toast(msg) {
+    var t = $('toast'); t.textContent = msg; t.hidden = false;
+    clearTimeout(toast.t); toast.t = setTimeout(function () { t.hidden = true; }, 3000);
+  }
+  function closeMenu() { $('menu').hidden = true; }
+
+  $('tabs').addEventListener('click', function (ev) {
+    var b = ev.target.closest('[data-tab]'); if (!b) return;
+    S.tab = b.dataset.tab; S.page = 1; resetSel(); render();
+  });
+  $('q').addEventListener('input', function () { S.q = this.value; S.page = 1; resetSel(); render(); });
+  [['fLoc', 'loc'], ['fStatus', 'status'], ['fType', 'type']].forEach(function (p) {
+    $(p[0]).addEventListener('change', function () { S[p[1]] = this.value; S.page = 1; resetSel(); render(); });
+  });
+  function clearFilters() {
+    S.q = S.loc = S.status = S.type = '';
+    $('q').value = ''; $('fLoc').value = ''; $('fStatus').value = ''; $('fType').value = '';
+    S.page = 1; resetSel(); render();
+  }
+  document.addEventListener('click', function (ev) {
+    var t = ev.target;
+    if (t.closest('#menu')) {
+      var item = t.closest('[data-act]');
+      if (item) { toast(item.dataset.act + ' – ' + $('menu').dataset.id); closeMenu(); }
+      return;
+    }
+    var chip = t.closest('[data-chip]');
+    if (chip) {
+      var k = chip.dataset.chip;
+      S[k] = ''; $({ q: 'q', loc: 'fLoc', status: 'fStatus', type: 'fType' }[k]).value = '';
+      S.page = 1; resetSel(); render(); return;
+    }
+    if (t.id === 'clearAll' || t.id === 'clearAll2') { clearFilters(); return; }
+    if (t.id === 'retry') { S.phase = 'loading'; render(); setTimeout(function () { S.phase = 'ready'; render(); }, 600); return; }
+    if (t.id === 'emptyAdd') { toast('Add equipment form would open here'); return; }
+    var sb = t.closest('.sortBtn');
+    if (sb) {
+      var col = sb.closest('th').dataset.col;
+      if (S.sort === col) S.dir = S.dir === 'asc' ? 'desc' : 'asc'; else { S.sort = col; S.dir = 'asc'; }
+      S.page = 1; render(); return;
+    }
+    var mb = t.closest('.menuBtn');
+    if (mb) {
+      var m = $('menu'), r = mb.getBoundingClientRect();
+      var id = mb.dataset.id;
+      m.dataset.id = id;
+      m.innerHTML = ['Open details', 'Schedule inspection', 'Create work order', 'Mark out of service'].map(function (a) {
+        return '<button role="menuitem" data-act="' + a + '" class="block w-full text-left px-3 h-8 hover:bg-slate-100 ' + (a === 'Mark out of service' ? 'text-red-700' : 'text-slate-800') + '">' + a + '</button>';
+      }).join('');
+      m.style.top = (r.bottom + 4) + 'px';
+      m.style.left = Math.max(8, r.right - 208) + 'px';
+      m.hidden = false; ev.stopPropagation(); return;
+    }
+    var lb = t.closest('.logBtn');
+    if (lb) { toast('Service log opened for ' + lb.dataset.id); return; }
+    closeMenu();
+  });
+  document.addEventListener('keydown', function (ev) { if (ev.key === 'Escape') closeMenu(); });
+
+  $('tbody').addEventListener('change', function (ev) {
+    var c = ev.target.closest('.rowSel'); if (!c) return;
+    if (S.allMatching) { // leaving "all matching" mode: materialise selection
+      S.allMatching = false;
+      sorted(filtered(false)).forEach(function (e) { S.sel.add(e.id); });
+    }
+    if (c.checked) S.sel.add(c.dataset.id); else S.sel.delete(c.dataset.id);
+    render();
+  });
+  $('selPage').addEventListener('change', function () {
+    var list = sorted(filtered(false));
+    var pageRows = list.slice((S.page - 1) * S.size, S.page * S.size);
+    if (this.checked) pageRows.forEach(function (e) { S.sel.add(e.id); });
+    else { S.allMatching = false; pageRows.forEach(function (e) { S.sel.delete(e.id); }); }
+    render();
+  });
+  $('selAll').addEventListener('click', function () {
+    if (S.allMatching) resetSel(); else S.allMatching = true;
+    render();
+  });
+  $('bulkClear').addEventListener('click', function () { resetSel(); render(); });
+  $('bulkSchedule').addEventListener('click', function () {
+    var n = S.allMatching ? filtered(false).length : S.sel.size;
+    toast('Inspection scheduling opened for ' + plural(n, 'machine'));
+  });
+  $('bulkExport').addEventListener('click', function () {
+    var n = S.allMatching ? filtered(false).length : S.sel.size;
+    toast('Exporting ' + plural(n, 'machine') + ' to CSV');
+  });
+  $('exportBtn').addEventListener('click', function () { toast('Exporting ' + plural(filtered(false).length, 'machine') + ' to CSV'); });
+  $('addBtn').addEventListener('click', function () { toast('Add equipment form would open here'); });
+  $('prev').addEventListener('click', function () { S.page--; render(); });
+  $('next').addEventListener('click', function () { S.page++; render(); });
+  $('pageSize').addEventListener('change', function () { S.size = +this.value; S.page = 1; render(); });
+
+  // ---------- boot ----------
+  fillSelects();
+  render();
+  if (mode === 'empty' || mode === 'error' || mode === 'loading') {
+    // held states render immediately; 'empty' and 'error' are shown without delay
+    if (mode !== 'loading') { S.phase = mode; render(); }
+  } else {
+    setTimeout(function () { S.phase = 'ready'; render(); }, 450);
+  }
+})();
+</script>
+</body>
+</html>

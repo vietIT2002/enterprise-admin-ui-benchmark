@@ -1,0 +1,349 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>New Invoice</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+tailwind.config = { theme: { extend: { fontFamily: { sans: ['Inter','system-ui','Segoe UI','sans-serif'] } } } }
+</script>
+<style>
+  input, select, textarea { font-variant-numeric: tabular-nums; }
+  .num { text-align: right; font-variant-numeric: tabular-nums; }
+  .field:focus { outline: 2px solid #4f46e5; outline-offset: -1px; border-color: #4f46e5; }
+  .invalid { border-color: #dc2626 !important; background: #fef2f2; }
+</style>
+</head>
+<body class="bg-slate-100 text-slate-800 font-sans antialiased min-h-screen">
+
+<header class="bg-white border-b border-slate-200">
+  <div class="max-w-6xl mx-auto px-4 sm:px-6 py-3 flex items-center justify-between gap-3">
+    <div class="flex items-center gap-3 min-w-0">
+      <div class="h-8 w-8 rounded bg-indigo-600 text-white grid place-items-center font-bold text-sm shrink-0">LB</div>
+      <nav class="text-sm text-slate-500 truncate" aria-label="Breadcrumb">
+        <span>Sales</span> <span class="mx-1">/</span> <a href="#" class="hover:text-slate-700">Invoices</a> <span class="mx-1">/</span> <span class="text-slate-900 font-medium">New invoice</span>
+      </nav>
+    </div>
+    <span class="text-xs font-medium px-2 py-1 rounded bg-slate-100 text-slate-600 border border-slate-200">Draft</span>
+  </div>
+</header>
+
+<main class="max-w-6xl mx-auto px-4 sm:px-6 py-6">
+  <div class="flex flex-wrap items-end justify-between gap-3 mb-5">
+    <div>
+      <h1 class="text-2xl font-semibold text-slate-900">Create invoice</h1>
+      <p class="text-sm text-slate-500 mt-1">Bill a customer for goods or services. Totals update as you type.</p>
+    </div>
+    <div class="flex gap-2">
+      <button type="button" id="btnDraft" class="px-4 py-2 text-sm font-medium rounded border border-slate-300 bg-white hover:bg-slate-50">Save as draft</button>
+      <button type="button" id="btnSaveTop" class="px-4 py-2 text-sm font-medium rounded bg-indigo-600 text-white hover:bg-indigo-700">Save &amp; send</button>
+    </div>
+  </div>
+
+  <div id="banner" class="hidden mb-4 rounded border px-4 py-3 text-sm" role="status" aria-live="polite"></div>
+
+  <form id="form" novalidate class="space-y-5">
+    <!-- Customer & dates -->
+    <section class="bg-white rounded-lg border border-slate-200 shadow-sm">
+      <div class="px-5 py-3 border-b border-slate-200"><h2 class="text-sm font-semibold text-slate-900">Customer &amp; dates</h2></div>
+      <div class="p-5 grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div class="lg:col-span-1">
+          <label for="customer" class="block text-sm font-medium text-slate-700 mb-1">Customer <span class="text-red-600">*</span></label>
+          <select id="customer" class="field w-full rounded border border-slate-300 bg-white px-3 py-2 text-sm"></select>
+          <p id="err-customer" class="hidden text-xs text-red-600 mt-1">Select a customer.</p>
+          <div id="custInfo" class="mt-3 text-sm text-slate-600 leading-relaxed"></div>
+        </div>
+        <div class="lg:col-span-2 grid grid-cols-1 sm:grid-cols-2 gap-4 content-start">
+          <div>
+            <label for="invNo" class="block text-sm font-medium text-slate-700 mb-1">Invoice number</label>
+            <input id="invNo" value="INV-2026-0148" class="field w-full rounded border border-slate-300 px-3 py-2 text-sm">
+          </div>
+          <div>
+            <label for="ref" class="block text-sm font-medium text-slate-700 mb-1">PO / reference</label>
+            <input id="ref" placeholder="e.g. PO-77120" class="field w-full rounded border border-slate-300 px-3 py-2 text-sm">
+          </div>
+          <div>
+            <label for="invDate" class="block text-sm font-medium text-slate-700 mb-1">Invoice date <span class="text-red-600">*</span></label>
+            <input id="invDate" type="date" class="field w-full rounded border border-slate-300 px-3 py-2 text-sm">
+          </div>
+          <div>
+            <label for="terms" class="block text-sm font-medium text-slate-700 mb-1">Payment terms</label>
+            <select id="terms" class="field w-full rounded border border-slate-300 bg-white px-3 py-2 text-sm">
+              <option value="0">Due on receipt</option>
+              <option value="15">Net 15</option>
+              <option value="30" selected>Net 30</option>
+              <option value="45">Net 45</option>
+              <option value="60">Net 60</option>
+            </select>
+          </div>
+          <div>
+            <label for="dueDate" class="block text-sm font-medium text-slate-700 mb-1">Due date <span class="text-red-600">*</span></label>
+            <input id="dueDate" type="date" class="field w-full rounded border border-slate-300 px-3 py-2 text-sm">
+            <p id="err-due" class="hidden text-xs text-red-600 mt-1">Due date can't be before the invoice date.</p>
+          </div>
+          <div>
+            <label for="currency" class="block text-sm font-medium text-slate-700 mb-1">Currency</label>
+            <select id="currency" class="field w-full rounded border border-slate-300 bg-white px-3 py-2 text-sm">
+              <option>USD</option>
+            </select>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Line items -->
+    <section class="bg-white rounded-lg border border-slate-200 shadow-sm">
+      <div class="px-5 py-3 border-b border-slate-200 flex items-center justify-between">
+        <h2 class="text-sm font-semibold text-slate-900">Line items</h2>
+        <button type="button" id="addLine" class="text-sm font-medium text-indigo-600 hover:text-indigo-800">+ Add line</button>
+      </div>
+      <div class="overflow-x-auto">
+        <table class="w-full text-sm min-w-[820px]">
+          <thead>
+            <tr class="text-xs uppercase tracking-wide text-slate-500 bg-slate-50 border-b border-slate-200">
+              <th class="text-left font-medium px-3 py-2 w-8">#</th>
+              <th class="text-left font-medium px-3 py-2">Product / service</th>
+              <th class="text-right font-medium px-3 py-2 w-24">Qty</th>
+              <th class="text-right font-medium px-3 py-2 w-32">Unit price</th>
+              <th class="text-left font-medium px-3 py-2 w-36">Tax</th>
+              <th class="text-right font-medium px-3 py-2 w-32">Amount</th>
+              <th class="w-10"><span class="sr-only">Remove</span></th>
+            </tr>
+          </thead>
+          <tbody id="lines" class="divide-y divide-slate-100"></tbody>
+        </table>
+      </div>
+      <p id="err-lines" class="hidden px-5 py-2 text-xs text-red-600">Add at least one line item with a product and quantity.</p>
+    </section>
+
+    <!-- Notes and totals -->
+    <section class="grid grid-cols-1 lg:grid-cols-3 gap-5">
+      <div class="lg:col-span-2 bg-white rounded-lg border border-slate-200 shadow-sm p-5 space-y-4">
+        <div>
+          <label for="notes" class="block text-sm font-medium text-slate-700 mb-1">Notes to customer</label>
+          <textarea id="notes" rows="3" class="field w-full rounded border border-slate-300 px-3 py-2 text-sm">Thank you for your business. Please remit payment by ACH to the account listed on the remittance slip.</textarea>
+        </div>
+        <div>
+          <label for="memo" class="block text-sm font-medium text-slate-700 mb-1">Internal memo <span class="text-slate-400 font-normal">(not shown on invoice)</span></label>
+          <textarea id="memo" rows="2" class="field w-full rounded border border-slate-300 px-3 py-2 text-sm"></textarea>
+        </div>
+      </div>
+
+      <div class="bg-white rounded-lg border border-slate-200 shadow-sm p-5">
+        <h2 class="text-sm font-semibold text-slate-900 mb-3">Summary</h2>
+        <dl class="text-sm space-y-2">
+          <div class="flex justify-between"><dt class="text-slate-600">Subtotal</dt><dd id="tSub" class="num">$0.00</dd></div>
+          <div class="flex justify-between items-center gap-2">
+            <dt class="text-slate-600">Discount</dt>
+            <dd class="flex items-center gap-1">
+              <input id="discPct" type="number" min="0" max="100" step="0.5" value="0" aria-label="Discount percent" class="field num w-16 rounded border border-slate-300 px-2 py-1 text-sm">
+              <span class="text-slate-500">%</span>
+              <span id="tDisc" class="num w-24 inline-block">-$0.00</span>
+            </dd>
+          </div>
+          <div id="taxRows" class="space-y-2"></div>
+          <div class="flex justify-between border-t border-slate-200 pt-2"><dt class="text-slate-600">Total tax</dt><dd id="tTax" class="num">$0.00</dd></div>
+          <div class="flex justify-between border-t border-slate-300 pt-3 text-base font-semibold text-slate-900"><dt>Total</dt><dd id="tTotal" class="num">$0.00</dd></div>
+          <div class="flex justify-between text-slate-600"><dt>Amount paid</dt><dd class="num">$0.00</dd></div>
+          <div class="flex justify-between rounded bg-indigo-50 px-3 py-2 font-semibold text-indigo-900"><dt>Balance due</dt><dd id="tDue" class="num">$0.00</dd></div>
+        </dl>
+      </div>
+    </section>
+
+    <div class="flex flex-wrap justify-end gap-2 pb-8">
+      <button type="button" id="btnCancel" class="px-4 py-2 text-sm font-medium rounded border border-slate-300 bg-white hover:bg-slate-50">Cancel</button>
+      <button type="button" id="btnDraft2" class="px-4 py-2 text-sm font-medium rounded border border-slate-300 bg-white hover:bg-slate-50">Save as draft</button>
+      <button type="submit" class="px-4 py-2 text-sm font-medium rounded bg-indigo-600 text-white hover:bg-indigo-700">Save &amp; send</button>
+    </div>
+  </form>
+</main>
+
+<script>
+const CUSTOMERS = [
+  { id:'c1', name:'Northwind Logistics LLC', email:'ap@northwindlogistics.com', addr:'4120 Harbor Blvd, Suite 300\nOakland, CA 94607', terms:30 },
+  { id:'c2', name:'Brightpath Dental Group', email:'billing@brightpathdental.com', addr:'88 Maple Avenue\nPortland, OR 97205', terms:15 },
+  { id:'c3', name:'Halvorsen & Reyes Architects', email:'accounts@halvorsenreyes.com', addr:'210 W Lake St, Floor 5\nChicago, IL 60606', terms:45 },
+  { id:'c4', name:'Cedar Ridge Farms Co-op', email:'office@cedarridgefarms.org', addr:'17 County Road 9\nBoise, ID 83702', terms:0 },
+];
+const PRODUCTS = [
+  { id:'p1', name:'Consulting – Senior Analyst (hourly)', price:185.00, tax:'std' },
+  { id:'p2', name:'Monthly Bookkeeping Retainer', price:950.00, tax:'none' },
+  { id:'p3', name:'Quarterly Tax Filing Preparation', price:1400.00, tax:'none' },
+  { id:'p4', name:'Cloud Backup Subscription (per seat)', price:12.50, tax:'std' },
+  { id:'p5', name:'Workstation Setup & Configuration', price:240.00, tax:'std' },
+  { id:'p6', name:'Printed Financial Report Binder', price:34.90, tax:'red' },
+];
+const TAXES = { none:{label:'No tax (0%)',rate:0}, red:{label:'Reduced (5%)',rate:5}, std:{label:'Sales tax (8.25%)',rate:8.25} };
+
+const $ = id => document.getElementById(id);
+const fmt = n => (n<0?'-':'') + '$' + Math.abs(n).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
+const r2 = n => Math.round((n + Number.EPSILON)*100)/100;
+const iso = d => d.toISOString().slice(0,10);
+let lineSeq = 0;
+
+function init(){
+  $('customer').innerHTML = '<option value="">Select a customer…</option>' + CUSTOMERS.map(c=>`<option value="${c.id}">${c.name}</option>`).join('');
+  const today = new Date();
+  $('invDate').value = iso(today);
+  applyTerms();
+  addLine({product:'p2', qty:1});
+  addLine({product:'p1', qty:6});
+  addLine();
+  recalc();
+}
+
+function applyTerms(){
+  const d = new Date($('invDate').value || new Date());
+  d.setDate(d.getDate() + parseInt($('terms').value,10));
+  $('dueDate').value = iso(d);
+}
+
+function addLine(pre){
+  const id = ++lineSeq;
+  const tr = document.createElement('tr');
+  tr.dataset.id = id;
+  const taxOpts = Object.entries(TAXES).map(([k,v])=>`<option value="${k}">${v.label}</option>`).join('');
+  const prodOpts = '<option value="">Select product…</option>' + PRODUCTS.map(p=>`<option value="${p.id}">${p.name}</option>`).join('');
+  tr.innerHTML = `
+    <td class="px-3 py-2 text-slate-400 align-middle idx"></td>
+    <td class="px-3 py-2"><select class="prod field w-full rounded border border-slate-300 bg-white px-2 py-1.5" aria-label="Product">${prodOpts}</select></td>
+    <td class="px-3 py-2"><input type="number" min="0" step="1" value="1" class="qty field num w-full rounded border border-slate-300 px-2 py-1.5" aria-label="Quantity"></td>
+    <td class="px-3 py-2"><input type="number" min="0" step="0.01" value="0.00" class="price field num w-full rounded border border-slate-300 px-2 py-1.5" aria-label="Unit price"></td>
+    <td class="px-3 py-2"><select class="tax field w-full rounded border border-slate-300 bg-white px-2 py-1.5" aria-label="Tax">${taxOpts}</select></td>
+    <td class="px-3 py-2 num font-medium amt">$0.00</td>
+    <td class="px-2 py-2 text-center"><button type="button" class="del text-slate-400 hover:text-red-600 rounded p-1" aria-label="Remove line">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg></button></td>`;
+  $('lines').appendChild(tr);
+  if(pre){
+    tr.querySelector('.prod').value = pre.product;
+    tr.querySelector('.qty').value = pre.qty;
+    onProduct(tr);
+  }
+  renumber();
+  return tr;
+}
+
+function onProduct(tr){
+  const p = PRODUCTS.find(x=>x.id===tr.querySelector('.prod').value);
+  if(p){
+    tr.querySelector('.price').value = p.price.toFixed(2);
+    tr.querySelector('.tax').value = p.tax;
+  }
+}
+
+function renumber(){
+  [...$('lines').children].forEach((tr,i)=> tr.querySelector('.idx').textContent = i+1);
+}
+
+function getLines(){
+  return [...$('lines').children].map(tr=>{
+    const qty = parseFloat(tr.querySelector('.qty').value)||0;
+    const price = parseFloat(tr.querySelector('.price').value)||0;
+    const taxKey = tr.querySelector('.tax').value;
+    return { tr, product: tr.querySelector('.prod').value, qty, price, taxKey, rate: TAXES[taxKey].rate, amount: r2(qty*price) };
+  });
+}
+
+function recalc(){
+  const lines = getLines();
+  let sub = 0;
+  lines.forEach(l=>{ l.tr.querySelector('.amt').textContent = fmt(l.amount); sub += l.amount; });
+  sub = r2(sub);
+  const pct = Math.min(100, Math.max(0, parseFloat($('discPct').value)||0));
+  const disc = r2(sub*pct/100);
+  const byRate = {};
+  lines.forEach(l=>{
+    if(!l.rate) return;
+    const net = l.amount * (1 - pct/100);
+    byRate[l.rate] = (byRate[l.rate]||0) + net*l.rate/100;
+  });
+  let tax = 0;
+  const rows = Object.entries(byRate).sort((a,b)=>a[0]-b[0]).map(([rate,v])=>{
+    v = r2(v); tax += v;
+    return `<div class="flex justify-between"><dt class="text-slate-500 pl-3">Tax ${rate}%</dt><dd class="num">${fmt(v)}</dd></div>`;
+  });
+  tax = r2(tax);
+  const total = r2(sub - disc + tax);
+  $('tSub').textContent = fmt(sub);
+  $('tDisc').textContent = fmt(-disc);
+  $('taxRows').innerHTML = rows.join('');
+  $('tTax').textContent = fmt(tax);
+  $('tTotal').textContent = fmt(total);
+  $('tDue').textContent = fmt(total);
+  return { lines, sub, disc, pct, tax, total };
+}
+
+function showCustomer(){
+  const c = CUSTOMERS.find(x=>x.id===$('customer').value);
+  $('custInfo').innerHTML = c ? `<div class="font-medium text-slate-800">${c.name}</div><div class="whitespace-pre-line">${c.addr}</div><div class="text-slate-500">${c.email}</div>` : '';
+  if(c){ $('terms').value = String(c.terms); applyTerms(); }
+}
+
+function banner(msg, kind){
+  const b = $('banner');
+  b.className = 'mb-4 rounded border px-4 py-3 text-sm ' + (kind==='ok' ? 'bg-emerald-50 border-emerald-200 text-emerald-800' : kind==='err' ? 'bg-red-50 border-red-200 text-red-800' : 'bg-slate-50 border-slate-200 text-slate-700');
+  b.textContent = msg;
+  window.scrollTo({top:0,behavior:'smooth'});
+}
+
+function validate(){
+  let ok = true;
+  const flag = (el, bad, errId) => { el.classList.toggle('invalid', bad); if(errId) $(errId).classList.toggle('hidden', !bad); if(bad) ok = false; };
+  flag($('customer'), !$('customer').value, 'err-customer');
+  flag($('invDate'), !$('invDate').value);
+  flag($('dueDate'), !$('dueDate').value || $('dueDate').value < $('invDate').value, 'err-due');
+  const filled = getLines().filter(l=>l.product || l.price>0);
+  filled.forEach(l=>{
+    l.tr.querySelector('.prod').classList.toggle('invalid', !l.product);
+    l.tr.querySelector('.qty').classList.toggle('invalid', l.qty<=0);
+  });
+  const bad = filled.length===0 || filled.some(l=>!l.product || l.qty<=0);
+  $('err-lines').classList.toggle('hidden', !bad);
+  if(bad) ok = false;
+  return ok;
+}
+
+function save(status){
+  if(!validate()){ banner('Please fix the highlighted fields before saving.','err'); return; }
+  const t = recalc();
+  const c = CUSTOMERS.find(x=>x.id===$('customer').value);
+  const invoice = {
+    number: $('invNo').value, status, customer: c.name, reference: $('ref').value,
+    invoiceDate: $('invDate').value, dueDate: $('dueDate').value,
+    lines: t.lines.filter(l=>l.product).map(l=>({ product: PRODUCTS.find(p=>p.id===l.product).name, qty:l.qty, unitPrice:l.price, tax:TAXES[l.taxKey].label, amount:l.amount })),
+    subtotal:t.sub, discount:t.disc, tax:t.tax, total:t.total, notes:$('notes').value
+  };
+  try { localStorage.setItem('invoice:'+invoice.number, JSON.stringify(invoice)); } catch(e){}
+  console.log('Saved invoice', invoice);
+  banner(`Invoice ${invoice.number} ${status==='draft'?'saved as draft':'saved and queued to send'} for ${c.name} — total ${fmt(t.total)}, due ${invoice.dueDate}.`,'ok');
+}
+
+$('customer').addEventListener('change', ()=>{ showCustomer(); $('customer').classList.remove('invalid'); $('err-customer').classList.add('hidden'); });
+$('terms').addEventListener('change', applyTerms);
+$('invDate').addEventListener('change', applyTerms);
+$('dueDate').addEventListener('change', ()=>{ $('dueDate').classList.remove('invalid'); $('err-due').classList.add('hidden'); });
+$('addLine').addEventListener('click', ()=>{ addLine().querySelector('.prod').focus(); });
+$('discPct').addEventListener('input', recalc);
+$('lines').addEventListener('input', e=>{ if(e.target.matches('.qty,.price,.tax')) recalc(); });
+$('lines').addEventListener('change', e=>{
+  if(e.target.matches('.prod')){ onProduct(e.target.closest('tr')); e.target.classList.remove('invalid'); }
+  recalc();
+});
+$('lines').addEventListener('click', e=>{
+  const b = e.target.closest('.del'); if(!b) return;
+  const tr = b.closest('tr');
+  if($('lines').children.length===1){ tr.querySelector('.prod').value=''; tr.querySelector('.qty').value=1; tr.querySelector('.price').value='0.00'; tr.querySelector('.tax').value='none'; }
+  else tr.remove();
+  renumber(); recalc();
+});
+$('form').addEventListener('submit', e=>{ e.preventDefault(); save('sent'); });
+$('btnSaveTop').addEventListener('click', ()=>save('sent'));
+$('btnDraft').addEventListener('click', ()=>save('draft'));
+$('btnDraft2').addEventListener('click', ()=>save('draft'));
+$('btnCancel').addEventListener('click', ()=>{ if(confirm('Discard this invoice?')) location.reload(); });
+
+init();
+</script>
+</body>
+</html>
