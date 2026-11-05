@@ -4,6 +4,8 @@ This repository holds the data behind the benchmark of [enterprise-admin-ui](htt
 
 Each screen was built twice by the same model from the same brief: once as the agent normally would, and once after reading the skill's `SKILL.md`. Every page was then scored with an automated audit and an acceptance checklist.
 
+**Browse the pages side by side:** <https://vietit2002.github.io/enterprise-admin-ui-benchmark/>. The gallery shows each screen without and with the skill, its audit score, its checklist result and links to the live page.
+
 Start with [benchmark/REPORT.md](benchmark/REPORT.md) for the results and their limitations.
 
 ## Contents
