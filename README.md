@@ -40,7 +40,7 @@ Re-auditing writes new `.audit.json` files next to the pages. Scores can differ 
 
 - **Paths.** `<repo>` stands for the folder of the skill's development repository, and `<scratch>` for a temporary working folder. Both were replaced in prompts and logs.
 - **Left out.** The raw session logs of the trigger-rate runs are not included. `runs/2026-11-05-trigger/results.json` holds the per-prompt outcomes.
-- **Samples.** They are small, and the reviewers were not blind to the condition. See the Limitations section of the report.
+- **Samples.** They are small, and most reviews were open: the reviewer knew the condition. A blind re-review of the 12 held-out 2 pages agreed on 97% of items ([BLIND.md](benchmark/runs/2026-11-05-blind-heldout2/BLIND.md)). See the Limitations section of the report.
 
 ## License
 
