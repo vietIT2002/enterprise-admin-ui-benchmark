@@ -21,3 +21,12 @@ Also list every "template tell" you see, using these names where they fit: greet
 
 Write JSON to {{REVIEW_PATH}} in exactly this shape, then reply with only that path:
 {"brief":"{{BRIEF_ID}}","run":{{RUN}},"items":[{"item":"<checklist text, verbatim>","pass":true,"evidence":"..."}],"tells":["..."],"notes":"..."}
+
+## Blind review
+
+The open review above shows the run folder in every path, so the reviewer can see which condition built the page. To review blind:
+
+1. `node benchmark/tools/blind.mjs make <out> <red-folder> <green-folder> --seed <n>` copies every page into `<out>/<code>/` with neutral names: `page.html` (or `src/`), `first.png`, `full.png`, `audit.json` without `url` or `env`. The mapping goes to `<out>/key.json`. Give reviewers only `manifest.json` and the code folders.
+2. Use the reviewer prompt above with the code folder's files as inputs. The output is `<out>/<code>/review.json`, and `brief` and `run` can be left as given in the manifest.
+3. `node benchmark/tools/blind.mjs unblind <out>` copies each review back as `run-N.review.blind.json` next to the page.
+4. `node benchmark/tools/blind.mjs agreement <red-folder> <green-folder>` reports how often the blind and open reviews agree, item by item, and the pass rate of each side under both.

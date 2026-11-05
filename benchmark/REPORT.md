@@ -11,6 +11,7 @@ Detailed reports:
 - [HELDOUT2](runs/2026-11-05-green-heldout2/HELDOUT2.md) (three new briefs after the 0.5.2 rules)
 - [NEXT](runs/2026-11-05-next-green/NEXT.md) (a real Next.js + shadcn/ui codebase)
 - [CODEX](runs/2026-11-05-codex-green/CODEX.md) (Codex CLI as the agent)
+- [BLIND](runs/2026-11-05-blind-heldout2/BLIND.md) (blind re-review of the held-out 2 pages)
 
 ![Orders list before and after](../docs/img/before-after-01-orders-list.png)
 
@@ -155,7 +156,7 @@ Two findings from the Next.js run:
 ## Limitations
 
 - **Small samples.** 40 + 6 pages per side, checklist reviews on runs 1–2 only, and 3–9 pages per fix round.
-- **Reviewers are not blind.** Run paths contain `red` and `green`. There is one reviewer per page; six claims were verified by hand.
+- **Most reviews are open.** Run paths contain `red` and `green`, and each page has one reviewer; six claims were verified by hand. A blind re-review of the 12 held-out 2 pages agreed with the open review on 97% of items and gave the same gap: 41% → 89% blind, 39% → 89% open ([BLIND](runs/2026-11-05-blind-heldout2/BLIND.md)). The other suites have not been re-reviewed blind.
 - **The main checklists overlap the skill's recipes.** See the caveat above. The held-out result (35% → 72%) is the estimate for unseen screens.
 - **"Clean on hard metrics" counts rules that do not apply as clean.** For example, a page without a table passes the row-height rule.
 - **Mostly one model and one output format.** Most pages are single-file HTML from Sonnet 5.5. The Next.js and Codex runs have 3 pages per side each. Not yet measured: Cursor and Copilot, Vietnamese prompts outside the HTML suites, and whether the skill loads on its own in agents other than Claude Code.
