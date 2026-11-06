@@ -13,6 +13,7 @@ Detailed reports:
 - [CODEX](runs/2026-11-05-codex-green/CODEX.md) (Codex CLI as the agent)
 - [BLIND](runs/2026-11-05-blind-heldout2/BLIND.md) (blind re-review of the held-out 2 pages)
 - [COST](runs/2026-11-05-cost-claude-green/COST.md) (tokens and cost per page, with and without the skill)
+- [NEWTYPES](runs/2026-11-06-newtypes-after-claude-green/NEWTYPES.md) (reports, printable documents, calendars, boards and trees)
 
 ![Orders list before and after](../docs/img/before-after-01-orders-list.png)
 
@@ -153,6 +154,10 @@ In both settings the gap is about the same as in the HTML held-out suite (39% â†
 Two findings from the Next.js run:
 - **Builds.** With `cacheComponents` on, the default for new Next 16 apps, a page that reads `params` or `searchParams` outside `<Suspense>` fails `next build`, even though `tsc`, `eslint` and `next dev` pass. One GREEN page read `?state=` that way, so 1/3 GREEN routes built against 2/3 RED. SKILL.md and `react-shadcn.md` now cover this; it was not re-measured.
 - **Radius.** Both sides lost the `radius-scale` points to the template's 10px shadcn radius, because agents could not edit `globals.css` in this setup.
+
+## New screen types
+
+Five briefs cover screens the recipes did not: a revenue report, a printable invoice, a leave calendar, a service desk board and a chart of accounts. Without the skill the pages passed 33% of the checklist, and with 0.5.7 they passed 50%. Four new references (`reports-print.md`, `calendars.md`, `boards.md`, `trees.md`) brought it to 91%. The references were written from the failures on these same briefs, so 91% is not a held-out number. See [NEWTYPES](runs/2026-11-06-newtypes-after-claude-green/NEWTYPES.md).
 
 ## Limitations
 

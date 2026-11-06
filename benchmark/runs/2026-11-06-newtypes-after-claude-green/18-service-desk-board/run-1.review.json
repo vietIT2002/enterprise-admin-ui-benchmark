@@ -1,0 +1,53 @@
+{
+  "brief": "18-service-desk-board",
+  "run": 1,
+  "items": [
+    {
+      "item": "Columns by status show a count in their header (such as \"In progress 5\"), and a work-in-progress limit is shown where one applies",
+      "pass": true,
+      "evidence": "columnHTML() renders '<span class=\"col-sub ...\">'+countText+limitText+(overLimit?' · Over limit':'')+'</span>'; screenshot shows 'In progress' header with '6 / 5 · Over limit' (STATUSES in_progress has limit:5) while other columns show plain counts like 'New 5', 'Pending 4', 'Resolved 3'."
+    },
+    {
+      "item": "Cards show the ticket code, a title (truncated with the full text available), the priority as a text label, the assignee's name and the due date or age",
+      "pass": true,
+      "evidence": "cardHTML(): code span 't.code' (e.g. 'IT-1058'), title '<p class=\"line-clamp-2 ...\" title=\"'+escapeHtml(t.title)+'\">' (clamped to 2 lines, full text in title attr/tooltip), priority badge 'prio.label' (e.g. 'High'), assignee name text next to avatar, and meta.line ('Due 04/11/2026' / 'Opened 2 days ago') from dueMeta()."
+    },
+    {
+      "item": "A card can be moved without dragging (a \"Move to\" menu or the keyboard), and a drag-and-drop move is announced to assistive technology",
+      "pass": true,
+      "evidence": "Card kebab menu renders 'Move to '+s.label buttons via toggleCardMenu/menuItems (card-menu role=\"menu\"); keyboard path handleCardKeydown (Space to pick up, ArrowLeft/Right to choose column, Space to drop) calls requestMove; performMove() calls announce(code+' moved to '+statusLabel(toStatus)+'.') into #announcer (aria-live=\"polite\"), which also fires for ondrop-triggered handleDrop() moves."
+    },
+    {
+      "item": "Moving to a status that needs input (such as Resolved needing a resolution note) asks for it, and a move can be undone (a toast with Undo)",
+      "pass": true,
+      "evidence": "requestMove(): 'if (toStatus === \"resolved\") { pendingMove=...; document.getElementById(\"transitionBackdrop\").hidden=false; }' opens a required 'Resolution note *' dialog validated in confirmTransition(); every performMove() calls showUndoToast() which renders a toast '<span>'+code+' moved to '+statusLabel(toStatus)+'</span><button>Undo</button>' that restores prevStatus/prevExtra on click."
+    },
+    {
+      "item": "Filters for assignee and priority, a search, and a switch to a list or table view",
+      "pass": true,
+      "evidence": "#assigneeFilter and #priorityFilter <select> elements, #searchInput (placeholder \"Search by code or title\"), and role=\"group\" aria-label=\"Board or list view\" with #viewBoardBtn/#viewListBtn toggled via setView()."
+    },
+    {
+      "item": "Overdue or ageing tickets are marked with a text label, not by colour alone",
+      "pass": true,
+      "evidence": "dueMeta() badge text: 'Overdue '+days+' day(s)', 'Due today', 'Due in N day(s)' rendered as a pill (e.g. visible 'Overdue 3 days', 'Due today' in screenshot) in addition to color classes — text conveys the state independent of colour."
+    },
+    {
+      "item": "Columns scroll on their own with sticky headers, and a wide board scrolls sideways without the page header scrolling away",
+      "pass": true,
+      "evidence": "Each column's '<ol class=\"col-body min-h-0 flex-1 ... overflow-y-auto ...\">' scrolls independently; column header h2 has 'sticky top-0'; #boardRegion has 'overflow-x-auto' for horizontal scroll while body is 'h-screen overflow-hidden' and header/toolbar are 'shrink-0', so the page itself never scrolls (full-page screenshot is pixel-identical to the first-viewport screenshot, confirming no page-level scroll)."
+    },
+    {
+      "item": "An empty column shows a short empty state, and loading and an error with retry are present",
+      "pass": true,
+      "evidence": "columnHTML(): filteredOfStatus.length===0 renders '<li ...>No tickets in '+status.label+'</li>'; renderBoard() loading state renders skeletonCard() pulse placeholders; appState==='error' renders errorBlockHTML() with \"Couldn't load tickets\" and a Retry button calling retryLoad()."
+    },
+    {
+      "item": "Opening a card shows its details in a side panel without losing the board's position or filters",
+      "pass": true,
+      "evidence": "openTicket() sets state.openTicket/panelMode and calls renderPanel()+openPanelEl(), which only populate #panelContent/#panel — #boardRegion and filter state (search/assignee/priority/type) are untouched, so board scroll position and active filters persist behind the panel; URL updates via history.pushState while preserving existing query params."
+    }
+  ],
+  "tells": [],
+  "notes": "No template tells observed: no greeting header, no KPI icon tiles, no gradient/glass surfaces (grep for 'gradient'/emoji found nothing), no decorative chart, no sidebar (so no sidebar-promo-card or navy-sidebar-indigo-accent), no emoji icons, no oversized-radius (radii capped at 2/4/6px per audit), no hover-lift (cards only change border colour on hover). The 'Activity' section heading in the side panel carries 'uppercase tracking-wide' classes but an inline style ('letter-spacing:normal; text-transform:none;') cancels them, so it does not actually render tracked/uppercase. Status/priority badges use distinct tone colours (info/warning/success/neutral/danger) but each is paired with a text label, so this reads as a deliberate status system rather than a decorative rainbow-status tell. Automated audit score is 90/100 with 4 contrast violations on the small 'Unassigned' label (slate-400 at 2.56:1, below the 4.5:1 text-contrast threshold) — a real accessibility defect, though outside this checklist's scope."
+}

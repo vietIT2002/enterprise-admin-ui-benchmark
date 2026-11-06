@@ -1,0 +1,53 @@
+{
+  "brief": "15-revenue-report",
+  "run": 1,
+  "items": [
+    {
+      "item": "Filters include the period, with presets (this month, last month, custom range), and at least one dimension; the applied period is stated in the title or a summary line (such as \"Revenue · October 2026\")",
+      "pass": true,
+      "evidence": "Period preset group with data-preset=\"this-month\"/\"last-month\"/\"this-quarter\"/\"this-year\"/\"custom\" (lines 109-113) plus month-range inputs for custom; Customer and Product dimension filter popovers (#btn-filter-customer, #btn-filter-product); title reads 'Revenue · <span id=\"period-title\">November 2026</span>' (line 86), confirmed in screenshot."
+    },
+    {
+      "item": "Amounts are right-aligned in tabular figures, formatted as currency with consistent decimals, and negative values use a minus sign or parentheses rather than colour alone",
+      "pass": false,
+      "evidence": "Table cells use class 'text-right tabular-nums' (right-aligned, tabular — confirmed by audit.json numericCells.misaligned:0/nonTabular:0), but row amounts use fmtAmount()=nfAmount (plain Intl.NumberFormat, no currency style), rendering as bare numbers like '115,498' / '535,500' with no $ symbol — only the column header 'Revenue (USD)' and page subtitle carry currency; only the summary line ('$535,500 total revenue') and chart use fmtMoneySymbol. Deltas do correctly combine a +/- sign (nfDelta signDisplay:'exceptZero') with colour (deltaClass), so that sub-part is fine, but the primary amount column is not currency-formatted."
+    },
+    {
+      "item": "Every comparison names its base and period (such as \"+12.4% vs Sep 2026\"), and a missing base shows \"—\" rather than Infinity, NaN or 100%",
+      "pass": true,
+      "evidence": "Column headers are built dynamically as 'vs ' + prevLabel / 'vs ' + lyLabel (buildTheadHtml, lines 467-468), rendering e.g. 'vs Oct 2026' and 'vs Nov 2025' (seen in screenshot); fmtDelta(v) returns '—' when v is null (line 259), used for missing-base cases instead of Infinity/NaN/100%."
+    },
+    {
+      "item": "A totals row equals the sum of the rows, with subtotals when rows are grouped, and stays visibly separate from the data rows",
+      "pass": true,
+      "evidence": "tfoot row sums grandTotal = currTotal*otherMult*thisMult which equals the sum of all row.revenue values (computeRows, lines 320-335); tfoot styled with 'border-t-2 border-slate-300 font-medium' (line 567) visually separating it from tbody; screenshot shows Total=535,500 matching sum of listed customer rows. Rows aren't grouped so no subtotal tier is needed."
+    },
+    {
+      "item": "Columns are sortable with the active sort shown (aria-sort), and the default order is meaningful, such as revenue from high to low",
+      "pass": true,
+      "evidence": "thSort() sets aria-sort=\"ascending\"/\"descending\" on the active column's <th> (line 457) and onHeaderClick cycles sort state (lines 477-483); default state.sort is {key:'revenue', dir:'desc'} (line 359), and the screenshot shows rows already ordered from $115,498 down to $15,400 with a chevron-down icon on 'Revenue (USD)'."
+    },
+    {
+      "item": "Export downloads the current filtered view, and printing gives a clean report without the sidebar, buttons or filters",
+      "pass": true,
+      "evidence": "doExport() reads lastRendered[state.activeTab], which stores the currently sorted/filtered rows and totals, and builds CSV/XLS from that (lines 645-657); print CSS hides elements marked .no-print (aside sidebar line 47, header line 70, filter bar line 106, print/export buttons line 89, chart section line 154) via '@media print { .no-print { display:none !important } }' (line 15), leaving the data table visible."
+    },
+    {
+      "item": "The page states when the data was last updated and the currency (and tax basis, if any) of the figures",
+      "pass": true,
+      "evidence": "Subtitle text: \"Amounts in USD, before tax · Updated <time datetime=\"2026-11-06T08:00:00-05:00\">11/06/2026 8:00 AM</time>\" (line 87) states currency (USD), tax basis (before tax), and last-updated timestamp."
+    },
+    {
+      "item": "A period with no data shows an empty state; loading and an error with retry are present",
+      "pass": true,
+      "evidence": "emptyRowHtml() renders an inbox icon, message, and 'Change period' button (lines 504-510), reachable e.g. via an invalid custom range ('Select a valid date range.'); errorRowHtml() renders an alert icon, message, and #retry-<dim> button (lines 497-503); skeletonRowsHtml() with tbody[aria-busy=true] renders animated placeholder rows during initial load (lines 484-496, 531-534, 546-550)."
+    },
+    {
+      "item": "Any chart has a text or table equivalent, and no pie or donut chart is used for more than five categories",
+      "pass": true,
+      "evidence": "Line chart is an SVG with role=\"img\" and a computed aria-label summary (lines 612-617), plus a 'Show table' toggle button (#toggle-chart-table) that reveals #chart-table, a full data table of the same 12 months (lines 619-622). No pie/donut chart is used anywhere."
+    }
+  ],
+  "tells": [],
+  "notes": "Clean, restrained implementation (plain Tailwind, SVG icon sprite, no gradients/glass/emoji). Avatar 'AT' is a real named user (title=\"Alex Tran\"), not a non-person entity, so not counted as initials-avatar-non-person. Main defect found: the primary Revenue column is rendered with plain Intl number formatting (no $ symbol) rather than a currency format, relying only on the column header '(USD)' label and the separate summary line's $-formatted total."
+}

@@ -1,0 +1,1082 @@
+<!doctype html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Team leave calendar · HR</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+  [hidden] { display: none !important; }
+  html, body { font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
+  .tabular-nums { font-variant-numeric: tabular-nums; }
+  .day-cell:focus-visible, .entry-btn:focus-visible, .ov-btn:focus-visible { outline: 2px solid #1d4ed8; outline-offset: 1px; }
+  ::-webkit-scrollbar { height: 10px; width: 10px; }
+  ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 6px; }
+</style>
+</head>
+<body class="min-h-screen bg-slate-50 text-[#0f172a] text-sm antialiased">
+<div id="app" class="min-h-screen flex flex-col">
+
+  <header class="border-b border-slate-200 bg-white px-6 py-4 flex items-center justify-between gap-4">
+    <div>
+      <h1 class="text-xl font-semibold text-slate-900">Team leave calendar</h1>
+      <p class="text-xs text-slate-500 mt-0.5">HR · Leave &amp; absence overview · Product Operations</p>
+    </div>
+    <button type="button" data-action="open-request" class="shrink-0 inline-flex h-9 items-center rounded px-3.5 text-sm font-medium bg-blue-700 text-white hover:bg-blue-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-700 focus-visible:ring-offset-2">
+      Request leave
+    </button>
+  </header>
+
+  <div id="toolbar" class="border-b border-slate-200 bg-white px-6 py-3 flex flex-wrap items-center gap-3"></div>
+  <div id="chipsRow" class="px-6 py-2 flex flex-wrap items-center gap-2 border-b border-slate-100 bg-white" hidden></div>
+
+  <main id="calendarContent" class="flex-1 p-6 overflow-auto"></main>
+
+  <div id="legend" class="border-t border-slate-200 bg-white px-6 py-3"></div>
+</div>
+
+<!-- Day popover -->
+<div id="dayPopover" class="fixed z-50 hidden w-72 rounded-lg border border-slate-200 bg-white shadow-lg" role="dialog" aria-label="Entries for day"></div>
+
+<!-- Detail side panel -->
+<div id="detailOverlay" class="fixed inset-0 z-40 hidden">
+  <div class="absolute inset-0 bg-slate-900/30" data-action="close-panel"></div>
+  <aside id="detailPanel" class="absolute right-0 top-0 h-full w-full max-w-sm bg-white shadow-lg border-l border-slate-200 overflow-y-auto" role="dialog" aria-modal="true" aria-labelledby="detailTitle"></aside>
+</div>
+
+<!-- Request leave modal -->
+<div id="requestOverlay" class="fixed inset-0 z-40 hidden">
+  <div class="absolute inset-0 bg-slate-900/30" data-action="close-request"></div>
+  <div class="absolute inset-0 flex items-center justify-center p-4">
+    <div id="requestDialog" class="w-full max-w-md rounded-lg border border-slate-200 bg-white shadow-lg max-h-[90vh] overflow-y-auto" role="dialog" aria-modal="true" aria-labelledby="requestTitle"></div>
+  </div>
+</div>
+
+<div id="toast" role="status" aria-live="polite" class="fixed bottom-4 right-4 z-50 flex flex-col gap-2"></div>
+
+<script>
+(function(){
+"use strict";
+
+/* ---------- Data ---------- */
+
+const TEAMS = [
+  { id: 'eng', name: 'Product Engineering', limit: 3 },
+  { id: 'cs', name: 'Customer Success', limit: 2 },
+];
+
+const PEOPLE = [
+  { id: 'p1', name: 'Sarah Chen', teamId: 'eng', initials: 'SC' },
+  { id: 'p2', name: 'James Walker', teamId: 'eng', initials: 'JW' },
+  { id: 'p3', name: 'Priya Patel', teamId: 'eng', initials: 'PP' },
+  { id: 'p4', name: 'Carlos Mendes', teamId: 'eng', initials: 'CM' },
+  { id: 'p5', name: 'Yuki Tanaka', teamId: 'eng', initials: 'YT' },
+  { id: 'p6', name: 'Omar Hassan', teamId: 'eng', initials: 'OH' },
+  { id: 'p7', name: 'Lucia Rossi', teamId: 'eng', initials: 'LR' },
+  { id: 'p8', name: 'Daniel Kim', teamId: 'eng', initials: 'DK' },
+  { id: 'p9', name: 'Emma Wilson', teamId: 'eng', initials: 'EW' },
+  { id: 'p10', name: 'Nadia Ibrahim', teamId: 'cs', initials: 'NI' },
+  { id: 'p11', name: 'Tom Becker', teamId: 'cs', initials: 'TB' },
+  { id: 'p12', name: 'Grace Liu', teamId: 'cs', initials: 'GL' },
+  { id: 'p13', name: 'Victor Alvarez', teamId: 'cs', initials: 'VA' },
+  { id: 'p14', name: 'Hannah Schmidt', teamId: 'cs', initials: 'HS' },
+];
+
+const HOLIDAYS = {
+  '2026-11-30': "St Andrew's Day",
+  '2026-12-25': 'Christmas Day',
+  '2026-12-28': 'Boxing Day (substitute)',
+};
+
+const TYPES = ['Annual leave', 'Sick leave', 'Personal leave', 'Parental leave'];
+
+let LEAVES = [
+  { id:'L1',  personId:'p1', type:'Annual leave',  status:'approved', start:'2026-11-02', end:'2026-11-06', reason:'Family trip to Da Nang', requestedOn:'2026-10-20', approvedBy:'Emma Wilson', approvedOn:'2026-10-21' },
+  { id:'L2',  personId:'p2', type:'Annual leave',  status:'approved', start:'2026-11-11', end:'2026-11-16', reason:'Wedding anniversary trip', requestedOn:'2026-10-15', approvedBy:'Emma Wilson', approvedOn:'2026-10-16' },
+  { id:'L3',  personId:'p3', type:'Sick leave',    status:'approved', start:'2026-11-06', end:'2026-11-06', reason:'Flu', requestedOn:'2026-11-06', approvedBy:'Emma Wilson', approvedOn:'2026-11-06' },
+  { id:'L4',  personId:'p4', type:'Personal leave',status:'approved', start:'2026-11-06', end:'2026-11-06', halfDay:'PM', reason:'Medical appointment', requestedOn:'2026-11-03', approvedBy:'Emma Wilson', approvedOn:'2026-11-04' },
+  { id:'L5',  personId:'p5', type:'Annual leave',  status:'pending',  start:'2026-11-17', end:'2026-11-19', reason:'Visiting family', requestedOn:'2026-11-04' },
+  { id:'L6',  personId:'p6', type:'Annual leave',  status:'pending',  start:'2026-11-17', end:'2026-11-18', reason:'Short trip', requestedOn:'2026-11-05' },
+  { id:'L7',  personId:'p7', type:'Annual leave',  status:'approved', start:'2026-11-17', end:'2026-11-20', reason:'Conference in Singapore', requestedOn:'2026-10-25', approvedBy:'Emma Wilson', approvedOn:'2026-10-26' },
+  { id:'L8',  personId:'p8', type:'Sick leave',    status:'approved', start:'2026-11-09', end:'2026-11-09', reason:'Food poisoning', requestedOn:'2026-11-09', approvedBy:'Emma Wilson', approvedOn:'2026-11-09' },
+  { id:'L9',  personId:'p8', type:'Annual leave',  status:'approved', start:'2026-11-16', end:'2026-11-18', reason:'Short break', requestedOn:'2026-10-30', approvedBy:'Emma Wilson', approvedOn:'2026-10-31' },
+  { id:'L10', personId:'p9', type:'Annual leave',  status:'approved', start:'2026-12-21', end:'2026-12-31', reason:'Year-end holiday', requestedOn:'2026-09-01', approvedBy:'HR Director', approvedOn:'2026-09-05' },
+  { id:'L11', personId:'p6', type:'Annual leave',  status:'rejected', start:'2026-11-23', end:'2026-11-24', reason:'Overlaps team coverage', requestedOn:'2026-11-02', approvedBy:'Emma Wilson', approvedOn:'2026-11-03', rejectReason:'Too many engineers already off that week' },
+  { id:'L12', personId:'p4', type:'Sick leave',    status:'cancelled',start:'2026-10-30', end:'2026-10-30', reason:'Recovered before leave started', requestedOn:'2026-10-28' },
+  { id:'L13', personId:'p1', type:'Personal leave',status:'pending',  start:'2026-11-20', end:'2026-11-20', reason:'House move', requestedOn:'2026-11-06' },
+  { id:'L14', personId:'p2', type:'Parental leave',status:'approved', start:'2026-12-01', end:'2026-12-12', reason:'Paternity leave', requestedOn:'2026-09-10', approvedBy:'Emma Wilson', approvedOn:'2026-09-12' },
+  { id:'L15', personId:'p10',type:'Annual leave',  status:'approved', start:'2026-11-10', end:'2026-11-13', reason:'Family event', requestedOn:'2026-10-20', approvedBy:'Hannah Schmidt (CS Lead)', approvedOn:'2026-10-21' },
+  { id:'L16', personId:'p11',type:'Sick leave',    status:'approved', start:'2026-11-06', end:'2026-11-06', reason:'Migraine', requestedOn:'2026-11-06', approvedBy:'Hannah Schmidt (CS Lead)', approvedOn:'2026-11-06' },
+  { id:'L17', personId:'p12',type:'Annual leave',  status:'pending',  start:'2026-11-24', end:'2026-11-28', reason:'Travel', requestedOn:'2026-11-05' },
+  { id:'L18', personId:'p13',type:'Personal leave',status:'approved', start:'2026-12-02', end:'2026-12-02', halfDay:'PM', reason:'Dentist appointment', requestedOn:'2026-11-20', approvedBy:'Hannah Schmidt (CS Lead)', approvedOn:'2026-11-21' },
+];
+let nextIdNum = 100;
+
+const STATUS_META = {
+  approved:  { label:'Approved', tone:'success' },
+  pending:   { label:'Pending approval', tone:'info' },
+  rejected:  { label:'Rejected', tone:'danger' },
+  cancelled: { label:'Cancelled', tone:'neutral' },
+};
+const TONE_BADGE = {
+  success: 'bg-green-50 text-green-700',
+  info:    'bg-blue-50 text-blue-700',
+  danger:  'bg-red-50 text-red-700',
+  neutral: 'bg-slate-100 text-slate-700',
+  warning: 'bg-amber-50 text-amber-700',
+};
+const TONE_BAR = {
+  success: 'bg-green-50 text-green-700 border-green-300',
+  info:    'bg-blue-50 text-blue-700 border-blue-300',
+  danger:  'bg-red-50 text-red-700 border-red-300',
+  neutral: 'bg-slate-100 text-slate-600 border-slate-300',
+};
+
+const ICONS = {
+  Circle: '<circle cx="12" cy="12" r="9"></circle>',
+  Clock: '<circle cx="12" cy="12" r="9"></circle><path d="M12 7v5l3 2"></path>',
+  CircleCheck: '<circle cx="12" cy="12" r="9"></circle><path d="M8.5 12.5l2.2 2.2L16 9.5"></path>',
+  CircleX: '<circle cx="12" cy="12" r="9"></circle><path d="M9 9l6 6M15 9l-6 6"></path>',
+  TriangleAlert: '<path d="M12 4 3 20h18L12 4z"></path><path d="M12 10v4"></path><circle cx="12" cy="17" r="0.5" fill="currentColor"></circle>',
+};
+function icon(name, cls){
+  return '<svg class="'+(cls||'w-4 h-4')+' shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'+ICONS[name]+'</svg>';
+}
+const TONE_ICON = { success:'CircleCheck', info:'Clock', danger:'CircleX', neutral:'Circle', warning:'TriangleAlert' };
+
+function badge(status){
+  const m = STATUS_META[status];
+  return '<span class="inline-flex h-6 max-w-[200px] items-center gap-1 rounded-full px-2 text-xs font-medium leading-5 '+TONE_BADGE[m.tone]+'" title="'+m.label+'">'
+    + icon(TONE_ICON[m.tone]) + '<span class="truncate">'+m.label+'</span></span>';
+}
+
+/* ---------- Date helpers ---------- */
+
+function pad(n){ return String(n).padStart(2,'0'); }
+function toISO(d){ return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate()); }
+function fromISO(iso){ const [y,m,d] = iso.split('-').map(Number); return new Date(y, m-1, d); }
+function addDays(iso, n){ const d = fromISO(iso); d.setDate(d.getDate()+n); return toISO(d); }
+function addMonthsFirst(iso, n){ const d = fromISO(iso); return new Date(d.getFullYear(), d.getMonth()+n, 1); }
+function addMonthsClamped(iso, n){
+  const d = fromISO(iso);
+  const targetFirst = new Date(d.getFullYear(), d.getMonth()+n, 1);
+  const lastDay = new Date(targetFirst.getFullYear(), targetFirst.getMonth()+1, 0).getDate();
+  const day = Math.min(d.getDate(), lastDay);
+  return toISO(new Date(targetFirst.getFullYear(), targetFirst.getMonth(), day));
+}
+function mondayOf(iso){ const d = fromISO(iso); const dow = d.getDay(); const diff = (dow+6)%7; return addDays(iso, -diff); }
+function todayISO(){ return toISO(new Date()); }
+function isWeekend(iso){ const dow = fromISO(iso).getDay(); return dow===0 || dow===6; }
+function cmpISO(a,b){ return a<b?-1:a>b?1:0; }
+
+function fmtAbs(iso){
+  const d = fromISO(iso);
+  const wd = d.toLocaleDateString('en-GB', { weekday:'short' });
+  return wd+' '+pad(d.getDate())+'/'+pad(d.getMonth()+1)+'/'+d.getFullYear();
+}
+function fmtRangeAbs(l){
+  return l.start===l.end ? fmtAbs(l.start) : fmtAbs(l.start)+' – '+fmtAbs(l.end);
+}
+function a11yRange(l){
+  const d1 = fromISO(l.start), d2 = fromISO(l.end);
+  const dm = d => d.getDate()+' '+d.toLocaleDateString('en-GB',{month:'long'});
+  return l.start===l.end ? dm(d1) : d1.getDate()+' to '+dm(d2);
+}
+function fmtMonthHeading(iso){
+  const d = fromISO(iso);
+  return d.toLocaleDateString('en-GB', { month:'long', year:'numeric' });
+}
+function fmtWeekRange(mondayISO){
+  const endISO = addDays(mondayISO, 6);
+  const d1 = fromISO(mondayISO), d2 = fromISO(endISO);
+  const mon = d => d.toLocaleDateString('en-GB', { month:'long' });
+  if (d1.getFullYear()===d2.getFullYear() && d1.getMonth()===d2.getMonth()){
+    return d1.getDate()+'–'+d2.getDate()+' '+mon(d1)+' '+d1.getFullYear();
+  }
+  if (d1.getFullYear()===d2.getFullYear()){
+    return d1.getDate()+' '+mon(d1)+' – '+d2.getDate()+' '+mon(d2)+' '+d1.getFullYear();
+  }
+  return d1.getDate()+' '+mon(d1)+' '+d1.getFullYear()+' – '+d2.getDate()+' '+mon(d2)+' '+d2.getFullYear();
+}
+function workingDays(startISO, endISO){
+  let n = 0;
+  for (let iso = startISO; cmpISO(iso,endISO)<=0; iso = addDays(iso,1)){
+    if (!isWeekend(iso) && !HOLIDAYS[iso]) n++;
+  }
+  return n;
+}
+function calendarDays(startISO, endISO){
+  return Math.round((+fromISO(endISO) - +fromISO(startISO))/86400000) + 1;
+}
+
+/* ---------- State ---------- */
+
+const params = new URLSearchParams(location.search);
+const state = {
+  view: params.get('view') || 'month',
+  date: params.get('date') && /^\d{4}-\d{2}-\d{2}$/.test(params.get('date')) ? params.get('date') : todayISO(),
+  team: params.get('team') || 'all',
+  person: params.get('person') || 'all',
+  type: params.get('type') || 'all',
+  inactive: params.get('inactive') === '1',
+  focused: null,
+};
+state.focused = state.date;
+let forceState = params.get('state') || null; // loading | error | empty | null
+let currentWeeksCache = null;
+
+function syncURL(){
+  const p = new URLSearchParams();
+  p.set('view', state.view);
+  p.set('date', state.date);
+  if (state.team !== 'all') p.set('team', state.team);
+  if (state.person !== 'all') p.set('person', state.person);
+  if (state.type !== 'all') p.set('type', state.type);
+  if (state.inactive) p.set('inactive', '1');
+  history.replaceState(null, '', location.pathname+'?'+p.toString());
+}
+
+/* ---------- Derived data ---------- */
+
+function scopeTeams(){ return state.team==='all' ? TEAMS : TEAMS.filter(t=>t.id===state.team); }
+function rosterPeople(){ const ids = scopeTeams().map(t=>t.id); return PEOPLE.filter(p=>ids.includes(p.teamId)); }
+function rosterSize(){ return rosterPeople().length; }
+function teamLimit(){ return scopeTeams().reduce((s,t)=>s+t.limit,0); }
+
+function getVisiblePeople(){
+  let people = rosterPeople();
+  if (state.person !== 'all') people = people.filter(p=>p.id===state.person);
+  return people;
+}
+function personById(id){ return PEOPLE.find(p=>p.id===id); }
+
+function getVisibleLeaves(){
+  if (forceState === 'empty') return [];
+  const people = getVisiblePeople();
+  const ids = new Set(people.map(p=>p.id));
+  return LEAVES.filter(l=>{
+    if (!ids.has(l.personId)) return false;
+    if (state.type !== 'all' && l.type !== state.type) return false;
+    if ((l.status==='rejected' || l.status==='cancelled') && !state.inactive) return false;
+    return true;
+  });
+}
+function hasActiveFilters(){
+  return state.team!=='all' || state.person!=='all' || state.type!=='all' || state.inactive;
+}
+function leavesOnDate(leaves, iso){
+  return leaves.filter(l => cmpISO(l.start, iso)<=0 && cmpISO(iso, l.end)<=0);
+}
+function approvedOffCount(leaves, iso){
+  return leavesOnDate(leaves, iso).filter(l=>l.status==='approved').length;
+}
+
+/* ---------- Announce / toast ---------- */
+
+function announce(msg){
+  const t = document.getElementById('toast');
+  const el = document.createElement('div');
+  el.className = 'rounded-md border border-slate-200 bg-white shadow-lg px-4 py-2.5 text-sm text-slate-800 max-w-sm';
+  el.textContent = msg;
+  t.appendChild(el);
+  setTimeout(()=>{ el.remove(); }, 4000);
+}
+
+/* ---------- Render: Toolbar ---------- */
+
+function renderToolbar(){
+  const toolbar = document.getElementById('toolbar');
+  const isMonth = state.view==='month', isWeek = state.view==='week', isList = state.view==='list';
+  let rangeText;
+  if (isWeek) rangeText = fmtWeekRange(mondayOf(state.date));
+  else rangeText = fmtMonthHeading(state.date);
+
+  const people = rosterPeople(); // for person select options, scoped by team
+  const personOptions = ['<option value="all">All people</option>']
+    .concat(people.map(p=>'<option value="'+p.id+'"'+(state.person===p.id?' selected':'')+'>'+p.name+'</option>'));
+  // if current selected person not in scoped roster, keep "all"
+  if (state.person!=='all' && !people.some(p=>p.id===state.person)) state.person='all';
+
+  toolbar.innerHTML = `
+    <div class="flex items-center gap-1">
+      <button type="button" data-action="today" class="h-8 inline-flex items-center rounded border border-slate-300 bg-white px-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-700">Today</button>
+      <button type="button" data-action="prev" aria-label="Previous ${isWeek?'week':'month'}" class="h-8 w-8 inline-flex items-center justify-center rounded border border-slate-300 bg-white text-slate-600 hover:bg-slate-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-700">
+        <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 6l-6 6 6 6"></path></svg>
+      </button>
+      <button type="button" data-action="next" aria-label="Next ${isWeek?'week':'month'}" class="h-8 w-8 inline-flex items-center justify-center rounded border border-slate-300 bg-white text-slate-600 hover:bg-slate-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-700">
+        <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"></path></svg>
+      </button>
+    </div>
+    <h2 id="rangeHeading" tabindex="-1" class="text-base font-semibold text-slate-900 min-w-[10rem]">${rangeText}</h2>
+
+    <div role="group" aria-label="Calendar view" class="inline-flex rounded border border-slate-300 bg-white p-0.5 ml-1">
+      ${['month','week','list'].map(v=>`<button type="button" data-action="set-view" data-view="${v}" aria-pressed="${state.view===v}" class="h-7 px-3 rounded text-sm font-medium ${state.view===v ? 'bg-blue-700 text-white' : 'text-slate-600 hover:bg-slate-50'}">${v[0].toUpperCase()+v.slice(1)}</button>`).join('')}
+    </div>
+
+    <div class="flex items-center gap-2 ml-auto flex-wrap">
+      <label class="text-xs text-slate-500" for="teamSelect">Team</label>
+      <select id="teamSelect" data-filter="team" class="h-8 rounded border border-slate-300 bg-white px-2 text-sm text-slate-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-700">
+        <option value="all"${state.team==='all'?' selected':''}>All teams</option>
+        ${TEAMS.map(t=>'<option value="'+t.id+'"'+(state.team===t.id?' selected':'')+'>'+t.name+'</option>').join('')}
+      </select>
+
+      <label class="text-xs text-slate-500" for="personSelect">Person</label>
+      <select id="personSelect" data-filter="person" class="h-8 rounded border border-slate-300 bg-white px-2 text-sm text-slate-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-700">
+        ${personOptions.join('')}
+      </select>
+
+      <label class="text-xs text-slate-500" for="typeSelect">Type</label>
+      <select id="typeSelect" data-filter="type" class="h-8 rounded border border-slate-300 bg-white px-2 text-sm text-slate-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-700">
+        <option value="all"${state.type==='all'?' selected':''}>All types</option>
+        ${TYPES.map(t=>'<option value="'+t+'"'+(state.type===t?' selected':'')+'>'+t+'</option>').join('')}
+      </select>
+
+      <label class="inline-flex items-center gap-1.5 text-xs text-slate-600 ml-1">
+        <input type="checkbox" id="inactiveToggle" data-filter="inactive" class="h-4 w-4 rounded border-slate-300" ${state.inactive?'checked':''}>
+        Show rejected / cancelled
+      </label>
+    </div>
+  `;
+  renderChips();
+}
+
+function renderChips(){
+  const row = document.getElementById('chipsRow');
+  const chips = [];
+  if (state.team!=='all') chips.push({ k:'team', label:'Team: '+TEAMS.find(t=>t.id===state.team).name });
+  if (state.person!=='all'){ const p=personById(state.person); if(p) chips.push({ k:'person', label:'Person: '+p.name }); }
+  if (state.type!=='all') chips.push({ k:'type', label:'Type: '+state.type });
+  if (state.inactive) chips.push({ k:'inactive', label:'Showing rejected / cancelled' });
+  if (!chips.length){ row.hidden = true; row.innerHTML=''; return; }
+  row.hidden = false;
+  row.innerHTML = chips.map(c=>`
+    <span class="inline-flex items-center gap-1 rounded-full border border-slate-300 bg-slate-50 px-2.5 py-1 text-xs text-slate-700">
+      ${c.label}
+      <button type="button" data-action="remove-chip" data-chip="${c.k}" aria-label="Remove filter ${c.label}" class="text-slate-500 hover:text-slate-800">×</button>
+    </span>`).join('')
+    + `<button type="button" data-action="clear-filters" class="text-xs font-medium text-blue-700 hover:underline ml-1">Clear all</button>`;
+}
+
+/* ---------- Render: Legend ---------- */
+
+function renderLegend(){
+  const legend = document.getElementById('legend');
+  legend.innerHTML = `
+    <ul class="flex flex-wrap items-center gap-x-5 gap-y-1.5 text-xs text-slate-600">
+      <li class="flex items-center gap-1.5"><span class="inline-flex h-4 w-4 items-center justify-center rounded-full border border-blue-700 text-blue-700 font-bold text-[10px]">●</span> Today</li>
+      <li class="flex items-center gap-1.5"><span class="inline-block h-3 w-3 rounded-sm bg-slate-100 border border-slate-300"></span> Weekend</li>
+      <li class="flex items-center gap-1.5"><span class="inline-block h-3 w-3 rounded-sm bg-amber-50 border border-amber-300"></span> Public holiday</li>
+      <li class="flex items-center gap-1.5"><span class="inline-block h-3 w-3 rounded-sm border border-dashed border-blue-400 bg-blue-50"></span> Pending approval</li>
+    </ul>
+  `;
+}
+
+/* ---------- Month view ---------- */
+
+function buildMonthWeeks(anchorISO){
+  const d = fromISO(anchorISO);
+  const year = d.getFullYear(), month = d.getMonth();
+  const daysInMonth = new Date(year, month+1, 0).getDate();
+  const firstISO = toISO(new Date(year, month, 1));
+  const lastISO = toISO(new Date(year, month, daysInMonth));
+  const startISO = mondayOf(firstISO);
+  const numWeeks = Math.ceil((Math.round((+fromISO(lastISO) - +fromISO(startISO))/86400000) + 1) / 7);
+  const weeks = [];
+  let cur = startISO;
+  for (let w=0; w<numWeeks; w++){
+    const days = [];
+    for (let i=0;i<7;i++){ days.push(cur); cur = addDays(cur,1); }
+    weeks.push(days);
+  }
+  return { weeks, month, year, firstISO, lastISO };
+}
+
+function assignLanes(segments, maxLanes){
+  // segments: [{startCol, span, ...}] sorted as given; returns overflow map per col
+  const sorted = segments.slice().sort((a,b)=> a.startCol-b.startCol || (b.span-a.span));
+  const laneEnd = [];
+  const overflowCols = {};
+  sorted.forEach(seg => {
+    let lane = -1;
+    for (let i=0;i<laneEnd.length;i++){
+      if (laneEnd[i] < seg.startCol){ lane = i; break; }
+    }
+    if (lane === -1 && laneEnd.length < maxLanes){ lane = laneEnd.length; }
+    if (lane === -1){
+      seg.overflow = true;
+      for (let c=seg.startCol; c<seg.startCol+seg.span; c++) overflowCols[c] = (overflowCols[c]||0)+1;
+    } else {
+      seg.lane = lane;
+      laneEnd[lane] = seg.startCol + seg.span - 1;
+    }
+  });
+  return overflowCols;
+}
+
+function weekLabels(){
+  const monday = mondayOf(todayISO());
+  const names = [];
+  for (let i=0;i<7;i++) names.push(fromISO(addDays(monday,i)).toLocaleDateString('en-GB',{weekday:'short'}));
+  return names;
+}
+
+function renderMonthHTML(){
+  const { weeks, month } = buildMonthWeeks(state.date);
+  currentWeeksCache = weeks;
+  const leaves = getVisibleLeaves();
+  const today = todayISO();
+  const maxLanes = 3;
+
+  const headerRow = `<div class="grid grid-cols-7 text-xs font-medium text-slate-500 border-b border-slate-200 pb-1 mb-1">
+    ${weekLabels().map(n=>`<div class="px-1.5 py-1">${n}</div>`).join('')}
+  </div>`;
+
+  const weekRows = weeks.map(days => {
+    const segments = [];
+    leaves.forEach(l=>{
+      const rowStart = days[0], rowEnd = days[6];
+      if (cmpISO(l.end, rowStart) < 0 || cmpISO(l.start, rowEnd) > 0) return;
+      const startCol = cmpISO(l.start, rowStart) <= 0 ? 0 : days.indexOf(l.start);
+      const endCol = cmpISO(l.end, rowEnd) >= 0 ? 6 : days.indexOf(l.end);
+      segments.push({ leave:l, startCol, span: endCol-startCol+1, continuesLeft: cmpISO(l.start,rowStart)<0, continuesRight: cmpISO(l.end,rowEnd)>0 });
+    });
+    const overflowCols = assignLanes(segments, maxLanes);
+
+    const dayCells = days.map((iso,c) => {
+      const inMonth = fromISO(iso).getMonth() === month;
+      const isToday = iso === today;
+      const holidayName = HOLIDAYS[iso];
+      const weekend = isWeekend(iso);
+      const offCount = approvedOffCount(leaves, iso);
+      const limit = teamLimit();
+      const over = offCount > limit;
+      let bg = 'bg-white';
+      if (holidayName) bg = 'bg-amber-50';
+      else if (weekend) bg = 'bg-slate-50';
+      const dateNumCls = isToday
+        ? 'inline-flex h-5 w-5 items-center justify-center rounded-full bg-blue-700 text-white text-xs font-semibold'
+        : (inMonth ? 'text-slate-700' : 'text-slate-400');
+      return `<div class="day-cell relative border border-slate-100 ${bg} px-1.5 py-1 overflow-hidden" style="grid-column:${c+1};grid-row:1 / 6;" role="gridcell" tabindex="-1" data-date="${iso}" ${isToday?'aria-current="date"':''} aria-label="${fromISO(iso).toLocaleDateString('en-GB',{weekday:'long',day:'numeric',month:'long'})}${isToday?', Today':''}${holidayName?', '+holidayName:''}">
+        <div class="flex items-baseline justify-between gap-1">
+          <span class="${dateNumCls}">${fromISO(iso).getDate()}</span>
+          ${isToday ? '<span class="text-[10px] font-medium text-blue-700">Today</span>' : ''}
+        </div>
+        ${holidayName ? `<div class="text-[10px] text-amber-700 truncate" title="${holidayName}">${holidayName}</div>` : ''}
+        ${offCount>0 ? `<div class="mt-0.5 ${over?'inline-flex items-center gap-1 rounded bg-red-50 text-red-700 px-1 text-[10px] font-medium':'text-[10px] text-slate-500'}">${over?icon('TriangleAlert','w-3 h-3'):''}${over?'Over limit · ':''}${offCount} of ${rosterSize()} off</div>` : ''}
+      </div>`;
+    }).join('');
+
+    const bars = segments.filter(s=>!s.overflow).map(s=>{
+      const l = s.leave;
+      const person = personById(l.personId);
+      const meta = STATUS_META[l.status];
+      const dashed = l.status==='pending' ? 'border-dashed' : 'border-solid';
+      const strike = (l.status==='rejected'||l.status==='cancelled') ? 'line-through opacity-80' : '';
+      const roundL = s.continuesLeft ? 'rounded-l-none' : 'rounded-l';
+      const roundR = s.continuesRight ? 'rounded-r-none' : 'rounded-r';
+      const halfSuffix = l.halfDay ? ' · '+l.halfDay : '';
+      const name = `${person.name.split(' ')[0]} · ${l.type}${halfSuffix}${l.status==='pending'?' · Pending':''}`;
+      const a11y = `${person.name}, ${l.type.toLowerCase()}, ${a11yRange(l)}, ${meta.label.toLowerCase()}`;
+      return `<button type="button" data-action="open-entry" data-id="${l.id}" aria-label="${a11y}" title="${name}"
+        class="entry-btn ${TONE_BAR[meta.tone]} ${dashed} ${strike} ${roundL} ${roundR} border text-[11px] leading-5 font-medium px-1.5 truncate text-left focus:outline-none"
+        style="grid-column:${s.startCol+1} / span ${s.span};grid-row:${s.lane+2};">${name}</button>`;
+    }).join('');
+
+    const overflowBtns = Object.keys(overflowCols).map(c=>{
+      const iso = days[+c];
+      return `<button type="button" data-action="open-day" data-date="${iso}" class="ov-btn text-[10px] font-medium text-blue-700 hover:underline text-left px-1.5" style="grid-column:${+c+1};grid-row:5;">+${overflowCols[c]} more</button>`;
+    }).join('');
+
+    return `<div class="week-row" role="row" style="display:grid;grid-template-columns:repeat(7,minmax(0,1fr));grid-template-rows:38px 20px 20px 20px 16px;">
+      ${dayCells}${bars}${overflowBtns}
+    </div>`;
+  }).join('');
+
+  return `<div role="grid" aria-label="${fmtMonthHeading(state.date)}" class="rounded-md border border-slate-200 bg-white p-3">
+    ${headerRow}
+    ${weekRows}
+  </div>`;
+}
+
+/* ---------- Week view ---------- */
+
+function renderWeekHTML(){
+  const mon = mondayOf(state.date);
+  const days = Array.from({length:7}, (_,i)=>addDays(mon,i));
+  const leaves = getVisibleLeaves();
+  const people = getVisiblePeople();
+  const today = todayISO();
+  const limit = teamLimit();
+
+  const headerCells = days.map(iso=>{
+    const isToday = iso===today;
+    const holidayName = HOLIDAYS[iso];
+    const weekend = isWeekend(iso);
+    let bg = 'bg-white';
+    if (holidayName) bg='bg-amber-50'; else if (weekend) bg='bg-slate-50';
+    return `<div class="${bg} border-b border-l border-slate-200 px-2 py-2 text-center">
+      <div class="text-[10px] font-medium text-slate-500">${fromISO(iso).toLocaleDateString('en-GB',{weekday:'short'})}</div>
+      <div class="${isToday?'inline-flex h-5 w-5 items-center justify-center rounded-full bg-blue-700 text-white text-xs font-semibold':'text-sm text-slate-700'}">${fromISO(iso).getDate()}</div>
+      ${holidayName?`<div class="text-[9px] text-amber-700 truncate" title="${holidayName}">${holidayName}</div>`:''}
+    </div>`;
+  }).join('');
+
+  const personRows = people.map(person=>{
+    const pLeaves = leaves.filter(l=>l.personId===person.id);
+    const segments = [];
+    pLeaves.forEach(l=>{
+      if (cmpISO(l.end, days[0])<0 || cmpISO(l.start, days[6])>0) return;
+      const startCol = cmpISO(l.start, days[0])<=0 ? 0 : days.indexOf(l.start);
+      const endCol = cmpISO(l.end, days[6])>=0 ? 6 : days.indexOf(l.end);
+      segments.push({ leave:l, startCol, span: endCol-startCol+1, continuesLeft: cmpISO(l.start,days[0])<0, continuesRight: cmpISO(l.end,days[6])>0 });
+    });
+    assignLanes(segments, 2);
+
+    const bgCells = days.map((iso,c)=>{
+      const holidayName = HOLIDAYS[iso];
+      const weekend = isWeekend(iso);
+      let bg = 'bg-white';
+      if (holidayName) bg='bg-amber-50'; else if (weekend) bg='bg-slate-50';
+      return `<div class="${bg} border-l border-b border-slate-200" style="grid-column:${c+1};grid-row:1 / 3;"></div>`;
+    }).join('');
+
+    const bars = segments.map(s=>{
+      const l = s.leave;
+      const meta = STATUS_META[l.status];
+      const dashed = l.status==='pending' ? 'border-dashed' : 'border-solid';
+      const strike = (l.status==='rejected'||l.status==='cancelled') ? 'line-through opacity-80' : '';
+      const roundL = s.continuesLeft ? 'rounded-l-none' : 'rounded-l';
+      const roundR = s.continuesRight ? 'rounded-r-none' : 'rounded-r';
+      const half = l.halfDay;
+      const heightCls = half ? 'h-3' : 'h-5';
+      const alignStyle = half==='AM' ? 'align-self:start;' : half==='PM' ? 'align-self:end;' : 'align-self:center;';
+      const label = `${person.name.split(' ')[0]} · ${l.type}${half?' · '+half:''}${l.status==='pending'?' · Pending':''}`;
+      const a11y = `${person.name}, ${l.type.toLowerCase()}, ${a11yRange(l)}, ${meta.label.toLowerCase()}`;
+      const lane = s.lane||0;
+      return `<button type="button" data-action="open-entry" data-id="${l.id}" aria-label="${a11y}" title="${label}"
+        class="entry-btn ${heightCls} ${TONE_BAR[meta.tone]} ${dashed} ${strike} ${roundL} ${roundR} border text-[10px] leading-3 font-medium px-1 truncate text-left focus:outline-none relative z-10"
+        style="grid-column:${s.startCol+1} / span ${s.span};grid-row:${lane+1};${alignStyle}">${label}</button>`;
+    }).join('');
+
+    return `<div class="contents">
+      <div class="border-l border-b border-slate-200 bg-white px-2 py-2 flex items-center gap-2 sticky left-0">
+        <span class="inline-flex h-6 w-6 items-center justify-center rounded-full bg-slate-100 text-slate-600 text-[10px] font-semibold">${person.initials}</span>
+        <span class="text-sm text-slate-700 truncate">${person.name}</span>
+      </div>
+      <div style="display:grid;grid-column:2 / span 7;grid-template-columns:repeat(7,minmax(0,1fr));grid-template-rows:24px 24px;" class="relative">
+        ${bgCells}${bars}
+      </div>
+    </div>`;
+  }).join('');
+
+  const footerCells = days.map(iso=>{
+    const count = approvedOffCount(leaves, iso);
+    const over = count > limit;
+    return `<div class="border-l border-t-2 border-slate-300 bg-slate-50 px-2 py-1.5 text-center text-[11px] ${over?'text-red-700 font-semibold':'text-slate-600'}">${over?'Over · ':''}${count} of ${rosterSize()}</div>`;
+  }).join('');
+
+  const peopleEmpty = people.length===0;
+
+  return `<div class="rounded-md border border-slate-200 bg-white overflow-hidden">
+    <div style="display:grid;grid-template-columns:12rem repeat(7,minmax(0,1fr));">
+      <div class="border-b border-slate-200 bg-slate-50 px-2 py-2 text-xs font-medium text-slate-500 flex items-end">Team member</div>
+      ${headerCells}
+      ${peopleEmpty ? `<div class="col-span-8 px-4 py-6 text-sm text-slate-500">No team members match the current filters.</div>` : personRows}
+      <div class="border-t-2 border-slate-300 bg-slate-50 px-2 py-1.5 text-xs font-medium text-slate-600 flex items-center">Daily total</div>
+      ${peopleEmpty ? '' : footerCells}
+    </div>
+  </div>`;
+}
+
+/* ---------- List view ---------- */
+
+function renderListHTML(){
+  const { firstISO, lastISO } = buildMonthWeeks(state.date);
+  const leaves = getVisibleLeaves().filter(l => !(cmpISO(l.end, firstISO) < 0 || cmpISO(l.start, lastISO) > 0));
+  leaves.sort((a,b)=> cmpISO(a.start,b.start) || a.personId.localeCompare(b.personId));
+
+  if (!leaves.length){
+    const filtered = hasActiveFilters();
+    return `<div class="rounded-md border border-slate-200 bg-white p-10 text-center">
+      <p class="text-sm text-slate-600">${filtered ? 'No leave requests match these filters.' : 'No leave recorded for '+fmtMonthHeading(state.date)+'.'}</p>
+      <div class="mt-3">
+        ${filtered
+          ? `<button type="button" data-action="clear-filters" class="text-sm font-medium text-blue-700 hover:underline">Clear filters</button>`
+          : `<button type="button" data-action="open-request" class="inline-flex h-9 items-center rounded px-3.5 text-sm font-medium bg-blue-700 text-white hover:bg-blue-800">Request leave</button>`}
+      </div>
+    </div>`;
+  }
+
+  const groups = [];
+  leaves.forEach(l=>{
+    let g = groups.find(g=>g.date===l.start);
+    if (!g){ g = { date:l.start, items:[] }; groups.push(g); }
+    g.items.push(l);
+  });
+  groups.sort((a,b)=>cmpISO(a.date,b.date));
+
+  const rows = groups.map(g=>{
+    const head = `<tr class="bg-slate-50">
+      <th colspan="5" scope="colgroup" class="text-left px-3 py-1.5 text-xs font-semibold text-slate-600 border-t border-slate-200">
+        ${fromISO(g.date).toLocaleDateString('en-GB',{weekday:'long', day:'numeric', month:'long', year:'numeric'})}
+      </th>
+    </tr>`;
+    const items = g.items.map(l=>{
+      const person = personById(l.personId);
+      const wd = workingDays(l.start, l.end);
+      const cd = calendarDays(l.start, l.end);
+      const daysLabel = wd===cd ? `${wd} day${wd!==1?'s':''}` : `${wd} working day${wd!==1?'s':''}`;
+      const canAct = l.status==='pending';
+      return `<tr class="border-t border-slate-100 hover:bg-slate-50 cursor-pointer" data-action="open-entry" data-id="${l.id}" tabindex="0">
+        <td class="px-3 py-2.5 h-10 text-slate-800">${person.name}</td>
+        <td class="px-3 py-2.5 h-10 text-slate-600">${l.type}${l.halfDay?' · '+l.halfDay:''}</td>
+        <td class="px-3 py-2.5 h-10 text-right tabular-nums text-slate-600">${daysLabel}</td>
+        <td class="px-3 py-2.5 h-10">${badge(l.status)}</td>
+        <td class="px-3 py-2.5 h-10 text-right" onclick="event.stopPropagation()">
+          ${canAct
+            ? `<button type="button" data-action="approve" data-id="${l.id}" class="text-xs font-medium text-green-700 hover:underline mr-3">Approve</button><button type="button" data-action="reject" data-id="${l.id}" data-from="list" class="text-xs font-medium text-red-700 hover:underline">Reject</button>`
+            : `<span class="text-xs text-slate-400">—</span>`}
+        </td>
+      </tr>`;
+    }).join('');
+    return head+items;
+  }).join('');
+
+  return `<div class="rounded-md border border-slate-200 bg-white overflow-x-auto">
+    <table class="w-full text-sm">
+      <caption class="sr-only">Leave requests, grouped by date, for ${fmtMonthHeading(state.date)}</caption>
+      <thead>
+        <tr class="text-left text-xs font-medium text-slate-500">
+          <th scope="col" class="px-3 py-2">Person</th>
+          <th scope="col" class="px-3 py-2">Type</th>
+          <th scope="col" class="px-3 py-2 text-right">Days</th>
+          <th scope="col" class="px-3 py-2">Status</th>
+          <th scope="col" class="px-3 py-2 text-right">Actions</th>
+        </tr>
+      </thead>
+      <tbody>${rows}</tbody>
+    </table>
+  </div>`;
+}
+
+/* ---------- Loading / error skeletons ---------- */
+
+function skeletonHTML(){
+  return `<div class="rounded-md border border-slate-200 bg-white p-3 animate-pulse" aria-hidden="true">
+    <div class="grid grid-cols-7 gap-2 mb-2">${Array.from({length:7}).map(()=>'<div class="h-3 bg-slate-200 rounded"></div>').join('')}</div>
+    ${Array.from({length:5}).map(()=>`<div class="grid grid-cols-7 gap-2 mb-2">${Array.from({length:7}).map(()=>'<div class="h-20 bg-slate-100 rounded"></div>').join('')}</div>`).join('')}
+  </div>`;
+}
+function errorHTML(){
+  return `<div class="rounded-md border border-red-200 bg-red-50 p-6 text-center">
+    <p class="text-sm text-red-700 font-medium">Couldn't load the leave calendar.</p>
+    <p class="text-xs text-red-600 mt-1">A network error occurred while fetching leave requests.</p>
+    <button type="button" data-action="retry" class="mt-3 inline-flex h-9 items-center rounded px-3.5 text-sm font-medium bg-red-600 text-white hover:bg-red-700">Retry</button>
+  </div>`;
+}
+
+/* ---------- Main render ---------- */
+
+function render(){
+  renderToolbar();
+  renderLegend();
+  const content = document.getElementById('calendarContent');
+
+  if (forceState === 'loading'){ content.innerHTML = skeletonHTML(); return; }
+  if (forceState === 'error'){ content.innerHTML = errorHTML(); return; }
+
+  if (state.view === 'month') content.innerHTML = renderMonthHTML();
+  else if (state.view === 'week') content.innerHTML = renderWeekHTML();
+  else content.innerHTML = renderListHTML();
+
+  if (state.view === 'month') setupRovingFocus();
+  syncURL();
+}
+
+function bootRender(){
+  if (forceState === 'loading' || forceState === 'error'){ render(); return; }
+  const content = document.getElementById('calendarContent');
+  content.innerHTML = skeletonHTML();
+  setTimeout(render, 500);
+}
+
+/* ---------- Keyboard: month grid roving tabindex ---------- */
+
+function setupRovingFocus(){
+  const cells = Array.from(document.querySelectorAll('.day-cell'));
+  if (!cells.length) return;
+  let focusISO = state.focused;
+  if (!cells.some(c=>c.dataset.date===focusISO)) focusISO = todayISO();
+  if (!cells.some(c=>c.dataset.date===focusISO)) focusISO = cells[0].dataset.date;
+  cells.forEach(c=>{ c.tabIndex = (c.dataset.date===focusISO) ? 0 : -1; });
+  state.focused = focusISO;
+}
+
+function focusCellByDate(iso, grow){
+  // grow=true allows navigating outside current grid (shift the anchor month)
+  const inGrid = currentWeeksCache && currentWeeksCache.some(w=>w.includes(iso));
+  state.focused = iso;
+  if (!inGrid) state.date = iso;
+  render();
+  requestAnimationFrame(()=>{
+    const el = document.querySelector('.day-cell[data-date="'+iso+'"]');
+    if (el){ el.tabIndex = 0; el.focus(); }
+  });
+}
+
+function focusHeadingAnnounce(){
+  requestAnimationFrame(()=>{
+    const h = document.getElementById('rangeHeading');
+    if (h) h.focus();
+  });
+}
+
+/* ---------- Day popover ---------- */
+
+let popoverOpenFor = null;
+function openDayPopover(iso, anchorEl){
+  const pop = document.getElementById('dayPopover');
+  const leaves = leavesOnDate(getVisibleLeaves(), iso);
+  popoverOpenFor = iso;
+  const dateLabel = fromISO(iso).toLocaleDateString('en-GB', { weekday:'long', day:'numeric', month:'long', year:'numeric' });
+  pop.innerHTML = `
+    <div class="flex items-center justify-between px-3 py-2 border-b border-slate-200">
+      <h3 class="text-sm font-semibold text-slate-900">${dateLabel}</h3>
+      <button type="button" data-action="close-popover" aria-label="Close" class="text-slate-500 hover:text-slate-800">×</button>
+    </div>
+    <ul class="max-h-64 overflow-y-auto py-1">
+      ${leaves.length ? leaves.map(l=>{
+        const person = personById(l.personId);
+        return `<li><button type="button" data-action="open-entry" data-id="${l.id}" class="w-full text-left px-3 py-2 hover:bg-slate-50 text-sm">
+          <div class="text-slate-800">${person.name} <span class="text-slate-500">· ${l.type}${l.halfDay?' · '+l.halfDay:''}</span></div>
+          <div class="mt-0.5">${badge(l.status)}</div>
+        </button></li>`;
+      }).join('') : `<li class="px-3 py-3 text-sm text-slate-500">No leave recorded on this day.</li>`}
+    </ul>`;
+  pop.hidden = false;
+  const rect = anchorEl.getBoundingClientRect();
+  const popW = 288;
+  let left = rect.left;
+  if (left + popW > window.innerWidth - 8) left = window.innerWidth - popW - 8;
+  pop.style.left = Math.max(8,left)+'px';
+  let top = rect.bottom + 4;
+  pop.style.top = top+'px';
+  if (top + 280 > window.innerHeight){ pop.style.top = Math.max(8, rect.top - 284)+'px'; }
+}
+function closeDayPopover(){
+  document.getElementById('dayPopover').hidden = true;
+  popoverOpenFor = null;
+}
+
+/* ---------- Detail panel ---------- */
+
+function openDetailPanel(leaveId){
+  closeDayPopover();
+  const l = LEAVES.find(x=>x.id===leaveId);
+  if (!l) return;
+  const person = personById(l.personId);
+  const meta = STATUS_META[l.status];
+  const panel = document.getElementById('detailPanel');
+  const wd = workingDays(l.start, l.end);
+  const cd = calendarDays(l.start, l.end);
+  const canAct = l.status === 'pending';
+
+  let decisionHTML = '';
+  if (l.status === 'approved') decisionHTML = `<p class="text-sm text-slate-600">Approved by <span class="font-medium text-slate-800">${l.approvedBy}</span> · ${fmtAbs(l.approvedOn)}</p>`;
+  else if (l.status === 'rejected') decisionHTML = `<p class="text-sm text-slate-600">Rejected by <span class="font-medium text-slate-800">${l.approvedBy}</span> · ${fmtAbs(l.approvedOn)}</p><p class="text-sm text-red-700 mt-1">Reason: ${l.rejectReason||'—'}</p>`;
+  else if (l.status === 'cancelled') decisionHTML = `<p class="text-sm text-slate-600">Cancelled by the requester.</p>`;
+  else decisionHTML = `<p class="text-sm text-slate-600">Waiting for HR approval.</p>`;
+
+  panel.innerHTML = `
+    <div class="flex items-center justify-between px-4 py-3 border-b border-slate-200 sticky top-0 bg-white">
+      <h2 id="detailTitle" class="text-base font-semibold text-slate-900">Leave request</h2>
+      <button type="button" data-action="close-panel" aria-label="Close panel" class="text-slate-500 hover:text-slate-800 text-xl leading-none">×</button>
+    </div>
+    <div class="p-4 space-y-4">
+      <div class="flex items-center gap-3">
+        <span class="inline-flex h-10 w-10 items-center justify-center rounded-full bg-slate-100 text-slate-600 text-sm font-semibold">${person.initials}</span>
+        <div>
+          <div class="text-sm font-medium text-slate-900">${person.name}</div>
+          <div class="text-xs text-slate-500">${TEAMS.find(t=>t.id===person.teamId).name}</div>
+        </div>
+      </div>
+
+      <div>${badge(l.status)}</div>
+
+      <dl class="text-sm divide-y divide-slate-100 border border-slate-200 rounded-md">
+        <div class="flex justify-between px-3 py-2"><dt class="text-slate-500">Type</dt><dd class="text-slate-800 font-medium">${l.type}${l.halfDay?' ('+l.halfDay+')':''}</dd></div>
+        <div class="flex justify-between px-3 py-2"><dt class="text-slate-500">Dates</dt><dd class="text-slate-800 text-right">${fmtRangeAbs(l)}</dd></div>
+        <div class="flex justify-between px-3 py-2"><dt class="text-slate-500">Length</dt><dd class="text-slate-800 text-right">${wd} working day${wd!==1?'s':''} ${cd!==wd?'('+cd+' calendar day'+(cd!==1?'s':'')+')':''}</dd></div>
+        <div class="flex justify-between px-3 py-2"><dt class="text-slate-500">Requested</dt><dd class="text-slate-800">${fmtAbs(l.requestedOn)}</dd></div>
+      </dl>
+
+      <div>
+        <h3 class="text-xs font-medium text-slate-500 mb-1">Reason</h3>
+        <p class="text-sm text-slate-800">${l.reason}</p>
+      </div>
+
+      <div class="border-t border-slate-200 pt-3">${decisionHTML}</div>
+
+      ${canAct ? `
+      <div id="actionArea" class="border-t border-slate-200 pt-4">
+        <div class="flex items-center gap-2">
+          <button type="button" data-action="approve" data-id="${l.id}" class="h-9 px-3.5 rounded bg-blue-700 text-white text-sm font-medium hover:bg-blue-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-700">Approve</button>
+          <button type="button" data-action="reject" data-id="${l.id}" data-from="panel" class="h-9 px-3.5 rounded border border-red-300 text-red-700 text-sm font-medium hover:bg-red-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-red-600">Reject</button>
+        </div>
+        <div id="rejectReasonBox" class="mt-3" hidden>
+          <label for="rejectReasonInput" class="block text-xs font-medium text-slate-600 mb-1">Reason for rejection <span class="text-red-600">*</span></label>
+          <textarea id="rejectReasonInput" rows="2" class="w-full rounded border border-slate-300 px-2 py-1.5 text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-700" placeholder="Explain why this request is rejected"></textarea>
+          <p id="rejectReasonError" class="text-xs text-red-600 mt-1" hidden>A reason is required.</p>
+          <div class="flex items-center gap-2 mt-2">
+            <button type="button" data-action="reject-confirm" data-id="${l.id}" class="h-8 px-3 rounded bg-red-600 text-white text-sm font-medium hover:bg-red-700">Confirm reject</button>
+            <button type="button" data-action="reject-cancel" class="h-8 px-3 rounded border border-slate-300 text-sm font-medium text-slate-700 hover:bg-slate-50">Cancel</button>
+          </div>
+        </div>
+      </div>` : ''}
+    </div>
+  `;
+  document.getElementById('detailOverlay').hidden = false;
+  const closeBtn = panel.querySelector('[data-action="close-panel"]');
+  if (closeBtn) closeBtn.focus();
+}
+
+function closeDetailPanel(){
+  document.getElementById('detailOverlay').hidden = true;
+}
+
+function approveLeave(id, fromPanel){
+  const l = LEAVES.find(x=>x.id===id);
+  if (!l) return;
+  l.status = 'approved';
+  l.approvedBy = 'HR Admin';
+  l.approvedOn = todayISO();
+  const person = personById(l.personId);
+  announce(`Leave approved for ${person.name}, ${fmtRangeAbs(l)}`);
+  if (fromPanel) openDetailPanel(id); else closeDetailPanel();
+  render();
+}
+
+function rejectLeaveConfirm(id){
+  const box = document.getElementById('rejectReasonBox');
+  const input = document.getElementById('rejectReasonInput');
+  const err = document.getElementById('rejectReasonError');
+  const reason = (input.value||'').trim();
+  if (!reason){ err.hidden = false; input.focus(); return; }
+  const l = LEAVES.find(x=>x.id===id);
+  if (!l) return;
+  l.status = 'rejected';
+  l.rejectReason = reason;
+  l.approvedBy = 'HR Admin';
+  l.approvedOn = todayISO();
+  const person = personById(l.personId);
+  announce(`Leave rejected for ${person.name}, ${fmtRangeAbs(l)}`);
+  closeDetailPanel();
+  render();
+}
+
+/* ---------- Request leave modal ---------- */
+
+function openRequestModal(){
+  const dialog = document.getElementById('requestDialog');
+  const options = PEOPLE.map(p=>`<option value="${p.id}">${p.name} — ${TEAMS.find(t=>t.id===p.teamId).name}</option>`).join('');
+  const typeOptions = TYPES.map(t=>`<option value="${t}">${t}</option>`).join('');
+  dialog.innerHTML = `
+    <div class="flex items-center justify-between px-4 py-3 border-b border-slate-200">
+      <h2 id="requestTitle" class="text-base font-semibold text-slate-900">Request leave</h2>
+      <button type="button" data-action="close-request" aria-label="Close" class="text-slate-500 hover:text-slate-800 text-xl leading-none">×</button>
+    </div>
+    <form id="requestForm" class="p-4 space-y-4" novalidate>
+      <div id="formErrors" class="hidden rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700"></div>
+
+      <div>
+        <label for="f_person" class="block text-sm font-medium text-slate-700 mb-1">Team member <span class="text-red-600">*</span></label>
+        <select id="f_person" required class="w-full h-9 rounded border border-slate-300 px-2 text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-700">
+          <option value="">Select a person</option>${options}
+        </select>
+      </div>
+
+      <div>
+        <label for="f_type" class="block text-sm font-medium text-slate-700 mb-1">Leave type <span class="text-red-600">*</span></label>
+        <select id="f_type" required class="w-full h-9 rounded border border-slate-300 px-2 text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-700">
+          <option value="">Select a type</option>${typeOptions}
+        </select>
+      </div>
+
+      <div>
+        <label for="f_start" class="block text-sm font-medium text-slate-700 mb-1">Start date <span class="text-red-600">*</span></label>
+        <input id="f_start" type="date" required class="w-full h-9 rounded border border-slate-300 px-2 text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-700" />
+      </div>
+
+      <div>
+        <label for="f_end" class="block text-sm font-medium text-slate-700 mb-1">End date <span class="text-red-600">*</span></label>
+        <input id="f_end" type="date" required class="w-full h-9 rounded border border-slate-300 px-2 text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-700" />
+      </div>
+
+      <label class="inline-flex items-center gap-2 text-sm text-slate-700">
+        <input id="f_half" type="checkbox" class="h-4 w-4 rounded border-slate-300" /> Half day
+      </label>
+      <div id="f_halfWrap" class="hidden">
+        <label for="f_halfPeriod" class="block text-sm font-medium text-slate-700 mb-1">Half</label>
+        <select id="f_halfPeriod" class="w-full h-9 rounded border border-slate-300 px-2 text-sm">
+          <option value="AM">AM</option>
+          <option value="PM">PM</option>
+        </select>
+      </div>
+
+      <div>
+        <label for="f_reason" class="block text-sm font-medium text-slate-700 mb-1">Reason <span class="text-red-600">*</span></label>
+        <textarea id="f_reason" required rows="3" class="w-full rounded border border-slate-300 px-2 py-1.5 text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-700" placeholder="Brief reason for this request"></textarea>
+      </div>
+
+      <div class="flex items-center justify-end gap-2 pt-2 border-t border-slate-200 -mx-4 -mb-4 px-4 py-3 bg-white sticky bottom-0">
+        <button type="button" data-action="close-request" class="h-9 px-3.5 rounded border border-slate-300 text-sm font-medium text-slate-700 hover:bg-slate-50">Cancel</button>
+        <button type="submit" class="h-9 px-3.5 rounded bg-blue-700 text-white text-sm font-medium hover:bg-blue-800">Submit request</button>
+      </div>
+    </form>
+  `;
+  document.getElementById('requestOverlay').hidden = false;
+  document.getElementById('f_half').addEventListener('change', (e)=>{
+    document.getElementById('f_halfWrap').hidden = !e.target.checked;
+  });
+  document.getElementById('requestForm').addEventListener('submit', onSubmitRequest);
+  document.getElementById('f_person').focus();
+}
+
+function closeRequestModal(){
+  document.getElementById('requestOverlay').hidden = true;
+}
+
+function onSubmitRequest(e){
+  e.preventDefault();
+  const personId = document.getElementById('f_person').value;
+  const type = document.getElementById('f_type').value;
+  const start = document.getElementById('f_start').value;
+  const end = document.getElementById('f_end').value;
+  const half = document.getElementById('f_half').checked;
+  const halfPeriod = document.getElementById('f_halfPeriod').value;
+  const reason = document.getElementById('f_reason').value.trim();
+
+  const errors = [];
+  if (!personId) errors.push({ field:'f_person', msg:'Select a team member.' });
+  if (!type) errors.push({ field:'f_type', msg:'Select a leave type.' });
+  if (!start) errors.push({ field:'f_start', msg:'Enter a start date.' });
+  if (!end) errors.push({ field:'f_end', msg:'Enter an end date.' });
+  if (start && end && end < start) errors.push({ field:'f_end', msg:'End date must be on or after the start date.' });
+  if (!reason) errors.push({ field:'f_reason', msg:'Enter a reason for this request.' });
+
+  const errBox = document.getElementById('formErrors');
+  if (errors.length){
+    errBox.classList.remove('hidden');
+    errBox.innerHTML = '<p class="font-medium mb-1">Fix the following:</p><ul class="list-disc pl-5">'+errors.map(x=>`<li><a href="#${x.field}" class="underline">${x.msg}</a></li>`).join('')+'</ul>';
+    document.getElementById(errors[0].field).focus();
+    return;
+  }
+  errBox.classList.add('hidden');
+
+  const id = 'L'+(nextIdNum++);
+  const leave = { id, personId, type, status:'pending', start, end: half?start:end, reason, requestedOn: todayISO() };
+  if (half) leave.halfDay = halfPeriod;
+  LEAVES.push(leave);
+  closeRequestModal();
+  const person = personById(personId);
+  announce(`Leave request submitted for ${person.name}, awaiting approval`);
+  state.date = start;
+  state.focused = start;
+  render();
+}
+
+/* ---------- Event delegation ---------- */
+
+const app = document.getElementById('app');
+
+document.addEventListener('click', (e)=>{
+  const t = e.target.closest('[data-action]');
+  if (!t){
+    // close popovers/menus on outside click
+    if (!e.target.closest('#dayPopover')) closeDayPopover();
+    return;
+  }
+  const action = t.dataset.action;
+
+  if (action === 'today'){ state.date = todayISO(); state.focused = state.date; render(); focusHeadingAnnounce(); return; }
+  if (action === 'prev'){
+    state.date = state.view==='week' ? addDays(mondayOf(state.date), -7) : toISO(addMonthsFirst(state.date,-1));
+    state.focused = state.date;
+    render(); focusHeadingAnnounce(); return;
+  }
+  if (action === 'next'){
+    state.date = state.view==='week' ? addDays(mondayOf(state.date), 7) : toISO(addMonthsFirst(state.date,1));
+    state.focused = state.date;
+    render(); focusHeadingAnnounce(); return;
+  }
+  if (action === 'set-view'){ state.view = t.dataset.view; render(); return; }
+  if (action === 'open-entry'){ openDetailPanel(t.dataset.id); return; }
+  if (action === 'open-day'){ openDayPopover(t.dataset.date, t); return; }
+  if (action === 'close-popover'){ closeDayPopover(); return; }
+  if (action === 'close-panel'){ closeDetailPanel(); return; }
+  if (action === 'approve'){ approveLeave(t.dataset.id, !!document.getElementById('detailPanel').contains(t)); return; }
+  if (action === 'reject'){
+    if (t.dataset.from === 'list'){ openDetailPanel(t.dataset.id); setTimeout(()=>{ const b=document.getElementById('rejectReasonBox'); if(b){ b.hidden=false; document.getElementById('rejectReasonInput').focus(); } },0); return; }
+    const box = document.getElementById('rejectReasonBox');
+    box.hidden = false;
+    document.getElementById('rejectReasonInput').focus();
+    return;
+  }
+  if (action === 'reject-confirm'){ rejectLeaveConfirm(t.dataset.id); return; }
+  if (action === 'reject-cancel'){ document.getElementById('rejectReasonBox').hidden = true; return; }
+  if (action === 'open-request'){ openRequestModal(); return; }
+  if (action === 'close-request'){ closeRequestModal(); return; }
+  if (action === 'retry'){ forceState = null; render(); return; }
+  if (action === 'clear-filters'){ state.team='all'; state.person='all'; state.type='all'; state.inactive=false; render(); return; }
+  if (action === 'remove-chip'){
+    const k = t.dataset.chip;
+    if (k==='team') state.team='all';
+    if (k==='person') state.person='all';
+    if (k==='type') state.type='all';
+    if (k==='inactive') state.inactive=false;
+    render(); return;
+  }
+});
+
+document.addEventListener('change', (e)=>{
+  const sel = e.target.closest('[data-filter]');
+  if (!sel) return;
+  const f = sel.dataset.filter;
+  if (f==='team'){ state.team = sel.value; state.person='all'; }
+  else if (f==='person'){ state.person = sel.value; }
+  else if (f==='type'){ state.type = sel.value; }
+  else if (f==='inactive'){ state.inactive = sel.checked; }
+  render();
+});
+
+document.addEventListener('keydown', (e)=>{
+  if (e.key === 'Escape'){
+    if (!document.getElementById('dayPopover').hidden){ closeDayPopover(); return; }
+    if (!document.getElementById('detailOverlay').hidden){ closeDetailPanel(); return; }
+    if (!document.getElementById('requestOverlay').hidden){ closeRequestModal(); return; }
+  }
+  const cell = e.target.closest('.day-cell');
+  if (!cell) return;
+  const iso = cell.dataset.date;
+  const keys = ['ArrowLeft','ArrowRight','ArrowUp','ArrowDown','Home','End','PageUp','PageDown','Enter',' '];
+  if (!keys.includes(e.key)) return;
+  e.preventDefault();
+  if (e.key === 'ArrowLeft') focusCellByDate(addDays(iso,-1));
+  else if (e.key === 'ArrowRight') focusCellByDate(addDays(iso,1));
+  else if (e.key === 'ArrowUp') focusCellByDate(addDays(iso,-7));
+  else if (e.key === 'ArrowDown') focusCellByDate(addDays(iso,7));
+  else if (e.key === 'Home') focusCellByDate(mondayOf(iso));
+  else if (e.key === 'End') focusCellByDate(addDays(mondayOf(iso),6));
+  else if (e.key === 'PageUp') focusCellByDate(addMonthsClamped(iso, -1));
+  else if (e.key === 'PageDown') focusCellByDate(addMonthsClamped(iso, 1));
+  else if (e.key === 'Enter' || e.key === ' ') openDayPopover(iso, cell);
+});
+
+/* ---------- Init ---------- */
+
+bootRender();
+
+})();
+</script>
+</body>
+</html>

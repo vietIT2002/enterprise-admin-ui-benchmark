@@ -1,0 +1,57 @@
+{
+  "brief": "16-invoice-print",
+  "run": 1,
+  "items": [
+    {
+      "item": "A print stylesheet (`@media print`) hides the app navigation, buttons and toasts, and sets an A4 page size and margins with `@page`",
+      "pass": true,
+      "evidence": "`@media print { @page { size: A4; margin: 12mm; } ... .no-print { display: none !important; } }` and the toolbar/button div and the preview footnote div both carry class `no-print`. No app navigation or toasts exist on this standalone page, but everything screen-only present (the Print button and preview caption) is correctly hidden."
+    },
+    {
+      "item": "The document shows seller and buyer blocks (name, address, tax code), the invoice number, the issue date and the due date",
+      "pass": false,
+      "evidence": "Seller block has name/address and 'Brightwell Studio LLC · EIN 84-3301927' (tax code). 'Bill To' block (Harlow & Finch Retail Co., address, email) has no tax code/ID field at all. Invoice No. INV-2026-0447, Issue date Nov 6 2026, Due date Dec 6 2026 are present, but the buyer's missing tax code fails the item."
+    },
+    {
+      "item": "Line items show description, quantity, unit price, tax rate and line amount, with numbers right-aligned in tabular figures and the currency stated",
+      "pass": false,
+      "evidence": "Table columns are only Description/Qty/Unit Price/Amount — no per-line tax rate column (tax only appears once in the totals block as 'Sales tax (8.25%)'). Audit confirms Qty cells are center-aligned not right-aligned ('numeric-align' violation ×6) and no numeric cell uses tabular figures ('tabular-nums' violation ×15, actual: normal)."
+    },
+    {
+      "item": "A totals block shows the subtotal, tax per rate, the total and the amount paid or due, and the totals equal the sum of the lines",
+      "pass": true,
+      "evidence": "Totals block shows Subtotal $9,625.00 (= 3200+4850+825+450+300), Discount −$481.25, Sales tax (8.25%) $754.34, Total Due $9,898.09, Amount paid $0.00; 9625−481.25+754.34 = 9898.09, matching the displayed figures."
+    },
+    {
+      "item": "A long item table breaks across pages without splitting rows, and its header row repeats on each printed page",
+      "pass": true,
+      "evidence": "`table.items-table tr { break-inside: avoid; }` prevents row splitting, and the table uses a semantic `<thead>`/`<tbody>` structure, which browsers repeat on each printed page by default. Only 5 rows are present so multi-page behaviour is not visually exercised, but the required mechanism is implemented."
+    },
+    {
+      "item": "The printed page stays readable in black and white: no meaning carried by colour alone and no light grey text below 4.5:1",
+      "pass": false,
+      "evidence": "Audit flags 18 text-contrast violations at 2.56:1 for `text-slate-400` labels such as 'No.', 'Issue date:', 'Due date:', 'Bill To', 'Payment Details' headers — well below the 4.5:1 threshold."
+    },
+    {
+      "item": "On screen, the status is a badge with text (Draft, Issued, Paid, Overdue) and the actions (Print, Download PDF, Send) have one primary action",
+      "pass": false,
+      "evidence": "Status badge `<span class=\"... bg-amber-100 text-amber-700\">UNPAID</span>` has text, satisfying the badge half. But only a single combined 'Print / Save PDF' button exists (`onclick=\"window.print()\"`) — there is no separate Download PDF button and no Send action, so the required action set and primary/secondary hierarchy are absent."
+    },
+    {
+      "item": "Dates and amounts follow one locale throughout, and payment details (bank account, payment reference) are shown",
+      "pass": true,
+      "evidence": "Dates consistently use 'Mon D, YYYY' (Nov 6, 2026 / Dec 6, 2026); amounts consistently use '$X,XXX.XX'. Payment Details block lists Bank, Account name, Account no. 4471-0098-223, Routing no. 114-000-093, Terms, and notes instruct referencing invoice number INV-2026-0447 as payment reference."
+    },
+    {
+      "item": "The document has a heading structure, and the items table has column headers marked up as header cells",
+      "pass": false,
+      "evidence": "No `<h1>`–`<h6>` elements exist anywhere in the document; 'INVOICE', 'Bill To', 'Payment Details' etc. are all plain `<div>`s with text-size classes, so there is no semantic heading structure. The items table does correctly use `<th>` cells in a `<thead>` row ('Description', 'Qty', 'Unit Price', 'Amount'), but the missing heading hierarchy fails the item overall."
+    }
+  ],
+  "tells": [
+    "initials-avatar-non-person",
+    "tracked-uppercase-labels",
+    "oversized-radius"
+  ],
+  "notes": "initials-avatar-non-person: the 'BW' rounded-square avatar represents the company Brightwell Studio, not a person, at line 45. tracked-uppercase-labels: 'Bill To', 'Payment Details' and 'Notes' use `text-xs font-semibold uppercase tracking-wide text-slate-400` (also flagged by audit as 'uppercase-text'). oversized-radius: the page container uses `rounded-xl` (12px), flagged by audit's radius-scale rule as exceeding the 8px max. Audit score is 44/100, driven primarily by the text-contrast, tabular-nums and numeric-align violations documented above."
+}

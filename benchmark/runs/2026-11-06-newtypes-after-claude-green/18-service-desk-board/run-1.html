@@ -1,0 +1,928 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>IT service desk — Board</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+  [hidden] { display: none !important; }
+  html, body { height: 100%; }
+  .line-clamp-2 { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+  .col-collapsed .col-body, .col-collapsed .col-sub { display: none; }
+  .col-collapsed { width: 3.25rem !important; min-width: 3.25rem !important; }
+  .col-collapsed .col-title-text { writing-mode: vertical-rl; transform: rotate(180deg); white-space: nowrap; }
+  .col-drop-target { outline: 2px dashed #1d4ed8; outline-offset: -2px; background-color: #eff6ff; }
+  .pick-target { outline: 2px solid #1d4ed8; outline-offset: -2px; }
+  .sheet-panel { transition: transform .2s ease-out; }
+  ::-webkit-scrollbar { width: 10px; height: 10px; }
+  ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 6px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+</style>
+</head>
+<body class="h-screen overflow-hidden bg-slate-50 text-slate-900 antialiased text-sm">
+<div class="flex h-full flex-col">
+
+  <!-- Page header -->
+  <header class="flex h-14 shrink-0 items-center justify-between border-b border-slate-200 bg-white px-4">
+    <div class="flex items-center gap-2">
+      <h1 class="text-xl font-semibold text-slate-900">IT service desk</h1>
+    </div>
+    <div class="flex items-center gap-2">
+      <button type="button" onclick="openCreatePanel()" class="inline-flex h-8 items-center gap-1.5 rounded-md bg-blue-700 px-3 text-sm font-medium text-white hover:bg-blue-800 focus:outline-none focus:ring-2 focus:ring-blue-700 focus:ring-offset-2">
+        <svg aria-hidden="true" viewBox="0 0 16 16" class="h-4 w-4 fill-none stroke-current stroke-2"><path d="M8 3v10M3 8h10" stroke-linecap="round"/></svg>
+        Create ticket
+      </button>
+    </div>
+  </header>
+
+  <!-- Toolbar -->
+  <div class="flex h-14 shrink-0 flex-wrap items-center gap-2 border-b border-slate-200 bg-white px-4">
+    <div class="relative">
+      <svg aria-hidden="true" viewBox="0 0 16 16" class="pointer-events-none absolute left-2 top-1/2 h-4 w-4 -translate-y-1/2 fill-none stroke-slate-400 stroke-2"><circle cx="7" cy="7" r="4.5"/><path d="M14 14l-3-3" stroke-linecap="round"/></svg>
+      <input id="searchInput" type="search" placeholder="Search by code or title" aria-label="Search tickets by code or title" class="h-8 w-56 rounded-md border border-slate-300 bg-white pl-8 pr-2 text-sm placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-700">
+    </div>
+    <label class="sr-only" for="assigneeFilter">Assignee</label>
+    <select id="assigneeFilter" class="h-8 rounded-md border border-slate-300 bg-white px-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-700">
+      <option value="all">Assignee: all</option>
+      <option value="unassigned">Unassigned</option>
+    </select>
+    <label class="sr-only" for="priorityFilter">Priority</label>
+    <select id="priorityFilter" class="h-8 rounded-md border border-slate-300 bg-white px-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-700">
+      <option value="all">Priority: all</option>
+    </select>
+    <label class="sr-only" for="typeFilter">Type</label>
+    <select id="typeFilter" class="h-8 rounded-md border border-slate-300 bg-white px-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-700">
+      <option value="all">Type: all</option>
+    </select>
+    <button type="button" id="assignedToMeBtn" aria-pressed="false" onclick="toggleAssignedToMe()" class="h-8 rounded-md border border-slate-300 bg-white px-3 text-sm font-medium text-slate-700 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-blue-700">Assigned to me</button>
+
+    <div class="flex-1"></div>
+
+    <div role="group" aria-label="Board or list view" class="flex items-center rounded-md border border-slate-300 bg-white p-0.5">
+      <button type="button" id="viewBoardBtn" aria-pressed="true" onclick="setView('board')" class="h-7 rounded-sm px-3 text-sm font-medium text-slate-900 bg-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-700">Board</button>
+      <button type="button" id="viewListBtn" aria-pressed="false" onclick="setView('list')" class="h-7 rounded-sm px-3 text-sm font-medium text-slate-600 hover:text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-700">List</button>
+    </div>
+  </div>
+
+  <!-- Chips row -->
+  <div id="chipsRow" class="hidden shrink-0 items-center gap-2 overflow-x-auto border-b border-slate-200 bg-white px-4 py-2"></div>
+
+  <!-- Main -->
+  <main class="min-h-0 flex-1">
+    <div id="boardView" class="h-full">
+      <div id="boardRegion" class="flex h-full gap-3 overflow-x-auto px-4 py-3" role="region" aria-label="Ticket board"></div>
+    </div>
+    <div id="listView" hidden class="h-full overflow-y-auto px-4 py-3">
+      <div class="overflow-x-auto rounded-md border border-slate-200 bg-white">
+        <table class="w-full border-collapse text-sm">
+          <thead>
+            <tr class="border-b border-slate-200 bg-slate-50 text-left text-slate-600">
+              <th class="px-3 py-2 font-medium">Code</th>
+              <th class="px-3 py-2 font-medium">Title</th>
+              <th class="px-3 py-2 font-medium">Status</th>
+              <th class="px-3 py-2 font-medium">Priority</th>
+              <th class="px-3 py-2 font-medium">Assignee</th>
+              <th class="px-3 py-2 font-medium">Due date</th>
+              <th class="px-3 py-2 font-medium">Type</th>
+            </tr>
+          </thead>
+          <tbody id="listBody"></tbody>
+        </table>
+      </div>
+    </div>
+  </main>
+</div>
+
+<!-- Side panel -->
+<div id="panelBackdrop" hidden class="fixed inset-0 z-30 bg-slate-900/20" onclick="closePanel()"></div>
+<aside id="panel" hidden class="sheet-panel fixed right-0 top-0 z-40 flex h-full w-full max-w-[520px] translate-x-full flex-col border-l border-slate-200 bg-white shadow-xl" role="dialog" aria-modal="true" aria-labelledby="panelTitle">
+  <div id="panelContent" class="flex h-full flex-col"></div>
+</aside>
+
+<!-- Transition dialog (resolution note) -->
+<div id="transitionBackdrop" hidden class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4">
+  <div id="transitionDialog" role="dialog" aria-modal="true" aria-labelledby="transitionTitle" class="w-full max-w-md rounded-lg border border-slate-200 bg-white p-4 shadow-xl">
+    <h2 id="transitionTitle" class="text-base font-semibold text-slate-900">Resolve ticket</h2>
+    <p class="mt-1 text-sm text-slate-600">Add a short note describing how this ticket was resolved.</p>
+    <div class="mt-3">
+      <label for="resolutionNote" class="block text-sm font-medium text-slate-700">Resolution note <span class="text-red-700">*</span></label>
+      <textarea id="resolutionNote" rows="3" class="mt-1 w-full rounded-md border border-slate-300 px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-700"></textarea>
+      <p id="resolutionNoteError" hidden class="mt-1 text-sm text-red-700">Enter a resolution note.</p>
+    </div>
+    <div class="mt-4 flex justify-end gap-2 border-t border-slate-200 pt-3">
+      <button type="button" onclick="cancelTransition()" class="h-8 rounded-md border border-slate-300 bg-white px-3 text-sm font-medium text-slate-700 hover:bg-slate-50">Cancel</button>
+      <button type="button" onclick="confirmTransition()" class="h-8 rounded-md bg-blue-700 px-3 text-sm font-medium text-white hover:bg-blue-800">Resolve ticket</button>
+    </div>
+  </div>
+</div>
+
+<!-- Toast -->
+<div id="toastRegion" class="fixed bottom-4 right-4 z-50 flex flex-col gap-2"></div>
+
+<!-- Live announcer -->
+<div id="announcer" role="status" aria-live="polite" class="sr-only"></div>
+
+<script>
+(function(){
+  "use strict";
+
+  /* ---------- constants ---------- */
+  var TODAY = new Date(); TODAY.setHours(0,0,0,0);
+  function addDays(base, n){ var d = new Date(base); d.setDate(d.getDate()+n); return d; }
+  function daysBetween(a,b){ return Math.round((a.getTime()-b.getTime())/86400000); }
+  function fmtDate(d){ var dd=String(d.getDate()).padStart(2,'0'), mm=String(d.getMonth()+1).padStart(2,'0'); return dd+'/'+mm+'/'+d.getFullYear(); }
+
+  var TONE = {
+    neutral: 'bg-slate-100 text-slate-700',
+    info: 'bg-blue-50 text-blue-700',
+    success: 'bg-emerald-50 text-emerald-700',
+    warning: 'bg-amber-50 text-amber-800',
+    danger: 'bg-red-50 text-red-700'
+  };
+
+  var STATUSES = [
+    { id:'new', label:'New', tone:'info', limit:null },
+    { id:'in_progress', label:'In progress', tone:'info', limit:5 },
+    { id:'pending', label:'Pending', tone:'warning', limit:null },
+    { id:'resolved', label:'Resolved', tone:'success', limit:null },
+    { id:'closed', label:'Closed', tone:'neutral', limit:null, collapsible:true }
+  ];
+  function statusDef(id){ return STATUSES.filter(function(s){return s.id===id;})[0]; }
+  function statusLabel(id){ var s=statusDef(id); return s ? s.label : id; }
+
+  var PRIORITIES = [
+    { id:'critical', label:'Critical', tone:'danger' },
+    { id:'high', label:'High', tone:'warning' },
+    { id:'medium', label:'Medium', tone:'info' },
+    { id:'low', label:'Low', tone:'neutral' }
+  ];
+  function prioDef(id){ return PRIORITIES.filter(function(p){return p.id===id;})[0]; }
+  function prioRank(id){ return PRIORITIES.map(function(p){return p.id;}).indexOf(id); }
+
+  var TYPES = ['Hardware','Software','Network','Access','Security'];
+  var PEOPLE = ['Alex Chen','Jordan Lee','Priya Patel','Sam Okafor','Taylor Brooks','Morgan Reyes'];
+  var CURRENT_USER = 'Alex Chen';
+
+  /* ---------- mock data ---------- */
+  function T(code, title, status, priority, type, assignee, dueOffset, openedOffset, reporter, extra){
+    var t = {
+      code: code, title: title, status: status, priority: priority, type: type,
+      assignee: assignee, due: (dueOffset===null ? null : addDays(TODAY, dueOffset)),
+      opened: addDays(TODAY, openedOffset), reporter: reporter,
+      endedAt: null, resolutionNote: null
+    };
+    if (extra) Object.assign(t, extra);
+    return t;
+  }
+
+  var SEED_TICKETS = [
+    T('IT-1058','VPN connection drops every few minutes','new','high','Network',null,null,0,'Daniel Cho'),
+    T('IT-1057','New hire laptop setup — Dao Minh','new','medium','Hardware','Jordan Lee',3,-1,'Grace Kim'),
+    T('IT-1056','Request: second monitor for workstation','new','low','Hardware',null,null,-2,'Robert King'),
+    T('IT-1055','Phishing email reported by Finance team','new','critical','Security',null,0,-1,'Emma Walsh'),
+    T('IT-1054','Outlook repeatedly crashing on launch','new','medium','Software',null,null,-3,'Linh Nguyen'),
+
+    T('IT-1050',"Can't access VPN from home network",'in_progress','high','Network','Priya Patel',1,-4,'Daniel Cho'),
+    T('IT-1049','Laptop screen flickering intermittently','in_progress','medium','Hardware','Sam Okafor',4,-5,'Grace Kim'),
+    T('IT-1048','Email not syncing on mobile device','in_progress','low','Software','Taylor Brooks',2,-7,'Robert King'),
+    T('IT-1047','Software license renewal — Adobe Creative Cloud','in_progress','medium','Software','Morgan Reyes',9,-9,'Emma Walsh'),
+    T('IT-1046','Printer offline on 3rd floor','in_progress','low','Hardware','Alex Chen',-2,-10,'Linh Nguyen'),
+    T('IT-1045','Slow network performance in conference room B','in_progress','high','Network','Priya Patel',-3,-12,'Daniel Cho'),
+
+    T('IT-1044','Password reset for shared mailbox — support@','pending','medium','Access','Jordan Lee',6,-17,'Grace Kim'),
+    T('IT-1043','Access request: Finance shared drive','pending','low','Access','Sam Okafor',14,-19,'Robert King'),
+    T('IT-1042','Teams calls dropping during meetings','pending','high','Network','Taylor Brooks',3,-22,'Emma Walsh'),
+    T('IT-1041','Server disk space running critical on FS02','pending','critical','Hardware','Morgan Reyes',0,-27,'Linh Nguyen'),
+
+    T('IT-1039','VPN certificate expired for remote users','resolved','critical','Network','Alex Chen',null,-32,'Daniel Cho',{ endedAt: addDays(TODAY,-4), resolutionNote:'Renewed certificate and pushed update via GPO.' }),
+    T('IT-1037','Keyboard not responding after firmware update','resolved','low','Hardware','Priya Patel',null,-35,'Grace Kim',{ endedAt: addDays(TODAY,-2), resolutionNote:'Rolled back firmware to previous stable version.' }),
+    T('IT-1035','Shared calendar not updating in Outlook','resolved','medium','Software','Jordan Lee',null,-39,'Robert King',{ endedAt: addDays(TODAY,-7), resolutionNote:'Rebuilt OST file and re-added calendar.' }),
+
+    T('IT-1030','Guest Wi-Fi password rotation request','closed','low','Network','Taylor Brooks',null,-36,'Emma Walsh',{ endedAt: addDays(TODAY,-17) }),
+    T('IT-1028','Monitor replacement — cracked screen','closed','medium','Hardware','Alex Chen',null,-42,'Linh Nguyen',{ endedAt: addDays(TODAY,-22) }),
+    T('IT-1025','Account unlock — too many failed attempts','closed','medium','Access','Sam Okafor',null,-47,'Daniel Cho',{ endedAt: addDays(TODAY,-27) }),
+    T('IT-1020','Install Zoom for new contractor','closed','low','Software','Morgan Reyes',null,-57,'Grace Kim',{ endedAt: addDays(TODAY,-42) }),
+    T('IT-1015','Replace toner cartridge — 2nd floor printer','closed','low','Hardware','Jordan Lee',null,-70,'Robert King',{ endedAt: addDays(TODAY,-52) })
+  ];
+
+  var TICKETS = SEED_TICKETS.map(function(t){ return Object.assign({}, t); });
+
+  /* ---------- state ---------- */
+  var appState = 'loading'; // loading | error | ready
+  var state = {
+    search: '', assignee: 'all', priority: 'all', type: 'all', assignedToMe: false,
+    view: 'board', openTicket: null, panelMode: null, collapsedClosed: true, picked: null
+  };
+  var pendingMove = null; // {code, toStatus}
+  var undoTimer = null;
+
+  /* ---------- helpers ---------- */
+  function escapeHtml(s){
+    return String(s).replace(/[&<>"']/g, function(c){
+      return { '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c];
+    });
+  }
+  function byCode(code){ return TICKETS.filter(function(t){ return t.code===code; })[0]; }
+  function initials(name){
+    if(!name) return '';
+    var parts = name.trim().split(/\s+/);
+    return (parts[0][0] + (parts[1] ? parts[1][0] : '')).toUpperCase();
+  }
+  function avatarHTML(name, size){
+    var cls = size==='xs' ? 'h-5 w-5 text-[10px]' : 'h-7 w-7 text-xs';
+    return '<span class="inline-flex '+cls+' shrink-0 items-center justify-center rounded-full bg-slate-700 font-medium text-white" aria-hidden="true">'+initials(name)+'</span>';
+  }
+  function announce(msg){
+    var el = document.getElementById('announcer');
+    el.textContent = '';
+    window.setTimeout(function(){ el.textContent = msg; }, 50);
+  }
+
+  function dueMeta(t){
+    if (t.due) {
+      var days = daysBetween(TODAY, t.due); // positive => overdue, 0 => today, negative => future
+      var dateLabel = fmtDate(t.due);
+      if (days > 0) return { line: 'Due '+dateLabel, cls:'text-red-700 font-medium', badge:{ text:'Overdue '+days+' day'+(days>1?'s':''), tone:'danger' } };
+      if (days === 0) return { line: 'Due '+dateLabel, cls:'text-amber-800 font-medium', badge:{ text:'Due today', tone:'warning' } };
+      if (days >= -2) return { line: 'Due '+dateLabel, cls:'text-amber-800 font-medium', badge:{ text:'Due in '+(-days)+' day'+(-days>1?'s':''), tone:'warning' } };
+      return { line: 'Due '+dateLabel+' · in '+(-days)+' days', cls:'text-slate-600', badge:null };
+    }
+    if (t.status === 'resolved' || t.status === 'closed') {
+      var d2 = t.endedAt ? daysBetween(TODAY, t.endedAt) : 0;
+      var verb = t.status === 'resolved' ? 'Resolved' : 'Closed';
+      return { line: verb+' '+(d2<=0?'today':d2+' day'+(d2>1?'s':'')+' ago'), cls:'text-slate-600', badge:null };
+    }
+    var d3 = daysBetween(TODAY, t.opened);
+    return { line: 'Opened '+(d3<=0?'today':d3+' day'+(d3>1?'s':'')+' ago'), cls:'text-slate-600', badge:null };
+  }
+
+  function dueMetaPlain(t){
+    if (t.due) {
+      var days = daysBetween(TODAY, t.due);
+      var dateLabel = fmtDate(t.due);
+      if (days > 0) return { text: dateLabel+' · Overdue '+days+' day'+(days>1?'s':''), cls:'text-red-700 font-medium' };
+      if (days === 0) return { text: dateLabel+' · Due today', cls:'text-amber-800 font-medium' };
+      if (days >= -2) return { text: dateLabel+' · in '+(-days)+' day'+(-days>1?'s':''), cls:'text-amber-800 font-medium' };
+      return { text: dateLabel+' · in '+(-days)+' days', cls:'text-slate-600' };
+    }
+    return { text: '—', cls:'text-slate-400' };
+  }
+
+  /* ---------- filters ---------- */
+  function filtersActive(){
+    return state.search || state.assignee!=='all' || state.priority!=='all' || state.type!=='all' || state.assignedToMe;
+  }
+  function matchesFilters(t){
+    if (state.search) {
+      var q = state.search.toLowerCase();
+      if (t.code.toLowerCase().indexOf(q)===-1 && t.title.toLowerCase().indexOf(q)===-1) return false;
+    }
+    if (state.assignedToMe) {
+      if (t.assignee !== CURRENT_USER) return false;
+    } else if (state.assignee !== 'all') {
+      if (state.assignee === 'unassigned') { if (t.assignee) return false; }
+      else if (t.assignee !== state.assignee) return false;
+    }
+    if (state.priority !== 'all' && t.priority !== state.priority) return false;
+    if (state.type !== 'all' && t.type !== state.type) return false;
+    return true;
+  }
+  function filteredTickets(){ return TICKETS.filter(matchesFilters); }
+
+  /* ---------- rendering: chips ---------- */
+  function renderChips(){
+    var row = document.getElementById('chipsRow');
+    var chips = [];
+    if (state.search) chips.push({ key:'search', label:'Search: "'+state.search+'"' });
+    if (state.assignedToMe) chips.push({ key:'assignedToMe', label:'Assigned to me' });
+    else if (state.assignee !== 'all') chips.push({ key:'assignee', label:'Assignee: '+(state.assignee==='unassigned'?'Unassigned':state.assignee) });
+    if (state.priority !== 'all') chips.push({ key:'priority', label:'Priority: '+prioDef(state.priority).label });
+    if (state.type !== 'all') chips.push({ key:'type', label:'Type: '+state.type });
+
+    if (!chips.length) { row.hidden = true; row.innerHTML=''; return; }
+    row.hidden = false;
+    row.innerHTML = chips.map(function(c){
+      return '<span class="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-700">'+escapeHtml(c.label)+
+        '<button type="button" class="ml-0.5 rounded-full hover:text-slate-900" aria-label="Remove filter '+escapeHtml(c.label)+'" onclick="removeChip(\''+c.key+'\')">&times;</button></span>';
+    }).join('') + '<button type="button" class="text-xs font-medium text-blue-700 hover:underline" onclick="clearAllFilters()">Clear all</button>';
+  }
+  window.removeChip = function(key){
+    if (key==='search') { state.search=''; document.getElementById('searchInput').value=''; }
+    if (key==='assignedToMe') { state.assignedToMe=false; syncAssignedToMeBtn(); }
+    if (key==='assignee') { state.assignee='all'; document.getElementById('assigneeFilter').value='all'; }
+    if (key==='priority') { state.priority='all'; document.getElementById('priorityFilter').value='all'; }
+    if (key==='type') { state.type='all'; document.getElementById('typeFilter').value='all'; }
+    renderAll();
+  };
+  window.clearAllFilters = function(){
+    state.search=''; state.assignee='all'; state.priority='all'; state.type='all'; state.assignedToMe=false;
+    document.getElementById('searchInput').value='';
+    document.getElementById('assigneeFilter').value='all';
+    document.getElementById('priorityFilter').value='all';
+    document.getElementById('typeFilter').value='all';
+    syncAssignedToMeBtn();
+    renderAll();
+  };
+  function syncAssignedToMeBtn(){
+    var btn = document.getElementById('assignedToMeBtn');
+    btn.setAttribute('aria-pressed', String(state.assignedToMe));
+    btn.className = 'h-8 rounded-md border px-3 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-blue-700 ' +
+      (state.assignedToMe ? 'border-blue-700 bg-blue-50 text-blue-700' : 'border-slate-300 bg-white text-slate-700 hover:bg-slate-50');
+  }
+  window.toggleAssignedToMe = function(){ state.assignedToMe = !state.assignedToMe; syncAssignedToMeBtn(); renderAll(); };
+
+  /* ---------- rendering: board ---------- */
+  function skeletonCard(){
+    return '<li class="animate-pulse rounded-md border border-slate-200 bg-white p-3"><div class="h-3 w-16 rounded bg-slate-200"></div><div class="mt-2 h-4 w-3/4 rounded bg-slate-200"></div><div class="mt-3 h-3 w-1/2 rounded bg-slate-200"></div></li>';
+  }
+  function errorBlockHTML(){
+    return '<div class="flex h-full w-full flex-col items-center justify-center gap-3 py-16 text-center">' +
+      '<p class="text-sm font-medium text-slate-900">Couldn\'t load tickets</p>' +
+      '<p class="text-sm text-slate-600">Something went wrong while loading the board. Your filters were kept.</p>' +
+      '<button type="button" onclick="retryLoad()" class="h-8 rounded-md bg-blue-700 px-3 text-sm font-medium text-white hover:bg-blue-800">Retry</button>' +
+      '</div>';
+  }
+  function noMatchBlockHTML(){
+    return '<div class="flex h-full w-full flex-col items-center justify-center gap-3 py-16 text-center">' +
+      '<p class="text-sm font-medium text-slate-900">No tickets match these filters</p>' +
+      '<button type="button" onclick="clearAllFilters()" class="h-8 rounded-md border border-slate-300 bg-white px-3 text-sm font-medium text-slate-700 hover:bg-slate-50">Clear filters</button>' +
+      '</div>';
+  }
+
+  function sortWithinColumn(list){
+    return list.slice().sort(function(a,b){
+      var pr = prioRank(a.priority) - prioRank(b.priority);
+      if (pr !== 0) return pr;
+      var ad = a.due ? a.due.getTime() : Infinity;
+      var bd = b.due ? b.due.getTime() : Infinity;
+      return ad - bd;
+    });
+  }
+
+  function cardHTML(t){
+    var prio = prioDef(t.priority);
+    var meta = dueMeta(t);
+    var picked = state.picked && state.picked.code === t.code;
+    var ariaLabel = t.code+': '+t.title+'. '+prio.label+' priority. '+(t.assignee ? 'Assigned to '+t.assignee : 'Unassigned')+'. '+meta.line+'.';
+    var menuItems = STATUSES.filter(function(s){ return s.id !== t.status; }).map(function(s){
+      return '<button type="button" role="menuitem" class="block w-full px-3 py-1.5 text-left text-sm text-slate-700 hover:bg-slate-50" onclick="event.stopPropagation(); closeCardMenus(); requestMove(\''+t.code+'\',\''+s.id+'\')">Move to '+s.label+'</button>';
+    }).join('');
+    return '<li class="relative">' +
+      '<div class="card rounded-md border border-slate-200 bg-white p-3 pr-8 hover:border-slate-300 focus:outline-none '+(picked?'pick-target':'focus:ring-2 focus:ring-blue-700 focus:ring-offset-1')+'" tabindex="0" role="button" draggable="true" data-code="'+t.code+'" aria-label="'+escapeHtml(ariaLabel)+'" onclick="handleCardClick(event,\''+t.code+'\')" onkeydown="handleCardKeydown(event,\''+t.code+'\')" ondragstart="handleDragStart(event,\''+t.code+'\')">' +
+        '<div class="flex items-center justify-between gap-2">' +
+          '<span class="text-xs font-medium text-slate-500">'+t.code+'</span>' +
+          '<span class="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium '+TONE[prio.tone]+'">'+prio.label+'</span>' +
+        '</div>' +
+        '<p class="mt-1.5 line-clamp-2 text-sm font-medium text-slate-900" title="'+escapeHtml(t.title)+'">'+escapeHtml(t.title)+'</p>' +
+        '<div class="mt-2 flex items-center justify-between gap-2 text-xs text-slate-600">' +
+          '<span class="flex min-w-0 items-center gap-1.5">' + (t.assignee ? (avatarHTML(t.assignee,'xs') + '<span class="truncate">'+escapeHtml(t.assignee)+'</span>') : '<span class="text-slate-400">Unassigned</span>') + '</span>' +
+          '<span class="tabular-nums whitespace-nowrap '+meta.cls+'">'+meta.line+'</span>' +
+        '</div>' +
+        (meta.badge ? '<div class="mt-2"><span class="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium '+TONE[meta.badge.tone]+'">'+meta.badge.text+'</span></div>' : '') +
+      '</div>' +
+      '<div class="absolute right-1 top-1">' +
+        '<button type="button" class="inline-flex h-6 w-6 items-center justify-center rounded text-slate-500 hover:bg-slate-100 hover:text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-700" aria-haspopup="menu" aria-expanded="false" aria-label="Actions for '+t.code+'" onclick="event.stopPropagation(); toggleCardMenu(event,\''+t.code+'\')">' +
+          '<svg aria-hidden="true" viewBox="0 0 16 16" class="h-4 w-4 fill-current"><circle cx="8" cy="3" r="1.3"/><circle cx="8" cy="8" r="1.3"/><circle cx="8" cy="13" r="1.3"/></svg>' +
+        '</button>' +
+        '<div class="card-menu hidden absolute right-0 z-20 mt-1 w-44 rounded-md border border-slate-200 bg-white py-1 shadow-lg" role="menu" aria-label="Move '+t.code+' to" data-code="'+t.code+'">' + menuItems + '</div>' +
+      '</div>' +
+    '</li>';
+  }
+
+  function columnHTML(status, allOfStatus, filteredOfStatus){
+    var collapsed = status.collapsible && state.collapsedClosed;
+    var countText = filtersActive() ? (filteredOfStatus.length+' of '+allOfStatus.length) : String(allOfStatus.length);
+    var overLimit = status.limit && allOfStatus.length > status.limit;
+    var limitText = status.limit ? (' / '+status.limit) : '';
+    var countCls = overLimit ? 'text-red-700 font-semibold' : 'text-slate-500';
+    var body;
+    if (filteredOfStatus.length === 0) {
+      body = '<li class="px-2 py-6 text-center text-sm text-slate-500">No tickets in '+status.label+'</li>';
+    } else {
+      body = sortWithinColumn(filteredOfStatus).map(cardHTML).join('');
+    }
+    var collapseBtn = status.collapsible ?
+      '<button type="button" class="ml-1 rounded p-0.5 text-slate-500 hover:bg-slate-200 hover:text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-700" aria-label="'+(collapsed?'Expand':'Collapse')+' '+status.label+' column" onclick="toggleCollapseClosed()">' +
+        '<svg aria-hidden="true" viewBox="0 0 16 16" class="h-3.5 w-3.5 fill-none stroke-current stroke-2" style="transform:rotate('+(collapsed?'180deg':'0deg')+')"><path d="M6 3l5 5-5 5" stroke-linecap="round" stroke-linejoin="round"/></svg>' +
+      '</button>' : '';
+    return '<section aria-labelledby="col-'+status.id+'" data-status="'+status.id+'" class="col flex w-[300px] shrink-0 flex-col rounded-md border border-slate-200 bg-slate-50 '+(collapsed?'col-collapsed':'')+'" ondragover="handleDragOver(event)" ondragleave="handleDragLeave(event)" ondrop="handleDrop(event,\''+status.id+'\')">' +
+      '<h2 id="col-'+status.id+'" class="sticky top-0 flex items-center justify-between gap-1 rounded-t-md bg-slate-50 px-3 py-2 text-sm font-medium text-slate-900">' +
+        '<span class="col-title-text flex items-center gap-1">'+status.label+collapseBtn+'</span>' +
+        '<span class="col-sub tabular-nums text-xs '+countCls+'">'+countText+limitText+(overLimit?' · Over limit':'')+'</span>' +
+      '</h2>' +
+      '<ol class="col-body min-h-0 flex-1 space-y-2 overflow-y-auto px-2 pb-2">'+body+'</ol>' +
+    '</section>';
+  }
+
+  function renderBoard(){
+    var region = document.getElementById('boardRegion');
+    if (appState === 'loading') {
+      region.innerHTML = STATUSES.map(function(s){
+        return '<section class="flex w-[300px] shrink-0 flex-col rounded-md border border-slate-200 bg-slate-50"><h2 class="px-3 py-2 text-sm font-medium text-slate-400">'+s.label+'</h2><ol class="flex-1 space-y-2 overflow-y-auto px-2 pb-2">'+skeletonCard()+skeletonCard()+'</ol></section>';
+      }).join('');
+      return;
+    }
+    if (appState === 'error') { region.innerHTML = errorBlockHTML(); return; }
+    var filtered = filteredTickets();
+    if (filtersActive() && filtered.length === 0 && TICKETS.length > 0) { region.innerHTML = noMatchBlockHTML(); return; }
+    region.innerHTML = STATUSES.map(function(s){
+      var all = TICKETS.filter(function(t){ return t.status===s.id; });
+      var flt = filtered.filter(function(t){ return t.status===s.id; });
+      return columnHTML(s, all, flt);
+    }).join('');
+  }
+
+  /* ---------- rendering: list ---------- */
+  function sortForList(list){
+    return list.slice().sort(function(a,b){
+      function key(t){ if (!t.due) return 1e15; return daysBetween(TODAY, t.due) > 0 ? -1e9 + daysBetween(TODAY,t.due) : t.due.getTime(); }
+      return key(a) - key(b);
+    });
+  }
+  function renderList(){
+    var tbody = document.getElementById('listBody');
+    if (appState === 'loading') {
+      tbody.innerHTML = Array.from({length:6}).map(function(){
+        return '<tr class="border-b border-slate-100"><td class="px-3 py-2.5" colspan="7"><div class="h-4 w-full animate-pulse rounded bg-slate-100"></div></td></tr>';
+      }).join('');
+      return;
+    }
+    if (appState === 'error') { tbody.innerHTML = '<tr><td colspan="7" class="p-0">'+errorBlockHTML()+'</td></tr>'; return; }
+    var filtered = filteredTickets();
+    if (filtersActive() && filtered.length === 0 && TICKETS.length > 0) { tbody.innerHTML = '<tr><td colspan="7" class="p-0">'+noMatchBlockHTML()+'</td></tr>'; return; }
+    if (filtered.length === 0) { tbody.innerHTML = '<tr><td colspan="7" class="px-3 py-10 text-center text-sm text-slate-500">No tickets yet.</td></tr>'; return; }
+    var rows = sortForList(filtered);
+    tbody.innerHTML = rows.map(function(t){
+      var s = statusDef(t.status), p = prioDef(t.priority), due = dueMetaPlain(t);
+      return '<tr class="h-10 border-b border-slate-100 hover:bg-slate-50">' +
+        '<td class="px-3 py-2.5"><a href="?view=list&amp;ticket='+t.code+'" class="font-medium text-blue-700 hover:underline" onclick="event.preventDefault(); openTicket(\''+t.code+'\')">'+t.code+'</a></td>' +
+        '<td class="max-w-xs truncate px-3 py-2.5 text-slate-900" title="'+escapeHtml(t.title)+'">'+escapeHtml(t.title)+'</td>' +
+        '<td class="px-3 py-2.5"><span class="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium '+TONE[s.tone]+'">'+s.label+'</span></td>' +
+        '<td class="px-3 py-2.5"><span class="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium '+TONE[p.tone]+'">'+p.label+'</span></td>' +
+        '<td class="px-3 py-2.5 text-slate-700">' + (t.assignee ? t.assignee : '<span class="text-slate-400">Unassigned</span>') + '</td>' +
+        '<td class="px-3 py-2.5 tabular-nums '+due.cls+'">'+due.text+'</td>' +
+        '<td class="px-3 py-2.5 text-slate-700">'+t.type+'</td>' +
+      '</tr>';
+    }).join('');
+  }
+
+  /* ---------- view switching ---------- */
+  window.setView = function(view){
+    state.view = view;
+    document.getElementById('boardView').hidden = view !== 'board';
+    document.getElementById('listView').hidden = view !== 'list';
+    var b = document.getElementById('viewBoardBtn'), l = document.getElementById('viewListBtn');
+    b.setAttribute('aria-pressed', String(view==='board'));
+    l.setAttribute('aria-pressed', String(view==='list'));
+    b.className = 'h-7 rounded-sm px-3 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-blue-700 ' + (view==='board' ? 'bg-slate-100 text-slate-900' : 'text-slate-600 hover:text-slate-900');
+    l.className = 'h-7 rounded-sm px-3 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-blue-700 ' + (view==='list' ? 'bg-slate-100 text-slate-900' : 'text-slate-600 hover:text-slate-900');
+    updateUrl();
+    renderAll();
+  };
+
+  function updateUrl(){
+    var params = new URLSearchParams(location.search);
+    if (state.view === 'list') params.set('view','list'); else params.delete('view');
+    var qs = params.toString();
+    history.replaceState(null, '', location.pathname + (qs ? '?'+qs : '') + (state.openTicket ? '' : ''));
+  }
+
+  /* ---------- card interactions ---------- */
+  window.handleCardClick = function(ev, code){ openTicket(code); };
+  window.handleCardKeydown = function(ev, code){
+    var picked = state.picked && state.picked.code === code;
+    if (ev.key === 'Enter' && !state.picked) { ev.preventDefault(); openTicket(code); return; }
+    if (ev.key === ' ') {
+      ev.preventDefault();
+      if (!state.picked) { pickUp(code); }
+      else if (picked) { dropPicked(); }
+      return;
+    }
+    if (picked && ev.key === 'ArrowRight') { ev.preventDefault(); movePickTarget(1); return; }
+    if (picked && ev.key === 'ArrowLeft') { ev.preventDefault(); movePickTarget(-1); return; }
+    if (picked && ev.key === 'Escape') { ev.preventDefault(); cancelPick(); return; }
+  };
+
+  function pickUp(code){
+    var t = byCode(code);
+    var idx = STATUSES.map(function(s){return s.id;}).indexOf(t.status);
+    state.picked = { code: code, targetIndex: idx };
+    highlightPick();
+    announce('Picked up '+t.code+'. '+STATUSES[idx].label+', position '+(idx+1)+' of '+STATUSES.length+'. Use arrow keys to choose a column, space to drop, escape to cancel.');
+  }
+  function movePickTarget(delta){
+    var next = Math.min(STATUSES.length-1, Math.max(0, state.picked.targetIndex + delta));
+    state.picked.targetIndex = next;
+    highlightPick();
+    announce(STATUSES[next].label + ', position '+(next+1)+' of '+STATUSES.length+'.');
+  }
+  function cancelPick(){
+    state.picked = null;
+    highlightPick();
+    announce('Move cancelled.');
+  }
+  function dropPicked(){
+    var code = state.picked.code;
+    var toStatus = STATUSES[state.picked.targetIndex].id;
+    var t = byCode(code);
+    if (toStatus === t.status) { cancelPick(); return; }
+    requestMove(code, toStatus);
+  }
+  function highlightPick(){
+    var sections = document.querySelectorAll('.col');
+    sections.forEach(function(sec){ sec.classList.remove('col-drop-target'); });
+    if (state.picked) {
+      var targetId = STATUSES[state.picked.targetIndex].id;
+      var sec = document.querySelector('.col[data-status="'+targetId+'"]');
+      if (sec) sec.classList.add('col-drop-target');
+    }
+    renderBoard();
+    var el = document.querySelector('.card[data-code="'+(state.picked?state.picked.code:'')+'"]');
+    if (el) el.focus();
+    if (state.picked) {
+      var sec2 = document.querySelector('.col[data-status="'+STATUSES[state.picked.targetIndex].id+'"]');
+      if (sec2) sec2.classList.add('col-drop-target');
+    }
+  }
+
+  /* ---------- card menu ---------- */
+  window.toggleCardMenu = function(ev, code){
+    var allMenus = document.querySelectorAll('.card-menu');
+    allMenus.forEach(function(m){
+      if (m.getAttribute('data-code') !== code) { m.classList.add('hidden'); }
+    });
+    var menu = document.querySelector('.card-menu[data-code="'+code+'"]');
+    var btn = ev.currentTarget;
+    var willOpen = menu.classList.contains('hidden');
+    menu.classList.toggle('hidden');
+    btn.setAttribute('aria-expanded', String(willOpen));
+  };
+  window.closeCardMenus = function(){
+    document.querySelectorAll('.card-menu').forEach(function(m){ m.classList.add('hidden'); });
+  };
+  document.addEventListener('click', function(){ closeCardMenus(); });
+
+  /* ---------- drag and drop ---------- */
+  var dragCode = null;
+  window.handleDragStart = function(ev, code){ dragCode = code; ev.dataTransfer.setData('text/plain', code); };
+  window.handleDragOver = function(ev){ ev.preventDefault(); ev.currentTarget.classList.add('col-drop-target'); };
+  window.handleDragLeave = function(ev){ ev.currentTarget.classList.remove('col-drop-target'); };
+  window.handleDrop = function(ev, statusId){
+    ev.preventDefault();
+    ev.currentTarget.classList.remove('col-drop-target');
+    var code = ev.dataTransfer.getData('text/plain') || dragCode;
+    if (!code) return;
+    var t = byCode(code);
+    if (t && t.status !== statusId) requestMove(code, statusId);
+    dragCode = null;
+  };
+
+  /* ---------- moves ---------- */
+  window.toggleCollapseClosed = function(){ state.collapsedClosed = !state.collapsedClosed; renderBoard(); };
+
+  window.requestMove = function(code, toStatus){
+    var t = byCode(code);
+    if (!t || t.status === toStatus) { state.picked = null; return; }
+    if (toStatus === 'resolved') {
+      pendingMove = { code: code, toStatus: toStatus };
+      document.getElementById('resolutionNote').value = '';
+      document.getElementById('resolutionNoteError').hidden = true;
+      document.getElementById('transitionBackdrop').hidden = false;
+      document.getElementById('resolutionNote').focus();
+      return;
+    }
+    performMove(code, toStatus, {});
+  };
+  window.cancelTransition = function(){
+    document.getElementById('transitionBackdrop').hidden = true;
+    pendingMove = null;
+    state.picked = null;
+    renderBoard();
+  };
+  window.confirmTransition = function(){
+    var note = document.getElementById('resolutionNote').value.trim();
+    if (!note) { document.getElementById('resolutionNoteError').hidden = false; document.getElementById('resolutionNote').focus(); return; }
+    document.getElementById('transitionBackdrop').hidden = true;
+    var move = pendingMove; pendingMove = null;
+    performMove(move.code, move.toStatus, { resolutionNote: note, endedAt: new Date() });
+  };
+  document.getElementById('transitionBackdrop').addEventListener('keydown', function(ev){
+    if (ev.key === 'Escape') cancelTransition();
+  });
+
+  function performMove(code, toStatus, extra){
+    var t = byCode(code);
+    var prevStatus = t.status;
+    var prevExtra = { endedAt: t.endedAt, resolutionNote: t.resolutionNote };
+    t.status = toStatus;
+    Object.assign(t, extra);
+    state.picked = null;
+    renderAll();
+    var el = document.querySelector('.card[data-code="'+code+'"]');
+    if (el) el.focus();
+    announce(code+' moved to '+statusLabel(toStatus)+'.');
+    showUndoToast(code, prevStatus, prevExtra, toStatus);
+    if (state.openTicket === code) renderPanel();
+  }
+
+  /* ---------- toast + undo ---------- */
+  function showUndoToast(code, prevStatus, prevExtra, toStatus){
+    var region = document.getElementById('toastRegion');
+    region.innerHTML = '';
+    var toast = document.createElement('div');
+    toast.className = 'flex items-center gap-3 rounded-md border border-slate-200 bg-slate-900 px-4 py-2.5 text-sm text-white shadow-lg';
+    toast.setAttribute('role','status');
+    toast.innerHTML = '<span>'+code+' moved to '+statusLabel(toStatus)+'</span><button type="button" class="font-medium text-blue-300 hover:text-blue-200">Undo</button>';
+    toast.querySelector('button').addEventListener('click', function(){
+      var t = byCode(code);
+      t.status = prevStatus;
+      Object.assign(t, prevExtra);
+      window.clearTimeout(undoTimer);
+      region.innerHTML = '';
+      announce(code+' moved back to '+statusLabel(prevStatus)+'.');
+      renderAll();
+      if (state.openTicket === code) renderPanel();
+    });
+    region.appendChild(toast);
+    window.clearTimeout(undoTimer);
+    undoTimer = window.setTimeout(function(){ if (region.contains(toast)) region.removeChild(toast); }, 5000);
+  }
+
+  /* ---------- side panel: ticket details ---------- */
+  function activityFor(t){
+    var entries = [{ at: t.opened, who: t.reporter, text: 'Ticket created' }];
+    if (t.assignee) entries.push({ at: t.opened, who: 'System', text: 'Assigned to '+t.assignee });
+    if (t.resolutionNote) entries.push({ at: t.endedAt || t.opened, who: t.assignee || '—', text: 'Marked '+statusLabel(t.status)+' — '+t.resolutionNote });
+    else if (t.status === 'closed') entries.push({ at: t.endedAt || t.opened, who: t.assignee || '—', text: 'Ticket closed' });
+    entries.sort(function(a,b){ return a.at - b.at; });
+    return entries;
+  }
+  function fmtDateTime(d){
+    var hh = String(d.getHours()).padStart(2,'0'), mm = String(d.getMinutes()).padStart(2,'0');
+    return fmtDate(d) + ' ' + hh + ':' + mm;
+  }
+
+  function renderPanelView(t){
+    var s = statusDef(t.status), p = prioDef(t.priority);
+    var statusOptions = STATUSES.map(function(st){ return '<option value="'+st.id+'" '+(st.id===t.status?'selected':'')+'>'+st.label+'</option>'; }).join('');
+    var activity = activityFor(t).map(function(e){
+      return '<li class="flex gap-3 text-sm"><span class="w-32 shrink-0 tabular-nums text-slate-500">'+fmtDateTime(e.at)+'</span><span class="text-slate-700"><span class="font-medium text-slate-900">'+escapeHtml(e.who||'—')+'</span> — '+escapeHtml(e.text)+'</span></li>';
+    }).join('');
+    return (
+    '<div class="flex items-center justify-between gap-3 border-b border-slate-200 px-4 py-3">' +
+      '<div class="min-w-0">' +
+        '<p class="text-xs font-medium text-slate-500">'+t.code+'</p>' +
+        '<h2 id="panelTitle" class="truncate text-base font-semibold text-slate-900">'+escapeHtml(t.title)+'</h2>' +
+      '</div>' +
+      '<button type="button" class="rounded p-1.5 text-slate-500 hover:bg-slate-100 hover:text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-700" aria-label="Close ticket details" onclick="closePanel()">' +
+        '<svg aria-hidden="true" viewBox="0 0 16 16" class="h-5 w-5 fill-none stroke-current stroke-2"><path d="M4 4l8 8M12 4l-8 8" stroke-linecap="round"/></svg>' +
+      '</button>' +
+    '</div>' +
+    '<div class="min-h-0 flex-1 overflow-y-auto px-4 py-4">' +
+      '<div class="flex flex-wrap items-center gap-2">' +
+        '<span class="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium '+TONE[s.tone]+'">'+s.label+'</span>' +
+        '<span class="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium '+TONE[p.tone]+'">'+p.label+' priority</span>' +
+      '</div>' +
+      '<dl class="mt-4 grid grid-cols-2 gap-4 text-sm">' +
+        '<div><dt class="text-xs font-medium text-slate-500">Type</dt><dd class="mt-0.5 text-slate-900">'+t.type+'</dd></div>' +
+        '<div><dt class="text-xs font-medium text-slate-500">Reporter</dt><dd class="mt-0.5 text-slate-900">'+escapeHtml(t.reporter)+'</dd></div>' +
+        '<div><dt class="text-xs font-medium text-slate-500">Assignee</dt><dd class="mt-0.5 flex items-center gap-1.5 text-slate-900">'+(t.assignee ? avatarHTML(t.assignee,'xs')+escapeHtml(t.assignee) : '<span class="text-slate-400">Unassigned</span>')+'</dd></div>' +
+        '<div><dt class="text-xs font-medium text-slate-500">Opened</dt><dd class="mt-0.5 text-slate-900">'+fmtDate(t.opened)+'</dd></div>' +
+        '<div class="col-span-2"><dt class="text-xs font-medium text-slate-500">Due date</dt><dd class="mt-0.5 tabular-nums '+dueMeta(t).cls+'">'+ (t.due ? dueMeta(t).line : '—') +'</dd></div>' +
+      '</dl>' +
+      '<div class="mt-4">' +
+        '<label for="panelStatusSelect" class="block text-xs font-medium text-slate-500">Status</label>' +
+        '<select id="panelStatusSelect" class="mt-1 h-8 w-full rounded-md border border-slate-300 bg-white px-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-700" onchange="handlePanelStatusChange(this)">'+statusOptions+'</select>' +
+      '</div>' +
+      (t.resolutionNote ? '<div class="mt-4 rounded-md border border-slate-200 bg-slate-50 p-3"><p class="text-xs font-medium text-slate-500">Resolution note</p><p class="mt-1 text-sm text-slate-700">'+escapeHtml(t.resolutionNote)+'</p></div>' : '') +
+      '<div class="mt-6">' +
+        '<h3 class="text-xs font-medium uppercase tracking-wide text-slate-500" style="letter-spacing:normal; text-transform:none;">Activity</h3>' +
+        '<ul class="mt-2 space-y-2">'+activity+'</ul>' +
+      '</div>' +
+    '</div>'
+    );
+  }
+
+  window.handlePanelStatusChange = function(sel){
+    var code = state.openTicket;
+    var toStatus = sel.value;
+    var t = byCode(code);
+    if (toStatus === t.status) return;
+    requestMove(code, toStatus);
+    sel.value = t.status;
+  };
+
+  function renderPanelCreate(){
+    var typeOptions = TYPES.map(function(ty){ return '<option value="'+ty+'">'+ty+'</option>'; }).join('');
+    var prioOptions = PRIORITIES.map(function(p){ return '<option value="'+p.id+'">'+p.label+'</option>'; }).join('');
+    var assigneeOptions = '<option value="">Unassigned</option>' + PEOPLE.map(function(p){ return '<option value="'+p+'">'+p+'</option>'; }).join('');
+    return (
+    '<div class="flex items-center justify-between gap-3 border-b border-slate-200 px-4 py-3">' +
+      '<h2 id="panelTitle" class="text-base font-semibold text-slate-900">Create ticket</h2>' +
+      '<button type="button" class="rounded p-1.5 text-slate-500 hover:bg-slate-100 hover:text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-700" aria-label="Close" onclick="closePanel()">' +
+        '<svg aria-hidden="true" viewBox="0 0 16 16" class="h-5 w-5 fill-none stroke-current stroke-2"><path d="M4 4l8 8M12 4l-8 8" stroke-linecap="round"/></svg>' +
+      '</button>' +
+    '</div>' +
+    '<div class="min-h-0 flex-1 overflow-y-auto px-4 py-4">' +
+      '<div id="createErrorSummary" hidden class="mb-4 rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-800">' +
+        '<p class="font-medium">Fix these before creating the ticket:</p>' +
+        '<ul id="createErrorList" class="mt-1 list-inside list-disc"></ul>' +
+      '</div>' +
+      '<div class="space-y-4">' +
+        '<div>' +
+          '<label for="fTitle" class="block text-sm font-medium text-slate-700">Title <span class="text-red-700">*</span></label>' +
+          '<input id="fTitle" type="text" class="mt-1 h-8 w-full rounded-md border border-slate-300 px-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-700" placeholder="e.g. Can\'t connect to office Wi-Fi">' +
+          '<p id="fTitleError" hidden class="mt-1 text-sm text-red-700">Enter a title.</p>' +
+        '</div>' +
+        '<div>' +
+          '<label for="fType" class="block text-sm font-medium text-slate-700">Type <span class="text-red-700">*</span></label>' +
+          '<select id="fType" class="mt-1 h-8 w-full rounded-md border border-slate-300 bg-white px-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-700"><option value="">Select a type</option>'+typeOptions+'</select>' +
+          '<p id="fTypeError" hidden class="mt-1 text-sm text-red-700">Select a type.</p>' +
+        '</div>' +
+        '<div>' +
+          '<label for="fPriority" class="block text-sm font-medium text-slate-700">Priority <span class="text-red-700">*</span></label>' +
+          '<select id="fPriority" class="mt-1 h-8 w-full rounded-md border border-slate-300 bg-white px-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-700"><option value="">Select a priority</option>'+prioOptions+'</select>' +
+          '<p id="fPriorityError" hidden class="mt-1 text-sm text-red-700">Select a priority.</p>' +
+        '</div>' +
+        '<div>' +
+          '<label for="fAssignee" class="block text-sm font-medium text-slate-700">Assignee</label>' +
+          '<select id="fAssignee" class="mt-1 h-8 w-full rounded-md border border-slate-300 bg-white px-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-700">'+assigneeOptions+'</select>' +
+        '</div>' +
+        '<div>' +
+          '<label for="fDue" class="block text-sm font-medium text-slate-700">Due date</label>' +
+          '<input id="fDue" type="date" class="mt-1 h-8 w-full rounded-md border border-slate-300 px-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-700">' +
+        '</div>' +
+        '<div>' +
+          '<label for="fDesc" class="block text-sm font-medium text-slate-700">Description</label>' +
+          '<textarea id="fDesc" rows="4" class="mt-1 w-full rounded-md border border-slate-300 px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-700"></textarea>' +
+        '</div>' +
+      '</div>' +
+    '</div>' +
+    '<div class="sticky bottom-0 flex justify-end gap-2 border-t border-slate-200 bg-white px-4 py-3">' +
+      '<button type="button" onclick="closePanel()" class="h-8 rounded-md border border-slate-300 bg-white px-3 text-sm font-medium text-slate-700 hover:bg-slate-50">Cancel</button>' +
+      '<button type="button" onclick="submitCreateTicket()" class="h-8 rounded-md bg-blue-700 px-3 text-sm font-medium text-white hover:bg-blue-800">Create ticket</button>' +
+    '</div>'
+    );
+  }
+
+  window.submitCreateTicket = function(){
+    var title = document.getElementById('fTitle').value.trim();
+    var type = document.getElementById('fType').value;
+    var priority = document.getElementById('fPriority').value;
+    var errors = [];
+    ['fTitleError','fTypeError','fPriorityError'].forEach(function(id){ document.getElementById(id).hidden = true; });
+    if (!title) errors.push({ field:'fTitle', label:'Title' });
+    if (!type) errors.push({ field:'fType', label:'Type' });
+    if (!priority) errors.push({ field:'fPriority', label:'Priority' });
+
+    var summary = document.getElementById('createErrorSummary');
+    if (errors.length >= 3) {
+      document.getElementById('createErrorList').innerHTML = errors.map(function(e){ return '<li><a href="#'+e.field+'" class="text-red-800 underline" onclick="event.preventDefault(); document.getElementById(\''+e.field+'\').focus();">'+e.label+'</a></li>'; }).join('');
+      summary.hidden = false;
+    } else {
+      summary.hidden = true;
+    }
+    errors.forEach(function(e){ document.getElementById(e.field+'Error').hidden = false; });
+    if (errors.length) { document.getElementById(errors[0].field).focus(); return; }
+
+    var assignee = document.getElementById('fAssignee').value || null;
+    var dueVal = document.getElementById('fDue').value;
+    var desc = document.getElementById('fDesc').value.trim();
+    var maxNum = Math.max.apply(null, TICKETS.map(function(t){ return parseInt(t.code.split('-')[1],10); }));
+    var code = 'IT-'+(maxNum+1);
+    var newTicket = {
+      code: code, title: title, status: 'new', priority: priority, type: type,
+      assignee: assignee, due: dueVal ? new Date(dueVal+'T00:00:00') : null,
+      opened: new Date(), reporter: CURRENT_USER, endedAt: null, resolutionNote: null, description: desc
+    };
+    TICKETS.unshift(newTicket);
+    closePanel();
+    renderAll();
+    announce('Ticket '+code+' created.');
+    showCreatedToast(code);
+  };
+
+  function showCreatedToast(code){
+    var region = document.getElementById('toastRegion');
+    region.innerHTML = '';
+    var toast = document.createElement('div');
+    toast.className = 'flex items-center gap-3 rounded-md border border-slate-200 bg-slate-900 px-4 py-2.5 text-sm text-white shadow-lg';
+    toast.setAttribute('role','status');
+    toast.innerHTML = '<span>Ticket '+code+' created</span>';
+    region.appendChild(toast);
+    window.setTimeout(function(){ if (region.contains(toast)) region.removeChild(toast); }, 4000);
+  }
+
+  function renderPanel(){
+    var content = document.getElementById('panelContent');
+    if (state.panelMode === 'create') { content.innerHTML = renderPanelCreate(); return; }
+    if (state.panelMode === 'view' && state.openTicket) {
+      var t = byCode(state.openTicket);
+      if (t) content.innerHTML = renderPanelView(t);
+    }
+  }
+
+  window.openTicket = function(code){
+    state.openTicket = code;
+    state.panelMode = 'view';
+    renderPanel();
+    openPanelEl();
+    var params = new URLSearchParams(location.search);
+    params.set('ticket', code);
+    if (state.view === 'list') params.set('view','list'); else params.delete('view');
+    history.pushState({ ticket: code }, '', location.pathname + '?' + params.toString());
+  };
+  window.openCreatePanel = function(){
+    state.openTicket = null;
+    state.panelMode = 'create';
+    renderPanel();
+    openPanelEl();
+  };
+  window.closePanel = function(){
+    closePanelEl();
+    state.openTicket = null;
+    state.panelMode = null;
+    var params = new URLSearchParams(location.search);
+    params.delete('ticket');
+    var qs = params.toString();
+    history.pushState(null, '', location.pathname + (qs?'?'+qs:''));
+  };
+  function openPanelEl(){
+    var panel = document.getElementById('panel'), backdrop = document.getElementById('panelBackdrop');
+    panel.hidden = false; backdrop.hidden = false;
+    requestAnimationFrame(function(){ panel.classList.remove('translate-x-full'); });
+    var closeBtn = panel.querySelector('button[aria-label^="Close"]');
+    if (closeBtn) closeBtn.focus();
+  }
+  function closePanelEl(){
+    var panel = document.getElementById('panel'), backdrop = document.getElementById('panelBackdrop');
+    panel.classList.add('translate-x-full');
+    backdrop.hidden = true;
+    window.setTimeout(function(){ panel.hidden = true; }, 200);
+  }
+  document.addEventListener('keydown', function(ev){
+    if (ev.key === 'Escape') {
+      if (!document.getElementById('transitionBackdrop').hidden) { cancelTransition(); return; }
+      if (!document.getElementById('panel').hidden) { closePanel(); return; }
+    }
+  });
+
+  window.addEventListener('popstate', function(){
+    var params = new URLSearchParams(location.search);
+    var ticket = params.get('ticket');
+    var view = params.get('view') === 'list' ? 'list' : 'board';
+    if (view !== state.view) window.setView(view);
+    if (ticket) { state.openTicket = ticket; state.panelMode = 'view'; renderPanel(); openPanelEl(); }
+    else { closePanelEl(); state.openTicket = null; state.panelMode = null; }
+  });
+
+  /* ---------- error/retry ---------- */
+  window.retryLoad = function(){
+    appState = 'loading';
+    renderAll();
+    window.setTimeout(function(){ appState = 'ready'; renderAll(); }, 500);
+  };
+
+  /* ---------- init ---------- */
+  function populateSelects(){
+    var assigneeSel = document.getElementById('assigneeFilter');
+    PEOPLE.forEach(function(p){ var o = document.createElement('option'); o.value = p; o.textContent = p; assigneeSel.appendChild(o); });
+    var prioritySel = document.getElementById('priorityFilter');
+    PRIORITIES.forEach(function(p){ var o = document.createElement('option'); o.value = p.id; o.textContent = p.label; prioritySel.appendChild(o); });
+    var typeSel = document.getElementById('typeFilter');
+    TYPES.forEach(function(ty){ var o = document.createElement('option'); o.value = ty; o.textContent = ty; typeSel.appendChild(o); });
+  }
+
+  function renderAll(){
+    renderChips();
+    renderBoard();
+    renderList();
+  }
+
+  document.getElementById('searchInput').addEventListener('input', function(ev){ state.search = ev.target.value.trim(); renderAll(); });
+  document.getElementById('assigneeFilter').addEventListener('change', function(ev){ state.assignee = ev.target.value; renderAll(); });
+  document.getElementById('priorityFilter').addEventListener('change', function(ev){ state.priority = ev.target.value; renderAll(); });
+  document.getElementById('typeFilter').addEventListener('change', function(ev){ state.type = ev.target.value; renderAll(); });
+
+  populateSelects();
+
+  var initParams = new URLSearchParams(location.search);
+  var urlState = initParams.get('state');
+  var initView = initParams.get('view') === 'list' ? 'list' : 'board';
+  var initTicket = initParams.get('ticket');
+
+  if (initView === 'list') window.setView('list'); else window.setView('board');
+
+  if (urlState === 'loading') { appState = 'loading'; renderAll(); }
+  else if (urlState === 'error') { appState = 'error'; renderAll(); }
+  else if (urlState === 'empty') { appState = 'ready'; TICKETS = []; renderAll(); }
+  else {
+    appState = 'loading'; renderAll();
+    window.setTimeout(function(){ appState = 'ready'; renderAll(); if (initTicket && byCode(initTicket)) { window.openTicket(initTicket); } }, 500);
+  }
+
+})();
+</script>
+</body>
+</html>

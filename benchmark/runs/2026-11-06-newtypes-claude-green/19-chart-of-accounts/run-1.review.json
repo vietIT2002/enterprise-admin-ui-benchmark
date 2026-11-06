@@ -1,0 +1,55 @@
+{
+  "brief": "19-chart-of-accounts",
+  "run": 1,
+  "items": [
+    {
+      "item": "The hierarchy expands and collapses with indentation, and uses tree semantics (`role=\"tree\"`/`treeitem` with `aria-expanded` and `aria-level`, or a `treegrid`)",
+      "pass": true,
+      "evidence": "#tree-body has role=\"tree\"; each row is role=\"treeitem\" with aria-level=\"<depth+1>\", aria-expanded on parent rows, aria-selected, and children wrapped in role=\"group\"; indentation via inline style=\"padding-left:<depth*20+8>px\" in treeRowHtml()."
+    },
+    {
+      "item": "Keyboard: arrow keys move, expand and collapse, Home and End jump, and a search reveals matching accounts together with their parents",
+      "pass": false,
+      "evidence": "tree-body keydown handler only implements ArrowDown/ArrowUp/ArrowRight/ArrowLeft/Enter/Space (lines ~944-955); there is no 'Home' or 'End' case, so Home/End do not jump to first/last row. Search does correctly reveal parents of matches via subtreeHasMatch()+forceExpand, but the missing Home/End support fails this combined requirement."
+    },
+    {
+      "item": "Each row shows the account code and name, balances are right-aligned in tabular figures, and a parent's balance equals the sum of its children",
+      "pass": true,
+      "evidence": "treeRowHtml renders '<span ...font-mono...>'+code+'</span>' and a name span, plus '<span class=\"ml-2 w-28 shrink-0 text-right tabular-nums ...\">'+formatAmount(node.balance); rollup(node) sums node.children balances into node.balance for header accounts (e.g. Assets shows 1,200,740.87 = sum of Current/Fixed/Other Assets in screenshot)."
+    },
+    {
+      "item": "Selecting an account shows its details on the right without losing the tree's scroll position or expanded state, and the selection is kept in the URL",
+      "pass": false,
+      "evidence": "selectAccount() only sets state.selectedId and calls renderAll() (expanded Set untouched, so expanded state and scroll are preserved), but there is no history.pushState/replaceState or URL update anywhere in the script — getUrlState() only reads a 'state' query param for loading/empty/error, never a selected account id, so selection is not reflected in the URL."
+    },
+    {
+      "item": "Expand all and collapse all are available, and the expanded state survives a reload",
+      "pass": false,
+      "evidence": "#btn-expand-all and #btn-collapse-all exist and work (lines 1014-1018), but expanded state is only kept in an in-memory `state.expanded` Set with no localStorage/sessionStorage/URL persistence anywhere in the file, so a reload resets to the hardcoded initExpanded() defaults."
+    },
+    {
+      "item": "Deactivating or deleting an account that has a balance or child accounts is blocked or explained, not silently allowed",
+      "pass": true,
+      "evidence": "canArchive(node) returns {ok:false, reason:'This account has sub-accounts...'} or {ok:false, reason:'...non-zero balance and can’t be archived.'}; the Archive button is rendered with disabled + title=<reason> + aria-disabled=\"true\" when archiveCheck.ok is false (line 856-857)."
+    },
+    {
+      "item": "The detail panel shows the selected account's path (such as \"Assets / Current assets / Cash\")",
+      "pass": true,
+      "evidence": "breadcrumbTrail(node) joins ancestorsOf(node.id) names with ' / ' and renders them above the account title; screenshot shows 'Assets / Current Assets / Cash and Cash Equivalents' above 'Operating Bank Account – Chase Checking'."
+    },
+    {
+      "item": "A search with no match shows a no-results state, and loading and an error with retry are present",
+      "pass": true,
+      "evidence": "renderTree(): when filtered html is empty, shows 'No accounts match these filters' with a Clear filters button; screenState==='loading' renders animated skeleton rows with aria-busy; screenState==='error' renders 'Couldn’t load the chart of accounts' with a #btn-retry button wired to reload."
+    },
+    {
+      "item": "Rows are single-line, and long account names truncate with the full name available",
+      "pass": false,
+      "evidence": "Rows are fixed h-9 single-line and the name span uses class 'truncate' (e.g. 'Operating Bank Acc…' clipped in screenshot), but no title attribute or tooltip exposes the full name anywhere in treeRowHtml — grepping the file for 'title=' on the name span/row finds none, so truncated names have no way to be read in full."
+    }
+  ],
+  "tells": [
+    "card-in-card"
+  ],
+  "notes": "card-in-card: the detail panel (itself a bg-card bordered section) nests a second bordered/bg-slate-50 box for the balance block (line 798: '<div class=\"rounded-md border border-border bg-slate-50 p-4\">'). No other template tells observed — no gradients, glass, greeting header, KPI icon tiles, emoji icons, rainbow status badges, sidebar promo card, decorative chart, oversized radius, or navy/indigo sidebar; the sidebar is light slate (#f8fafc) with a blue-700 accent and the avatar 'AT' represents the actual logged-in person (Alex Tran), not a non-person entity. Automated audit score 90/100 with only a minor text-contrast violation unrelated to this checklist."
+}

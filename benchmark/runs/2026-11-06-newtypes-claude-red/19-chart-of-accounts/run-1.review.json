@@ -1,0 +1,59 @@
+{
+  "brief": "19-chart-of-accounts",
+  "run": 1,
+  "items": [
+    {
+      "item": "The hierarchy expands and collapses with indentation, and uses tree semantics (`role=\"tree\"`/`treeitem` with `aria-expanded` and `aria-level`, or a `treegrid`)",
+      "pass": false,
+      "evidence": "Tree rows are plain `<div onclick=\"selectAccount(...)\">` elements inside `<div id=\"tree\">` (run-1.html:65, 291-306); indentation is done via inline `style=\"padding-left:${indent}px\"` and expand/collapse works via `toggleExpand()`, but there is no `role=\"tree\"`, `role=\"treeitem\"`, `aria-expanded`, or `aria-level` anywhere in the markup or script."
+    },
+    {
+      "item": "Keyboard: arrow keys move, expand and collapse, Home and End jump, and a search reveals matching accounts together with their parents",
+      "pass": false,
+      "evidence": "No `keydown`/`keyup` handlers exist anywhere in the script — only `onclick` (toggleExpand, selectAccount) and `oninput` (onSearchInput, run-1.html:56) are wired up. Search does correctly reveal matched accounts with ancestors via `subtreeHasMatch`/`childList` (run-1.html:259-270), but there is no arrow-key, Home/End keyboard navigation at all."
+    },
+    {
+      "item": "Each row shows the account code and name, balances are right-aligned in tabular figures, and a parent's balance equals the sum of its children",
+      "pass": true,
+      "evidence": "Row markup shows `${a.id}` and `${a.name}` (run-1.html:296-297) with balance in a right-side flex block using `.tnum` (font-variant-numeric: tabular-nums, run-1.html:13, 300-301). `computeBalance()` recursively sums `childrenOf(id)` for header rows (run-1.html:171-178); e.g. Cash and Cash Equivalents ($477,550.32) = sum of 1111–1115 shown in the screenshot."
+    },
+    {
+      "item": "Selecting an account shows its details on the right without losing the tree's scroll position or expanded state, and the selection is kept in the URL",
+      "pass": false,
+      "evidence": "`selectAccount(id)` sets `selectedId` and re-renders detail (run-1.html:343); expanded state persists via the module-level `expanded` Set. However there is no `location.hash`, `history.pushState`, or `URLSearchParams` usage anywhere in the script — the selected account is never reflected in the URL, so a reload or shared link cannot restore the selection."
+    },
+    {
+      "item": "Expand all and collapse all are available, and the expanded state survives a reload",
+      "pass": false,
+      "evidence": "No 'Expand all' / 'Collapse all' control exists in the header, tree panel, or script (only per-node `toggleExpand()` at run-1.html:336-340). Expanded state is held only in an in-memory `Set` (run-1.html:246) with no `localStorage`/URL persistence, so it resets to the default (headers expanded) on every reload."
+    },
+    {
+      "item": "Deactivating or deleting an account that has a balance or child accounts is blocked or explained, not silently allowed",
+      "pass": false,
+      "evidence": "No deactivate or delete action exists anywhere in the UI. The only account-level actions are the disabled 'Export' and 'New Account' buttons, both marked `title=\"... is unavailable in this preview\"` (run-1.html:32-39); there is no per-row or detail-panel control to deactivate/delete an account, so the guard this item asks for cannot be exercised."
+    },
+    {
+      "item": "The detail panel shows the selected account's path (such as \"Assets / Current assets / Cash\")",
+      "pass": true,
+      "evidence": "`breadcrumbHtml()` renders `[...ancestorsOf(a.id), a]` joined with '/' separators (run-1.html:391-398); screenshot shows 'Assets / Current Assets / Cash and Cash Equivalents / Operating Checking — Bank of America'."
+    },
+    {
+      "item": "A search with no match shows a no-results state, and loading and an error with retry are present",
+      "pass": false,
+      "evidence": "No-results state exists: `renderTree()` shows 'No accounts match your search.' when `roots.length` is 0 (run-1.html:312-314). But the page has no loading state and no error/retry state anywhere — data is a static in-memory `ACCOUNTS` array rendered synchronously with no fetch, spinner, or error branch in the script."
+    },
+    {
+      "item": "Rows are single-line, and long account names truncate with the full name available",
+      "pass": false,
+      "evidence": "Rows are single-line (audit metrics: rows.single=7, rows.multi=0) and names use `class=\"truncate ...\"` (run-1.html:297), e.g. 'Operating Checking — Bank o…' and 'Payroll Checking — First Nation…' in the screenshot. But the truncated name span carries no `title` attribute or other tooltip, so the full name isn't available on hover — it only becomes visible if the user selects the row and reads the (non-truncated) detail-panel header."
+    }
+  ],
+  "tells": [
+    "gradient",
+    "tracked-uppercase-labels",
+    "rainbow-status",
+    "card-in-card",
+    "oversized-radius"
+  ],
+  "notes": "Static single-file mock (Tailwind CDN) with hardcoded ACCOUNTS array; no backend, no persistence, no accessibility tree semantics, and no keyboard handling of any kind. Audit flagged text-contrast (184 instances, e.g. slate-400 captions at 2.56:1) and radius-scale (rounded-xl 12px summary cards vs ≤8px rule) as hard violations, plus warn-level uppercase-text and type-scale (8 sizes) issues. 'Books Balanced' badge, category color dots (blue/amber/purple/emerald/rose), and the gradient logo tile are the main template-tell surfaces; the nested bordered table-in-card inside the detail panel is a card-in-card pattern."
+}

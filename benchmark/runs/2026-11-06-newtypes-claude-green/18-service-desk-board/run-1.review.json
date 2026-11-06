@@ -1,0 +1,53 @@
+{
+  "brief": "18-service-desk-board",
+  "run": 1,
+  "items": [
+    {
+      "item": "Columns by status show a count in their header (such as \"In progress 5\"), and a work-in-progress limit is shown where one applies",
+      "pass": false,
+      "evidence": "Header markup: '<span class=\"text-sm font-medium text-slate-900\">' + status.label + '</span>' + '<span class=\"text-xs text-slate-500 tabular-nums\">' + visible.length + '</span>' renders counts like \"In progress 8\" (confirmed in screenshot). But no column ever shows a WIP limit (e.g. \"8/10\") — STATUSES array (run-1.html lines 146-152) has no limit field and renderColumn() never checks or renders one, even for In progress which has 8 open tickets."
+    },
+    {
+      "item": "Cards show the ticket code, a title (truncated with the full text available), the priority as a text label, the assignee's name and the due date or age",
+      "pass": true,
+      "evidence": "renderCard() (run-1.html ~392-412): ticket id span (\"SD-1048\"), title in 'line-clamp-2' h3 (truncates to 2 lines, full text visible in the View detail dialog via openDetail()), priority badge text e.g. \"Critical\"/\"High\", assignee name next to a user icon, and due text like \"Due 06/11/2026 · Due today\" from dueInfo()."
+    },
+    {
+      "item": "A card can be moved without dragging (a \"Move to\" menu or the keyboard), and a drag-and-drop move is announced to assistive technology",
+      "pass": true,
+      "evidence": "Each card has a 'Move' button (aria-haspopup=\"menu\") opening a role=\"menu\" list via openMenu()/moveMenuItems(), fully keyboard operable (focuses first item, Escape returns focus). moveTicket() calls announce() which writes to #liveRegion (aria-live=\"polite\") regardless of whether the move came from the menu or the drop handler on body.addEventListener('drop', ...), so drag moves are also announced."
+    },
+    {
+      "item": "Moving to a status that needs input (such as Resolved needing a resolution note) asks for it, and a move can be undone (a toast with Undo)",
+      "pass": false,
+      "evidence": "moveTicket(ticketId, newStatusKey) (run-1.html 362-372) unconditionally sets ticket.status and calls toast()/announce() — there is no check for status==='resolved' prompting a resolution note. toast(message) (line 295) renders only a plain text div with no button or undo affordance, and no code path stores a previous state to revert to."
+    },
+    {
+      "item": "Filters for assignee and priority, a search, and a switch to a list or table view",
+      "pass": false,
+      "evidence": "#priorityFilter and #assigneeFilter selects plus #searchInput exist and are wired in initFilters(). There is no list/table view toggle anywhere in the markup or script — the board only ever renders #boardColumns (kanban columns); no alternate view element or button exists."
+    },
+    {
+      "item": "Overdue or ageing tickets are marked with a text label, not by colour alone",
+      "pass": true,
+      "evidence": "dueInfo() returns text like \"Due 04/11/2026 · Overdue by 2 days\" and \"Due 06/11/2026 · Due today\" (run-1.html 226-241), visible in the screenshot on cards such as SD-1036 and SD-1048 — the label text itself conveys status, not just the red/amber colour."
+    },
+    {
+      "item": "Columns scroll on their own with sticky headers, and a wide board scrolls sideways without the page header scrolling away",
+      "pass": false,
+      "evidence": "Column body has class 'col-scroll ... overflow-y-auto' but the column and its ancestors (#boardColumns, #boardRegion, <main>) have no bounded height, so overflow-y-auto never activates. The full-page screenshot confirms this: columns grow to very different, unbounded heights (e.g. 'In progress' extends far past 'On hold') and the whole page scrolls vertically instead of any single column scrolling internally. The page header is sticky (header.sticky.top-0) so it does stay fixed, but the required independent column scrolling with sticky column headers is not implemented."
+    },
+    {
+      "item": "An empty column shows a short empty state, and loading and an error with retry are present",
+      "pass": true,
+      "evidence": "renderColumn() shows \"No tickets here.\"/\"No tickets match these filters.\" when a column is empty (run-1.html 459-463). showSkeleton() renders pulse-animated placeholder columns while loading, and showError() renders \"Couldn't load tickets\" with a '#retryBtn' Retry button (lines 686-701) wired to re-run init()."
+    },
+    {
+      "item": "Opening a card shows its details in a side panel without losing the board's position or filters",
+      "pass": false,
+      "evidence": "openDetail() calls dialog.showModal() on '<dialog id=\"detailDialog\" class=\"w-full max-w-xl\">' — a native centered modal dialog with a backdrop (dialog::backdrop rgba overlay), not a docked side panel. Underlying board state is technically preserved since the dialog overlays rather than navigates, but the UI pattern is a centered modal, not a side panel."
+    }
+  ],
+  "tells": [],
+  "notes": "No template tells were identified: the status dots use a consistent semantic tone mapping (neutral/info/warning/success) rather than an arbitrary rainbow palette, radii stay modest (4-6px per the audit), there's no gradient/glass/emoji usage, and the header is a plain title with no greeting or KPI tiles. Main functional gaps are: no WIP limit affordance, no resolution-note gating or undo toast, no list/table view switch, columns scrolling with the whole page instead of independently, and the detail view being a centered modal rather than a side panel."
+}

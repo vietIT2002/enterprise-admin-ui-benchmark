@@ -1,0 +1,678 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Team Leave Calendar</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+  .chip-approved { color: #fff; }
+  .chip-pending {
+    background-image: repeating-linear-gradient(135deg, rgba(0,0,0,0.05) 0px, rgba(0,0,0,0.05) 4px, transparent 4px, transparent 8px);
+  }
+  .scrollbar-thin::-webkit-scrollbar { height: 8px; width: 8px; }
+  .scrollbar-thin::-webkit-scrollbar-thumb { background-color: #cbd5e1; border-radius: 4px; }
+  .tab-btn { position: relative; padding-bottom: 10px; font-size: 0.875rem; font-weight: 600; color: #64748b; }
+  .tab-btn.active { color: #4338ca; }
+  .tab-btn.active::after { content: ""; position: absolute; left: 0; right: 0; bottom: -1px; height: 2px; background: #4338ca; border-radius: 2px; }
+  .fade-in { animation: fadeIn .15s ease-out; }
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(-2px); } to { opacity: 1; transform: translateY(0); } }
+</style>
+</head>
+<body class="bg-slate-50 text-slate-800 min-h-screen">
+
+<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+
+  <!-- Header -->
+  <header class="mb-6">
+    <div class="flex flex-wrap items-start justify-between gap-4">
+      <div>
+        <p class="text-xs font-semibold tracking-wide text-indigo-600 uppercase">People Operations</p>
+        <h1 class="text-2xl font-bold text-slate-900 mt-0.5">Team Leave Calendar</h1>
+        <p class="text-sm text-slate-500 mt-1">See who is off, plan for coverage, and review time-off requests awaiting approval.</p>
+      </div>
+      <div class="flex flex-wrap items-center gap-2">
+        <div class="relative">
+          <input id="searchInput" type="text" placeholder="Search team member…"
+            class="w-48 pl-8 pr-3 py-2 text-sm rounded-lg border border-slate-300 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500">
+          <svg class="w-4 h-4 text-slate-400 absolute left-2.5 top-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-4.35-4.35m0 0A7.5 7.5 0 104.5 4.5a7.5 7.5 0 0012.15 12.15z"/></svg>
+        </div>
+        <select id="deptFilter" class="text-sm rounded-lg border border-slate-300 bg-white px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500">
+          <option value="all">All departments</option>
+        </select>
+      </div>
+    </div>
+  </header>
+
+  <!-- Summary cards -->
+  <section id="summaryCards" class="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6"></section>
+
+  <!-- Tabs + period nav -->
+  <div class="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 mb-4">
+    <nav class="flex gap-6" id="viewTabs">
+      <button data-view="month" class="tab-btn active">Month</button>
+      <button data-view="week" class="tab-btn">Week</button>
+      <button data-view="pending" class="tab-btn">Pending Approvals <span id="pendingBadge" class="ml-1 inline-flex items-center justify-center min-w-[1.25rem] h-5 px-1 rounded-full bg-amber-100 text-amber-700 text-xs font-bold"></span></button>
+    </nav>
+    <div id="periodNav" class="flex items-center gap-2 pb-2"></div>
+  </div>
+
+  <!-- Legend -->
+  <div id="legend" class="flex flex-wrap items-center gap-x-5 gap-y-2 mb-4 text-xs text-slate-600"></div>
+
+  <!-- Status banner -->
+  <div id="statusBanner" class="hidden mb-4 px-4 py-2 rounded-lg text-sm font-medium fade-in"></div>
+
+  <!-- Month view -->
+  <section id="monthView" class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+    <div class="grid grid-cols-7 text-xs font-semibold text-slate-500 border-b border-slate-200 bg-slate-50" id="monthHeader"></div>
+    <div class="grid grid-cols-7" id="monthGrid"></div>
+  </section>
+
+  <!-- Week view -->
+  <section id="weekView" class="hidden bg-white rounded-xl border border-slate-200 shadow-sm overflow-x-auto scrollbar-thin">
+    <table class="w-full text-sm border-collapse min-w-[780px]">
+      <thead>
+        <tr class="border-b border-slate-200 bg-slate-50" id="weekHeaderRow"></tr>
+      </thead>
+      <tbody id="weekBody"></tbody>
+    </table>
+  </section>
+
+  <!-- Pending approvals view -->
+  <section id="pendingView" class="hidden bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+    <div class="overflow-x-auto scrollbar-thin">
+      <table class="w-full text-sm border-collapse min-w-[760px]">
+        <thead>
+          <tr class="text-left text-xs font-semibold text-slate-500 uppercase bg-slate-50 border-b border-slate-200">
+            <th class="px-4 py-3">Team Member</th>
+            <th class="px-4 py-3">Type</th>
+            <th class="px-4 py-3">Dates</th>
+            <th class="px-4 py-3">Duration</th>
+            <th class="px-4 py-3">Requested</th>
+            <th class="px-4 py-3">Reason</th>
+            <th class="px-4 py-3 text-right">Action</th>
+          </tr>
+        </thead>
+        <tbody id="pendingBody"></tbody>
+      </table>
+    </div>
+    <div id="pendingEmpty" class="hidden px-4 py-10 text-center text-sm text-slate-500">No pending requests match the current filters.</div>
+  </section>
+
+</div>
+
+<!-- Day detail modal -->
+<div id="dayModal" class="hidden fixed inset-0 bg-slate-900/40 flex items-center justify-center p-4 z-50">
+  <div class="bg-white rounded-xl shadow-xl max-w-md w-full max-h-[80vh] overflow-y-auto">
+    <div class="flex items-center justify-between px-5 py-4 border-b border-slate-200">
+      <h3 id="modalTitle" class="font-semibold text-slate-900"></h3>
+      <button id="modalClose" class="text-slate-400 hover:text-slate-600">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+      </button>
+    </div>
+    <div id="modalBody" class="p-5 space-y-3"></div>
+  </div>
+</div>
+
+<script>
+/* ---------------------------------------------------------------------- */
+/* Mock data                                                               */
+/* ---------------------------------------------------------------------- */
+
+const TODAY = new Date(2026, 10, 6); // Nov 6, 2026
+
+const EMPLOYEES = [
+  { id: 1,  name: "Priya Natarajan", dept: "Engineering", color: "indigo"  },
+  { id: 2,  name: "Daniel Ortiz",    dept: "Engineering", color: "sky"     },
+  { id: 3,  name: "Noah Fischer",    dept: "Engineering", color: "cyan"    },
+  { id: 4,  name: "Megan Clarke",    dept: "Design",      color: "pink"    },
+  { id: 5,  name: "Tariq Hassan",    dept: "Design",      color: "fuchsia" },
+  { id: 6,  name: "Sofia Marin",     dept: "Marketing",   color: "orange"  },
+  { id: 7,  name: "Liam Chen",       dept: "Marketing",   color: "teal"    },
+  { id: 8,  name: "Aisha Bello",     dept: "Sales",       color: "lime"    },
+  { id: 9,  name: "Jonas Weber",     dept: "Sales",       color: "yellow"  },
+  { id: 10, name: "Grace Kim",       dept: "HR",          color: "rose"    },
+  { id: 11, name: "Elena Petrova",   dept: "Finance",     color: "amber"   },
+  { id: 12, name: "Marcus Webb",     dept: "Finance",     color: "emerald" },
+];
+
+const LEAVE_TYPES = {
+  vacation:    { label: "Vacation",       color: "blue",   abbr: "VAC" },
+  sick:        { label: "Sick Leave",     color: "rose",   abbr: "SICK" },
+  personal:    { label: "Personal",       color: "violet", abbr: "PER" },
+  parental:    { label: "Parental Leave", color: "emerald",abbr: "PAR" },
+  bereavement: { label: "Bereavement",    color: "slate",  abbr: "BRV" },
+  unpaid:      { label: "Unpaid Leave",   color: "amber",  abbr: "UNP" },
+};
+
+// bg/text class lookups per tailwind color (safelisted explicitly so Tailwind's CDN JIT picks them up)
+const COLOR_CLASSES = {
+  blue:    { solid: "bg-blue-500",    light: "bg-blue-50 text-blue-700 border-blue-300",       dot: "bg-blue-500",    text: "text-blue-700" },
+  rose:    { solid: "bg-rose-500",    light: "bg-rose-50 text-rose-700 border-rose-300",       dot: "bg-rose-500",    text: "text-rose-700" },
+  violet:  { solid: "bg-violet-500",  light: "bg-violet-50 text-violet-700 border-violet-300", dot: "bg-violet-500",  text: "text-violet-700" },
+  emerald: { solid: "bg-emerald-500", light: "bg-emerald-50 text-emerald-700 border-emerald-300", dot: "bg-emerald-500", text: "text-emerald-700" },
+  slate:   { solid: "bg-slate-500",   light: "bg-slate-50 text-slate-700 border-slate-300",    dot: "bg-slate-500",   text: "text-slate-700" },
+  amber:   { solid: "bg-amber-500",   light: "bg-amber-50 text-amber-700 border-amber-300",    dot: "bg-amber-500",   text: "text-amber-700" },
+};
+
+const AVATAR_CLASSES = {
+  indigo: "bg-indigo-600", sky: "bg-sky-600", cyan: "bg-cyan-600", pink: "bg-pink-600",
+  fuchsia: "bg-fuchsia-600", orange: "bg-orange-600", teal: "bg-teal-600", lime: "bg-lime-600",
+  yellow: "bg-yellow-500", rose: "bg-rose-600", amber: "bg-amber-600", emerald: "bg-emerald-600",
+};
+
+let REQUEST_ID = 1;
+function req(employeeId, type, start, end, status, requestedOn, reason) {
+  return {
+    id: REQUEST_ID++,
+    employeeId, type,
+    start: new Date(...start),
+    end: new Date(...end),
+    status, // "approved" | "pending" | "rejected"
+    requestedOn: new Date(...requestedOn),
+    reason: reason || "",
+  };
+}
+
+const REQUESTS = [
+  req(1,  "vacation",    [2026,9,5],  [2026,9,9],   "approved", [2026,8,10], ""),
+  req(1,  "vacation",    [2026,10,2], [2026,10,6],  "approved", [2026,9,10], ""),
+  req(1,  "sick",        [2026,9,20], [2026,9,21],  "approved", [2026,9,19], ""),
+  req(1,  "personal",    [2026,11,23],[2026,11,23], "pending",  [2026,10,6], "Extend holiday weekend"),
+  req(2,  "sick",        [2026,10,5], [2026,10,5],  "approved", [2026,10,4], ""),
+  req(2,  "vacation",    [2026,11,22],[2026,11,30], "approved", [2026,9,1],  ""),
+  req(3,  "vacation",    [2026,10,9], [2026,10,13], "pending",  [2026,10,1], "Family trip"),
+  req(3,  "personal",    [2026,9,27], [2026,9,27],  "approved", [2026,9,25], ""),
+  req(3,  "bereavement", [2026,10,4], [2026,10,5],  "approved", [2026,10,3], ""),
+  req(4,  "personal",    [2026,10,6], [2026,10,6],  "approved", [2026,9,30], ""),
+  req(4,  "vacation",    [2026,11,14],[2026,11,18], "pending",  [2026,10,2], "Ski trip"),
+  req(5,  "vacation",    [2026,10,16],[2026,10,20], "approved", [2026,9,5],  ""),
+  req(5,  "sick",        [2026,10,6], [2026,10,6],  "approved", [2026,10,6], ""),
+  req(6,  "parental",    [2026,10,1], [2026,11,15], "approved", [2026,8,15], ""),
+  req(7,  "sick",        [2026,10,4], [2026,10,5],  "approved", [2026,10,4], ""),
+  req(7,  "vacation",    [2026,11,1], [2026,11,5],  "pending",  [2026,10,4], "Anniversary trip"),
+  req(8,  "vacation",    [2026,10,23],[2026,10,27], "pending",  [2026,10,3], "Thanksgiving week with family"),
+  req(8,  "sick",        [2026,9,15], [2026,9,15],  "approved", [2026,9,15], ""),
+  req(9,  "unpaid",      [2026,10,10],[2026,10,12], "pending",  [2026,9,29], "Visa renewal appointment"),
+  req(9,  "vacation",    [2026,11,7], [2026,11,11], "approved", [2026,8,20], ""),
+  req(10, "bereavement", [2026,10,6], [2026,10,8],  "approved", [2026,10,5], ""),
+  req(10, "vacation",    [2026,10,30],[2026,11,4],  "pending",  [2026,10,5], "Year-end break"),
+  req(11, "vacation",    [2026,11,21],[2026,11,31], "approved", [2026,8,1],  ""),
+  req(11, "personal",    [2026,10,13],[2026,10,13], "approved", [2026,10,10],""),
+  req(12, "personal",    [2026,10,18],[2026,10,18], "pending",  [2026,10,5], "Moving apartments"),
+  req(12, "vacation",    [2026,9,5],  [2026,9,9],   "approved", [2026,8,10], ""),
+];
+
+/* ---------------------------------------------------------------------- */
+/* State                                                                   */
+/* ---------------------------------------------------------------------- */
+
+let state = {
+  view: "month",
+  monthCursor: new Date(TODAY.getFullYear(), TODAY.getMonth(), 1),
+  weekCursor: startOfWeek(TODAY),
+  search: "",
+  dept: "all",
+};
+
+/* ---------------------------------------------------------------------- */
+/* Helpers                                                                 */
+/* ---------------------------------------------------------------------- */
+
+const DAY_NAMES = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
+const MONTH_NAMES = ["January","February","March","April","May","June","July","August","September","October","November","December"];
+
+function startOfWeek(d) {
+  const r = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+  r.setDate(r.getDate() - r.getDay());
+  return r;
+}
+function addDays(d, n) { const r = new Date(d); r.setDate(r.getDate() + n); return r; }
+function addMonths(d, n) { return new Date(d.getFullYear(), d.getMonth() + n, 1); }
+function sameDay(a, b) { return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate(); }
+function stripTime(d) { return new Date(d.getFullYear(), d.getMonth(), d.getDate()); }
+function dateInRange(d, start, end) {
+  const t = stripTime(d).getTime();
+  return t >= stripTime(start).getTime() && t <= stripTime(end).getTime();
+}
+function fmtShort(d) { return `${MONTH_NAMES[d.getMonth()].slice(0,3)} ${d.getDate()}`; }
+function fmtFull(d) { return `${MONTH_NAMES[d.getMonth()]} ${d.getDate()}, ${d.getFullYear()}`; }
+function fmtRange(start, end) {
+  if (sameDay(start, end)) return fmtFull(start);
+  if (start.getMonth() === end.getMonth() && start.getFullYear() === end.getFullYear()) {
+    return `${MONTH_NAMES[start.getMonth()].slice(0,3)} ${start.getDate()}–${end.getDate()}, ${end.getFullYear()}`;
+  }
+  return `${fmtShort(start)} – ${fmtShort(end)}, ${end.getFullYear()}`;
+}
+function durationDays(start, end) {
+  return Math.round((stripTime(end) - stripTime(start)) / 86400000) + 1;
+}
+function initials(name) {
+  return name.split(" ").map(p => p[0]).join("").slice(0,2).toUpperCase();
+}
+
+function matchesFilters(employee) {
+  if (state.dept !== "all" && employee.dept !== state.dept) return false;
+  if (state.search && !employee.name.toLowerCase().includes(state.search.toLowerCase())) return false;
+  return true;
+}
+
+// requests visible on the calendar (approved + pending), honoring filters
+function visibleRequestsForDate(date) {
+  return REQUESTS
+    .filter(r => r.status !== "rejected")
+    .filter(r => dateInRange(date, r.start, r.end))
+    .map(r => ({ r, emp: EMPLOYEES.find(e => e.id === r.employeeId) }))
+    .filter(x => x.emp && matchesFilters(x.emp))
+    .sort((a, b) => a.emp.name.localeCompare(b.emp.name));
+}
+
+function employeeById(id) { return EMPLOYEES.find(e => e.id === id); }
+
+/* ---------------------------------------------------------------------- */
+/* Rendering: shell (filters, legend, tabs)                                */
+/* ---------------------------------------------------------------------- */
+
+function populateDeptFilter() {
+  const select = document.getElementById("deptFilter");
+  const depts = Array.from(new Set(EMPLOYEES.map(e => e.dept))).sort();
+  depts.forEach(d => {
+    const opt = document.createElement("option");
+    opt.value = d; opt.textContent = d;
+    select.appendChild(opt);
+  });
+}
+
+function renderLegend() {
+  const legend = document.getElementById("legend");
+  const typeDots = Object.entries(LEAVE_TYPES).map(([key, t]) => {
+    const c = COLOR_CLASSES[t.color];
+    return `<span class="inline-flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full ${c.dot}"></span>${t.label}</span>`;
+  }).join("");
+  legend.innerHTML = `
+    ${typeDots}
+    <span class="h-4 w-px bg-slate-200"></span>
+    <span class="inline-flex items-center gap-1.5"><span class="w-4 h-2.5 rounded bg-blue-500"></span>Approved</span>
+    <span class="inline-flex items-center gap-1.5"><span class="w-4 h-2.5 rounded border border-dashed border-blue-400 bg-blue-50"></span>Pending approval</span>
+  `;
+}
+
+function renderTabs() {
+  document.querySelectorAll(".tab-btn").forEach(btn => {
+    btn.classList.toggle("active", btn.dataset.view === state.view);
+  });
+  document.getElementById("monthView").classList.toggle("hidden", state.view !== "month");
+  document.getElementById("weekView").classList.toggle("hidden", state.view !== "week");
+  document.getElementById("pendingView").classList.toggle("hidden", state.view !== "pending");
+  renderPeriodNav();
+}
+
+function renderPeriodNav() {
+  const nav = document.getElementById("periodNav");
+  if (state.view === "month") {
+    nav.innerHTML = `
+      <button id="prevBtn" class="p-1.5 rounded-md border border-slate-300 hover:bg-slate-100 text-slate-600">${chevron("left")}</button>
+      <span class="text-sm font-semibold text-slate-800 min-w-[9rem] text-center">${MONTH_NAMES[state.monthCursor.getMonth()]} ${state.monthCursor.getFullYear()}</span>
+      <button id="nextBtn" class="p-1.5 rounded-md border border-slate-300 hover:bg-slate-100 text-slate-600">${chevron("right")}</button>
+      <button id="todayBtn" class="ml-2 text-xs font-semibold px-2.5 py-1.5 rounded-md border border-slate-300 hover:bg-slate-100 text-slate-600">Today</button>
+    `;
+  } else if (state.view === "week") {
+    const end = addDays(state.weekCursor, 6);
+    nav.innerHTML = `
+      <button id="prevBtn" class="p-1.5 rounded-md border border-slate-300 hover:bg-slate-100 text-slate-600">${chevron("left")}</button>
+      <span class="text-sm font-semibold text-slate-800 min-w-[12rem] text-center">${fmtRange(state.weekCursor, end)}</span>
+      <button id="nextBtn" class="p-1.5 rounded-md border border-slate-300 hover:bg-slate-100 text-slate-600">${chevron("right")}</button>
+      <button id="todayBtn" class="ml-2 text-xs font-semibold px-2.5 py-1.5 rounded-md border border-slate-300 hover:bg-slate-100 text-slate-600">This Week</button>
+    `;
+  } else {
+    nav.innerHTML = `<span class="text-xs text-slate-500">${REQUESTS.filter(r=>r.status==="pending").length} total pending request(s)</span>`;
+    return;
+  }
+  document.getElementById("prevBtn").addEventListener("click", () => {
+    if (state.view === "month") state.monthCursor = addMonths(state.monthCursor, -1);
+    else state.weekCursor = addDays(state.weekCursor, -7);
+    renderAll();
+  });
+  document.getElementById("nextBtn").addEventListener("click", () => {
+    if (state.view === "month") state.monthCursor = addMonths(state.monthCursor, 1);
+    else state.weekCursor = addDays(state.weekCursor, 7);
+    renderAll();
+  });
+  document.getElementById("todayBtn").addEventListener("click", () => {
+    state.monthCursor = new Date(TODAY.getFullYear(), TODAY.getMonth(), 1);
+    state.weekCursor = startOfWeek(TODAY);
+    renderAll();
+  });
+}
+
+function chevron(dir) {
+  const d = dir === "left" ? "M15 19l-7-7 7-7" : "M9 5l7 7-7 7";
+  return `<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="${d}"/></svg>`;
+}
+
+/* ---------------------------------------------------------------------- */
+/* Rendering: summary cards                                                */
+/* ---------------------------------------------------------------------- */
+
+function renderSummary() {
+  const container = document.getElementById("summaryCards");
+  const onLeaveToday = new Set(
+    REQUESTS.filter(r => r.status === "approved" && dateInRange(TODAY, r.start, r.end))
+      .map(r => r.employeeId)
+  ).size;
+
+  const weekStart = startOfWeek(TODAY), weekEnd = addDays(weekStart, 6);
+  const onLeaveWeek = new Set(
+    REQUESTS.filter(r => r.status === "approved" && r.start <= weekEnd && r.end >= weekStart)
+      .map(r => r.employeeId)
+  ).size;
+
+  const pendingCount = REQUESTS.filter(r => r.status === "pending").length;
+
+  const cards = [
+    { label: "On Leave Today", value: onLeaveToday, accent: "text-blue-600", icon: "📅" },
+    { label: "On Leave This Week", value: onLeaveWeek, accent: "text-emerald-600", icon: "🗓️" },
+    { label: "Pending Approvals", value: pendingCount, accent: "text-amber-600", icon: "⏳" },
+    { label: "Team Members", value: EMPLOYEES.length, accent: "text-indigo-600", icon: "👥" },
+  ];
+
+  container.innerHTML = cards.map(c => `
+    <div class="bg-white rounded-xl border border-slate-200 shadow-sm px-4 py-3">
+      <div class="flex items-center justify-between">
+        <span class="text-xs font-medium text-slate-500">${c.label}</span>
+        <span class="text-base">${c.icon}</span>
+      </div>
+      <div class="text-2xl font-bold ${c.accent} mt-1">${c.value}</div>
+    </div>
+  `).join("");
+
+  const badge = document.getElementById("pendingBadge");
+  badge.textContent = pendingCount;
+  badge.classList.toggle("hidden", pendingCount === 0);
+}
+
+/* ---------------------------------------------------------------------- */
+/* Rendering: month view                                                   */
+/* ---------------------------------------------------------------------- */
+
+function renderMonthHeader() {
+  document.getElementById("monthHeader").innerHTML = DAY_NAMES.map(d =>
+    `<div class="px-2 py-2 text-center">${d}</div>`
+  ).join("");
+}
+
+function renderMonthGrid() {
+  const grid = document.getElementById("monthGrid");
+  const year = state.monthCursor.getFullYear();
+  const month = state.monthCursor.getMonth();
+  const firstOfMonth = new Date(year, month, 1);
+  const gridStart = addDays(firstOfMonth, -firstOfMonth.getDay());
+
+  let html = "";
+  for (let i = 0; i < 42; i++) {
+    const date = addDays(gridStart, i);
+    const isCurrentMonth = date.getMonth() === month;
+    const isToday = sameDay(date, TODAY);
+    const entries = visibleRequestsForDate(date);
+    const visible = entries.slice(0, 3);
+    const extra = entries.length - visible.length;
+
+    const chips = visible.map(({ r, emp }) => chipHtml(r, emp)).join("");
+    const moreBtn = extra > 0
+      ? `<button class="w-full text-left text-[11px] font-medium text-slate-500 hover:text-indigo-600 mt-0.5" data-daymore="${date.toISOString()}">+${extra} more</button>`
+      : "";
+
+    html += `
+      <div class="min-h-[108px] border-b border-r border-slate-100 p-1.5 ${isCurrentMonth ? "bg-white" : "bg-slate-50/60"} ${i % 7 === 6 ? "border-r-0" : ""}">
+        <div class="flex items-center justify-between mb-1">
+          <span class="text-xs font-semibold ${isCurrentMonth ? "text-slate-700" : "text-slate-400"} ${isToday ? "inline-flex items-center justify-center w-5 h-5 rounded-full bg-indigo-600 text-white" : ""}">${date.getDate()}</span>
+        </div>
+        <div class="space-y-1" data-daycell="${date.toISOString()}">
+          ${chips}
+          ${moreBtn}
+        </div>
+      </div>
+    `;
+  }
+  grid.innerHTML = html;
+
+  grid.querySelectorAll("[data-daymore]").forEach(btn => {
+    btn.addEventListener("click", () => openDayModal(new Date(btn.dataset.daymore)));
+  });
+  grid.querySelectorAll("[data-daycell]").forEach(cell => {
+    cell.addEventListener("dblclick", () => openDayModal(new Date(cell.dataset.daycell)));
+  });
+}
+
+function chipHtml(r, emp) {
+  const type = LEAVE_TYPES[r.type];
+  const c = COLOR_CLASSES[type.color];
+  const base = "block truncate text-[11px] font-medium rounded px-1.5 py-0.5";
+  if (r.status === "pending") {
+    return `<div class="${base} ${c.light} border border-dashed chip-pending" title="${emp.name} — ${type.label} (Pending)">${firstNameLastInitial(emp.name)}</div>`;
+  }
+  return `<div class="${base} ${c.solid} chip-approved" title="${emp.name} — ${type.label}">${firstNameLastInitial(emp.name)}</div>`;
+}
+
+function firstNameLastInitial(name) {
+  const parts = name.split(" ");
+  return parts.length > 1 ? `${parts[0]} ${parts[parts.length-1][0]}.` : name;
+}
+
+/* ---------------------------------------------------------------------- */
+/* Rendering: day modal                                                    */
+/* ---------------------------------------------------------------------- */
+
+function openDayModal(date) {
+  const modal = document.getElementById("dayModal");
+  document.getElementById("modalTitle").textContent = fmtFull(date);
+  const entries = visibleRequestsForDate(date);
+  const body = document.getElementById("modalBody");
+
+  if (entries.length === 0) {
+    body.innerHTML = `<p class="text-sm text-slate-500">No one is scheduled to be out on this day.</p>`;
+  } else {
+    body.innerHTML = entries.map(({ r, emp }) => {
+      const type = LEAVE_TYPES[r.type];
+      const c = COLOR_CLASSES[type.color];
+      const avatar = AVATAR_CLASSES[emp.color];
+      const statusBadge = r.status === "pending"
+        ? `<span class="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-amber-100 text-amber-700">Pending</span>`
+        : `<span class="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-green-100 text-green-700">Approved</span>`;
+      return `
+        <div class="flex items-start gap-3 p-3 rounded-lg border border-slate-100">
+          <div class="w-9 h-9 rounded-full ${avatar} text-white text-xs font-bold flex items-center justify-center shrink-0">${initials(emp.name)}</div>
+          <div class="flex-1 min-w-0">
+            <div class="flex items-center justify-between gap-2">
+              <p class="text-sm font-semibold text-slate-800">${emp.name}</p>
+              ${statusBadge}
+            </div>
+            <p class="text-xs text-slate-500">${emp.dept}</p>
+            <p class="text-xs mt-1 ${c.text} font-medium">${type.label} · ${fmtRange(r.start, r.end)}</p>
+          </div>
+        </div>
+      `;
+    }).join("");
+  }
+  modal.classList.remove("hidden");
+}
+document.getElementById("modalClose").addEventListener("click", () => document.getElementById("dayModal").classList.add("hidden"));
+document.getElementById("dayModal").addEventListener("click", (e) => {
+  if (e.target.id === "dayModal") document.getElementById("dayModal").classList.add("hidden");
+});
+
+/* ---------------------------------------------------------------------- */
+/* Rendering: week view                                                    */
+/* ---------------------------------------------------------------------- */
+
+function renderWeekView() {
+  const headerRow = document.getElementById("weekHeaderRow");
+  const body = document.getElementById("weekBody");
+  const days = Array.from({ length: 7 }, (_, i) => addDays(state.weekCursor, i));
+
+  headerRow.innerHTML = `<th class="text-left text-xs font-semibold text-slate-500 uppercase px-4 py-3 sticky left-0 bg-slate-50">Team Member</th>` +
+    days.map(d => {
+      const isToday = sameDay(d, TODAY);
+      return `<th class="text-center text-xs font-semibold px-2 py-3 ${isToday ? "text-indigo-600" : "text-slate-500"}">
+        <div class="uppercase">${DAY_NAMES[d.getDay()]}</div>
+        <div class="text-sm ${isToday ? "inline-flex items-center justify-center w-6 h-6 rounded-full bg-indigo-600 text-white mt-0.5" : "font-normal text-slate-700 mt-0.5"}">${d.getDate()}</div>
+      </th>`;
+    }).join("");
+
+  const filteredEmployees = EMPLOYEES.filter(matchesFilters).sort((a,b) => a.name.localeCompare(b.name));
+
+  if (filteredEmployees.length === 0) {
+    body.innerHTML = `<tr><td colspan="8" class="text-center text-sm text-slate-500 py-10">No team members match the current filters.</td></tr>`;
+    return;
+  }
+
+  body.innerHTML = filteredEmployees.map(emp => {
+    const avatar = AVATAR_CLASSES[emp.color];
+    const cells = days.map(d => {
+      const reqs = REQUESTS.filter(r => r.status !== "rejected" && r.employeeId === emp.id && dateInRange(d, r.start, r.end));
+      if (reqs.length === 0) return `<td class="px-1.5 py-2 border-t border-slate-100"></td>`;
+      const r = reqs[0];
+      const type = LEAVE_TYPES[r.type];
+      const c = COLOR_CLASSES[type.color];
+      const cellClass = r.status === "pending"
+        ? `${c.light} border border-dashed chip-pending`
+        : `${c.solid} chip-approved`;
+      return `<td class="px-1.5 py-2 border-t border-slate-100">
+        <div class="rounded-md text-center text-[10px] font-bold py-1.5 ${cellClass}" title="${emp.name} — ${type.label} (${r.status === 'pending' ? 'Pending' : 'Approved'}), ${fmtRange(r.start, r.end)}">${type.abbr}</div>
+      </td>`;
+    }).join("");
+    return `
+      <tr>
+        <td class="px-4 py-2 border-t border-slate-100 sticky left-0 bg-white">
+          <div class="flex items-center gap-2.5">
+            <div class="w-7 h-7 rounded-full ${avatar} text-white text-[10px] font-bold flex items-center justify-center shrink-0">${initials(emp.name)}</div>
+            <div class="min-w-0">
+              <p class="text-xs font-semibold text-slate-800 truncate">${emp.name}</p>
+              <p class="text-[11px] text-slate-500 truncate">${emp.dept}</p>
+            </div>
+          </div>
+        </td>
+        ${cells}
+      </tr>
+    `;
+  }).join("");
+}
+
+/* ---------------------------------------------------------------------- */
+/* Rendering: pending approvals view                                       */
+/* ---------------------------------------------------------------------- */
+
+function renderPendingView() {
+  const body = document.getElementById("pendingBody");
+  const emptyMsg = document.getElementById("pendingEmpty");
+
+  const pending = REQUESTS
+    .filter(r => r.status === "pending")
+    .map(r => ({ r, emp: employeeById(r.employeeId) }))
+    .filter(x => x.emp && matchesFilters(x.emp))
+    .sort((a, b) => a.r.start - b.r.start);
+
+  if (pending.length === 0) {
+    body.innerHTML = "";
+    emptyMsg.classList.remove("hidden");
+    return;
+  }
+  emptyMsg.classList.add("hidden");
+
+  body.innerHTML = pending.map(({ r, emp }) => {
+    const type = LEAVE_TYPES[r.type];
+    const c = COLOR_CLASSES[type.color];
+    const avatar = AVATAR_CLASSES[emp.color];
+    return `
+      <tr class="border-b border-slate-100 last:border-b-0 hover:bg-slate-50">
+        <td class="px-4 py-3">
+          <div class="flex items-center gap-2.5">
+            <div class="w-8 h-8 rounded-full ${avatar} text-white text-[11px] font-bold flex items-center justify-center shrink-0">${initials(emp.name)}</div>
+            <div class="min-w-0">
+              <p class="text-sm font-semibold text-slate-800">${emp.name}</p>
+              <p class="text-xs text-slate-500">${emp.dept}</p>
+            </div>
+          </div>
+        </td>
+        <td class="px-4 py-3">
+          <span class="inline-flex items-center gap-1.5 text-xs font-medium ${c.text}">
+            <span class="w-2 h-2 rounded-full ${c.dot}"></span>${type.label}
+          </span>
+        </td>
+        <td class="px-4 py-3 text-sm text-slate-700 whitespace-nowrap">${fmtRange(r.start, r.end)}</td>
+        <td class="px-4 py-3 text-sm text-slate-700">${durationDays(r.start, r.end)} day${durationDays(r.start,r.end) > 1 ? "s" : ""}</td>
+        <td class="px-4 py-3 text-sm text-slate-500 whitespace-nowrap">${fmtShort(r.requestedOn)}</td>
+        <td class="px-4 py-3 text-sm text-slate-500 max-w-[200px] truncate" title="${r.reason}">${r.reason || "—"}</td>
+        <td class="px-4 py-3 text-right whitespace-nowrap">
+          <button data-approve="${r.id}" class="text-xs font-semibold px-2.5 py-1.5 rounded-md bg-green-600 text-white hover:bg-green-700 mr-1.5">Approve</button>
+          <button data-decline="${r.id}" class="text-xs font-semibold px-2.5 py-1.5 rounded-md border border-slate-300 text-slate-600 hover:bg-slate-100">Decline</button>
+        </td>
+      </tr>
+    `;
+  }).join("");
+
+  body.querySelectorAll("[data-approve]").forEach(btn => {
+    btn.addEventListener("click", () => decideRequest(Number(btn.dataset.approve), "approved"));
+  });
+  body.querySelectorAll("[data-decline]").forEach(btn => {
+    btn.addEventListener("click", () => decideRequest(Number(btn.dataset.decline), "rejected"));
+  });
+}
+
+function decideRequest(id, status) {
+  const r = REQUESTS.find(x => x.id === id);
+  if (!r) return;
+  const emp = employeeById(r.employeeId);
+  r.status = status;
+  showBanner(
+    status === "approved"
+      ? `Approved ${emp.name}'s ${LEAVE_TYPES[r.type].label.toLowerCase()} request for ${fmtRange(r.start, r.end)}.`
+      : `Declined ${emp.name}'s ${LEAVE_TYPES[r.type].label.toLowerCase()} request for ${fmtRange(r.start, r.end)}.`,
+    status === "approved" ? "success" : "neutral"
+  );
+  renderAll();
+}
+
+function showBanner(message, kind) {
+  const banner = document.getElementById("statusBanner");
+  banner.textContent = message;
+  banner.className = "mb-4 px-4 py-2 rounded-lg text-sm font-medium fade-in " +
+    (kind === "success" ? "bg-green-50 text-green-700 border border-green-200" : "bg-slate-100 text-slate-600 border border-slate-200");
+  clearTimeout(showBanner._t);
+  showBanner._t = setTimeout(() => banner.classList.add("hidden"), 4000);
+}
+
+/* ---------------------------------------------------------------------- */
+/* Main render + events                                                    */
+/* ---------------------------------------------------------------------- */
+
+function renderAll() {
+  renderSummary();
+  renderTabs();
+  if (state.view === "month") { renderMonthHeader(); renderMonthGrid(); }
+  if (state.view === "week") renderWeekView();
+  if (state.view === "pending") renderPendingView();
+}
+
+document.getElementById("viewTabs").addEventListener("click", (e) => {
+  const btn = e.target.closest(".tab-btn");
+  if (!btn) return;
+  state.view = btn.dataset.view;
+  renderAll();
+});
+document.getElementById("searchInput").addEventListener("input", (e) => {
+  state.search = e.target.value;
+  renderAll();
+});
+document.getElementById("deptFilter").addEventListener("change", (e) => {
+  state.dept = e.target.value;
+  renderAll();
+});
+
+populateDeptFilter();
+renderLegend();
+renderAll();
+</script>
+</body>
+</html>

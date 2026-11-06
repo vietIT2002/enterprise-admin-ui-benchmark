@@ -1,0 +1,53 @@
+{
+  "brief": "17-leave-calendar",
+  "run": 1,
+  "items": [
+    {
+      "item": "Month and week views, a Today button and previous/next navigation, with the visible range written as text (such as \"November 2026\")",
+      "pass": true,
+      "evidence": "#segMonth/#segWeek toggle buttons (data-action=\"view-month\"/\"view-week\"), data-action=\"prev\"/\"next\"/\"today\" buttons, and #periodLabel which renders fmtMonthYear(state.refDate) → visible text \"November 2026\" (confirmed in screenshot)."
+    },
+    {
+      "item": "Today is marked, and weekends and public holidays are distinguishable by text or a legend, not by colour alone",
+      "pass": false,
+      "evidence": "Today is marked only by a solid blue circle around the day number (dayNumCls with bg-blue-700, no text badge). Public holidays do get a text label (holiday.label, e.g. \"Thanksgiving Day\" rendered in the cell and legend entry 'Public holiday'), but weekend columns (Sun/Sat) receive no distinguishing treatment at all — cellCls only varies by in-month vs out-of-month (bg-white/bg-slate-50), with no weekend styling, text, or legend entry."
+    },
+    {
+      "item": "Each leave shows the person and leave type in text, and pending requests differ from approved ones by text or a pattern, not by colour alone",
+      "pass": false,
+      "evidence": "entryChipHtml() (month grid, the primary view) renders only the employee name as visible text; leave type is conveyed solely by an aria-hidden colored dot (span.size-1.5...type.dot) with the type label only present in the title/aria-label, not visibly rendered. Status differentiation does use non-color patterns (dashed border + clock icon for pending, line-through text for rejected), which is good, but the missing visible leave-type text fails this item."
+    },
+    {
+      "item": "A leave of several days spans its days continuously, and a crowded day shows \"+N more\" that opens the full list instead of hiding entries",
+      "pass": false,
+      "evidence": "Multi-day leaves are rendered independently per day: requestsOnDate(iso) is recomputed for every <td> and entryChipHtml() draws a fully-rounded standalone chip in each day's cell (visible in screenshot as separate pills for 'Elena Rossi' repeated day after day) rather than one continuous bar spanning the date range. The \"+N more\" button (more>0 branch) does correctly call data-action=\"open-day\" → openDayModal(iso), which lists the full day's entries instead of hiding them, so only that half of the requirement is met."
+    },
+    {
+      "item": "Days where many people are off are flagged with a count (such as \"3 of 8 off\")",
+      "pass": false,
+      "evidence": "No such count exists anywhere in renderMonth()/renderWeek() or openDayModal(); cells only show the leave chips themselves and a generic \"+N more\" overflow link, never an \"X of Y off\" style flag."
+    },
+    {
+      "item": "Opening a leave shows its absolute dates, its length in working days and its status, with approve and reject actions for pending requests",
+      "pass": false,
+      "evidence": "openDayModal() shows absolute dates (fmtRange(r.start, r.end)) and a status badge, plus Approve/Reject buttons for pending items (data-action=\"approve\"/\"open-reject\"). However, it never shows the leave's length at all (no days count in the modal), and the only place a day count is shown (pending table's daysCount()) is total calendar days, not working days (no weekend/holiday exclusion)."
+    },
+    {
+      "item": "The calendar is keyboard operable (arrow keys in the grid, or every entry reachable in tab order), and entries have accessible names that include the date",
+      "pass": false,
+      "evidence": "No arrow-key grid navigation is implemented (only an Escape handler on document keydown), but every leave entry is a native <button data-action=\"open-day\"> so is reachable via Tab. However entry accessible names fail to reliably include the date: entryChipHtml()'s aria-label only appends a date range for multi-day leaves (`req.start !== req.end ? \", \" + fmtRange(...) : \"\"`), omitting it for single-day leaves, and the week-view cell label (`emp.name + \" — \" + type.label + \" (\" + status.label + \")\"`) never includes a date at all."
+    },
+    {
+      "item": "Filters by team, person or leave type, and a list view as an alternative to the grid",
+      "pass": false,
+      "evidence": "#deptSelect (team/department), #searchInput (person by name), and #typeSelect (leave type) filters are all present and wired up. But there is no list view: the only views are the Month/Week grid toggle (#segMonth/#segWeek); the 'Pending approval' table is a separate fixed sub-section for pending requests only, not a selectable list alternative to the full calendar grid."
+    },
+    {
+      "item": "Weeks start on the locale's first day, dates follow the locale, and empty, loading and error states are present",
+      "pass": false,
+      "evidence": "startOfWeekISO() and monthGridDates() hardcode a Sunday week start (`d.setUTCDate(d.getUTCDate() - d.getUTCDay())`) regardless of locale, while all date formatting is hardcoded to \"en-GB\" (new Intl.DateTimeFormat(\"en-GB\", ...)) rather than following the user's actual locale — and en-GB convention itself starts weeks on Monday, so the fixed Sunday grid is inconsistent with the locale it claims to format for. Empty/loading/error states are implemented correctly (skeletonHtml(), emptyStateHtml(), errorStateHtml() driven by ?state= query param), satisfying only that clause."
+    }
+  ],
+  "tells": [],
+  "notes": "No template tells observed: no gradients/glass/emoji/uppercase tracked labels (confirmed by audit.json's no-gradient/no-backdrop-blur/uppercase-text/emoji-icon rules passing), avatars use real employee initials (legitimate person avatars, not decorative), status colors form a reasonable semantic triad rather than a rainbow, and there are no promo cards, decorative charts, or nested card-in-card sections. Automated audit (run-1.audit.json) scored 70/100, flagging numeric-align, tabular-nums, and text-contrast violations (e.g. day-number buttons and the Ctrl K kbd hint at 2.45:1 contrast) which are independent of this checklist but worth noting."
+}

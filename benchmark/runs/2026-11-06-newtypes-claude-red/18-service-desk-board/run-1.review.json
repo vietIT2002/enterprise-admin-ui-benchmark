@@ -1,0 +1,59 @@
+{
+  "brief": "18-service-desk-board",
+  "run": 1,
+  "items": [
+    {
+      "item": "Columns by status show a count in their header (such as \"In progress 5\"), and a work-in-progress limit is shown where one applies",
+      "pass": false,
+      "evidence": "Column header renders a count badge: `<span class=\"text-xs font-medium text-slate-500 bg-white/70 rounded-full px-2 py-0.5\">${colTickets.length}</span>` (e.g. 'In Progress' shows 3). No WIP limit concept exists anywhere in the code — the STATUSES array (lines 144-150) has no limit field, and no column header shows a limit or an over-limit warning."
+    },
+    {
+      "item": "Cards show the ticket code, a title (truncated with the full text available), the priority as a text label, the assignee's name and the due date or age",
+      "pass": true,
+      "evidence": "cardHtml() renders `${t.id}` (e.g. 'ITSD-1042'), subject text with `line-clamp-2` truncation (full text viewable by opening the edit modal), a priority pill with text label e.g. 'High'/'Critical', assignee name span (`${escapeHtml(t.assignee)}`, e.g. 'Marcus Lee'), and a due-date string from dueMeta() e.g. 'Nov 7' or 'Nov 6 (today)'."
+    },
+    {
+      "item": "A card can be moved without dragging (a \"Move to\" menu or the keyboard), and a drag-and-drop move is announced to assistive technology",
+      "pass": false,
+      "evidence": "Non-drag move exists via prev/next step buttons (`data-action=\"prev\"`/`\"next\"` calling moveTicketStep()), but they only step one column at a time (not a full 'Move to' status menu) and are visually hidden except on `group-hover` (no `focus-within` variant), so keyboard users tabbing to them get no visible affordance. More importantly, neither the drag-and-drop drop handler (`zone.addEventListener('drop', ...)`) nor the resulting toast (`<div id=\"toast\" class=\"hidden fixed ...\">`, no `aria-live`/`role=\"status\"`) announces the move to assistive technology."
+    },
+    {
+      "item": "Moving to a status that needs input (such as Resolved needing a resolution note) asks for it, and a move can be undone (a toast with Undo)",
+      "pass": false,
+      "evidence": "setStatus(id, statusKey) at line 423 sets `t.status = statusKey` unconditionally for every status including 'resolved' — no resolution-note prompt is shown. showToast(msg) (line 234) only sets `toastEl.textContent = msg` with no Undo button or action."
+    },
+    {
+      "item": "Filters for assignee and priority, a search, and a switch to a list or table view",
+      "pass": false,
+      "evidence": "Priority filter (`#priorityFilter`), assignee filter (`#assigneeFilter`), and search (`#searchInput`, placeholder 'Search tickets...') are all present, but there is no list/table view toggle anywhere in the header or page — the board only renders as Kanban columns (`#board`)."
+    },
+    {
+      "item": "Overdue or ageing tickets are marked with a text label, not by colour alone",
+      "pass": true,
+      "evidence": "dueMeta() appends explicit text: `return { text: `${fmtDate(iso)} (overdue)`, cls: \"text-red-600 font-medium\" }` for overdue tickets and `(today)` for due-today tickets, in addition to the colour class — so the status is conveyed by text, not colour alone."
+    },
+    {
+      "item": "Columns scroll on their own with sticky headers, and a wide board scrolls sideways without the page header scrolling away",
+      "pass": true,
+      "evidence": "Each column body is `class=\"flex-1 overflow-y-auto scrollbar-thin ... \"` inside a column capped at `max-h-[calc(100vh-230px)]`, with the header `class=\"... sticky top-0 z-10 ...\"`. The board itself is `<div id=\"board\" class=\"flex gap-4 overflow-x-auto ...\">`, scrolling horizontally independent of the page, while the page header is `<header class=\"... sticky top-0 z-30 ...\">` and stays fixed."
+    },
+    {
+      "item": "An empty column shows a short empty state, and loading and an error with retry are present",
+      "pass": false,
+      "evidence": "Empty columns do show `<div class=\"text-xs text-slate-400 text-center py-8\">No tickets</div>` when `colTickets.length` is 0. However the board renders from a static in-memory `tickets` array with no async fetch, so there is no loading skeleton/spinner state and no error-with-retry UI anywhere in the markup or script."
+    },
+    {
+      "item": "Opening a card shows its details in a side panel without losing the board's position or filters",
+      "pass": false,
+      "evidence": "Clicking a card calls openEditModal(), which shows `<div id=\"ticketModal\" class=\"hidden fixed inset-0 bg-black/40 z-40 flex items-center justify-center p-4\">` — a centered modal dialog with a backdrop, not a side panel."
+    }
+  ],
+  "tells": [
+    "card-in-card — each status column is itself a card (`bg-slate-50 rounded-xl border border-slate-200`) containing individually bordered/shadowed ticket cards (`bg-white rounded-lg border border-slate-200 shadow-sm`)",
+    "oversized-radius — stat tiles and modal use `rounded-xl` (12px), flagged directly by the audit: \"radius-scale ... div#statsBar > div.bg-white.rounded-xl: actual 12px, expected ≤8px\"",
+    "rainbow-status — the five status columns are each tinted a different saturated hue (sky, amber, purple, emerald, slate) via `headerBg`/`headerText`/`color` in the STATUSES array",
+    "hover-lift — ticket cards use `hover:shadow-md transition-shadow` to elevate on hover",
+    "initials-avatar-non-person — the 'Unassigned' pseudo-assignee is rendered with the same initials-avatar treatment as real people (`{ name: \"Unassigned\", initials: \"–\", color: \"bg-slate-300\" }`)"
+  ],
+  "notes": "Core Kanban mechanics (status columns, counts, filters, search, priority/due styling) are implemented solidly, but several higher-order workflow requirements are missing outright: no WIP limits, no resolution-note gate on Resolved, no undo toast, no list/table view toggle, no loading/error states, and card details open in a centered modal rather than a side panel. Drag-and-drop works visually (dragover/drop handlers with `card-drag-over` styling) but has no assistive-technology announcement."
+}

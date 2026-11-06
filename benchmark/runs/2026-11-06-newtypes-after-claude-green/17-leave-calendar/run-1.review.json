@@ -1,0 +1,53 @@
+{
+  "brief": "17-leave-calendar",
+  "run": 1,
+  "items": [
+    {
+      "item": "Month and week views, a Today button and previous/next navigation, with the visible range written as text (such as \"November 2026\")",
+      "pass": true,
+      "evidence": "Toolbar (renderToolbar, line ~300) has data-action=\"today\", data-action=\"prev\"/\"next\" buttons, a Month/Week/List segmented control (data-action=\"set-view\"), and an <h2 id=\"rangeHeading\"> showing fmtMonthHeading/fmtWeekRange text. Screenshot shows literal text \"November 2026\" next to Today/</> controls."
+    },
+    {
+      "item": "Today is marked, and weekends and public holidays are distinguishable by text or a legend, not by colour alone",
+      "pass": true,
+      "evidence": "Today's cell gets a filled circle on the date plus an explicit \"Today\" text label (line 462, visible in screenshot as \"6 Today\"). Holidays show their name as text in-cell (line 464, \"St Andrew's Day\" visible 30 Nov). Weekend columns are textually labelled via the Sat/Sun day-of-week header row (weekLabels(), line 430) and the legend (renderLegend, line 362-371) spells out \"Weekend\", \"Public holiday\", \"Today\", \"Pending approval\" next to each swatch."
+    },
+    {
+      "item": "Each leave shows the person and leave type in text, and pending requests differ from approved ones by text or a pattern, not by colour alone",
+      "pass": false,
+      "evidence": "The entry-btn markup (line 478-482) does build text like \"Sarah · Annual leave · Pending\" and uses a dashed vs solid border per status (line 473) — but it never renders visibly. The day-cell element (line 459, class 'day-cell relative ... overflow-hidden', grid-row:1/6, opaque bg-white/slate-50/amber-50) is position:relative while the sibling entry-btn/ov-btn bars (line 481, 487) have no position/z-index, so per CSS painting order the positioned day-cell paints over the static bars regardless of DOM order. run-1.png/run-1.full.png confirm this: cells for Nov 2-6 (Sarah Chen, approved annual leave) and Nov 17-20 (3 overlapping leaves) show only the date number and the '× of 14 off' line — no leave bars, text, or borders are visible anywhere in the grid."
+    },
+    {
+      "item": "A leave of several days spans its days continuously, and a crowded day shows \"+N more\" that opens the full list instead of hiding entries",
+      "pass": false,
+      "evidence": "assignLanes()/the bars/overflowBtns logic (lines 394-414, 469-488) correctly computes continuous spans with squared-off continuation edges and '+N more' buttons (data-action=\"open-day\") that open the day popover with the full list. None of this is visible in the screenshots for the same stacking-context reason as above: the opaque, position:relative day-cell paints over these sibling bar/overflow elements, so no spanning bar or '+N more' control is visible anywhere in the rendered month grid despite the underlying data (e.g. L1 Nov 2–6, L7/L9 Nov 16–20)."
+    },
+    {
+      "item": "Days where many people are off are flagged with a count (such as \"3 of 8 off\")",
+      "pass": true,
+      "evidence": "Line 465: `${offCount} of ${rosterSize()} off` rendered inside the day-cell itself (not a hidden sibling), confirmed visible in screenshot, e.g. \"4 of 14 off\" on 6 Nov and \"2 of 14 off\" on 17-18 Nov; over-limit days get an additional 'Over limit ·' badge with a warning icon."
+    },
+    {
+      "item": "Opening a leave shows its absolute dates, its length in working days and its status, with approve and reject actions for pending requests",
+      "pass": true,
+      "evidence": "openDetailPanel() (line 773-841) renders a <dl> with Dates (fmtRangeAbs, absolute DD/MM/YYYY), Length (workingDays() count plus calendar-day note if different), a status badge, and for pending leaves an Approve/Reject button pair with a required-reason textarea on reject. This panel is reachable via the day popover (openDayPopover, a separate fixed z-50 element unaffected by the stacking bug) and via List view rows (data-action=\"open-entry\" on <tr>), both of which work correctly."
+    },
+    {
+      "item": "The calendar is keyboard operable (arrow keys in the grid, or every entry reachable in tab order), and entries have accessible names that include the date",
+      "pass": true,
+      "evidence": "keydown handler (line 1052-1073) implements ArrowLeft/Right/Up/Down, Home/End, PageUp/PageDown and Enter/Space on '.day-cell' with roving tabindex (setupRovingFocus, line 705). Entry buttons carry aria-label built from a11yRange() which always includes the date (line 479/554/180-184, e.g. \"Sarah Chen, annual leave, 2 to 6 November, approved\"). Note: because of the month-view stacking bug noted above, a sighted keyboard user tabbing to an entry-btn would not see the focus outline since the opaque day-cell paints over it — list view rows (tabindex=0) are the reliable sighted-keyboard path."
+    },
+    {
+      "item": "Filters by team, person or leave type, and a list view as an alternative to the grid",
+      "pass": true,
+      "evidence": "Toolbar selects #teamSelect, #personSelect, #typeSelect (lines 317-332) filter via getVisibleLeaves()/rosterPeople(), plus an inactive (rejected/cancelled) toggle and removable filter chips (renderChips). A third 'List' view (data-view=\"list\") renders a grouped table (renderListHTML, line 593-660) as an alternative to month/week grids."
+    },
+    {
+      "item": "Weeks start on the locale's first day, dates follow the locale, and empty, loading and error states are present",
+      "pass": true,
+      "evidence": "mondayOf() (line 167) anchors weeks to Monday matching en-GB locale (html lang=\"en-GB\"), headers show Mon-Sun; fmtAbs/fmtMonthHeading use toLocaleDateString('en-GB', ...) giving DD/MM/YYYY and 'November 2026' style text. skeletonHTML() (line 664) is shown on boot and via ?state=loading, errorHTML() (line 670) with a Retry button via ?state=error, and renderListHTML()/week view both render explicit empty-state copy ('No leave recorded for …', 'No team members match the current filters.')."
+    }
+  ],
+  "tells": [],
+  "notes": "Critical rendering bug: in month view, every .day-cell (line 459) is `position:relative` with an opaque background and `grid-row:1 / 6` (spanning the full row height), while the sibling leave-entry bars and '+N more' overflow buttons (lines 481, 487) are plain `position:static` elements placed in the same grid cells. Per CSS painting order, positioned-but-static-z-index boxes paint after (on top of) non-positioned in-flow siblings regardless of DOM order, so the day-cell backgrounds completely occlude every leave bar and overflow button in the grid. This is confirmed by both screenshots: despite LEAVES data for the visible November 2026 range (Sarah Chen 2–6 Nov, James Walker 11–16 Nov, three overlapping requests 17–20 Nov, etc.), no colored bar, person name, leave type, dashed/solid border, or '+N more' link is visible anywhere — only the bare date numbers and the 'X of Y off' summary line show. The same bug likely does not affect week view (its bars explicitly add `relative z-10`, line 557) or list view (plain table rows), but screenshots only cover month view so this could not be directly confirmed. No template tells (greeting header, KPI tiles, gradients, glass, emoji icons, rainbow status, promo cards, oversized radii, etc.) were observed; the UI is a plain, muted slate/blue admin palette with small radii and semantic status colours paired with icons and text labels."
+}

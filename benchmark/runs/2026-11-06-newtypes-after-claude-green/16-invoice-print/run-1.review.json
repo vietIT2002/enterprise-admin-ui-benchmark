@@ -1,0 +1,55 @@
+{
+  "brief": "16-invoice-print",
+  "run": 1,
+  "items": [
+    {
+      "item": "A print stylesheet (`@media print`) hides the app navigation, buttons and toasts, and sets an A4 page size and margins with `@page`",
+      "pass": true,
+      "evidence": "`@page { size: A4; margin: 14mm 12mm 16mm; }` and `@media print { nav, header.app-header, .page-actions, .no-print, [role=\"status\"], [role=\"dialog\"], .toast { display: none !important; } ... }`; the breadcrumb/status/action-button header is wrapped in `<div class=\"no-print ...\">`, the toast has class `no-print toast`, and the void dialog has `role=\"dialog\"` — all hidden when printing."
+    },
+    {
+      "item": "The document shows seller and buyer blocks (name, address, tax code), the invoice number, the issue date and the due date",
+      "pass": true,
+      "evidence": "`<h2>Seller</h2>` / `<h2>Bill to</h2>` blocks each list name, address and 'Tax code (MST): ...'; `<h1>Invoice <span class=\"font-mono\">INV-2026-0187</span></h1>`; dl rows 'Issue date 04/11/2026' and 'Due date 04/12/2026 · in 28 days'."
+    },
+    {
+      "item": "Line items show description, quantity, unit price, tax rate and line amount, with numbers right-aligned in tabular figures and the currency stated",
+      "pass": true,
+      "evidence": "Table columns No./Description/Qty/Unit price/Tax rate/Amount; qty, unit price, tax rate and amount cells use `class=\"... text-right tabular-nums ...\"` and `currency.format()` (Intl.NumberFormat vi-VN VND, e.g. '45.000.000 ₫'). Audit's numeric-align/tabular-nums violations apply only to the non-required 'No.' index column (`td.py-2\\.5.text-slate-500:nth-of-type(1)`), not to qty/price/tax/amount."
+    },
+    {
+      "item": "A totals block shows the subtotal, tax per rate, the total and the amount paid or due, and the totals equal the sum of the lines",
+      "pass": true,
+      "evidence": "`<tfoot id=\"totals\">` rendered by render(): Subtotal 101.200.000 ₫, VAT 10% 7.700.000 ₫, VAT 8% 1.600.000 ₫, Non-taxable 0 ₫, Total 110.500.000 ₫, Amount paid 0 ₫, Amount due 110.500.000 ₫ — verified: sum of line amounts = 101,200,000; tax = 7,700,000+1,600,000+0 = 9,300,000; total = 110,500,000, all matching."
+    },
+    {
+      "item": "A long item table breaks across pages without splitting rows, and its header row repeats on each printed page",
+      "pass": true,
+      "evidence": "`@media print { thead { display: table-header-group; } tfoot { display: table-row-group; } tr, .totals, .parties { break-inside: avoid; } }` — thead repeats as a header group and rows are protected from splitting via break-inside: avoid."
+    },
+    {
+      "item": "The printed page stays readable in black and white: no meaning carried by colour alone and no light grey text below 4.5:1",
+      "pass": true,
+      "evidence": "Audit contrast check found 0 violations among 116 checked text elements. Status badge 'Issued' and void state 'Void' both carry an explicit text label alongside colour; the only colour-only cue is the red 'Void invoice' overflow item, which also has explicit text."
+    },
+    {
+      "item": "On screen, the status is a badge with text (Draft, Issued, Paid, Overdue) and the actions (Print, Download PDF, Send) have one primary action",
+      "pass": true,
+      "evidence": "`<span id=\"status-badge\" class=\"inline-flex items-center rounded-full ...\">Issued</span>` (setStatus() also drives it to 'Void' text+colour on the void flow). Actions: 'Print' and 'Download PDF' are outlined/secondary (`border border-slate-300 bg-white`), 'Send invoice' is the single primary action (`bg-blue-700 ... text-white`)."
+    },
+    {
+      "item": "Dates and amounts follow one locale throughout, and payment details (bank account, payment reference) are shown",
+      "pass": true,
+      "evidence": "All dates use DD/MM/YYYY ('04/11/2026 09:12', 'Issue date 04/11/2026', 'Due date 04/12/2026'); all amounts use `new Intl.NumberFormat('vi-VN', {style:'currency', currency:'VND', ...})` consistently. Payment details block lists Bank 'Vietcombank — Hanoi Branch', Account no. '0071 0001 2345 6', Account holder, and Reference 'INV-2026-0187'."
+    },
+    {
+      "item": "The document has a heading structure, and the items table has column headers marked up as header cells",
+      "pass": true,
+      "evidence": "`<h1>Invoice INV-2026-0187</h1>` followed by `<h2>Seller</h2>`, `<h2>Bill to</h2>`, `<h2>Payment details</h2>`; table header row uses `<th scope=\"col\">` for No., Description, Qty, Unit price, Tax rate, Amount."
+    }
+  ],
+  "tells": [
+    "emoji-icon"
+  ],
+  "notes": "The overflow 'Actions' button uses a raw unicode ellipsis glyph (`&#8943;` inside `<span aria-hidden=\"true\">`) in place of an SVG/icon-font icon — flagged as emoji-icon. The automated audit's numeric-align/tabular-nums errors apply only to the non-checklist 'No.' row-index column, not the required qty/price/tax/amount columns, so they don't affect the line-item pass/fail. Only one status value ('Issued', transitioning to 'Void') is actually exercised in the markup/script; Draft/Paid/Overdue are not demonstrated but the badge mechanism (text-bearing, class-swapped) satisfies the checklist's intent."
+}

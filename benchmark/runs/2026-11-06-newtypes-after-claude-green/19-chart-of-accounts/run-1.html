@@ -1,0 +1,988 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Hệ thống tài khoản · Kế toán</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+  [hidden] { display: none !important; }
+  html, body { height: 100%; }
+  body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
+  * { -webkit-font-smoothing: antialiased; }
+  .tabular-nums { font-variant-numeric: tabular-nums; }
+  mark { background: #fef08a; color: inherit; border-radius: 2px; padding: 0 1px; }
+  [role="row"]:focus { outline: none; }
+  [role="row"]:focus-visible { outline: 2px solid #1d4ed8; outline-offset: -2px; }
+  button:focus-visible, input:focus-visible, [tabindex]:focus-visible, a:focus-visible { outline: 2px solid #1d4ed8; outline-offset: 1px; }
+  dialog::backdrop { background: rgba(15, 23, 42, 0.5); }
+  dialog { border: none; padding: 0; border-radius: 8px; }
+  .skeleton { background: linear-gradient(90deg, #f1f5f9 25%, #e2e8f0 37%, #f1f5f9 63%); background-size: 400% 100%; animation: skeleton 1.4s ease infinite; }
+  @keyframes skeleton { 0% { background-position: 100% 50%; } 100% { background-position: 0 50%; } }
+  #toasts { position: fixed; bottom: 16px; right: 16px; z-index: 60; display: flex; flex-direction: column; gap: 8px; }
+</style>
+</head>
+<body class="bg-slate-50 text-slate-900">
+
+<div id="app" class="h-screen flex flex-col">
+
+  <!-- Page header -->
+  <header class="flex items-center justify-between gap-4 border-b border-slate-200 bg-white px-4 py-3 shrink-0">
+    <div>
+      <h1 class="text-xl font-semibold text-slate-900">Hệ thống tài khoản</h1>
+      <p class="text-xs text-slate-500 mt-0.5">Công ty TNHH Phát Đạt · Kỳ kế toán 11/2026</p>
+    </div>
+    <button id="btnAddAccountTop" type="button"
+      class="inline-flex items-center gap-1.5 h-8 px-3 rounded text-sm font-medium bg-blue-700 text-white hover:bg-blue-800">
+      <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="M12 5v14"/></svg>
+      Thêm tài khoản
+    </button>
+  </header>
+
+  <!-- Split view -->
+  <div class="flex-1 flex overflow-hidden min-h-0">
+
+    <!-- Tree panel -->
+    <section id="treePanel" class="flex flex-col bg-white border-r border-slate-200 shrink-0" style="width:340px">
+
+      <!-- Toolbar -->
+      <div class="p-3 border-b border-slate-200 flex flex-col gap-2 shrink-0">
+        <div class="relative">
+          <svg aria-hidden="true" class="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+          <input id="searchInput" type="text" placeholder="Tìm theo mã hoặc tên tài khoản"
+            class="w-full h-8 pl-8 pr-8 rounded border border-slate-300 text-sm placeholder:text-slate-400 focus:border-blue-700"
+            aria-label="Tìm tài khoản">
+          <button id="btnClearSearch" type="button" hidden aria-label="Xóa tìm kiếm"
+            class="absolute right-1.5 top-1/2 -translate-y-1/2 w-6 h-6 flex items-center justify-center rounded hover:bg-slate-100 text-slate-500">
+            <svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="M6 6l12 12"/></svg>
+          </button>
+        </div>
+        <div class="flex items-center gap-2">
+          <button id="btnExpandAll" type="button" class="h-7 px-2 rounded text-xs font-medium text-slate-600 border border-slate-300 hover:bg-slate-50">Mở rộng tất cả</button>
+          <button id="btnCollapseAll" type="button" class="h-7 px-2 rounded text-xs font-medium text-slate-600 border border-slate-300 hover:bg-slate-50">Thu gọn tất cả</button>
+        </div>
+      </div>
+
+      <!-- Column headers -->
+      <div role="row" class="flex items-center h-8 border-b border-slate-200 text-xs font-medium text-slate-500 shrink-0 select-none">
+        <div role="columnheader" class="flex-1 min-w-0 px-2">Tài khoản</div>
+        <div role="columnheader" class="w-20 px-2 shrink-0">Trạng thái</div>
+        <div role="columnheader" class="w-36 px-3 shrink-0 text-right">Số dư (VND)</div>
+      </div>
+
+      <!-- Scrollable tree body -->
+      <div id="treeScroll" class="flex-1 overflow-y-auto">
+        <div id="treeGrid" role="treegrid" aria-label="Hệ thống tài khoản"></div>
+
+        <!-- States -->
+        <div id="stateLoading" hidden class="p-2 space-y-1">
+          <div class="h-9 rounded skeleton"></div>
+          <div class="h-9 rounded skeleton"></div>
+          <div class="h-9 rounded skeleton ml-5"></div>
+          <div class="h-9 rounded skeleton ml-5"></div>
+          <div class="h-9 rounded skeleton"></div>
+          <div class="h-9 rounded skeleton ml-5"></div>
+        </div>
+
+        <div id="stateError" hidden role="alert" class="p-6 text-center">
+          <svg aria-hidden="true" class="mx-auto mb-2 text-red-600" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.46 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" x2="12" y1="9" y2="13"/><line x1="12" x2="12.01" y1="17" y2="17"/></svg>
+          <p class="text-sm font-medium text-slate-900">Không thể tải hệ thống tài khoản</p>
+          <p class="text-xs text-slate-500 mt-1">Đã xảy ra lỗi khi kết nối tới máy chủ.</p>
+          <button id="btnRetry" type="button" class="mt-3 h-8 px-3 rounded text-sm font-medium bg-blue-700 text-white hover:bg-blue-800">Thử lại</button>
+        </div>
+
+        <div id="stateEmpty" hidden class="p-6 text-center">
+          <p class="text-sm font-medium text-slate-900">Chưa có tài khoản nào</p>
+          <p class="text-xs text-slate-500 mt-1">Bắt đầu bằng cách thêm tài khoản đầu tiên.</p>
+          <button id="btnAddFromEmpty" type="button" class="mt-3 h-8 px-3 rounded text-sm font-medium bg-blue-700 text-white hover:bg-blue-800">+ Thêm tài khoản</button>
+        </div>
+
+        <div id="stateNoSearch" hidden class="p-6 text-center text-sm text-slate-600">
+          <span id="stateNoSearchText"></span> · <button id="btnClearSearch2" type="button" class="text-blue-700 hover:underline font-medium">Xóa tìm kiếm</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- Resizer -->
+    <div id="resizer" role="separator" aria-orientation="vertical" aria-label="Thay đổi độ rộng khung cây tài khoản"
+      aria-valuemin="260" aria-valuemax="520" aria-valuenow="340" tabindex="0"
+      class="w-1 shrink-0 bg-slate-200 hover:bg-blue-300 cursor-col-resize"></div>
+
+    <!-- Detail panel -->
+    <section id="detailPanel" class="flex-1 overflow-y-auto bg-white min-w-0"></section>
+  </div>
+</div>
+
+<div id="toasts" aria-live="polite"></div>
+
+<dialog id="appDialog" class="w-full max-w-md shadow-xl"></dialog>
+
+<script>
+(function () {
+  "use strict";
+
+  // ---------------------------------------------------------------------
+  // Locale / formatting helpers
+  // ---------------------------------------------------------------------
+  const LOCALE = "vi-VN";
+  const nfInt = new Intl.NumberFormat(LOCALE, { maximumFractionDigits: 0 });
+  const nfSigned = new Intl.NumberFormat(LOCALE, { maximumFractionDigits: 0, signDisplay: "exceptZero" });
+
+  function formatAmount(v) { return nfInt.format(Math.round(v)); }
+  function formatSigned(v) { return nfSigned.format(Math.round(v)) + " ₫"; }
+  function formatMoney(v) { return formatAmount(v) + " ₫"; }
+
+  // vi diacritic + case fold, so "duc" matches "Đức" and vice versa.
+  function foldVi(s) {
+    const NFD = String(s).normalize("NFD");
+    const stripped = NFD.replace(new RegExp("[̀-ͯ]", "g"), "");
+    return stripped.replace(/đ/g, "d").replace(/Đ/g, "D").toLowerCase();
+  }
+
+  function escapeHtml(s) {
+    return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+  }
+
+  function highlight(text, query) {
+    if (!query) return escapeHtml(text);
+    const folded = foldVi(text);
+    const fq = foldVi(query);
+    const idx = folded.indexOf(fq);
+    if (idx === -1) return escapeHtml(text);
+    return escapeHtml(text.slice(0, idx)) + "<mark>" + escapeHtml(text.slice(idx, idx + fq.length)) + "</mark>" + escapeHtml(text.slice(idx + fq.length));
+  }
+
+  // ---------------------------------------------------------------------
+  // Mock data
+  // ---------------------------------------------------------------------
+  // Groups are classification headers only (no code, no postings).
+  // Header accounts (kind:'header') group posting accounts; posting accounts
+  // hold the actual balances. Parent balances are always summed, never typed.
+  const ACCOUNTS = [
+    { id: "g-asset", code: null, name: "Tài sản", parentId: null, kind: "group" },
+    { id: "111", code: "111", name: "Tiền mặt", parentId: "g-asset", kind: "header" },
+    { id: "1111", code: "1111", name: "Tiền Việt Nam", parentId: "111", kind: "posting", balance: 125400000, status: "active", periodMovement: 18200000, entries: 14 },
+    { id: "1112", code: "1112", name: "Tiền ngoại tệ (USD)", parentId: "111", kind: "posting", balance: 45820000, status: "active", periodMovement: -3200000, entries: 3 },
+    { id: "112", code: "112", name: "Tiền gửi ngân hàng", parentId: "g-asset", kind: "header" },
+    { id: "1121", code: "1121", name: "Tiền Việt Nam", parentId: "112", kind: "posting", balance: 1842650000, status: "active", periodMovement: 256400000, entries: 42 },
+    { id: "1122", code: "1122", name: "Tiền ngoại tệ (USD)", parentId: "112", kind: "posting", balance: 320000000, status: "active", periodMovement: 0, entries: 0 },
+    { id: "131", code: "131", name: "Phải thu của khách hàng", parentId: "g-asset", kind: "posting", balance: 458200000, status: "active", periodMovement: 62400000, entries: 28 },
+    { id: "133", code: "133", name: "Thuế GTGT được khấu trừ", parentId: "g-asset", kind: "posting", balance: 62400000, status: "active", periodMovement: 8100000, entries: 9 },
+    { id: "141", code: "141", name: "Tạm ứng", parentId: "g-asset", kind: "posting", balance: 18000000, status: "active", periodMovement: -5000000, entries: 2 },
+    { id: "152", code: "152", name: "Nguyên liệu, vật liệu", parentId: "g-asset", kind: "posting", balance: 612000000, status: "active", periodMovement: 45000000, entries: 17 },
+    { id: "153", code: "153", name: "Công cụ, dụng cụ", parentId: "g-asset", kind: "posting", balance: 84500000, status: "active", periodMovement: 3200000, entries: 4 },
+    { id: "156", code: "156", name: "Hàng hóa", parentId: "g-asset", kind: "posting", balance: 1250000000, status: "active", periodMovement: -128000000, entries: 36 },
+    { id: "211", code: "211", name: "Tài sản cố định hữu hình", parentId: "g-asset", kind: "header" },
+    { id: "2111", code: "2111", name: "Nhà cửa, vật kiến trúc", parentId: "211", kind: "posting", balance: 3200000000, status: "active", periodMovement: 0, entries: 0 },
+    { id: "2112", code: "2112", name: "Máy móc, thiết bị", parentId: "211", kind: "posting", balance: 1850000000, status: "active", periodMovement: 120000000, entries: 5 },
+    { id: "214", code: "214", name: "Hao mòn tài sản cố định", parentId: "g-asset", kind: "posting", balance: -1420000000, status: "active", periodMovement: -62000000, entries: 1 },
+
+    { id: "g-liability", code: null, name: "Nợ phải trả", parentId: null, kind: "group" },
+    { id: "331", code: "331", name: "Phải trả cho người bán", parentId: "g-liability", kind: "posting", balance: 325600000, status: "active", periodMovement: -42000000, entries: 19 },
+    { id: "333", code: "333", name: "Thuế và các khoản phải nộp Nhà nước", parentId: "g-liability", kind: "header" },
+    { id: "3331", code: "3331", name: "Thuế GTGT phải nộp", parentId: "333", kind: "posting", balance: 48200000, status: "active", periodMovement: 8100000, entries: 6 },
+    { id: "3334", code: "3334", name: "Thuế thu nhập doanh nghiệp", parentId: "333", kind: "posting", balance: 96500000, status: "active", periodMovement: 24000000, entries: 2 },
+    { id: "334", code: "334", name: "Phải trả người lao động", parentId: "g-liability", kind: "posting", balance: 210000000, status: "active", periodMovement: 0, entries: 1 },
+    { id: "338", code: "338", name: "Phải trả, phải nộp khác", parentId: "g-liability", kind: "posting", balance: 42300000, status: "inactive", periodMovement: 1200000, entries: 3 },
+    { id: "341", code: "341", name: "Vay và nợ thuê tài chính", parentId: "g-liability", kind: "posting", balance: 980000000, status: "active", periodMovement: -50000000, entries: 4 },
+
+    { id: "g-equity", code: null, name: "Vốn chủ sở hữu", parentId: null, kind: "group" },
+    { id: "411", code: "411", name: "Vốn góp của chủ sở hữu", parentId: "g-equity", kind: "posting", balance: 5000000000, status: "active", periodMovement: 0, entries: 0 },
+    { id: "421", code: "421", name: "Lợi nhuận sau thuế chưa phân phối", parentId: "g-equity", kind: "posting", balance: 1236870000, status: "active", periodMovement: 186400000, entries: 1 },
+
+    { id: "g-revenue", code: null, name: "Doanh thu", parentId: null, kind: "group" },
+    { id: "511", code: "511", name: "Doanh thu bán hàng và cung cấp dịch vụ", parentId: "g-revenue", kind: "header" },
+    { id: "5111", code: "5111", name: "Doanh thu bán hàng hóa", parentId: "511", kind: "posting", balance: 8420000000, status: "active", periodMovement: 742000000, entries: 156 },
+    { id: "5113", code: "5113", name: "Doanh thu cung cấp dịch vụ", parentId: "511", kind: "posting", balance: 1180000000, status: "active", periodMovement: 95000000, entries: 22 },
+    { id: "515", code: "515", name: "Doanh thu hoạt động tài chính", parentId: "g-revenue", kind: "posting", balance: 62400000, status: "active", periodMovement: 4200000, entries: 3 },
+
+    { id: "g-expense", code: null, name: "Chi phí", parentId: null, kind: "group" },
+    { id: "632", code: "632", name: "Giá vốn hàng bán", parentId: "g-expense", kind: "posting", balance: 5960000000, status: "active", periodMovement: 528000000, entries: 148 },
+    { id: "635", code: "635", name: "Chi phí tài chính", parentId: "g-expense", kind: "posting", balance: 48500000, status: "active", periodMovement: 6200000, entries: 5 },
+    { id: "642", code: "642", name: "Chi phí quản lý kinh doanh", parentId: "g-expense", kind: "header" },
+    { id: "6421", code: "6421", name: "Chi phí bán hàng", parentId: "642", kind: "posting", balance: 620000000, status: "active", periodMovement: 58000000, entries: 31 },
+    { id: "6422", code: "6422", name: "Chi phí quản lý doanh nghiệp", parentId: "642", kind: "posting", balance: 845000000, status: "active", periodMovement: 72000000, entries: 24 },
+    { id: "811", code: "811", name: "Chi phí khác", parentId: "g-expense", kind: "posting", balance: 0, status: "active", periodMovement: 0, entries: 0 },
+  ];
+
+  const DESC_POOL = ["Thanh toán cho nhà cung cấp", "Thu tiền khách hàng", "Chuyển khoản nội bộ", "Thu/chi tiền mặt", "Hạch toán chi phí", "Ghi nhận doanh thu", "Khấu trừ thuế GTGT", "Thanh toán lương"];
+
+  function byId(id) { return ACCOUNTS.find((a) => a.id === id); }
+  function childrenOf(id) { return ACCOUNTS.filter((a) => a.parentId === id); }
+  function hasChildren(id) { return ACCOUNTS.some((a) => a.parentId === id); }
+
+  // A header/group's balance and movement are always computed from postings below it.
+  function computeBalance(node) {
+    if (node.kind === "posting") return node.balance;
+    return childrenOf(node.id).reduce((sum, c) => sum + computeBalance(c), 0);
+  }
+  function computeMovement(node) {
+    if (node.kind === "posting") return node.periodMovement;
+    return childrenOf(node.id).reduce((sum, c) => sum + computeMovement(c), 0);
+  }
+  function computeEntries(node) {
+    if (node.kind === "posting") return node.entries;
+    return childrenOf(node.id).reduce((sum, c) => sum + computeEntries(c), 0);
+  }
+  function countDescendantLeaves(node) {
+    if (node.kind === "posting") return 1;
+    return childrenOf(node.id).reduce((sum, c) => sum + countDescendantLeaves(c), 0);
+  }
+  function pathTo(id) {
+    const path = [];
+    let cur = byId(id);
+    while (cur) { path.unshift(cur); cur = cur.parentId ? byId(cur.parentId) : null; }
+    return path;
+  }
+  function mockEntries(node) {
+    const n = Math.min(computeEntries(node), 3);
+    const out = [];
+    const total = computeMovement(node);
+    for (let i = 0; i < n; i++) {
+      const day = 4 - i;
+      const amount = Math.round((total || 1000000) / n) || 1000000;
+      out.push({
+        date: "2026-11-" + String(Math.max(day, 1)).padStart(2, "0"),
+        desc: DESC_POOL[(node.id.charCodeAt(0) + i) % DESC_POOL.length],
+        debit: amount >= 0 ? Math.abs(amount) : 0,
+        credit: amount < 0 ? Math.abs(amount) : 0,
+      });
+    }
+    return out;
+  }
+
+  // ---------------------------------------------------------------------
+  // App state
+  // ---------------------------------------------------------------------
+  const EXP_KEY = "coa-expanded";
+  const WIDTH_KEY = "coa-tree-width";
+
+  function loadExpanded() {
+    try {
+      const raw = JSON.parse(localStorage.getItem(EXP_KEY) || "null");
+      if (Array.isArray(raw)) return new Set(raw);
+    } catch (e) {}
+    // Default: all top-level groups open so the chart is usable on first load.
+    return new Set(ACCOUNTS.filter((a) => a.kind === "group").map((a) => a.id));
+  }
+  function saveExpanded() {
+    try { localStorage.setItem(EXP_KEY, JSON.stringify([...state.expanded])); } catch (e) {}
+  }
+
+  const params = new URLSearchParams(location.search);
+  const state = {
+    pageState: params.get("state") || "default", // default | loading | error | empty
+    expanded: loadExpanded(),
+    selectedId: params.get("account"),
+    query: "",
+    visibleRows: [],
+    focusedId: null,
+    rowEls: new Map(),
+  };
+
+  function setUrl() {
+    const p = new URLSearchParams(location.search);
+    if (state.selectedId) p.set("account", state.selectedId); else p.delete("account");
+    if (state.pageState !== "default") p.set("state", state.pageState); else p.delete("state");
+    history.replaceState(null, "", location.pathname + (p.toString() ? "?" + p.toString() : ""));
+  }
+
+  // Expand every ancestor of the selected account so it's visible on load.
+  if (state.selectedId) {
+    pathTo(state.selectedId).slice(0, -1).forEach((a) => state.expanded.add(a.id));
+  }
+
+  // ---------------------------------------------------------------------
+  // Tree flattening
+  // ---------------------------------------------------------------------
+  function flattenNormal() {
+    const rows = [];
+    function walk(parentId, level) {
+      const kids = childrenOf(parentId);
+      kids.forEach((node, i) => {
+        rows.push({ node, level, posinset: i + 1, setsize: kids.length });
+        if (hasChildren(node.id) && state.expanded.has(node.id)) walk(node.id, level + 1);
+      });
+    }
+    walk(null, 1);
+    return rows;
+  }
+
+  function flattenSearch(query) {
+    const matchIds = new Set(ACCOUNTS.filter((a) => {
+      const hay = (a.code ? a.code + " " : "") + a.name;
+      return foldVi(hay).includes(foldVi(query));
+    }).map((a) => a.id));
+    if (matchIds.size === 0) return { rows: [], matchIds };
+    const visible = new Set();
+    matchIds.forEach((id) => pathTo(id).forEach((a) => visible.add(a.id)));
+    const rows = [];
+    function walk(parentId, level) {
+      const kids = childrenOf(parentId).filter((k) => visible.has(k.id));
+      kids.forEach((node, i) => {
+        rows.push({ node, level, posinset: i + 1, setsize: kids.length });
+        if (hasChildren(node.id)) walk(node.id, level + 1);
+      });
+    }
+    walk(null, 1);
+    return { rows, matchIds };
+  }
+
+  // ---------------------------------------------------------------------
+  // Rendering: tree
+  // ---------------------------------------------------------------------
+  const treeGrid = document.getElementById("treeGrid");
+  const treeScroll = document.getElementById("treeScroll");
+  const elLoading = document.getElementById("stateLoading");
+  const elError = document.getElementById("stateError");
+  const elEmpty = document.getElementById("stateEmpty");
+  const elNoSearch = document.getElementById("stateNoSearch");
+  const elNoSearchText = document.getElementById("stateNoSearchText");
+
+  function statusBadge(node) {
+    if (node.status === "inactive") {
+      return '<span class="inline-flex items-center px-1.5 h-5 rounded-full text-xs font-medium bg-slate-100 text-slate-600">Ngừng h.đ.</span>';
+    }
+    if (node.kind === "header" || node.kind === "group") {
+      return '<span class="text-xs text-slate-500">Tổng hợp</span>';
+    }
+    return "";
+  }
+
+  function renderRow(row, query) {
+    const node = row.node;
+    const children = hasChildren(node.id);
+    const expanded = query ? true : state.expanded.has(node.id);
+    const bal = computeBalance(node);
+    const selected = state.selectedId === node.id;
+    const div = document.createElement("div");
+    div.setAttribute("role", "row");
+    div.setAttribute("data-id", node.id);
+    div.setAttribute("aria-level", String(row.level));
+    div.setAttribute("aria-setsize", String(row.setsize));
+    div.setAttribute("aria-posinset", String(row.posinset));
+    div.setAttribute("aria-selected", selected ? "true" : "false");
+    if (children) div.setAttribute("aria-expanded", expanded ? "true" : "false");
+    div.tabIndex = state.focusedId === node.id ? 0 : -1;
+    div.className = "flex items-stretch h-9 cursor-pointer border-b border-slate-50 " +
+      (selected ? "bg-blue-50 border-l-2 border-l-blue-700" : "border-l-2 border-l-transparent hover:bg-slate-50");
+
+    const nameLabel = node.code ? node.code + " · " + node.name : node.name;
+    const indent = (row.level - 1) * 20;
+
+    const nameCell = document.createElement("div");
+    nameCell.setAttribute("role", "gridcell");
+    nameCell.className = "flex-1 min-w-0 flex items-center";
+    nameCell.style.paddingLeft = indent + "px";
+    nameCell.innerHTML =
+      '<span class="w-6 h-6 shrink-0 flex items-center justify-center">' +
+      (children
+        ? '<svg aria-hidden="true" class="chevron" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="transform:rotate(' + (expanded ? 90 : 0) + 'deg)"><path d="m9 18 6-6-6-6"/></svg>'
+        : "") +
+      "</span>" +
+      '<span class="truncate text-sm text-slate-800" title="' + escapeHtml(nameLabel) + '">' +
+      (node.code ? '<span class="tabular-nums">' + highlight(node.code, query) + "</span> · " : "") +
+      highlight(node.name, query) +
+      "</span>";
+
+    const statusCell = document.createElement("div");
+    statusCell.setAttribute("role", "gridcell");
+    statusCell.className = "w-20 px-2 shrink-0 flex items-center";
+    statusCell.innerHTML = statusBadge(node);
+
+    const balCell = document.createElement("div");
+    balCell.setAttribute("role", "gridcell");
+    balCell.className = "w-36 px-3 shrink-0 flex items-center justify-end text-sm tabular-nums " + (bal < 0 ? "text-red-700" : "text-slate-800");
+    balCell.textContent = formatAmount(bal);
+
+    div.appendChild(nameCell);
+    div.appendChild(statusCell);
+    div.appendChild(balCell);
+
+    if (children) {
+      nameCell.querySelector(".chevron").parentElement.addEventListener("click", (e) => {
+        e.stopPropagation();
+        toggleExpand(node.id);
+      });
+    }
+    div.addEventListener("click", () => selectAccount(node.id));
+    div.addEventListener("keydown", onRowKeydown);
+
+    return div;
+  }
+
+  function renderTree() {
+    [elLoading, elError, elEmpty, elNoSearch, treeGrid].forEach((el) => (el.hidden = true));
+
+    if (state.pageState === "loading") { elLoading.hidden = false; return; }
+    if (state.pageState === "error") { elError.hidden = false; return; }
+    if (state.pageState === "empty") { elEmpty.hidden = false; return; }
+
+    treeGrid.hidden = false;
+    treeGrid.innerHTML = "";
+
+    let rows;
+    if (state.query) {
+      const res = flattenSearch(state.query);
+      rows = res.rows;
+      if (rows.length === 0) {
+        elNoSearchText.textContent = "Không có tài khoản khớp với “" + state.query + "”";
+        elNoSearch.hidden = false;
+        state.visibleRows = [];
+        return;
+      }
+    } else {
+      rows = flattenNormal();
+    }
+
+    state.visibleRows = rows;
+    if (!state.focusedId || !rows.some((r) => r.node.id === state.focusedId)) {
+      state.focusedId = rows.some((r) => r.node.id === state.selectedId) ? state.selectedId : rows[0].node.id;
+    }
+
+    const frag = document.createDocumentFragment();
+    rows.forEach((row) => {
+      const el = renderRow(row, state.query);
+      state.rowEls.set(row.node.id, el);
+      frag.appendChild(el);
+    });
+    state.rowEls = new Map(rows.map((r) => [r.node.id, null]));
+    treeGrid.appendChild(frag);
+    rows.forEach((row) => state.rowEls.set(row.node.id, treeGrid.querySelector('[data-id="' + row.node.id + '"]')));
+  }
+
+  function toggleExpand(id) {
+    const scrollTop = treeScroll.scrollTop;
+    if (state.expanded.has(id)) state.expanded.delete(id); else state.expanded.add(id);
+    saveExpanded();
+    renderTree();
+    treeScroll.scrollTop = scrollTop;
+    focusRow(id); // renderTree() rebuilds the row elements, so focus (mouse or keyboard) must be restored after.
+  }
+
+  function focusRow(id) {
+    state.focusedId = id;
+    const el = state.rowEls.get(id);
+    if (!el) return;
+    state.visibleRows.forEach((r) => {
+      const e = state.rowEls.get(r.node.id);
+      if (e) e.tabIndex = r.node.id === id ? 0 : -1;
+    });
+    el.focus();
+  }
+
+  function onRowKeydown(e) {
+    const rows = state.visibleRows;
+    const i = rows.findIndex((r) => r.node.id === state.focusedId);
+    if (i === -1) return;
+    const row = rows[i];
+    const node = row.node;
+    const children = hasChildren(node.id);
+    const expanded = state.query ? true : state.expanded.has(node.id);
+
+    const go = (idx) => { if (idx >= 0 && idx < rows.length) { e.preventDefault(); focusRow(rows[idx].node.id); } };
+
+    switch (e.key) {
+      case "ArrowDown": return go(i + 1);
+      case "ArrowUp": return go(i - 1);
+      case "Home": return go(0);
+      case "End": return go(rows.length - 1);
+      case "ArrowRight":
+        e.preventDefault();
+        if (children && !expanded) { toggleExpand(node.id); }
+        else if (children && expanded) { go(i + 1); }
+        return;
+      case "ArrowLeft":
+        e.preventDefault();
+        if (children && expanded) { toggleExpand(node.id); }
+        else if (node.parentId) { focusRow(node.parentId); }
+        return;
+      case "Enter":
+      case " ":
+        e.preventDefault();
+        selectAccount(node.id);
+        return;
+      case "*":
+        e.preventDefault();
+        rows.filter((r) => r.node.parentId === node.parentId && hasChildren(r.node.id)).forEach((r) => state.expanded.add(r.node.id));
+        saveExpanded();
+        renderTree();
+        focusRow(node.id);
+        return;
+      default:
+        if (e.key.length === 1 && /\S/.test(e.key) && !e.ctrlKey && !e.metaKey && !e.altKey) {
+          const ordered = [...rows.slice(i + 1), ...rows.slice(0, i)];
+          const next = ordered.find((r) => foldVi(r.node.name).startsWith(foldVi(e.key)));
+          if (next) go(rows.indexOf(next));
+        }
+    }
+  }
+
+  // ---------------------------------------------------------------------
+  // Selection + detail panel
+  // ---------------------------------------------------------------------
+  const detailPanel = document.getElementById("detailPanel");
+
+  function selectAccount(id) {
+    state.selectedId = id;
+    state.focusedId = id;
+    setUrl();
+    renderTree();
+    focusRow(id); // renderTree() rebuilds the rows, so focus is restored after, not before.
+    renderDetail();
+    updateResponsiveLayout();
+  }
+
+  function breadcrumbHtml(node) {
+    const path = pathTo(node.id);
+    return path.map((a, i) => {
+      const label = i === path.length - 1 && a.code ? a.code + " " + a.name : a.name;
+      return '<span class="' + (i === path.length - 1 ? "text-slate-900 font-medium" : "text-slate-500") + '">' + escapeHtml(label) + "</span>";
+    }).join('<span class="text-slate-400 mx-1">/</span>');
+  }
+
+  function renderDetail() {
+    if (!state.selectedId) {
+      detailPanel.innerHTML =
+        '<div class="h-full flex items-center justify-center p-8">' +
+        '<div class="text-center max-w-xs">' +
+        '<p class="text-sm text-slate-600">Chọn một tài khoản để xem chi tiết</p>' +
+        '<button id="btnAddFromDetail" type="button" class="mt-3 inline-flex items-center gap-1.5 h-8 px-3 rounded text-sm font-medium bg-blue-700 text-white hover:bg-blue-800">+ Thêm tài khoản</button>' +
+        "</div></div>";
+      document.getElementById("btnAddFromDetail").addEventListener("click", () => openAddAccountModal(null));
+      return;
+    }
+
+    const node = byId(state.selectedId);
+    if (!node) { state.selectedId = null; return renderDetail(); }
+
+    const bal = computeBalance(node);
+    const mov = computeMovement(node);
+    const entries = computeEntries(node);
+    const isGroup = node.kind === "group";
+
+    let html = "";
+
+    html += '<div class="p-4 md:p-6 max-w-3xl">';
+
+    // mobile back
+    html += '<button id="btnBackMobile" class="lg:hidden mb-3 inline-flex items-center gap-1 text-sm text-blue-700 font-medium"><svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>Quay lại danh sách tài khoản</button>';
+
+    // breadcrumb
+    html += '<nav class="text-xs mb-2" aria-label="Đường dẫn tài khoản">' + breadcrumbHtml(node) + "</nav>";
+
+    // header
+    html += '<div class="flex items-start justify-between gap-3 pb-4 border-b border-slate-200">';
+    html += '<div class="min-w-0">';
+    html += '<h2 class="text-lg font-semibold text-slate-900 break-words">' + (node.code ? '<span class="tabular-nums">' + escapeHtml(node.code) + "</span> · " : "") + escapeHtml(node.name) + "</h2>";
+    html += '<div class="mt-1 flex items-center gap-2">';
+    if (node.status === "inactive") html += '<span class="inline-flex items-center px-1.5 h-5 rounded-full text-xs font-medium bg-slate-100 text-slate-600">Ngừng hoạt động</span>';
+    if (isGroup) html += '<span class="text-xs text-slate-500">Nhóm phân loại</span>';
+    else if (node.kind === "header") html += '<span class="text-xs text-slate-500">Tài khoản tổng hợp</span>';
+    else html += '<span class="text-xs text-slate-500">Tài khoản chi tiết</span>';
+    html += "</div></div>";
+
+    html += '<div class="flex items-center gap-2 shrink-0">';
+    if (isGroup) {
+      html += '<button id="btnAddChild" class="h-8 px-3 rounded text-sm font-medium bg-blue-700 text-white hover:bg-blue-800">+ Thêm tài khoản con</button>';
+    } else {
+      html += '<button id="btnEdit" class="h-8 px-3 rounded text-sm font-medium bg-blue-700 text-white hover:bg-blue-800">Sửa</button>';
+      html += '<div class="relative">';
+      html += '<button id="btnMore" aria-haspopup="menu" aria-expanded="false" aria-label="Thao tác cho tài khoản ' + escapeHtml(node.code || node.name) + '" class="h-8 w-8 flex items-center justify-center rounded border border-slate-300 hover:bg-slate-50"><svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></svg></button>';
+      html += '<div id="moreMenu" role="menu" hidden class="absolute right-0 mt-1 w-48 bg-white border border-slate-200 rounded shadow-lg z-10 py-1">';
+      if (node.kind === "header") html += '<button role="menuitem" id="menuAddChild" class="w-full text-left px-3 py-2 text-sm hover:bg-slate-50">Thêm tài khoản con</button>';
+      html += node.status === "inactive"
+        ? '<button role="menuitem" id="menuToggleActive" class="w-full text-left px-3 py-2 text-sm hover:bg-slate-50">Kích hoạt lại</button>'
+        : '<button role="menuitem" id="menuToggleActive" class="w-full text-left px-3 py-2 text-sm text-red-700 hover:bg-red-50">Ngừng hoạt động</button>';
+      html += "</div></div>";
+    }
+    html += "</div></div>";
+
+    // key figures
+    html += '<div class="grid grid-cols-2 gap-4 py-4 border-b border-slate-200">';
+    html += '<div><p class="text-xs text-slate-500">Số dư</p><p class="text-xl font-semibold tabular-nums ' + (bal < 0 ? "text-red-700" : "text-slate-900") + '">' + formatMoney(bal) + "</p></div>";
+    html += '<div><p class="text-xs text-slate-500">Biến động trong kỳ</p><p class="text-xl font-semibold tabular-nums ' + (mov < 0 ? "text-red-700" : mov > 0 ? "text-emerald-700" : "text-slate-900") + '">' + (mov === 0 ? "0 ₫" : formatSigned(mov)) + "</p></div>";
+    html += "</div>";
+
+    // body
+    if (isGroup || node.kind === "header") {
+      const leafCount = countDescendantLeaves(node);
+      html += '<div class="py-4">';
+      html += '<p class="text-sm text-slate-600">' + (isGroup ? "Nhóm phân loại gồm " : "Tài khoản tổng hợp gồm ") + leafCount + " tài khoản chi tiết · " + entries + " giao dịch trong kỳ.</p>";
+      html += "</div>";
+    } else {
+      const list = mockEntries(node);
+      html += '<div class="py-4">';
+      html += '<div class="flex items-center justify-between mb-2"><h3 class="text-sm font-semibold text-slate-900">Giao dịch gần đây</h3><a href="#" id="viewAllEntries" class="text-sm text-blue-700 hover:underline">Xem tất cả</a></div>';
+      if (list.length === 0) {
+        html += '<p class="text-sm text-slate-500 border border-slate-200 rounded p-3">Không có giao dịch trong kỳ này.</p>';
+      } else {
+        html += '<table class="w-full text-sm border border-slate-200 rounded overflow-hidden"><thead><tr class="bg-slate-50 text-xs text-slate-500">' +
+          '<th class="text-left font-medium px-3 py-2">Ngày</th><th class="text-left font-medium px-3 py-2">Diễn giải</th><th class="text-right font-medium px-3 py-2">Nợ (VND)</th><th class="text-right font-medium px-3 py-2">Có (VND)</th></tr></thead><tbody>';
+        list.forEach((e) => {
+          const d = new Date(e.date + "T00:00:00Z");
+          const dd = String(d.getUTCDate()).padStart(2, "0") + "/" + String(d.getUTCMonth() + 1).padStart(2, "0") + "/" + d.getUTCFullYear();
+          html += '<tr class="border-t border-slate-100"><td class="px-3 py-2 tabular-nums whitespace-nowrap">' + dd + '</td><td class="px-3 py-2">' + escapeHtml(e.desc) + '</td>' +
+            '<td class="px-3 py-2 text-right tabular-nums">' + (e.debit ? formatAmount(e.debit) : "—") + '</td>' +
+            '<td class="px-3 py-2 text-right tabular-nums">' + (e.credit ? formatAmount(e.credit) : "—") + "</td></tr>";
+        });
+        html += "</tbody></table>";
+      }
+      html += "</div>";
+    }
+
+    html += "</div>";
+    detailPanel.innerHTML = html;
+
+    // wire events
+    const backBtn = document.getElementById("btnBackMobile");
+    if (backBtn) backBtn.addEventListener("click", () => { state.selectedId = null; setUrl(); renderTree(); renderDetail(); updateResponsiveLayout(); });
+
+    const addChildBtn = document.getElementById("btnAddChild") || document.getElementById("menuAddChild");
+    if (addChildBtn) addChildBtn.addEventListener("click", () => { const m = document.getElementById("moreMenu"); if (m) m.hidden = true; openAddAccountModal(node); });
+
+    const editBtn = document.getElementById("btnEdit");
+    if (editBtn) editBtn.addEventListener("click", () => openEditModal(node));
+
+    const moreBtn = document.getElementById("btnMore");
+    const moreMenu = document.getElementById("moreMenu");
+    if (moreBtn) {
+      moreBtn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        const open = moreMenu.hidden;
+        moreMenu.hidden = !open;
+        moreBtn.setAttribute("aria-expanded", String(open));
+      });
+    }
+    const toggleBtn = document.getElementById("menuToggleActive");
+    if (toggleBtn) toggleBtn.addEventListener("click", () => { moreMenu.hidden = true; node.status === "inactive" ? activateAccount(node) : requestDeactivate(node); });
+
+    const viewAll = document.getElementById("viewAllEntries");
+    if (viewAll) viewAll.addEventListener("click", (e) => { e.preventDefault(); toast("Sổ chi tiết tài khoản sẽ sớm có."); });
+  }
+
+  // ---------------------------------------------------------------------
+  // Deactivate / activate
+  // ---------------------------------------------------------------------
+  function requestDeactivate(node) {
+    const bal = computeBalance(node);
+    const ent = computeEntries(node);
+    if (node.kind === "header" && hasChildren(node.id)) {
+      return openBlockedDialog(node, "Tài khoản " + node.code + " vẫn còn tài khoản con. Ngừng hoạt động các tài khoản con trước.");
+    }
+    if (bal !== 0 || ent > 0) {
+      return openBlockedDialog(node, "Không thể ngừng hoạt động " + node.code + ": số dư " + formatMoney(bal) + " và " + ent + " giao dịch trong kỳ. Hãy chuyển số dư trước.");
+    }
+    openConfirmDialog({
+      title: "Ngừng hoạt động tài khoản",
+      body: "Ngừng hoạt động tài khoản " + node.code + " – " + node.name + "? Tài khoản sẽ không thể ghi nhận giao dịch mới.",
+      confirmLabel: "Ngừng hoạt động",
+      danger: true,
+      onConfirm: () => {
+        node.status = "inactive";
+        renderTree(); renderDetail();
+        toast("Đã ngừng hoạt động tài khoản " + node.code + " – " + node.name);
+      },
+    });
+  }
+  function activateAccount(node) {
+    openConfirmDialog({
+      title: "Kích hoạt tài khoản",
+      body: "Kích hoạt lại tài khoản " + node.code + " – " + node.name + "?",
+      confirmLabel: "Kích hoạt",
+      danger: false,
+      onConfirm: () => {
+        node.status = "active";
+        renderTree(); renderDetail();
+        toast("Đã kích hoạt tài khoản " + node.code + " – " + node.name);
+      },
+    });
+  }
+
+  // ---------------------------------------------------------------------
+  // Modal dialogs
+  // ---------------------------------------------------------------------
+  const dlg = document.getElementById("appDialog");
+
+  function closeDialog() { if (dlg.open) dlg.close(); }
+
+  function openBlockedDialog(node, reason) {
+    dlg.innerHTML =
+      '<div class="p-5">' +
+      '<h2 class="text-base font-semibold text-slate-900 mb-2">Không thể ngừng hoạt động</h2>' +
+      '<p class="text-sm text-slate-700">' + escapeHtml(reason) + "</p>" +
+      '<div class="mt-5 flex justify-end"><button id="dlgOk" class="h-8 px-3 rounded text-sm font-medium bg-blue-700 text-white hover:bg-blue-800">Đã hiểu</button></div>' +
+      "</div>";
+    dlg.showModal();
+    const ok = document.getElementById("dlgOk");
+    ok.focus();
+    ok.addEventListener("click", closeDialog);
+  }
+
+  function openConfirmDialog(opts) {
+    dlg.setAttribute("role", "alertdialog");
+    dlg.innerHTML =
+      '<div class="p-5">' +
+      '<h2 class="text-base font-semibold text-slate-900 mb-2">' + escapeHtml(opts.title) + "</h2>" +
+      '<p class="text-sm text-slate-700">' + escapeHtml(opts.body) + "</p>" +
+      '<div class="mt-5 flex justify-end gap-2">' +
+      '<button id="dlgCancel" class="h-8 px-3 rounded text-sm font-medium border border-slate-300 hover:bg-slate-50">Hủy</button>' +
+      '<button id="dlgConfirm" class="h-8 px-3 rounded text-sm font-medium text-white ' + (opts.danger ? "bg-red-600 hover:bg-red-700" : "bg-blue-700 hover:bg-blue-800") + '">' + escapeHtml(opts.confirmLabel) + "</button>" +
+      "</div></div>";
+    dlg.showModal();
+    const cancel = document.getElementById("dlgCancel");
+    const confirm = document.getElementById("dlgConfirm");
+    cancel.focus(); // Cancel is focused by default on destructive confirmations.
+    cancel.addEventListener("click", closeDialog);
+    confirm.addEventListener("click", () => { closeDialog(); opts.onConfirm(); });
+  }
+
+  function groupOptionsHtml(selectedGroupId) {
+    return ACCOUNTS.filter((a) => a.kind === "group").map((g) =>
+      '<option value="' + g.id + '"' + (g.id === selectedGroupId ? " selected" : "") + ">" + escapeHtml(g.name) + "</option>"
+    ).join("");
+  }
+
+  function openAddAccountModal(parentNode) {
+    const isTopLevel = !parentNode || parentNode.kind === "group";
+    const defaultGroupId = parentNode ? (parentNode.kind === "group" ? parentNode.id : pathTo(parentNode.id)[0].id) : ACCOUNTS.find((a) => a.kind === "group").id;
+
+    dlg.removeAttribute("role");
+    dlg.innerHTML =
+      '<form id="addForm" class="flex flex-col max-h-[85vh]">' +
+      '<div class="p-5 overflow-y-auto">' +
+      '<h2 class="text-base font-semibold text-slate-900 mb-4">' + (parentNode && parentNode.kind !== "group" ? "Thêm tài khoản con" : "Thêm tài khoản") + "</h2>" +
+      (parentNode && parentNode.kind !== "group"
+        ? '<p class="text-xs text-slate-500 mb-3">Thuộc tài khoản: <span class="font-medium text-slate-700">' + escapeHtml((parentNode.code ? parentNode.code + " " : "") + parentNode.name) + "</span></p>"
+        : "") +
+      '<div class="space-y-4">' +
+      '<div>' +
+      '<label for="fCode" class="block text-sm font-medium text-slate-700 mb-1">Mã tài khoản <span class="text-red-600">*</span></label>' +
+      '<input id="fCode" name="code" type="text" inputmode="numeric" class="w-full h-8 px-2 rounded border border-slate-300 text-sm" placeholder="Ví dụ: 1113">' +
+      '<p id="eCode" class="text-xs text-red-600 mt-1" hidden></p>' +
+      "</div>" +
+      '<div>' +
+      '<label for="fName" class="block text-sm font-medium text-slate-700 mb-1">Tên tài khoản <span class="text-red-600">*</span></label>' +
+      '<input id="fName" name="name" type="text" class="w-full h-8 px-2 rounded border border-slate-300 text-sm" placeholder="Ví dụ: Tiền mặt tại quỹ">' +
+      '<p id="eName" class="text-xs text-red-600 mt-1" hidden></p>' +
+      "</div>" +
+      (isTopLevel
+        ? '<div><label for="fGroup" class="block text-sm font-medium text-slate-700 mb-1">Thuộc nhóm <span class="text-red-600">*</span></label>' +
+          '<select id="fGroup" class="w-full h-8 px-2 rounded border border-slate-300 text-sm">' + groupOptionsHtml(defaultGroupId) + "</select></div>"
+        : '<input type="hidden" id="fGroup" value="' + defaultGroupId + '">') +
+      "</div></div>" +
+      '<div class="sticky bottom-0 border-t border-slate-200 bg-white p-3 flex justify-end gap-2">' +
+      '<button type="button" id="addCancel" class="h-8 px-3 rounded text-sm font-medium border border-slate-300 hover:bg-slate-50">Hủy</button>' +
+      '<button type="submit" id="addSave" class="h-8 px-3 rounded text-sm font-medium bg-blue-700 text-white hover:bg-blue-800">Lưu</button>' +
+      "</div></form>";
+
+    dlg.showModal();
+    document.getElementById("fCode").focus();
+    document.getElementById("addCancel").addEventListener("click", closeDialog);
+    document.getElementById("addForm").addEventListener("submit", (e) => {
+      e.preventDefault();
+      const code = document.getElementById("fCode").value.trim();
+      const name = document.getElementById("fName").value.trim();
+      const groupId = document.getElementById("fGroup").value;
+      const eCode = document.getElementById("eCode");
+      const eName = document.getElementById("eName");
+      eCode.hidden = true; eName.hidden = true;
+      let firstInvalid = null;
+      if (!code) { eCode.textContent = "Vui lòng nhập mã tài khoản."; eCode.hidden = false; firstInvalid = firstInvalid || "fCode"; }
+      else if (ACCOUNTS.some((a) => a.code === code)) { eCode.textContent = "Mã tài khoản này đã tồn tại."; eCode.hidden = false; firstInvalid = firstInvalid || "fCode"; }
+      if (!name) { eName.textContent = "Vui lòng nhập tên tài khoản."; eName.hidden = false; firstInvalid = firstInvalid || "fName"; }
+      if (firstInvalid) { document.getElementById(firstInvalid).focus(); return; }
+
+      const parentId = parentNode && parentNode.kind !== "group" ? parentNode.id : groupId;
+      const newNode = { id: code, code, name, parentId, kind: "posting", balance: 0, status: "active", periodMovement: 0, entries: 0 };
+      ACCOUNTS.push(newNode);
+      pathTo(newNode.id).slice(0, -1).forEach((a) => state.expanded.add(a.id));
+      saveExpanded();
+      closeDialog();
+      selectAccount(newNode.id);
+      toast("Đã tạo tài khoản " + code + " – " + name);
+    });
+  }
+
+  function openEditModal(node) {
+    dlg.removeAttribute("role");
+    dlg.innerHTML =
+      '<form id="editForm" class="flex flex-col max-h-[85vh]">' +
+      '<div class="p-5 overflow-y-auto">' +
+      '<h2 class="text-base font-semibold text-slate-900 mb-4">Sửa tài khoản</h2>' +
+      '<div class="space-y-4">' +
+      '<div><label class="block text-sm font-medium text-slate-700 mb-1">Mã tài khoản</label>' +
+      '<input value="' + escapeHtml(node.code) + '" disabled class="w-full h-8 px-2 rounded border border-slate-200 bg-slate-50 text-sm text-slate-500"></div>' +
+      '<div><label for="eName2" class="block text-sm font-medium text-slate-700 mb-1">Tên tài khoản <span class="text-red-600">*</span></label>' +
+      '<input id="eName2" value="' + escapeHtml(node.name) + '" class="w-full h-8 px-2 rounded border border-slate-300 text-sm">' +
+      '<p id="eNameErr" class="text-xs text-red-600 mt-1" hidden>Vui lòng nhập tên tài khoản.</p></div>' +
+      "</div></div>" +
+      '<div class="sticky bottom-0 border-t border-slate-200 bg-white p-3 flex justify-end gap-2">' +
+      '<button type="button" id="editCancel" class="h-8 px-3 rounded text-sm font-medium border border-slate-300 hover:bg-slate-50">Hủy</button>' +
+      '<button type="submit" class="h-8 px-3 rounded text-sm font-medium bg-blue-700 text-white hover:bg-blue-800">Lưu</button>' +
+      "</div></form>";
+    dlg.showModal();
+    const input = document.getElementById("eName2");
+    input.focus(); input.select();
+    document.getElementById("editCancel").addEventListener("click", closeDialog);
+    document.getElementById("editForm").addEventListener("submit", (e) => {
+      e.preventDefault();
+      const name = input.value.trim();
+      if (!name) { document.getElementById("eNameErr").hidden = false; input.focus(); return; }
+      node.name = name;
+      closeDialog();
+      renderTree(); renderDetail();
+      toast("Đã lưu thay đổi tài khoản " + node.code);
+    });
+  }
+
+  // Single delegated listener closes the detail panel's overflow menu on
+  // outside click, regardless of how many times renderDetail() has run.
+  document.addEventListener("click", (e) => {
+    const moreMenu = document.getElementById("moreMenu");
+    const moreBtn = document.getElementById("btnMore");
+    if (!moreMenu || moreMenu.hidden) return;
+    if (e.target === moreBtn || moreMenu.contains(e.target)) return;
+    moreMenu.hidden = true;
+    if (moreBtn) moreBtn.setAttribute("aria-expanded", "false");
+  });
+
+  // ---------------------------------------------------------------------
+  // Toasts
+  // ---------------------------------------------------------------------
+  function toast(message) {
+    const el = document.createElement("div");
+    el.setAttribute("role", "status");
+    el.className = "bg-slate-900 text-white text-sm rounded px-3 py-2 shadow-lg max-w-sm";
+    el.textContent = message;
+    document.getElementById("toasts").appendChild(el);
+    setTimeout(() => el.remove(), 3500);
+  }
+
+  // ---------------------------------------------------------------------
+  // Search wiring
+  // ---------------------------------------------------------------------
+  const searchInput = document.getElementById("searchInput");
+  const btnClearSearch = document.getElementById("btnClearSearch");
+  const btnClearSearch2 = document.getElementById("btnClearSearch2");
+
+  function setQuery(q) {
+    state.query = q.trim();
+    btnClearSearch.hidden = !state.query;
+    renderTree();
+  }
+  searchInput.addEventListener("input", (e) => setQuery(e.target.value));
+  btnClearSearch.addEventListener("click", () => { searchInput.value = ""; setQuery(""); searchInput.focus(); });
+  btnClearSearch2.addEventListener("click", () => { searchInput.value = ""; setQuery(""); searchInput.focus(); });
+
+  // ---------------------------------------------------------------------
+  // Expand all / collapse all
+  // ---------------------------------------------------------------------
+  document.getElementById("btnExpandAll").addEventListener("click", () => {
+    ACCOUNTS.forEach((a) => { if (hasChildren(a.id)) state.expanded.add(a.id); });
+    saveExpanded();
+    renderTree();
+  });
+  document.getElementById("btnCollapseAll").addEventListener("click", () => {
+    state.expanded.clear();
+    saveExpanded();
+    renderTree();
+  });
+
+  // ---------------------------------------------------------------------
+  // Top-level add / retry / empty actions
+  // ---------------------------------------------------------------------
+  document.getElementById("btnAddAccountTop").addEventListener("click", () => openAddAccountModal(null));
+  document.getElementById("btnAddFromEmpty").addEventListener("click", () => openAddAccountModal(null));
+  document.getElementById("btnRetry").addEventListener("click", () => {
+    state.pageState = "default";
+    setUrl();
+    bootLoad();
+  });
+
+  // ---------------------------------------------------------------------
+  // Resizer
+  // ---------------------------------------------------------------------
+  const treePanel = document.getElementById("treePanel");
+  const resizer = document.getElementById("resizer");
+
+  function setTreeWidth(px) {
+    const clamped = Math.max(260, Math.min(520, px));
+    treePanel.style.width = clamped + "px";
+    resizer.setAttribute("aria-valuenow", String(Math.round(clamped)));
+    try { localStorage.setItem(WIDTH_KEY, String(clamped)); } catch (e) {}
+  }
+  (function initWidth() {
+    const saved = parseInt(localStorage.getItem(WIDTH_KEY) || "340", 10);
+    setTreeWidth(isNaN(saved) ? 340 : saved);
+  })();
+
+  let dragging = false;
+  resizer.addEventListener("pointerdown", (e) => { dragging = true; e.preventDefault(); });
+  window.addEventListener("pointermove", (e) => {
+    if (!dragging) return;
+    const rect = document.getElementById("app").getBoundingClientRect();
+    setTreeWidth(e.clientX - rect.left);
+  });
+  window.addEventListener("pointerup", () => { dragging = false; });
+  resizer.addEventListener("keydown", (e) => {
+    const current = parseInt(resizer.getAttribute("aria-valuenow"), 10);
+    if (e.key === "ArrowLeft") { setTreeWidth(current - 16); e.preventDefault(); }
+    if (e.key === "ArrowRight") { setTreeWidth(current + 16); e.preventDefault(); }
+  });
+
+  // ---------------------------------------------------------------------
+  // Responsive (below 1024px the detail panel replaces the tree)
+  // ---------------------------------------------------------------------
+  function updateResponsiveLayout() {
+    const isMobile = window.innerWidth < 1024;
+    if (isMobile) {
+      resizer.classList.add("hidden");
+      treePanel.style.width = "100%";
+      if (state.selectedId) {
+        treePanel.classList.add("hidden");
+        detailPanel.classList.remove("hidden");
+      } else {
+        treePanel.classList.remove("hidden");
+        detailPanel.classList.add("hidden");
+      }
+    } else {
+      resizer.classList.remove("hidden");
+      treePanel.classList.remove("hidden");
+      detailPanel.classList.remove("hidden");
+      const saved = parseInt(localStorage.getItem(WIDTH_KEY) || "340", 10);
+      setTreeWidth(isNaN(saved) ? 340 : saved);
+    }
+  }
+  window.addEventListener("resize", updateResponsiveLayout);
+
+  // ---------------------------------------------------------------------
+  // Boot
+  // ---------------------------------------------------------------------
+  function bootLoad() {
+    if (state.pageState === "loading" || state.pageState === "error" || state.pageState === "empty") {
+      renderTree();
+      renderDetail();
+      updateResponsiveLayout();
+      return;
+    }
+    // Default: brief skeleton, then resolve with data (mirrors a real fetch).
+    state.pageState = "loading";
+    renderTree();
+    setTimeout(() => {
+      state.pageState = "default";
+      renderTree();
+      renderDetail();
+      updateResponsiveLayout();
+      if (state.focusedId) {
+        const el = state.rowEls.get(state.focusedId);
+        if (el) el.tabIndex = 0;
+      }
+    }, 450);
+  }
+
+  bootLoad();
+})();
+</script>
+</body>
+</html>

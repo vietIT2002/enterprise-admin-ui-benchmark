@@ -1,0 +1,745 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Service desk tickets</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+  [hidden] { display: none !important; }
+  html, body { background-color: #f8fafc; }
+  .line-clamp-2 {
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+  .board-scroll::-webkit-scrollbar { height: 10px; }
+  .board-scroll::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 6px; }
+  .board-scroll::-webkit-scrollbar-track { background: transparent; }
+  .col-scroll::-webkit-scrollbar { width: 8px; }
+  .col-scroll::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 6px; }
+  .col-scroll::-webkit-scrollbar-track { background: transparent; }
+  dialog#newTicketDialog, dialog#detailDialog { padding: 0; border: none; border-radius: 8px; }
+  dialog::backdrop { background: rgba(15, 23, 42, 0.5); }
+  .dragging { opacity: 0.5; }
+  .drop-target { outline: 2px solid #1d4ed8; outline-offset: -2px; background-color: #eff6ff; }
+  .toast-enter { animation: toast-in 150ms ease-out; }
+  @keyframes toast-in { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: translateY(0); } }
+  @media (prefers-reduced-motion: reduce) {
+    .animate-pulse { animation: none; }
+    .toast-enter { animation: none; }
+  }
+</style>
+</head>
+<body class="min-h-screen bg-slate-50 text-slate-900 text-sm">
+
+<div id="liveRegion" role="status" aria-live="polite" class="sr-only"></div>
+<div id="toastHost" class="fixed top-4 right-4 z-[80] flex flex-col gap-2 w-80"></div>
+
+<header class="sticky top-0 z-30 border-b border-slate-200 bg-white">
+  <div class="mx-auto max-w-[1600px] px-6 py-4 flex items-center justify-between gap-4">
+    <h1 class="text-xl font-semibold text-slate-900">Service desk tickets</h1>
+    <button id="newTicketBtn" type="button" class="inline-flex items-center gap-1.5 rounded bg-blue-700 px-3 py-2 text-sm font-medium text-white hover:bg-blue-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-700">
+      <svg aria-hidden="true" class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>
+      New ticket
+    </button>
+  </div>
+
+  <div class="mx-auto max-w-[1600px] px-6 pb-3 flex flex-wrap items-center gap-2">
+    <div class="relative">
+      <svg aria-hidden="true" class="size-4 absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+      <input id="searchInput" type="text" placeholder="Search by ticket, title or assignee" class="h-8 w-64 rounded border border-slate-300 bg-white pl-8 pr-3 text-sm text-slate-900 placeholder:text-slate-500 focus:outline focus:outline-2 focus:outline-offset-0 focus:outline-blue-700" aria-label="Search tickets" />
+    </div>
+    <label class="sr-only" for="priorityFilter">Filter by priority</label>
+    <select id="priorityFilter" class="h-8 rounded border border-slate-300 bg-white px-2 text-sm text-slate-900 focus:outline focus:outline-2 focus:outline-blue-700">
+      <option value="all">All priorities</option>
+      <option value="Critical">Critical</option>
+      <option value="High">High</option>
+      <option value="Medium">Medium</option>
+      <option value="Low">Low</option>
+    </select>
+    <label class="sr-only" for="assigneeFilter">Filter by assignee</label>
+    <select id="assigneeFilter" class="h-8 rounded border border-slate-300 bg-white px-2 text-sm text-slate-900 focus:outline focus:outline-2 focus:outline-blue-700">
+      <option value="all">All assignees</option>
+    </select>
+    <div id="chipRow" class="flex flex-wrap items-center gap-1.5"></div>
+  </div>
+
+  <div class="mx-auto max-w-[1600px] px-6 pb-3">
+    <p id="summaryLine" class="text-sm text-slate-600 tabular-nums"></p>
+  </div>
+</header>
+
+<main class="mx-auto max-w-[1600px] px-6 py-4">
+  <div id="boardRegion" aria-busy="true">
+    <div id="boardSkeleton" class="board-scroll flex gap-4 overflow-x-auto pb-2"></div>
+    <div id="boardColumns" class="board-scroll flex gap-4 overflow-x-auto pb-2" hidden></div>
+    <div id="boardEmpty" class="hidden flex-col items-center gap-3 px-6 py-16 text-center rounded-md border border-slate-200 bg-white"></div>
+    <div id="boardError" class="hidden flex-col items-center gap-3 px-6 py-16 text-center rounded-md border border-slate-200 bg-white"></div>
+  </div>
+</main>
+
+<dialog id="newTicketDialog" class="w-full max-w-lg">
+  <form id="newTicketForm" novalidate>
+    <div class="border-b border-slate-200 px-5 py-4">
+      <h2 class="text-base font-semibold text-slate-900">New ticket</h2>
+      <p class="mt-0.5 text-sm text-slate-600">New tickets start in the New column.</p>
+    </div>
+    <div id="formErrorSummary" class="hidden mx-5 mt-4 rounded border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800" role="alert"></div>
+    <div class="px-5 py-4 space-y-4 max-h-[60vh] overflow-y-auto">
+      <div>
+        <label for="f_title" class="block text-sm font-medium text-slate-900">Title <span aria-hidden="true">*</span></label>
+        <input id="f_title" name="title" type="text" class="mt-1 block w-full rounded border border-slate-300 px-2.5 h-8 text-sm focus:outline focus:outline-2 focus:outline-blue-700" aria-describedby="f_title_err" />
+        <p id="f_title_err" class="mt-1 hidden text-sm text-red-700">Title is required.</p>
+      </div>
+      <div>
+        <label for="f_category" class="block text-sm font-medium text-slate-900">Category</label>
+        <select id="f_category" name="category" class="mt-1 block w-full rounded border border-slate-300 px-2.5 h-8 text-sm focus:outline focus:outline-2 focus:outline-blue-700">
+          <option>Hardware</option>
+          <option>Network</option>
+          <option>Software</option>
+          <option>Access request</option>
+          <option>Security</option>
+          <option>Account</option>
+        </select>
+      </div>
+      <div>
+        <label for="f_priority" class="block text-sm font-medium text-slate-900">Priority</label>
+        <select id="f_priority" name="priority" class="mt-1 block w-full rounded border border-slate-300 px-2.5 h-8 text-sm focus:outline focus:outline-2 focus:outline-blue-700">
+          <option>Critical</option>
+          <option selected>Medium</option>
+          <option>High</option>
+          <option>Low</option>
+        </select>
+      </div>
+      <div>
+        <label for="f_assignee" class="block text-sm font-medium text-slate-900">Assignee</label>
+        <select id="f_assignee" name="assignee" class="mt-1 block w-full rounded border border-slate-300 px-2.5 h-8 text-sm focus:outline focus:outline-2 focus:outline-blue-700">
+          <option value="">Unassigned</option>
+        </select>
+      </div>
+      <div>
+        <label for="f_due" class="block text-sm font-medium text-slate-900">Due date</label>
+        <input id="f_due" name="due" type="date" class="mt-1 block w-full rounded border border-slate-300 px-2.5 h-8 text-sm focus:outline focus:outline-2 focus:outline-blue-700" />
+      </div>
+      <div>
+        <label for="f_description" class="block text-sm font-medium text-slate-900">Description</label>
+        <textarea id="f_description" name="description" rows="3" class="mt-1 block w-full rounded border border-slate-300 px-2.5 py-1.5 text-sm focus:outline focus:outline-2 focus:outline-blue-700"></textarea>
+      </div>
+    </div>
+    <div class="sticky bottom-0 flex items-center justify-end gap-2 border-t border-slate-200 bg-white px-5 py-3">
+      <button type="button" id="cancelNewTicket" class="rounded border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">Cancel</button>
+      <button type="submit" id="submitNewTicket" class="rounded bg-blue-700 px-3 py-2 text-sm font-medium text-white hover:bg-blue-800">Create ticket</button>
+    </div>
+  </form>
+</dialog>
+
+<dialog id="detailDialog" class="w-full max-w-xl">
+  <div id="detailContent"></div>
+</dialog>
+
+<script>
+(function () {
+  "use strict";
+
+  var STATUSES = [
+    { key: "new", label: "New", tone: "neutral" },
+    { key: "in_progress", label: "In progress", tone: "info" },
+    { key: "on_hold", label: "On hold", tone: "warning" },
+    { key: "resolved", label: "Resolved", tone: "success" },
+    { key: "closed", label: "Closed", tone: "neutral" }
+  ];
+  var STATUS_BY_KEY = {};
+  STATUSES.forEach(function (s) { STATUS_BY_KEY[s.key] = s; });
+
+  var TONE_BADGE = {
+    neutral: "bg-slate-100 text-slate-700",
+    info: "bg-blue-50 text-blue-700",
+    warning: "bg-amber-50 text-amber-800",
+    success: "bg-green-50 text-green-700",
+    danger: "bg-red-50 text-red-700"
+  };
+  var TONE_DOT = {
+    neutral: "bg-slate-400",
+    info: "bg-blue-600",
+    warning: "bg-amber-500",
+    success: "bg-green-600",
+    danger: "bg-red-600"
+  };
+  var PRIORITY_TONE = { Critical: "danger", High: "warning", Medium: "info", Low: "neutral" };
+  var PRIORITY_ORDER = { Critical: 0, High: 1, Medium: 2, Low: 3 };
+
+  var ASSIGNEES = ["Alex Chen", "Priya Nair", "Daniel Osei", "Maria Garcia", "Jordan Lee", "Sam Wilson"];
+
+  var TICKETS = [
+    t("SD-1049", "Request: install Adobe Acrobat Pro", "Software", "Medium", null, "new", "2026-11-12", "Hoa Nguyen", "2026-11-05", "User needs Acrobat Pro installed to edit and sign vendor contracts before the end of the week."),
+    t("SD-1048", "Phishing email reported", "Security", "Critical", "Alex Chen", "new", "2026-11-06", "Tom Baker", "2026-11-06", "An employee forwarded a suspicious invoice email asking for a wire transfer. Headers and links need review."),
+    t("SD-1047", "New hire onboarding - IT setup for Minh Tran", "Access request", "Medium", "Priya Nair", "new", "2026-11-09", "Emma Davis", "2026-11-04", "Provision laptop, email account and standard software bundle before the new hire's start date."),
+    t("SD-1046", "Guest Wi-Fi certificate expired", "Network", "High", null, "new", "2026-11-07", "Carlos Mendes", "2026-11-06", "Visitors in the lobby cannot connect to guest Wi-Fi; the captive portal shows a certificate warning."),
+    t("SD-1045", "Keyboard replacement request", "Hardware", "Low", null, "new", "2026-11-18", "Linh Pham", "2026-11-05", "Several keys on the desk 22 keyboard have stopped responding."),
+    t("SD-1044", "Software install blocked by policy - Slack", "Software", "Medium", "Daniel Osei", "new", "2026-11-10", "Grace Kim", "2026-11-05", "Group policy is blocking the Slack installer; user needs it for the marketing team workspace."),
+
+    t("SD-1043", "Laptop won't boot after Windows update", "Hardware", "Critical", "Alex Chen", "in_progress", "2026-11-05", "Marcus Lee", "2026-11-03", "Laptop shows a black screen with a spinning indicator after last night's Windows update. User has an important client call at noon."),
+    t("SD-1042", "VPN access request for new hire", "Access request", "High", "Priya Nair", "in_progress", "2026-11-06", "Emma Davis", "2026-11-04", "New contractor needs VPN access configured before remote onboarding starts tomorrow."),
+    t("SD-1041", "Monitor flickering on desk 14B", "Hardware", "Low", "Jordan Lee", "in_progress", "2026-11-13", "Sofia Rossi", "2026-11-02", "External monitor flickers intermittently; swapping the HDMI cable did not help."),
+    t("SD-1040", "Slow network in conference room B", "Network", "Medium", "Daniel Osei", "in_progress", "2026-11-08", "Tom Baker", "2026-11-03", "Video calls keep freezing in conference room B during the afternoon; other rooms are unaffected."),
+    t("SD-1039", "Two-factor authentication not working", "Security", "High", "Maria Garcia", "in_progress", "2026-11-07", "Carlos Mendes", "2026-11-04", "Authenticator app codes are rejected when logging into the HR portal."),
+    t("SD-1038", "Outlook crashing on startup", "Software", "Medium", "Sam Wilson", "in_progress", "2026-11-11", "Grace Kim", "2026-11-04", "Outlook closes immediately after showing the splash screen; safe mode has the same result."),
+    t("SD-1037", "Request access to Finance SharePoint", "Access request", "Medium", "Priya Nair", "in_progress", "2026-11-14", "Linh Pham", "2026-11-03", "User was moved to the Finance team and needs access to the shared budgeting site."),
+    t("SD-1036", "Badge access not working at Building A", "Security", "High", "Alex Chen", "in_progress", "2026-11-04", "Sofia Rossi", "2026-11-01", "Employee badge is no longer opening the turnstile at the Building A main entrance."),
+
+    t("SD-1035", "Software license renewal - Figma seats", "Software", "Low", "Maria Garcia", "on_hold", "2026-11-25", "Grace Kim", "2026-10-29", "Design team's Figma seats expire this month; waiting on budget approval before renewing."),
+    t("SD-1034", "Database connection timeout errors", "Software", "Critical", "Jordan Lee", "on_hold", "2026-11-03", "Marcus Lee", "2026-10-30", "Intermittent timeouts against the reporting database; waiting on the vendor to confirm a maintenance window."),
+    t("SD-1033", "Wi-Fi dropping intermittently in Building C", "Network", "Medium", "Daniel Osei", "on_hold", "2026-11-20", "Carlos Mendes", "2026-10-28", "Access point replacement is on order; monitoring the affected floor until parts arrive."),
+    t("SD-1032", "Server backup alert - disk space low", "Hardware", "High", "Sam Wilson", "on_hold", "2026-11-09", "Tom Baker", "2026-10-31", "Backup volume is at 92% capacity; waiting on approval to expand storage."),
+
+    t("SD-1031", "Email account locked out", "Account", "Medium", "Maria Garcia", "resolved", "2026-11-01", "Sofia Rossi", "2026-10-27", "Account was locked after repeated failed sign-ins; unlocked and password reset confirmed with the user."),
+    t("SD-1030", "Password reset for shared mailbox", "Account", "Low", "Priya Nair", "resolved", "2026-10-30", "Emma Davis", "2026-10-26", "Shared support mailbox password was reset and distributed to the team lead."),
+    t("SD-1029", "Printer on 3rd floor offline", "Hardware", "Medium", "Jordan Lee", "resolved", "2026-10-29", "Linh Pham", "2026-10-25", "Printer had a paper jam in the duplexer; cleared and reprinted test page successfully."),
+    t("SD-1028", "Shared drive permissions incorrect", "Access request", "Medium", "Alex Chen", "resolved", "2026-10-28", "Grace Kim", "2026-10-24", "Corrected group membership so the project team can edit the shared drive again."),
+    t("SD-1027", "Zoom audio not working on conference room PC", "Hardware", "Low", "Sam Wilson", "resolved", "2026-10-27", "Carlos Mendes", "2026-10-23", "Replaced the faulty USB audio adapter in conference room D."),
+    t("SD-1026", "Mobile device enrollment failing", "Security", "High", "Daniel Osei", "resolved", "2026-10-26", "Marcus Lee", "2026-10-22", "Re-issued the enrollment profile after a certificate authority change; device now enrolls correctly."),
+
+    t("SD-1025", "Request: additional RAM for workstation", "Hardware", "Low", "Maria Garcia", "closed", "2026-10-20", "Tom Baker", "2026-10-10", "Upgraded workstation to 32GB RAM as requested for video editing work."),
+    t("SD-1024", "VPN certificate renewal", "Network", "Medium", "Jordan Lee", "closed", "2026-10-18", "Sofia Rossi", "2026-10-08", "Renewed the expiring client certificate for all remote sales staff."),
+    t("SD-1023", "Set up new monitor for accessibility", "Hardware", "Medium", "Priya Nair", "closed", "2026-10-15", "Emma Davis", "2026-10-05", "Installed a larger monitor and adjusted display scaling per the accommodation request."),
+    t("SD-1022", "Software license renewal - Zoom", "Software", "Low", "Alex Chen", "closed", "2026-10-12", "Linh Pham", "2026-10-02", "Renewed the annual Zoom Business license for the full office.")
+  ];
+
+  var nextTicketNumber = 1050;
+
+  function t(id, title, category, priority, assignee, status, due, reporter, created, description) {
+    return { id: id, title: title, category: category, priority: priority, assignee: assignee, status: status, due: due, reporter: reporter, created: created, description: description };
+  }
+
+  var filters = { search: "", priority: "all", assignee: "all" };
+
+  var urlState = new URLSearchParams(location.search).get("state");
+
+  function formatDate(iso) {
+    if (!iso) return null;
+    var p = iso.split("-");
+    return p[2] + "/" + p[1] + "/" + p[0];
+  }
+
+  function dueInfo(ticket) {
+    if (!ticket.due) return { text: "No due date", tone: "neutral" };
+    var due = new Date(ticket.due + "T00:00:00");
+    var today = new Date();
+    today.setHours(0, 0, 0, 0);
+    var diff = Math.round((due - today) / 86400000);
+    var abs = formatDate(ticket.due);
+    var active = ticket.status !== "resolved" && ticket.status !== "closed";
+    if (diff < 0 && active) {
+      var od = -diff;
+      return { text: "Due " + abs + " · Overdue by " + od + " day" + (od === 1 ? "" : "s"), tone: "danger" };
+    }
+    if (diff === 0 && active) return { text: "Due " + abs + " · Due today", tone: "warning" };
+    if (diff > 0 && diff <= 2 && active) return { text: "Due " + abs + " · Due in " + diff + " day" + (diff === 1 ? "" : "s"), tone: "warning" };
+    return { text: "Due " + abs, tone: "neutral" };
+  }
+
+  function icon(name, cls) {
+    var paths = {
+      chevronDown: '<path d="m6 9 6 6 6-6"/>',
+      x: '<path d="M18 6 6 18M6 6l12 12"/>',
+      alertTriangle: '<path d="m10.29 3.86-8.18 14.18A1 1 0 0 0 3 19.5h18a1 1 0 0 0 .89-1.46L13.71 3.86a1 1 0 0 0-1.72 0Z"/><path d="M12 9v4"/><path d="M12 17h.01"/>',
+      inbox: '<path d="M22 12h-6l-2 3h-4l-2-3H2"/><path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11Z"/>',
+      calendar: '<rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/>',
+      user: '<path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>',
+      grip: '<circle cx="9" cy="6" r="1"/><circle cx="9" cy="12" r="1"/><circle cx="9" cy="18" r="1"/><circle cx="15" cy="6" r="1"/><circle cx="15" cy="12" r="1"/><circle cx="15" cy="18" r="1"/>',
+      refresh: '<path d="M21 12a9 9 0 1 1-2.64-6.36"/><path d="M21 3v6h-6"/>',
+      check: '<path d="M20 6 9 17l-5-5"/>'
+    };
+    return '<svg aria-hidden="true" class="' + (cls || "size-4") + '" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">' + paths[name] + "</svg>";
+  }
+
+  function escapeHtml(s) {
+    return String(s).replace(/[&<>"']/g, function (c) {
+      return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c];
+    });
+  }
+
+  function foldSearch(s) { return s.toLowerCase(); }
+
+  function matchesFilters(ticket) {
+    if (filters.priority !== "all" && ticket.priority !== filters.priority) return false;
+    if (filters.assignee !== "all") {
+      if (filters.assignee === "__unassigned__" && ticket.assignee) return false;
+      if (filters.assignee !== "__unassigned__" && ticket.assignee !== filters.assignee) return false;
+    }
+    if (filters.search) {
+      var q = foldSearch(filters.search.trim());
+      var hay = foldSearch(ticket.id + " " + ticket.title + " " + (ticket.assignee || ""));
+      if (hay.indexOf(q) === -1) return false;
+    }
+    return true;
+  }
+
+  function visibleForStatus(statusKey) {
+    return TICKETS.filter(function (ticket) { return ticket.status === statusKey && matchesFilters(ticket); })
+      .sort(function (a, b) {
+        if (!a.due && !b.due) return 0;
+        if (!a.due) return 1;
+        if (!b.due) return -1;
+        return a.due < b.due ? -1 : a.due > b.due ? 1 : 0;
+      });
+  }
+
+  function anyFilterActive() {
+    return filters.priority !== "all" || filters.assignee !== "all" || filters.search.trim() !== "";
+  }
+
+  // ---- toast ----
+  function toast(message) {
+    var host = document.getElementById("toastHost");
+    var el = document.createElement("div");
+    el.className = "toast-enter rounded-md border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 shadow-lg";
+    el.setAttribute("role", "status");
+    el.textContent = message;
+    host.appendChild(el);
+    setTimeout(function () {
+      el.style.transition = "opacity 150ms ease";
+      el.style.opacity = "0";
+      setTimeout(function () { el.remove(); }, 150);
+    }, 5000);
+  }
+
+  function announce(message) {
+    var region = document.getElementById("liveRegion");
+    region.textContent = "";
+    setTimeout(function () { region.textContent = message; }, 30);
+  }
+
+  // ---- generic dropdown menu ----
+  var openMenuEl = null;
+  function closeMenu() {
+    if (openMenuEl) { openMenuEl.remove(); openMenuEl = null; }
+    document.removeEventListener("click", onDocClick, true);
+    document.removeEventListener("keydown", onDocKeydown, true);
+  }
+  function onDocClick(e) {
+    if (openMenuEl && !openMenuEl.contains(e.target)) closeMenu();
+  }
+  function onDocKeydown(e) {
+    if (e.key === "Escape") { var anchor = openMenuEl && openMenuEl._anchor; closeMenu(); if (anchor) anchor.focus(); }
+  }
+  function openMenu(anchorEl, items) {
+    closeMenu();
+    var menu = document.createElement("div");
+    menu.setAttribute("role", "menu");
+    menu.className = "absolute z-50 w-52 rounded-md border border-slate-200 bg-white py-1 shadow-lg";
+    items.forEach(function (item) {
+      var btn = document.createElement("button");
+      btn.type = "button";
+      btn.setAttribute("role", "menuitem");
+      btn.className = "flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-slate-700 hover:bg-slate-100 focus:bg-slate-100 focus:outline-none" + (item.current ? " font-medium text-slate-900" : "");
+      btn.innerHTML = (item.current ? icon("check", "size-3.5 shrink-0") : '<span class="size-3.5 shrink-0"></span>') + "<span>" + escapeHtml(item.label) + "</span>";
+      btn.addEventListener("click", function (e) {
+        e.stopPropagation();
+        closeMenu();
+        item.onSelect();
+      });
+      menu.appendChild(btn);
+    });
+    document.body.appendChild(menu);
+    var rect = anchorEl.getBoundingClientRect();
+    var top = window.scrollY + rect.bottom + 4;
+    var left = window.scrollX + rect.left;
+    if (left + 208 > window.scrollX + window.innerWidth) left = window.scrollX + window.innerWidth - 216;
+    menu.style.position = "absolute";
+    menu.style.top = top + "px";
+    menu.style.left = left + "px";
+    menu._anchor = anchorEl;
+    openMenuEl = menu;
+    document.addEventListener("click", onDocClick, true);
+    document.addEventListener("keydown", onDocKeydown, true);
+    var first = menu.querySelector("button");
+    if (first) first.focus();
+  }
+
+  function moveTicket(ticketId, newStatusKey) {
+    var ticket = TICKETS.filter(function (x) { return x.id === ticketId; })[0];
+    if (!ticket || ticket.status === newStatusKey) return;
+    ticket.status = newStatusKey;
+    renderBoard();
+    var label = STATUS_BY_KEY[newStatusKey].label;
+    toast("Ticket " + ticketId + " moved to " + label);
+    announce("Ticket " + ticketId + " moved to " + label);
+    var card = document.querySelector('[data-card-id="' + ticketId + '"]');
+    if (card) card.focus();
+  }
+
+  function moveMenuItems(ticket) {
+    return STATUSES.map(function (s) {
+      return { label: s.label, current: s.key === ticket.status, onSelect: function () { moveTicket(ticket.id, s.key); } };
+    });
+  }
+
+  // ---- card rendering ----
+  function renderCard(ticket) {
+    var card = document.createElement("article");
+    card.className = "rounded-md border border-slate-200 bg-white p-3 cursor-grab focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-700";
+    card.setAttribute("tabindex", "0");
+    card.setAttribute("draggable", "true");
+    card.setAttribute("data-card-id", ticket.id);
+    card.setAttribute("aria-roledescription", "ticket card");
+
+    var due = dueInfo(ticket);
+    var prTone = PRIORITY_TONE[ticket.priority];
+
+    card.innerHTML =
+      '<div class="flex items-start justify-between gap-2">' +
+        '<span class="font-mono text-xs text-slate-500">' + ticket.id + '</span>' +
+        '<span class="shrink-0 rounded-full px-2 py-0.5 text-xs font-medium ' + TONE_BADGE[prTone] + '">' + ticket.priority + '</span>' +
+      '</div>' +
+      '<h3 class="mt-1.5 line-clamp-2 text-sm font-medium text-slate-900">' + escapeHtml(ticket.title) + '</h3>' +
+      '<p class="mt-1 text-xs text-slate-500">' + escapeHtml(ticket.category) + '</p>' +
+      '<div class="mt-2.5 flex items-center gap-1.5 text-xs text-slate-600">' +
+        icon("user", "size-3.5 shrink-0 text-slate-400") +
+        '<span class="truncate">' + (ticket.assignee ? escapeHtml(ticket.assignee) : "Unassigned") + '</span>' +
+      '</div>' +
+      '<div class="mt-1 flex items-center gap-1.5 text-xs ' + (due.tone === "danger" ? "text-red-700" : due.tone === "warning" ? "text-amber-800" : "text-slate-500") + '">' +
+        icon("calendar", "size-3.5 shrink-0" + (due.tone === "neutral" ? " text-slate-400" : "")) +
+        '<span>' + due.text + '</span>' +
+      '</div>' +
+      '<div class="mt-2.5 flex items-center justify-between border-t border-slate-100 pt-2">' +
+        '<button type="button" class="moveBtn inline-flex items-center gap-1 rounded px-1.5 py-1 text-xs font-medium text-slate-700 hover:bg-slate-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-700" aria-haspopup="menu" aria-label="Move ticket ' + ticket.id + '">' +
+          'Move' + icon("chevronDown", "size-3.5") +
+        '</button>' +
+        '<button type="button" class="viewBtn rounded px-1.5 py-1 text-xs font-medium text-blue-700 hover:bg-blue-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-700">View</button>' +
+      '</div>';
+
+    card.querySelector(".moveBtn").addEventListener("click", function (e) {
+      e.stopPropagation();
+      openMenu(e.currentTarget, moveMenuItems(ticket));
+    });
+    card.querySelector(".viewBtn").addEventListener("click", function (e) {
+      e.stopPropagation();
+      openDetail(ticket);
+    });
+    card.addEventListener("click", function () { openDetail(ticket); });
+    card.addEventListener("keydown", function (e) {
+      if (e.target === card && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); openDetail(ticket); }
+    });
+
+    card.addEventListener("dragstart", function (e) {
+      e.dataTransfer.setData("text/plain", ticket.id);
+      e.dataTransfer.effectAllowed = "move";
+      card.classList.add("dragging");
+    });
+    card.addEventListener("dragend", function () { card.classList.remove("dragging"); });
+
+    return card;
+  }
+
+  function renderColumn(status) {
+    var visible = visibleForStatus(status.key);
+    var total = TICKETS.filter(function (x) { return x.status === status.key; }).length;
+
+    var col = document.createElement("section");
+    col.className = "flex w-80 shrink-0 flex-col rounded-md border border-slate-200 bg-white";
+    col.setAttribute("aria-label", status.label + " column");
+
+    var header = document.createElement("div");
+    header.className = "flex items-center justify-between gap-2 border-b border-slate-200 px-3 py-2.5";
+    header.innerHTML =
+      '<div class="flex items-center gap-2">' +
+        '<span class="size-2 rounded-full ' + TONE_DOT[status.tone] + '"></span>' +
+        '<span class="text-sm font-medium text-slate-900">' + status.label + '</span>' +
+      '</div>' +
+      '<span class="text-xs text-slate-500 tabular-nums">' + visible.length + '</span>';
+    col.appendChild(header);
+
+    var body = document.createElement("div");
+    body.className = "col-scroll flex min-h-[140px] flex-1 flex-col gap-2 overflow-y-auto p-2";
+    body.setAttribute("data-column", status.key);
+
+    if (visible.length === 0) {
+      var empty = document.createElement("p");
+      empty.className = "px-2 py-6 text-center text-xs text-slate-500";
+      empty.textContent = total === 0 ? "No tickets here." : "No tickets match these filters.";
+      body.appendChild(empty);
+    } else {
+      visible.forEach(function (ticket) { body.appendChild(renderCard(ticket)); });
+    }
+    col.appendChild(body);
+
+    body.addEventListener("dragover", function (e) {
+      e.preventDefault();
+      body.classList.add("drop-target");
+    });
+    body.addEventListener("dragleave", function () { body.classList.remove("drop-target"); });
+    body.addEventListener("drop", function (e) {
+      e.preventDefault();
+      body.classList.remove("drop-target");
+      var id = e.dataTransfer.getData("text/plain");
+      moveTicket(id, status.key);
+    });
+
+    return col;
+  }
+
+  function updateSummary() {
+    var active = TICKETS.filter(function (x) { return x.status !== "resolved" && x.status !== "closed"; });
+    var overdue = active.filter(function (x) { return dueInfo(x).tone === "danger"; }).length;
+    var dueToday = active.filter(function (x) {
+      var d = dueInfo(x);
+      return d.tone === "warning" && d.text.indexOf("Due today") !== -1;
+    }).length;
+    var parts = [TICKETS.length + " ticket" + (TICKETS.length === 1 ? "" : "s")];
+    if (overdue > 0) parts.push(overdue + " overdue");
+    if (dueToday > 0) parts.push(dueToday + " due today");
+    document.getElementById("summaryLine").textContent = parts.join(" · ");
+  }
+
+  function renderChips() {
+    var row = document.getElementById("chipRow");
+    row.innerHTML = "";
+    var chips = [];
+    if (filters.priority !== "all") chips.push({ label: "Priority: " + filters.priority, clear: function () { filters.priority = "all"; document.getElementById("priorityFilter").value = "all"; } });
+    if (filters.assignee !== "all") {
+      var alabel = filters.assignee === "__unassigned__" ? "Unassigned" : filters.assignee;
+      chips.push({ label: "Assignee: " + alabel, clear: function () { filters.assignee = "all"; document.getElementById("assigneeFilter").value = "all"; } });
+    }
+    chips.forEach(function (chip) {
+      var el = document.createElement("span");
+      el.className = "inline-flex items-center gap-1 rounded-full bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-700";
+      el.innerHTML = '<span>' + escapeHtml(chip.label) + '</span><button type="button" aria-label="Remove filter ' + escapeHtml(chip.label) + '" class="rounded-full hover:bg-slate-200">' + icon("x", "size-3") + '</button>';
+      el.querySelector("button").addEventListener("click", function () { chip.clear(); renderBoard(); });
+      row.appendChild(el);
+    });
+    if (chips.length > 0) {
+      var clearAll = document.createElement("button");
+      clearAll.type = "button";
+      clearAll.className = "text-xs font-medium text-blue-700 hover:underline";
+      clearAll.textContent = "Clear all";
+      clearAll.addEventListener("click", function () {
+        filters.priority = "all"; filters.assignee = "all"; filters.search = "";
+        document.getElementById("priorityFilter").value = "all";
+        document.getElementById("assigneeFilter").value = "all";
+        document.getElementById("searchInput").value = "";
+        renderBoard();
+      });
+      row.appendChild(clearAll);
+    }
+  }
+
+  function renderBoard() {
+    renderChips();
+    updateSummary();
+    var container = document.getElementById("boardColumns");
+    container.innerHTML = "";
+    STATUSES.forEach(function (status) { container.appendChild(renderColumn(status)); });
+  }
+
+  // ---- detail dialog ----
+  function openDetail(ticket) {
+    var dialog = document.getElementById("detailDialog");
+    var due = dueInfo(ticket);
+    var statusTone = STATUS_BY_KEY[ticket.status].tone;
+    var content = document.getElementById("detailContent");
+    content.innerHTML =
+      '<div class="border-b border-slate-200 px-5 py-4 flex items-start justify-between gap-3">' +
+        '<div>' +
+          '<p class="font-mono text-xs text-slate-500">' + ticket.id + '</p>' +
+          '<h2 class="mt-0.5 text-base font-semibold text-slate-900">' + escapeHtml(ticket.title) + '</h2>' +
+        '</div>' +
+        '<button type="button" id="closeDetailBtn" aria-label="Close" class="rounded p-1 text-slate-500 hover:bg-slate-100">' + icon("x", "size-4") + '</button>' +
+      '</div>' +
+      '<div class="px-5 py-4 space-y-3 max-h-[65vh] overflow-y-auto">' +
+        '<div class="flex flex-wrap items-center gap-2">' +
+          '<span class="rounded-full px-2 py-0.5 text-xs font-medium ' + TONE_BADGE[statusTone] + '">' + STATUS_BY_KEY[ticket.status].label + '</span>' +
+          '<span class="rounded-full px-2 py-0.5 text-xs font-medium ' + TONE_BADGE[PRIORITY_TONE[ticket.priority]] + '">' + ticket.priority + '</span>' +
+          '<span class="text-xs text-slate-500">' + escapeHtml(ticket.category) + '</span>' +
+        '</div>' +
+        '<p class="text-sm text-slate-700">' + escapeHtml(ticket.description) + '</p>' +
+        '<dl class="grid grid-cols-2 gap-3 text-sm pt-2 border-t border-slate-100">' +
+          '<div><dt class="text-xs text-slate-500">Assignee</dt><dd class="text-slate-900">' + (ticket.assignee ? escapeHtml(ticket.assignee) : "Unassigned") + '</dd></div>' +
+          '<div><dt class="text-xs text-slate-500">Reported by</dt><dd class="text-slate-900">' + escapeHtml(ticket.reporter) + '</dd></div>' +
+          '<div><dt class="text-xs text-slate-500">Created</dt><dd class="text-slate-900 tabular-nums">' + formatDate(ticket.created) + '</dd></div>' +
+          '<div><dt class="text-xs text-slate-500">Due date</dt><dd class="' + (due.tone === "danger" ? "text-red-700" : due.tone === "warning" ? "text-amber-800" : "text-slate-900") + '">' + due.text + '</dd></div>' +
+        '</dl>' +
+      '</div>' +
+      '<div class="sticky bottom-0 flex items-center justify-between gap-2 border-t border-slate-200 bg-white px-5 py-3">' +
+        '<button type="button" id="detailMoveBtn" class="inline-flex items-center gap-1 rounded border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50" aria-haspopup="menu">Move to' + icon("chevronDown", "size-3.5") + '</button>' +
+        '<button type="button" id="closeDetailBtn2" class="rounded bg-blue-700 px-3 py-2 text-sm font-medium text-white hover:bg-blue-800">Close</button>' +
+      '</div>';
+
+    content.querySelector("#closeDetailBtn").addEventListener("click", function () { dialog.close(); });
+    content.querySelector("#closeDetailBtn2").addEventListener("click", function () { dialog.close(); });
+    content.querySelector("#detailMoveBtn").addEventListener("click", function (e) {
+      openMenu(e.currentTarget, STATUSES.map(function (s) {
+        return { label: s.label, current: s.key === ticket.status, onSelect: function () { moveTicket(ticket.id, s.key); dialog.close(); } };
+      }));
+    });
+
+    dialog.showModal();
+  }
+
+  // ---- new ticket dialog ----
+  function initNewTicketDialog() {
+    var assigneeSelects = [document.getElementById("f_assignee"), document.getElementById("assigneeFilter")];
+    ASSIGNEES.forEach(function (name) {
+      assigneeSelects.forEach(function (sel) {
+        var opt = document.createElement("option");
+        opt.value = name;
+        opt.textContent = name;
+        sel.appendChild(opt);
+      });
+    });
+    var unassignedOpt = document.createElement("option");
+    unassignedOpt.value = "__unassigned__";
+    unassignedOpt.textContent = "Unassigned";
+    document.getElementById("assigneeFilter").appendChild(unassignedOpt);
+
+    var dialog = document.getElementById("newTicketDialog");
+    var form = document.getElementById("newTicketForm");
+
+    document.getElementById("newTicketBtn").addEventListener("click", function () {
+      form.reset();
+      document.getElementById("f_title_err").classList.add("hidden");
+      document.getElementById("formErrorSummary").classList.add("hidden");
+      document.getElementById("f_title").removeAttribute("aria-invalid");
+      dialog.showModal();
+    });
+    document.getElementById("cancelNewTicket").addEventListener("click", function () { dialog.close(); });
+
+    form.addEventListener("submit", function (e) {
+      e.preventDefault();
+      var title = document.getElementById("f_title").value.trim();
+      var titleErr = document.getElementById("f_title_err");
+      var summary = document.getElementById("formErrorSummary");
+      if (!title) {
+        titleErr.classList.remove("hidden");
+        summary.classList.remove("hidden");
+        summary.textContent = "Title is required.";
+        document.getElementById("f_title").setAttribute("aria-invalid", "true");
+        document.getElementById("f_title").focus();
+        return;
+      }
+      titleErr.classList.add("hidden");
+      summary.classList.add("hidden");
+
+      var id = "SD-" + nextTicketNumber++;
+      var assigneeVal = document.getElementById("f_assignee").value || null;
+      var dueVal = document.getElementById("f_due").value || null;
+      TICKETS.push(t(
+        id,
+        title,
+        document.getElementById("f_category").value,
+        document.getElementById("f_priority").value,
+        assigneeVal,
+        "new",
+        dueVal,
+        "You",
+        new Date().toISOString().slice(0, 10),
+        document.getElementById("f_description").value.trim() || "No description provided."
+      ));
+      dialog.close();
+      renderBoard();
+      toast("Ticket " + id + " created");
+      announce("Ticket " + id + " created in New");
+      var card = document.querySelector('[data-card-id="' + id + '"]');
+      if (card) card.focus();
+    });
+  }
+
+  // ---- filter wiring ----
+  function initFilters() {
+    document.getElementById("searchInput").addEventListener("input", function (e) {
+      filters.search = e.target.value;
+      renderBoard();
+    });
+    document.getElementById("priorityFilter").addEventListener("change", function (e) {
+      filters.priority = e.target.value;
+      renderBoard();
+    });
+    document.getElementById("assigneeFilter").addEventListener("change", function (e) {
+      filters.assignee = e.target.value;
+      renderBoard();
+    });
+  }
+
+  // ---- states ----
+  function showSkeleton() {
+    var skeleton = document.getElementById("boardSkeleton");
+    skeleton.innerHTML = "";
+    for (var i = 0; i < 5; i++) {
+      var col = document.createElement("div");
+      col.className = "flex w-80 shrink-0 flex-col rounded-md border border-slate-200 bg-white";
+      var inner = '<div class="border-b border-slate-200 px-3 py-2.5"><div class="h-4 w-24 rounded bg-slate-200 animate-pulse"></div></div><div class="p-2 space-y-2">';
+      for (var j = 0; j < 3; j++) {
+        inner += '<div class="h-28 rounded-md border border-slate-200 p-3"><div class="h-3 w-16 rounded bg-slate-200 animate-pulse"></div><div class="mt-2 h-3 w-full rounded bg-slate-200 animate-pulse"></div><div class="mt-2 h-3 w-2/3 rounded bg-slate-200 animate-pulse"></div></div>';
+      }
+      inner += "</div>";
+      col.innerHTML = inner;
+      skeleton.appendChild(col);
+    }
+    skeleton.hidden = false;
+    document.getElementById("boardColumns").hidden = true;
+    document.getElementById("boardEmpty").classList.add("hidden");
+    document.getElementById("boardError").classList.add("hidden");
+  }
+
+  function showError() {
+    var skeleton = document.getElementById("boardSkeleton");
+    skeleton.hidden = true;
+    document.getElementById("boardColumns").hidden = true;
+    document.getElementById("boardEmpty").classList.add("hidden");
+    var err = document.getElementById("boardError");
+    err.classList.remove("hidden");
+    err.classList.add("flex");
+    err.innerHTML =
+      '<div class="rounded-full bg-red-50 p-3 text-red-700">' + icon("alertTriangle", "size-6") + '</div>' +
+      '<p class="text-sm font-medium text-slate-900">Couldn’t load tickets</p>' +
+      '<p class="text-sm text-slate-600">Check your connection and try again.</p>' +
+      '<button type="button" id="retryBtn" class="inline-flex items-center gap-1.5 rounded bg-blue-700 px-3 py-2 text-sm font-medium text-white hover:bg-blue-800">' + icon("refresh", "size-4") + 'Retry</button>';
+    document.getElementById("boardRegion").setAttribute("aria-busy", "false");
+    err.querySelector("#retryBtn").addEventListener("click", function () { init(); });
+  }
+
+  function showEmpty() {
+    var skeleton = document.getElementById("boardSkeleton");
+    skeleton.hidden = true;
+    document.getElementById("boardColumns").hidden = true;
+    document.getElementById("boardError").classList.add("hidden");
+    var empty = document.getElementById("boardEmpty");
+    empty.classList.remove("hidden");
+    empty.classList.add("flex");
+    empty.innerHTML =
+      '<div class="rounded-full bg-slate-100 p-3 text-slate-500">' + icon("inbox", "size-6") + '</div>' +
+      '<p class="text-sm font-medium text-slate-900">No tickets yet</p>' +
+      '<p class="max-w-sm text-sm text-slate-600">Tickets reported by users appear here, organised by status.</p>' +
+      '<button type="button" id="emptyNewBtn" class="rounded bg-blue-700 px-3 py-2 text-sm font-medium text-white hover:bg-blue-800">New ticket</button>';
+    document.getElementById("boardRegion").setAttribute("aria-busy", "false");
+    document.getElementById("summaryLine").textContent = "0 tickets";
+    empty.querySelector("#emptyNewBtn").addEventListener("click", function () { document.getElementById("newTicketBtn").click(); });
+  }
+
+  function showData() {
+    document.getElementById("boardSkeleton").hidden = true;
+    document.getElementById("boardEmpty").classList.add("hidden");
+    document.getElementById("boardError").classList.add("hidden");
+    document.getElementById("boardColumns").hidden = false;
+    document.getElementById("boardRegion").setAttribute("aria-busy", "false");
+    renderBoard();
+  }
+
+  function init() {
+    showSkeleton();
+    document.getElementById("boardRegion").setAttribute("aria-busy", "true");
+    if (urlState === "loading") return;
+    if (urlState === "error") { setTimeout(showError, 500); return; }
+    if (urlState === "empty") { setTimeout(showEmpty, 500); return; }
+    setTimeout(showData, 500);
+  }
+
+  initFilters();
+  initNewTicketDialog();
+  init();
+})();
+</script>
+</body>
+</html>

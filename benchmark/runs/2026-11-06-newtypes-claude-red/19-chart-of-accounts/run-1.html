@@ -1,0 +1,539 @@
+<!doctype html>
+<html lang="en" class="h-full">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Chart of Accounts — Ledger</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+  ::-webkit-scrollbar { width: 9px; height: 9px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 6px; }
+  ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+  .tnum { font-variant-numeric: tabular-nums; }
+</style>
+</head>
+<body class="h-full bg-slate-100 text-slate-800 font-sans antialiased">
+<div class="h-full flex flex-col">
+
+  <!-- Header -->
+  <header class="bg-white border-b border-slate-200 px-6 py-3.5 flex items-center justify-between gap-6 shrink-0">
+    <div class="flex items-center gap-3 min-w-0">
+      <div class="w-9 h-9 rounded-lg bg-gradient-to-br from-slate-800 to-slate-600 flex items-center justify-center shrink-0">
+        <svg viewBox="0 0 24 24" fill="none" class="w-5 h-5 text-white"><path d="M4 4h16v3H4V4Zm0 6h10v3H4v-3Zm0 6h16v3H4v-3Z" fill="currentColor"/></svg>
+      </div>
+      <div class="min-w-0">
+        <h1 class="text-[15px] font-semibold text-slate-900 leading-tight truncate">Chart of Accounts</h1>
+        <p class="text-xs text-slate-400 leading-tight">Ledgerly Financial Suite — FY2026</p>
+      </div>
+    </div>
+    <div class="flex items-center gap-3">
+      <span id="balancedBadge" class="hidden sm:inline-flex items-center gap-1.5 text-xs font-medium px-2.5 py-1.5 rounded-full border"></span>
+      <button type="button" title="Export is unavailable in this preview" class="hidden md:inline-flex items-center gap-1.5 text-sm text-slate-600 border border-slate-200 rounded-md px-3 py-1.5 hover:bg-slate-50">
+        <svg viewBox="0 0 20 20" fill="currentColor" class="w-4 h-4"><path d="M10 2a1 1 0 0 1 1 1v8.586l2.293-2.293a1 1 0 1 1 1.414 1.414l-4 4a1 1 0 0 1-1.414 0l-4-4a1 1 0 1 1 1.414-1.414L9 11.586V3a1 1 0 0 1 1-1Z"/><path d="M4 15a1 1 0 0 1 1 1v1h10v-1a1 1 0 1 1 2 0v2a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1v-2a1 1 0 0 1 1-1Z"/></svg>
+        Export
+      </button>
+      <button type="button" title="Account creation is unavailable in this preview" class="inline-flex items-center gap-1.5 text-sm font-medium text-white bg-slate-900 hover:bg-slate-800 rounded-md px-3.5 py-1.5">
+        <svg viewBox="0 0 20 20" fill="currentColor" class="w-4 h-4"><path d="M10 4a1 1 0 0 1 1 1v4h4a1 1 0 1 1 0 2h-4v4a1 1 0 1 1-2 0v-4H5a1 1 0 1 1 0-2h4V5a1 1 0 0 1 1-1Z"/></svg>
+        New Account
+      </button>
+    </div>
+  </header>
+
+  <!-- Summary cards -->
+  <section class="px-6 pt-5 pb-1 shrink-0">
+    <div id="summaryCards" class="grid grid-cols-2 lg:grid-cols-4 gap-4"></div>
+  </section>
+
+  <!-- Main -->
+  <main class="flex-1 min-h-0 flex gap-4 px-6 py-5">
+
+    <!-- Tree panel -->
+    <section class="w-[440px] shrink-0 bg-white rounded-xl border border-slate-200 flex flex-col overflow-hidden">
+      <div class="p-3 border-b border-slate-200 space-y-2.5 shrink-0">
+        <div class="relative">
+          <svg viewBox="0 0 20 20" fill="currentColor" class="w-4 h-4 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2"><path fill-rule="evenodd" d="M9 3.5a5.5 5.5 0 1 0 0 11 5.5 5.5 0 0 0 0-11ZM2 9a7 7 0 1 1 12.45 4.39l3.08 3.08a.75.75 0 1 1-1.06 1.06l-3.08-3.08A7 7 0 0 1 2 9Z" clip-rule="evenodd"/></svg>
+          <input id="searchInput" type="text" placeholder="Search by name or account number…" oninput="onSearchInput(this.value)"
+            class="w-full text-sm border border-slate-200 rounded-md pl-8 pr-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-slate-300 focus:border-slate-300 placeholder:text-slate-400" />
+        </div>
+        <div id="filterChips" class="flex flex-wrap gap-1.5"></div>
+      </div>
+      <div class="flex items-center justify-between px-4 py-1.5 text-[11px] font-semibold text-slate-400 uppercase tracking-wide border-b border-slate-100 shrink-0">
+        <span>Account</span>
+        <span>Balance</span>
+      </div>
+      <div id="tree" class="flex-1 overflow-y-auto py-1"></div>
+      <div class="px-4 py-2 text-[11px] text-slate-400 border-t border-slate-100 shrink-0" id="treeFooter"></div>
+    </section>
+
+    <!-- Detail panel -->
+    <section id="detail" class="flex-1 min-w-0 bg-white rounded-xl border border-slate-200 overflow-y-auto"></section>
+
+  </main>
+</div>
+
+<script>
+// ---------------------------------------------------------------------------
+// Data model
+// ---------------------------------------------------------------------------
+const categoryNormal = { asset: 'debit', liability: 'credit', equity: 'credit', revenue: 'credit', expense: 'debit' };
+const categoryLabel = { asset: 'Asset', liability: 'Liability', equity: 'Equity', revenue: 'Revenue', expense: 'Expense' };
+const typeStyles = {
+  asset:     { text: 'text-blue-700',    bg: 'bg-blue-50',    border: 'border-blue-200',    dot: 'bg-blue-500',    ring: 'ring-blue-200' },
+  liability: { text: 'text-amber-700',   bg: 'bg-amber-50',   border: 'border-amber-200',   dot: 'bg-amber-500',   ring: 'ring-amber-200' },
+  equity:    { text: 'text-purple-700',  bg: 'bg-purple-50',  border: 'border-purple-200',  dot: 'bg-purple-500',  ring: 'ring-purple-200' },
+  revenue:   { text: 'text-emerald-700', bg: 'bg-emerald-50', border: 'border-emerald-200', dot: 'bg-emerald-500', ring: 'ring-emerald-200' },
+  expense:   { text: 'text-rose-700',    bg: 'bg-rose-50',    border: 'border-rose-200',    dot: 'bg-rose-500',    ring: 'ring-rose-200' },
+};
+
+// balance = positive magnitude on the account's own normal side.
+const ACCOUNTS = [
+  { id:'1000', parent:null, header:true,  cat:'asset', subtype:'Asset', name:'Assets', normal:'debit', status:'active', desc:'Everything the company owns or controls that has future economic value.' },
+    { id:'1100', parent:'1000', header:true, cat:'asset', subtype:'Current Asset', name:'Current Assets', normal:'debit', status:'active', desc:"Assets expected to be converted to cash or used within one year." },
+      { id:'1110', parent:'1100', header:true, cat:'asset', subtype:'Current Asset', name:'Cash and Cash Equivalents', normal:'debit', status:'active', desc:'Bank accounts, petty cash, and other highly liquid holdings.' },
+        { id:'1111', parent:'1110', cat:'asset', subtype:'Current Asset', name:'Operating Checking — Bank of America', normal:'debit', status:'active', balance:284750.32, desc:'Primary operating account used for day-to-day receipts and disbursements.' },
+        { id:'1112', parent:'1110', cat:'asset', subtype:'Current Asset', name:'Payroll Checking — First National Bank', normal:'debit', status:'active', balance:42300.00, desc:'Dedicated account used exclusively to fund payroll runs.' },
+        { id:'1113', parent:'1110', cat:'asset', subtype:'Current Asset', name:'Petty Cash', normal:'debit', status:'active', balance:500.00, desc:'Small on-hand cash fund for incidental office expenses.' },
+        { id:'1114', parent:'1110', cat:'asset', subtype:'Current Asset', name:'Business Savings Account', normal:'debit', status:'active', balance:150000.00, desc:'Interest-bearing reserve account held for short-term cash management.' },
+        { id:'1115', parent:'1110', cat:'asset', subtype:'Current Asset', name:'Former Checking Account — Wells Fargo (Closed)', normal:'debit', status:'inactive', balance:0.00, desc:'Legacy account closed in a prior period; retained for historical audit trail.' },
+      { id:'1200', parent:'1100', header:true, cat:'asset', subtype:'Current Asset', name:'Accounts Receivable', normal:'debit', status:'active', desc:'Amounts owed to the company by customers for goods or services delivered.' },
+        { id:'1210', parent:'1200', cat:'asset', subtype:'Current Asset', name:'Trade Receivables', normal:'debit', status:'active', balance:198420.75, desc:'Open invoices owed by customers for products and services delivered on credit.' },
+        { id:'1220', parent:'1200', cat:'asset', subtype:'Current Asset', name:'Allowance for Doubtful Accounts', normal:'credit', status:'active', balance:8500.00, desc:'Contra-asset reserve for receivables estimated to be uncollectible.' },
+      { id:'1300', parent:'1100', cat:'asset', subtype:'Current Asset', name:'Inventory', normal:'debit', status:'active', balance:312890.00, desc:'Finished goods and raw materials held for sale or production.' },
+      { id:'1400', parent:'1100', header:true, cat:'asset', subtype:'Current Asset', name:'Prepaid Expenses', normal:'debit', status:'active', desc:"Payments made in advance for goods or services not yet received." },
+        { id:'1410', parent:'1400', cat:'asset', subtype:'Current Asset', name:'Prepaid Insurance', normal:'debit', status:'active', balance:14200.00, desc:'Unexpired portion of insurance premiums paid in advance.' },
+        { id:'1420', parent:'1400', cat:'asset', subtype:'Current Asset', name:'Prepaid Rent', normal:'debit', status:'active', balance:9600.00, desc:'Unexpired portion of rent paid in advance for future periods.' },
+    { id:'1500', parent:'1000', header:true, cat:'asset', subtype:'Fixed Asset', name:'Fixed Assets', normal:'debit', status:'active', desc:'Long-lived tangible property used in operations, net of accumulated depreciation.' },
+      { id:'1510', parent:'1500', cat:'asset', subtype:'Fixed Asset', name:'Office Equipment', normal:'debit', status:'active', balance:48500.00, desc:'Printers, workstations, and other general office equipment, at cost.' },
+      { id:'1520', parent:'1500', cat:'asset', subtype:'Fixed Asset', name:'Computer Equipment', normal:'debit', status:'active', balance:62300.00, desc:'Laptops, servers, and networking hardware used in operations, at cost.' },
+      { id:'1530', parent:'1500', cat:'asset', subtype:'Fixed Asset', name:'Furniture & Fixtures', normal:'debit', status:'active', balance:35750.00, desc:'Desks, chairs, and fixtures used in company offices, at cost.' },
+      { id:'1540', parent:'1500', cat:'asset', subtype:'Fixed Asset', name:'Accumulated Depreciation — Equipment', normal:'credit', status:'active', balance:58420.00, desc:'Contra-asset tracking cumulative depreciation on equipment and furniture.' },
+      { id:'1550', parent:'1500', cat:'asset', subtype:'Fixed Asset', name:'Leasehold Improvements', normal:'debit', status:'active', balance:22000.00, desc:'Capitalized improvements made to leased office space.' },
+    { id:'1600', parent:'1000', header:true, cat:'asset', subtype:'Other Asset', name:'Other Assets', normal:'debit', status:'active', desc:"Long-term assets that don't fit into current or fixed asset categories." },
+      { id:'1610', parent:'1600', cat:'asset', subtype:'Other Asset', name:'Security Deposits', normal:'debit', status:'active', balance:12000.00, desc:'Refundable deposits held by landlords and vendors.' },
+      { id:'1620', parent:'1600', cat:'asset', subtype:'Other Asset', name:'Intangible Assets', normal:'debit', status:'active', balance:15000.00, desc:'Purchased software licenses and other non-physical assets, at cost.' },
+
+  { id:'2000', parent:null, header:true, cat:'liability', subtype:'Liability', name:'Liabilities', normal:'credit', status:'active', desc:'Obligations the company owes to outside parties.' },
+    { id:'2100', parent:'2000', header:true, cat:'liability', subtype:'Current Liability', name:'Current Liabilities', normal:'credit', status:'active', desc:'Obligations due for settlement within one year.' },
+      { id:'2110', parent:'2100', cat:'liability', subtype:'Current Liability', name:'Accounts Payable', normal:'credit', status:'active', balance:156840.50, desc:'Open invoices owed to vendors and suppliers for goods and services received.' },
+      { id:'2120', parent:'2100', cat:'liability', subtype:'Current Liability', name:'Accrued Payroll', normal:'credit', status:'active', balance:38200.00, desc:'Wages earned by employees but not yet paid as of period end.' },
+      { id:'2130', parent:'2100', cat:'liability', subtype:'Current Liability', name:'Accrued Expenses', normal:'credit', status:'active', balance:12400.00, desc:'Expenses incurred but not yet invoiced or paid.' },
+      { id:'2140', parent:'2100', cat:'liability', subtype:'Current Liability', name:'Sales Tax Payable', normal:'credit', status:'active', balance:9850.00, desc:'Sales tax collected from customers and due to tax authorities.' },
+      { id:'2150', parent:'2100', cat:'liability', subtype:'Current Liability', name:'Income Tax Payable', normal:'credit', status:'active', balance:21000.00, desc:'Estimated income taxes owed for the current period.' },
+      { id:'2160', parent:'2100', cat:'liability', subtype:'Current Liability', name:'Current Portion of Long-Term Debt', normal:'credit', status:'active', balance:24000.00, desc:'Principal on long-term loans due within the next twelve months.' },
+    { id:'2200', parent:'2000', header:true, cat:'liability', subtype:'Long-Term Liability', name:'Long-Term Liabilities', normal:'credit', status:'active', desc:'Obligations due for settlement beyond one year.' },
+      { id:'2210', parent:'2200', cat:'liability', subtype:'Long-Term Liability', name:'Notes Payable', normal:'credit', status:'active', balance:180000.00, desc:'Outstanding principal on unsecured promissory notes.' },
+      { id:'2220', parent:'2200', cat:'liability', subtype:'Long-Term Liability', name:'Mortgage Payable', normal:'credit', status:'active', balance:245000.00, desc:'Outstanding principal on the mortgage secured by company real estate.' },
+      { id:'2230', parent:'2200', cat:'liability', subtype:'Long-Term Liability', name:'Deferred Tax Liability', normal:'credit', status:'active', balance:18500.00, desc:'Taxes owed in future periods due to timing differences.' },
+
+  { id:'3000', parent:null, header:true, cat:'equity', subtype:'Equity', name:'Equity', normal:'credit', status:'active', desc:"The owners' residual claim on company assets after liabilities are deducted." },
+    { id:'3100', parent:'3000', cat:'equity', subtype:'Equity', name:'Common Stock', normal:'credit', status:'active', balance:100000.00, desc:'Par value of shares issued to shareholders.' },
+    { id:'3200', parent:'3000', cat:'equity', subtype:'Equity', name:'Additional Paid-in Capital', normal:'credit', status:'active', balance:50000.00, desc:'Capital contributed by shareholders in excess of par value.' },
+    { id:'3300', parent:'3000', cat:'equity', subtype:'Equity', name:'Retained Earnings', normal:'credit', status:'active', balance:325500.57, desc:'Cumulative net income retained in the business since inception.' },
+    { id:'3400', parent:'3000', cat:'equity', subtype:'Equity', name:"Owner's Draw", normal:'debit', status:'active', balance:40000.00, desc:'Contra-equity account tracking distributions taken by owners.' },
+
+  { id:'4000', parent:null, header:true, cat:'revenue', subtype:'Revenue', name:'Revenue', normal:'credit', status:'active', desc:"Income earned from the company's primary business activities." },
+    { id:'4100', parent:'4000', cat:'revenue', subtype:'Revenue', name:'Product Sales', normal:'credit', status:'active', balance:845200.00, desc:'Revenue from the sale of physical products.' },
+    { id:'4200', parent:'4000', cat:'revenue', subtype:'Revenue', name:'Service Revenue', normal:'credit', status:'active', balance:312500.00, desc:'Revenue earned from services performed for customers.' },
+    { id:'4300', parent:'4000', cat:'revenue', subtype:'Revenue', name:'Consulting Revenue', normal:'credit', status:'active', balance:98750.00, desc:'Revenue earned from advisory and consulting engagements.' },
+    { id:'4900', parent:'4000', cat:'revenue', subtype:'Revenue', name:'Sales Returns and Allowances', normal:'debit', status:'active', balance:22400.00, desc:'Contra-revenue account for returns, refunds, and price allowances.' },
+
+  { id:'5000', parent:null, header:true, cat:'expense', subtype:'Cost of Goods Sold', name:'Cost of Goods Sold', normal:'debit', status:'active', desc:'Direct costs attributable to the production of goods sold.' },
+    { id:'5100', parent:'5000', cat:'expense', subtype:'Cost of Goods Sold', name:'Materials', normal:'debit', status:'active', balance:298400.00, desc:'Raw materials consumed in the production of goods sold.' },
+    { id:'5200', parent:'5000', cat:'expense', subtype:'Cost of Goods Sold', name:'Direct Labor', normal:'debit', status:'active', balance:215600.00, desc:'Wages for labor directly involved in production.' },
+    { id:'5300', parent:'5000', cat:'expense', subtype:'Cost of Goods Sold', name:'Manufacturing Overhead', normal:'debit', status:'active', balance:87300.00, desc:'Indirect production costs such as factory utilities and supervision.' },
+
+  { id:'6000', parent:null, header:true, cat:'expense', subtype:'Operating Expense', name:'Operating Expenses', normal:'debit', status:'active', desc:'Day-to-day costs of running the business, excluding cost of goods sold.' },
+    { id:'6100', parent:'6000', cat:'expense', subtype:'Operating Expense', name:'Salaries and Wages', normal:'debit', status:'active', balance:285000.00, desc:'Compensation paid to administrative and operating staff.' },
+    { id:'6110', parent:'6000', cat:'expense', subtype:'Operating Expense', name:'Payroll Taxes', normal:'debit', status:'active', balance:32500.00, desc:'Employer-paid payroll taxes on employee wages.' },
+    { id:'6120', parent:'6000', cat:'expense', subtype:'Operating Expense', name:'Employee Benefits', normal:'debit', status:'active', balance:48200.00, desc:'Health insurance, retirement matching, and other employee benefit costs.' },
+    { id:'6200', parent:'6000', cat:'expense', subtype:'Operating Expense', name:'Rent Expense', normal:'debit', status:'active', balance:60000.00, desc:'Monthly rent for office and operating facilities.' },
+    { id:'6210', parent:'6000', cat:'expense', subtype:'Operating Expense', name:'Utilities Expense', normal:'debit', status:'active', balance:14400.00, desc:'Electricity, water, gas, and other utility costs.' },
+    { id:'6220', parent:'6000', cat:'expense', subtype:'Operating Expense', name:'Office Supplies', normal:'debit', status:'active', balance:8900.00, desc:'Consumable supplies used in day-to-day office operations.' },
+    { id:'6230', parent:'6000', cat:'expense', subtype:'Operating Expense', name:'Insurance Expense', normal:'debit', status:'active', balance:18600.00, desc:'Premiums for general liability and property insurance coverage.' },
+    { id:'6300', parent:'6000', cat:'expense', subtype:'Operating Expense', name:'Depreciation Expense', normal:'debit', status:'active', balance:22000.00, desc:'Periodic depreciation recognized on fixed assets.' },
+    { id:'6400', parent:'6000', cat:'expense', subtype:'Operating Expense', name:'Marketing and Advertising', normal:'debit', status:'active', balance:45000.00, desc:'Costs of advertising campaigns, branding, and promotional activities.' },
+    { id:'6500', parent:'6000', cat:'expense', subtype:'Operating Expense', name:'Professional Fees', normal:'debit', status:'active', balance:32000.00, desc:'Legal, accounting, and consulting fees paid to outside professionals.' },
+    { id:'6600', parent:'6000', cat:'expense', subtype:'Operating Expense', name:'Travel and Entertainment', normal:'debit', status:'active', balance:19800.00, desc:'Employee travel, lodging, and client entertainment costs.' },
+    { id:'6700', parent:'6000', cat:'expense', subtype:'Operating Expense', name:'Software Subscriptions', normal:'debit', status:'active', balance:26400.00, desc:'Recurring SaaS and software licensing costs.' },
+    { id:'6900', parent:'6000', cat:'expense', subtype:'Operating Expense', name:'Miscellaneous Expense', normal:'debit', status:'active', balance:5200.00, desc:'Minor operating costs not classified elsewhere.' },
+];
+
+const byId = {};
+ACCOUNTS.forEach(a => byId[a.id] = a);
+function childrenOf(id){ return ACCOUNTS.filter(a => a.parent === id).sort((a,b) => a.id.localeCompare(b.id)); }
+function ancestorsOf(id){
+  const chain = [];
+  let cur = byId[id];
+  while (cur && cur.parent){ cur = byId[cur.parent]; if (cur) chain.unshift(cur); }
+  return chain;
+}
+function computeBalance(id){
+  const a = byId[id];
+  if (!a.header){
+    const catNorm = categoryNormal[a.cat];
+    return a.normal === catNorm ? a.balance : -a.balance;
+  }
+  return childrenOf(id).reduce((s,c) => s + computeBalance(c.id), 0);
+}
+function dcLabel(normal){ return normal === 'debit' ? 'Dr' : 'Cr'; }
+
+// ---------------------------------------------------------------------------
+// Formatting helpers
+// ---------------------------------------------------------------------------
+function fmt(n){
+  const abs = Math.abs(n);
+  return abs.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+function money(n){ return '$' + fmt(n); }
+
+// ---------------------------------------------------------------------------
+// Deterministic pseudo-random mock transactions
+// ---------------------------------------------------------------------------
+function seedFromString(s){ let h = 0; for (let i=0;i<s.length;i++){ h = (h*31 + s.charCodeAt(i)) | 0; } return Math.abs(h) || 1; }
+function mulberry32(seed){
+  return function(){
+    seed |= 0; seed = (seed + 0x6D2B79F5) | 0;
+    let t = Math.imul(seed ^ (seed >>> 15), 1 | seed);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+function pick(rand, arr){ return arr[Math.floor(rand() * arr.length)]; }
+
+const MEMO_POOLS = {
+  asset:     ['Deposit — Customer Payment', 'Check #{n} — Vendor Payment', 'Wire Transfer — Funding', 'Bank Service Fee', 'Interest Earned', 'ATM Withdrawal', 'Transfer Between Accounts'],
+  liability: ['Bill Received — {vendor}', 'Payment Issued — Check #{n}', 'Accrual Adjustment', 'Vendor Credit Applied', 'Period-End Accrual'],
+  equity:    ['Capital Contribution', 'Owner Distribution', 'Year-End Closing Entry', 'Adjusting Entry'],
+  revenue:   ['Invoice #{n} — {customer}', 'Sales Receipt #{n}', 'Credit Memo — {customer}', 'Invoice #{n} — {customer}'],
+  expense:   ['Payment — {vendor}', 'Expense Report #{n}', 'Recurring Payment — {vendor}', 'Bill Payment — {vendor}'],
+};
+const VENDORS = ['Staples Inc.', 'Pacific Power & Light', 'WeWork', 'Verizon Business', 'ADP Payroll Services', 'Acme Logistics', 'CDW Technology', 'Marsh Insurance'];
+const CUSTOMERS = ['Acme Corp', 'Globex Inc.', 'Beta Industries', 'Initech LLC', 'Umbrella Group', 'Stark Enterprises'];
+const TX_DATES = ['Oct 9, 2026', 'Oct 16, 2026', 'Oct 23, 2026', 'Nov 2, 2026', 'Nov 5, 2026'];
+
+function generateTransactions(a){
+  const rand = mulberry32(seedFromString(a.id));
+  const pool = MEMO_POOLS[a.cat];
+  const changes = [];
+  for (let i=0;i<5;i++){
+    const magnitude = (0.03 + rand()*0.08) * Math.max(a.balance, 5000);
+    const dir = rand() > 0.3 ? 1 : -1;
+    changes.push(dir * magnitude);
+  }
+  const opening = a.balance - changes.reduce((s,c)=>s+c,0);
+  let running = opening;
+  const rows = [];
+  for (let i=0;i<5;i++){
+    running += changes[i];
+    const n = 1000 + Math.floor(rand()*8999);
+    const vendor = pick(rand, VENDORS);
+    const customer = pick(rand, CUSTOMERS);
+    const memo = pick(rand, pool).replaceAll('{n}', n).replaceAll('{vendor}', vendor).replaceAll('{customer}', customer);
+    const mag = Math.abs(changes[i]);
+    const inc = changes[i] > 0;
+    let debit = 0, credit = 0;
+    if (a.normal === 'debit'){ if (inc) debit = mag; else credit = mag; }
+    else { if (inc) credit = mag; else debit = mag; }
+    rows.push({ date: TX_DATES[i], memo, debit, credit, balance: running });
+  }
+  return { opening, rows };
+}
+
+// ---------------------------------------------------------------------------
+// State
+// ---------------------------------------------------------------------------
+let expanded = new Set(ACCOUNTS.filter(a => a.header).map(a => a.id));
+let selectedId = '1111';
+let activeFilter = 'all';
+let searchTerm = '';
+
+// ---------------------------------------------------------------------------
+// Tree rendering
+// ---------------------------------------------------------------------------
+function matchesSearch(a){
+  if (!searchTerm) return true;
+  const t = searchTerm.toLowerCase();
+  return a.name.toLowerCase().includes(t) || a.id.includes(t);
+}
+function subtreeHasMatch(a){
+  if (matchesSearch(a)) return true;
+  if (!a.header) return false;
+  return childrenOf(a.id).some(subtreeHasMatch);
+}
+function passesFilter(a){ return activeFilter === 'all' || a.cat === activeFilter; }
+
+function childList(a){
+  let kids = childrenOf(a.id);
+  if (searchTerm) kids = kids.filter(subtreeHasMatch);
+  return kids;
+}
+
+function renderNode(a, depth){
+  const kids = a.header ? childList(a) : [];
+  const hasKids = kids.length > 0;
+  const open = searchTerm ? true : expanded.has(a.id);
+  const raw = computeBalance(a.id);
+  const magnitude = Math.abs(raw);
+  const suffix = a.header ? dcLabel(categoryNormal[a.cat]) : dcLabel(a.normal);
+  const style = typeStyles[a.cat];
+  const selected = a.id === selectedId;
+  const isContra = !a.header && a.normal !== categoryNormal[a.cat];
+  const indent = 10 + depth * 18;
+
+  let toggleHtml = '<span class="w-4 h-4 shrink-0"></span>';
+  if (a.header && hasKids){
+    toggleHtml = `<button type="button" onclick="toggleExpand('${a.id}', event)" class="w-4 h-4 flex items-center justify-center text-slate-400 hover:text-slate-700 shrink-0">
+      <span class="inline-block text-[10px] transition-transform duration-150 ${open ? 'rotate-90' : ''}">&#9656;</span>
+    </button>`;
+  }
+
+  let html = `<div>
+    <div onclick="selectAccount('${a.id}')" class="flex items-center justify-between gap-2 mx-1 rounded-md cursor-pointer select-none px-2 py-[7px] ${selected ? 'bg-slate-900 text-white' : 'hover:bg-slate-50'}" style="padding-left:${indent}px">
+      <div class="flex items-center gap-2 min-w-0">
+        ${toggleHtml}
+        <span class="w-1.5 h-1.5 rounded-full ${style.dot} shrink-0"></span>
+        <span class="font-mono text-[11px] ${selected ? 'text-slate-300' : 'text-slate-400'} shrink-0">${a.id}</span>
+        <span class="truncate text-[13px] ${a.header ? 'font-semibold' : ''} ${selected ? 'text-white' : (a.header ? 'text-slate-700' : 'text-slate-600')} ${a.status === 'inactive' ? 'line-through opacity-60' : ''}">${a.name}</span>
+        ${isContra ? `<span class="text-[10px] px-1.5 py-0.5 rounded shrink-0 ${selected ? 'bg-white/15 text-slate-200' : 'bg-slate-100 text-slate-500'}">Contra</span>` : ''}
+      </div>
+      <div class="flex items-baseline gap-1 shrink-0 font-mono text-[13px] tnum ${a.header ? 'font-semibold' : ''} ${selected ? 'text-white' : 'text-slate-700'}">
+        <span>${money(magnitude)}</span><span class="text-[10px] ${selected ? 'text-slate-300' : 'text-slate-400'}">${suffix}</span>
+      </div>
+    </div>
+    ${a.header && hasKids && open ? `<div>${kids.map(k => renderNode(k, depth+1)).join('')}</div>` : ''}
+  </div>`;
+  return html;
+}
+
+function renderTree(){
+  let roots = childrenOf(null).filter(passesFilter);
+  if (searchTerm) roots = roots.filter(subtreeHasMatch);
+  document.getElementById('tree').innerHTML = roots.length
+    ? roots.map(r => renderNode(r, 0)).join('')
+    : `<div class="px-4 py-8 text-center text-sm text-slate-400">No accounts match your search.</div>`;
+
+  const total = ACCOUNTS.length;
+  const visibleLeaves = ACCOUNTS.filter(a => !a.header && passesFilter(a) && matchesSearch(a)).length;
+  document.getElementById('treeFooter').textContent = searchTerm || activeFilter !== 'all'
+    ? `Showing ${visibleLeaves} of ${ACCOUNTS.filter(a=>!a.header).length} accounts`
+    : `${total} accounts total`;
+}
+
+function renderChips(){
+  const cats = ['all','asset','liability','equity','revenue','expense'];
+  document.getElementById('filterChips').innerHTML = cats.map(c => {
+    const active = activeFilter === c;
+    const label = c === 'all' ? 'All' : categoryLabel[c] + 's';
+    const base = 'text-xs font-medium px-2.5 py-1 rounded-full border transition-colors';
+    const cls = active
+      ? 'bg-slate-900 text-white border-slate-900'
+      : 'bg-white text-slate-500 border-slate-200 hover:bg-slate-50';
+    return `<button type="button" onclick="setFilter('${c}')" class="${base} ${cls}">${label}</button>`;
+  }).join('');
+}
+
+function toggleExpand(id, evt){
+  evt.stopPropagation();
+  if (expanded.has(id)) expanded.delete(id); else expanded.add(id);
+  renderTree();
+}
+function setFilter(cat){ activeFilter = cat; renderChips(); renderTree(); }
+function onSearchInput(val){ searchTerm = val.trim(); renderTree(); }
+function selectAccount(id){ selectedId = id; renderTree(); renderDetail(); }
+
+// ---------------------------------------------------------------------------
+// Summary cards
+// ---------------------------------------------------------------------------
+function renderSummary(){
+  const assets = computeBalance('1000');
+  const liabilities = computeBalance('2000');
+  const equity = computeBalance('3000');
+  const revenue = computeBalance('4000');
+  const cogs = computeBalance('5000');
+  const opex = computeBalance('6000');
+  const netIncome = revenue - cogs - opex;
+
+  const cards = [
+    { label: 'Total Assets', value: assets, suffix: 'Dr', cat: 'asset', note: 'Across ' + ACCOUNTS.filter(a=>a.cat==='asset' && !a.header).length + ' accounts' },
+    { label: 'Total Liabilities', value: liabilities, suffix: 'Cr', cat: 'liability', note: 'Across ' + ACCOUNTS.filter(a=>a.cat==='liability' && !a.header).length + ' accounts' },
+    { label: "Total Equity", value: equity, suffix: 'Cr', cat: 'equity', note: 'Across ' + ACCOUNTS.filter(a=>a.cat==='equity' && !a.header).length + ' accounts' },
+    { label: 'Net Income (YTD)', value: netIncome, suffix: netIncome >= 0 ? 'Cr' : 'Dr', cat: netIncome >= 0 ? 'revenue' : 'expense', note: 'Revenue less COGS and operating expenses' },
+  ];
+
+  document.getElementById('summaryCards').innerHTML = cards.map(c => {
+    const s = typeStyles[c.cat];
+    return `<div class="bg-white rounded-xl border border-slate-200 p-4 flex items-start justify-between">
+      <div>
+        <p class="text-xs font-medium text-slate-400">${c.label}</p>
+        <p class="mt-1 text-xl font-semibold text-slate-900 font-mono tnum">${money(Math.abs(c.value))} <span class="text-xs font-normal text-slate-400">${c.suffix}</span></p>
+        <p class="mt-1 text-[11px] text-slate-400">${c.note}</p>
+      </div>
+      <span class="w-2.5 h-2.5 rounded-full ${s.dot} mt-1 shrink-0"></span>
+    </div>`;
+  }).join('');
+
+  const balanced = Math.abs(assets - (liabilities + equity)) < 0.01;
+  const badge = document.getElementById('balancedBadge');
+  badge.classList.remove('hidden');
+  if (balanced){
+    badge.className = 'hidden sm:inline-flex items-center gap-1.5 text-xs font-medium px-2.5 py-1.5 rounded-full border bg-emerald-50 text-emerald-700 border-emerald-200';
+    badge.innerHTML = '<svg viewBox="0 0 20 20" fill="currentColor" class="w-3.5 h-3.5"><path fill-rule="evenodd" d="M16.7 5.3a1 1 0 0 1 0 1.4l-7.3 7.3a1 1 0 0 1-1.4 0L3.3 9.3a1 1 0 1 1 1.4-1.4L8 11.2l6.3-6.3a1 1 0 0 1 1.4 0Z" clip-rule="evenodd"/></svg> Books Balanced';
+  } else {
+    badge.className = 'hidden sm:inline-flex items-center gap-1.5 text-xs font-medium px-2.5 py-1.5 rounded-full border bg-amber-50 text-amber-700 border-amber-200';
+    badge.innerHTML = '&#9888; Out of Balance';
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Detail panel
+// ---------------------------------------------------------------------------
+function breadcrumbHtml(a){
+  const chain = [...ancestorsOf(a.id), a];
+  return chain.map((node, i) => {
+    const isLast = i === chain.length - 1;
+    return `<span class="${isLast ? 'text-slate-600 font-medium' : 'text-slate-400 hover:text-slate-600 cursor-pointer'}" ${isLast ? '' : `onclick="selectAccount('${node.id}')"`}>${node.name}</span>`
+      + (isLast ? '' : '<span class="text-slate-300">/</span>');
+  }).join(' ');
+}
+
+function badgePill(text, style){
+  return `<span class="text-xs font-medium px-2 py-0.5 rounded-full border ${style.bg} ${style.text} ${style.border}">${text}</span>`;
+}
+
+function renderDetail(){
+  const a = byId[selectedId];
+  const style = typeStyles[a.cat];
+  const raw = computeBalance(a.id);
+  const magnitude = Math.abs(raw);
+  const suffix = a.header ? dcLabel(categoryNormal[a.cat]) : dcLabel(a.normal);
+  const isContra = !a.header && a.normal !== categoryNormal[a.cat];
+  const statusStyle = a.status === 'active'
+    ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+    : 'bg-slate-100 text-slate-500 border-slate-200';
+
+  let body = '';
+
+  if (a.header){
+    const kids = childrenOf(a.id);
+    body = `<div class="divide-y divide-slate-100">
+      <div class="px-4 py-2.5 text-xs font-semibold text-slate-400 uppercase tracking-wide flex justify-between">
+        <span>${kids.length} Sub-Account${kids.length === 1 ? '' : 's'}</span>
+        <span>Balance</span>
+      </div>
+      ${kids.map(k => {
+        const kRaw = computeBalance(k.id);
+        const kMag = Math.abs(kRaw);
+        const kSuffix = k.header ? dcLabel(categoryNormal[k.cat]) : dcLabel(k.normal);
+        const kStyle = typeStyles[k.cat];
+        return `<div class="px-4 py-2.5 flex items-center justify-between gap-3 hover:bg-slate-50 cursor-pointer" onclick="selectAccount('${k.id}')">
+          <div class="flex items-center gap-2 min-w-0">
+            <span class="w-1.5 h-1.5 rounded-full ${kStyle.dot} shrink-0"></span>
+            <span class="font-mono text-[11px] text-slate-400 shrink-0">${k.id}</span>
+            <span class="truncate text-sm ${k.header ? 'font-semibold text-slate-700' : 'text-slate-600'}">${k.name}</span>
+            ${k.header ? `<span class="text-[10px] px-1.5 py-0.5 rounded bg-slate-100 text-slate-500 shrink-0">Group</span>` : ''}
+          </div>
+          <div class="font-mono text-sm tnum shrink-0 ${k.header ? 'font-semibold text-slate-800' : 'text-slate-600'}">${money(kMag)} <span class="text-[10px] text-slate-400">${kSuffix}</span></div>
+        </div>`;
+      }).join('')}
+      <div class="px-4 py-3 flex items-center justify-between bg-slate-50">
+        <span class="text-sm font-semibold text-slate-700">Total — ${a.name}</span>
+        <span class="font-mono text-base font-semibold text-slate-900 tnum">${money(magnitude)} <span class="text-xs text-slate-400">${suffix}</span></span>
+      </div>
+    </div>`;
+  } else {
+    const { opening, rows } = generateTransactions(a);
+    const catTotal = Math.abs(computeBalance(a.cat === 'equity' ? '3000' : (a.cat === 'asset' ? '1000' : (a.cat === 'liability' ? '2000' : (a.cat === 'revenue' ? '4000' : '6000')))));
+    const share = catTotal > 0 ? Math.min(100, (a.balance / catTotal) * 100) : 0;
+
+    body = `
+      <div class="px-5 py-4 border-b border-slate-100">
+        <p class="text-xs text-slate-400 mb-1">Share of Total ${categoryLabel[a.cat]}s</p>
+        <div class="flex items-center gap-3">
+          <div class="flex-1 h-1.5 rounded-full bg-slate-100 overflow-hidden">
+            <div class="h-full rounded-full ${style.dot}" style="width:${share.toFixed(1)}%"></div>
+          </div>
+          <span class="text-xs font-mono text-slate-500 w-12 text-right">${share.toFixed(1)}%</span>
+        </div>
+      </div>
+      <div class="px-5 py-4">
+        <p class="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-2.5">Recent Activity</p>
+        <div class="overflow-x-auto rounded-lg border border-slate-100">
+          <table class="w-full text-sm">
+            <thead>
+              <tr class="bg-slate-50 text-left text-[11px] font-semibold text-slate-400 uppercase tracking-wide">
+                <th class="px-3 py-2">Date</th>
+                <th class="px-3 py-2">Memo</th>
+                <th class="px-3 py-2 text-right">Debit</th>
+                <th class="px-3 py-2 text-right">Credit</th>
+                <th class="px-3 py-2 text-right">Balance</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-slate-100">
+              <tr class="text-slate-400">
+                <td class="px-3 py-2" colspan="4">Opening Balance</td>
+                <td class="px-3 py-2 text-right font-mono tnum">${money(Math.abs(opening))}</td>
+              </tr>
+              ${rows.map(r => `
+                <tr class="hover:bg-slate-50">
+                  <td class="px-3 py-2 text-slate-500 whitespace-nowrap">${r.date}</td>
+                  <td class="px-3 py-2 text-slate-600">${r.memo}</td>
+                  <td class="px-3 py-2 text-right font-mono tnum text-slate-600">${r.debit ? money(r.debit) : '—'}</td>
+                  <td class="px-3 py-2 text-right font-mono tnum text-slate-600">${r.credit ? money(r.credit) : '—'}</td>
+                  <td class="px-3 py-2 text-right font-mono tnum text-slate-700">${money(Math.abs(r.balance))}</td>
+                </tr>`).join('')}
+              <tr class="bg-slate-50 font-semibold">
+                <td class="px-3 py-2 text-slate-700" colspan="4">Current Balance</td>
+                <td class="px-3 py-2 text-right font-mono tnum text-slate-900">${money(magnitude)} <span class="text-[10px] font-normal text-slate-400">${suffix}</span></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>`;
+  }
+
+  document.getElementById('detail').innerHTML = `
+    <div class="px-5 py-4 border-b border-slate-100">
+      <div class="text-xs flex items-center gap-1 flex-wrap mb-3">${breadcrumbHtml(a)}</div>
+      <div class="flex items-start justify-between gap-4">
+        <div class="min-w-0">
+          <div class="flex items-center gap-2 flex-wrap">
+            <span class="font-mono text-sm text-slate-400">${a.id}</span>
+            <h2 class="text-lg font-semibold text-slate-900 ${a.status === 'inactive' ? 'line-through text-slate-400' : ''}">${a.name}</h2>
+          </div>
+          <div class="mt-2 flex items-center gap-1.5 flex-wrap">
+            ${badgePill(categoryLabel[a.cat], style)}
+            <span class="text-xs font-medium px-2 py-0.5 rounded-full border bg-slate-50 text-slate-600 border-slate-200">${a.subtype}</span>
+            ${a.header ? `<span class="text-xs font-medium px-2 py-0.5 rounded-full border bg-slate-50 text-slate-600 border-slate-200">Account Group</span>` : ''}
+            ${isContra ? `<span class="text-xs font-medium px-2 py-0.5 rounded-full border bg-slate-50 text-slate-600 border-slate-200">Contra Account</span>` : ''}
+            <span class="text-xs font-medium px-2 py-0.5 rounded-full border ${statusStyle}">${a.status === 'active' ? 'Active' : 'Inactive'}</span>
+          </div>
+          <p class="mt-3 text-sm text-slate-500 max-w-lg">${a.desc}</p>
+        </div>
+        <div class="text-right shrink-0">
+          <p class="text-xs text-slate-400">Current Balance</p>
+          <p class="text-2xl font-semibold text-slate-900 font-mono tnum">${money(magnitude)}</p>
+          <p class="text-xs text-slate-400">${a.normal === 'debit' ? 'Debit' : 'Credit'} Normal (${suffix})</p>
+        </div>
+      </div>
+      <div class="mt-4 grid grid-cols-2 sm:grid-cols-4 gap-3 text-sm">
+        <div><p class="text-[11px] text-slate-400">Account Number</p><p class="font-mono text-slate-700">${a.id}</p></div>
+        <div><p class="text-[11px] text-slate-400">Normal Balance</p><p class="text-slate-700">${a.normal === 'debit' ? 'Debit' : 'Credit'}</p></div>
+        <div><p class="text-[11px] text-slate-400">Currency</p><p class="text-slate-700">USD</p></div>
+        <div><p class="text-[11px] text-slate-400">Parent Account</p><p class="text-slate-700 truncate">${a.parent ? byId[a.parent].name : '—'}</p></div>
+      </div>
+    </div>
+    ${body}
+  `;
+}
+
+// ---------------------------------------------------------------------------
+// Init
+// ---------------------------------------------------------------------------
+renderSummary();
+renderChips();
+renderTree();
+renderDetail();
+</script>
+</body>
+</html>

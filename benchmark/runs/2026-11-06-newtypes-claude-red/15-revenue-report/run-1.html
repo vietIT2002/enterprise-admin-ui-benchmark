@@ -1,0 +1,683 @@
+<!DOCTYPE html>
+<html lang="en" class="h-full">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Monthly Revenue Report — Ledger &amp; Co.</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+  tailwind.config = {
+    theme: {
+      extend: {
+        fontFamily: {
+          sans: ['ui-sans-serif','system-ui','-apple-system','Segoe UI','Roboto','Helvetica Neue','Arial','sans-serif']
+        }
+      }
+    }
+  }
+</script>
+<style>
+  @media print {
+    .no-print { display: none !important; }
+    body { background: #fff !important; }
+    .print-card { box-shadow: none !important; border: 1px solid #e2e8f0 !important; }
+  }
+  ::-webkit-scrollbar { height: 8px; width: 8px; }
+  ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  th.sortable { cursor: pointer; user-select: none; }
+  th.sortable:hover { background-color: #f1f5f9; }
+  .tabular-nums { font-variant-numeric: tabular-nums; }
+</style>
+</head>
+<body class="h-full bg-slate-50 text-slate-800 font-sans antialiased">
+
+  <!-- Header -->
+  <header class="bg-slate-900 text-white">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-5 flex flex-wrap items-center justify-between gap-4">
+      <div class="flex items-center gap-3">
+        <div class="w-10 h-10 rounded-lg bg-indigo-500 flex items-center justify-center font-bold text-lg shrink-0">L</div>
+        <div>
+          <h1 class="text-lg font-semibold leading-tight">Ledger &amp; Co. — Monthly Revenue Report</h1>
+          <p class="text-xs text-slate-400">Accounting &amp; Finance · Revenue Analytics</p>
+        </div>
+      </div>
+      <div class="flex items-center gap-2 text-xs text-slate-300">
+        <span id="reportPeriodBadge" class="px-3 py-1 rounded-full bg-slate-800 border border-slate-700 font-medium text-slate-100"></span>
+        <span id="generatedAt" class="hidden sm:inline"></span>
+      </div>
+    </div>
+  </header>
+
+  <!-- Filter bar -->
+  <div class="no-print sticky top-0 z-10 bg-white border-b border-slate-200 shadow-sm">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3 flex flex-wrap items-end gap-3">
+      <div class="flex flex-col gap-1">
+        <label for="monthSelect" class="text-xs font-medium text-slate-500">Reporting Month</label>
+        <select id="monthSelect" class="text-sm border border-slate-300 rounded-md px-2.5 py-1.5 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-400"></select>
+      </div>
+      <div class="flex flex-col gap-1">
+        <label for="segmentFilter" class="text-xs font-medium text-slate-500">Customer Segment</label>
+        <select id="segmentFilter" class="text-sm border border-slate-300 rounded-md px-2.5 py-1.5 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-400">
+          <option value="All">All segments</option>
+          <option value="Enterprise">Enterprise</option>
+          <option value="Mid-Market">Mid-Market</option>
+          <option value="SMB">SMB</option>
+        </select>
+      </div>
+      <div class="flex flex-col gap-1">
+        <label for="categoryFilter" class="text-xs font-medium text-slate-500">Product Category</label>
+        <select id="categoryFilter" class="text-sm border border-slate-300 rounded-md px-2.5 py-1.5 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-400">
+          <option value="All">All categories</option>
+          <option value="Software License">Software License</option>
+          <option value="Subscription">Subscription</option>
+          <option value="Add-on">Add-on</option>
+          <option value="Services">Services</option>
+        </select>
+      </div>
+      <div class="flex flex-col gap-1 grow min-w-[160px] max-w-xs">
+        <label for="searchInput" class="text-xs font-medium text-slate-500">Search customer / product</label>
+        <input id="searchInput" type="text" placeholder="e.g. Nimbus, ProSuite..." class="text-sm border border-slate-300 rounded-md px-2.5 py-1.5 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-400" />
+      </div>
+      <div class="flex items-end gap-2 ml-auto">
+        <button id="resetFilters" class="text-sm px-3 py-1.5 rounded-md border border-slate-300 text-slate-600 hover:bg-slate-50">Reset</button>
+        <div class="relative">
+          <button id="exportMenuBtn" class="text-sm px-3 py-1.5 rounded-md bg-indigo-600 text-white hover:bg-indigo-700 flex items-center gap-1.5">
+            <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" viewBox="0 0 20 20" fill="currentColor"><path d="M10 12.5a.75.75 0 0 0 .75-.75V4.56l1.22 1.22a.75.75 0 1 0 1.06-1.06l-2.5-2.5a.75.75 0 0 0-1.06 0l-2.5 2.5a.75.75 0 1 0 1.06 1.06L9.25 4.56v7.19c0 .414.336.75.75.75Z"/><path d="M4 11a.75.75 0 0 1 .75.75v2.5c0 .69.56 1.25 1.25 1.25h8c.69 0 1.25-.56 1.25-1.25v-2.5a.75.75 0 0 1 1.5 0v2.5A2.75 2.75 0 0 1 14 16.75H6A2.75 2.75 0 0 1 3.25 14v-2.5A.75.75 0 0 1 4 11Z"/></svg>
+            Export
+          </button>
+          <div id="exportMenu" class="hidden absolute right-0 mt-1 w-56 bg-white border border-slate-200 rounded-md shadow-lg py-1 text-sm">
+            <button data-action="csv-customers" class="w-full text-left px-3 py-2 hover:bg-slate-50">Export Customers (CSV)</button>
+            <button data-action="csv-products" class="w-full text-left px-3 py-2 hover:bg-slate-50">Export Products (CSV)</button>
+            <button data-action="print" class="w-full text-left px-3 py-2 hover:bg-slate-50 border-t border-slate-100">Print / Save as PDF</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
+
+    <!-- KPI Cards -->
+    <section class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div class="print-card bg-white rounded-xl border border-slate-200 shadow-sm p-4">
+        <p class="text-xs font-medium text-slate-500">Total Revenue</p>
+        <p id="kpiTotalRevenue" class="text-2xl font-semibold text-slate-900 mt-1 tabular-nums">—</p>
+        <p class="text-xs text-slate-400 mt-1">Across all customers &amp; products</p>
+      </div>
+      <div class="print-card bg-white rounded-xl border border-slate-200 shadow-sm p-4">
+        <p class="text-xs font-medium text-slate-500">Vs. Last Month</p>
+        <p id="kpiMoM" class="text-2xl font-semibold mt-1 tabular-nums">—</p>
+        <p id="kpiMoMSub" class="text-xs text-slate-400 mt-1">—</p>
+      </div>
+      <div class="print-card bg-white rounded-xl border border-slate-200 shadow-sm p-4">
+        <p class="text-xs font-medium text-slate-500">Vs. Same Month Last Year</p>
+        <p id="kpiYoY" class="text-2xl font-semibold mt-1 tabular-nums">—</p>
+        <p id="kpiYoYSub" class="text-xs text-slate-400 mt-1">—</p>
+      </div>
+      <div class="print-card bg-white rounded-xl border border-slate-200 shadow-sm p-4">
+        <p class="text-xs font-medium text-slate-500">Top Product</p>
+        <p id="kpiTopProduct" class="text-lg font-semibold text-slate-900 mt-1 truncate">—</p>
+        <p id="kpiTopProductSub" class="text-xs text-slate-400 mt-1">—</p>
+      </div>
+    </section>
+
+    <!-- Charts -->
+    <section class="grid grid-cols-1 lg:grid-cols-3 gap-4">
+      <div class="print-card lg:col-span-2 bg-white rounded-xl border border-slate-200 shadow-sm p-5">
+        <div class="flex items-center justify-between mb-4">
+          <h2 class="text-sm font-semibold text-slate-700">Revenue Trend — Last 6 Months</h2>
+          <span class="text-xs text-slate-400">Company-wide total</span>
+        </div>
+        <div id="trendChart" class="flex items-end gap-3"></div>
+      </div>
+      <div class="print-card bg-white rounded-xl border border-slate-200 shadow-sm p-5">
+        <div class="flex items-center justify-between mb-4">
+          <h2 class="text-sm font-semibold text-slate-700">Revenue by Segment</h2>
+          <span class="text-xs text-slate-400">Current month</span>
+        </div>
+        <div id="segmentChart" class="space-y-3"></div>
+      </div>
+    </section>
+
+    <!-- Revenue by Customer -->
+    <section class="print-card bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+      <div class="flex items-center justify-between px-5 py-4 border-b border-slate-200">
+        <h2 class="text-sm font-semibold text-slate-700">Revenue by Customer</h2>
+        <span id="customerRowCount" class="text-xs text-slate-400"></span>
+      </div>
+      <div class="overflow-x-auto">
+        <table class="w-full text-sm">
+          <thead>
+            <tr class="bg-slate-50 text-slate-500 text-xs uppercase tracking-wide">
+              <th data-col="name" data-type="string" class="sortable px-4 py-2.5 text-left font-medium">Customer</th>
+              <th data-col="segment" data-type="string" class="sortable px-4 py-2.5 text-left font-medium">Segment</th>
+              <th data-col="current" data-type="number" class="sortable px-4 py-2.5 text-right font-medium">This Month</th>
+              <th data-col="lastMonth" data-type="number" class="sortable px-4 py-2.5 text-right font-medium">Last Month</th>
+              <th data-col="momPct" data-type="number" class="sortable px-4 py-2.5 text-right font-medium">MoM %</th>
+              <th data-col="lastYear" data-type="number" class="sortable px-4 py-2.5 text-right font-medium">Same Month Last Year</th>
+              <th data-col="yoyPct" data-type="number" class="sortable px-4 py-2.5 text-right font-medium">YoY %</th>
+            </tr>
+          </thead>
+          <tbody id="customerTableBody"></tbody>
+          <tfoot>
+            <tr id="customerTotalsRow" class="bg-slate-50 font-semibold border-t-2 border-slate-200"></tr>
+          </tfoot>
+        </table>
+      </div>
+    </section>
+
+    <!-- Revenue by Product -->
+    <section class="print-card bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+      <div class="flex items-center justify-between px-5 py-4 border-b border-slate-200">
+        <h2 class="text-sm font-semibold text-slate-700">Revenue by Product</h2>
+        <span id="productRowCount" class="text-xs text-slate-400"></span>
+      </div>
+      <div class="overflow-x-auto">
+        <table class="w-full text-sm">
+          <thead>
+            <tr class="bg-slate-50 text-slate-500 text-xs uppercase tracking-wide">
+              <th data-col="name" data-type="string" class="sortable px-4 py-2.5 text-left font-medium">Product</th>
+              <th data-col="category" data-type="string" class="sortable px-4 py-2.5 text-left font-medium">Category</th>
+              <th data-col="unitsCurrent" data-type="number" class="sortable px-4 py-2.5 text-right font-medium">Units Sold</th>
+              <th data-col="current" data-type="number" class="sortable px-4 py-2.5 text-right font-medium">This Month</th>
+              <th data-col="lastMonth" data-type="number" class="sortable px-4 py-2.5 text-right font-medium">Last Month</th>
+              <th data-col="momPct" data-type="number" class="sortable px-4 py-2.5 text-right font-medium">MoM %</th>
+              <th data-col="lastYear" data-type="number" class="sortable px-4 py-2.5 text-right font-medium">Same Month Last Year</th>
+              <th data-col="yoyPct" data-type="number" class="sortable px-4 py-2.5 text-right font-medium">YoY %</th>
+            </tr>
+          </thead>
+          <tbody id="productTableBody"></tbody>
+          <tfoot>
+            <tr id="productTotalsRow" class="bg-slate-50 font-semibold border-t-2 border-slate-200"></tr>
+          </tfoot>
+        </table>
+      </div>
+    </section>
+
+    <footer class="text-xs text-slate-400 pb-6 pt-2">
+      <p>Data shown is illustrative mock data generated for demonstration purposes only and does not reflect real transactions.</p>
+      <p id="footerGenerated" class="mt-1"></p>
+    </footer>
+
+  </main>
+
+<script>
+(function () {
+  "use strict";
+
+  // ---------- Mock data ----------
+  var CUSTOMERS = [
+    { name: 'Nimbus Retail Group',         segment: 'Enterprise', base: 128000 },
+    { name: 'Vertex Manufacturing',        segment: 'Enterprise', base: 142000 },
+    { name: 'Northgate Pharmaceuticals',   segment: 'Enterprise', base: 165000 },
+    { name: 'Pinnacle Financial Services', segment: 'Enterprise', base: 98000  },
+    { name: 'Harborview Logistics',        segment: 'Mid-Market', base: 54000  },
+    { name: 'Cobalt Dynamics',             segment: 'Mid-Market', base: 61000  },
+    { name: 'Bluepeak Software',           segment: 'Mid-Market', base: 47000  },
+    { name: 'Lumen Energy Partners',       segment: 'Mid-Market', base: 58000  },
+    { name: 'Oakridge Construction',       segment: 'SMB',        base: 21000  },
+    { name: 'Silverline Media',            segment: 'SMB',        base: 18500  },
+    { name: 'Crimson Foods Co.',           segment: 'SMB',        base: 15200  },
+    { name: 'Solstice Apparel',            segment: 'SMB',        base: 12800  }
+  ];
+
+  var PRODUCTS = [
+    { name: 'ProSuite License',           category: 'Software License', base: 222000, units: 620  },
+    { name: 'CloudSync Add-on',           category: 'Add-on',           base: 91000,  units: 1520 },
+    { name: 'Analytics Pro',              category: 'Subscription',     base: 135000, units: 940  },
+    { name: 'Support Plus Plan',          category: 'Subscription',     base: 77000,  units: 1280 },
+    { name: 'Data Vault Storage',         category: 'Add-on',           base: 61000,  units: 2040 },
+    { name: 'API Gateway Access',         category: 'Subscription',     base: 56000,  units: 880  },
+    { name: 'Mobile Companion App',       category: 'Add-on',           base: 34000,  units: 1860 },
+    { name: 'Compliance Shield',          category: 'Add-on',           base: 47500,  units: 410  },
+    { name: 'Training & Onboarding',      category: 'Services',         base: 27000,  units: 150  },
+    { name: 'Custom Integration Services',category: 'Services',         base: 70000,  units: 95   }
+  ];
+
+  var MONTH_NAMES = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+  var BASE_OFFSET = 2024 * 12; // Jan 2024 reference point for growth trend
+
+  function offsetOf(year, monthIdx) { return year * 12 + monthIdx; }
+  function monthLabel(offset) {
+    var year = Math.floor(offset / 12);
+    var monthIdx = offset - year * 12;
+    return MONTH_NAMES[monthIdx] + ' ' + year;
+  }
+
+  function hashCode(str) {
+    var h = 0;
+    for (var i = 0; i < str.length; i++) {
+      h = (h << 5) - h + str.charCodeAt(i);
+      h |= 0;
+    }
+    return Math.abs(h);
+  }
+
+  function seasonal(offset) {
+    var growth = 1 + (offset - BASE_OFFSET) * 0.0035;
+    var season = 1 + 0.06 * Math.sin(((offset % 12) / 12) * 2 * Math.PI);
+    return Math.max(0.4, growth * season);
+  }
+
+  function noise(key, offset) {
+    var h = hashCode(key + '|' + offset) % 1000;
+    return 0.88 + (h / 1000) * 0.24; // 0.88 - 1.12
+  }
+
+  function revenueFor(base, offset, key) {
+    return base * seasonal(offset) * noise(key, offset);
+  }
+
+  function pctChange(current, compare) {
+    if (!compare) return 0;
+    return ((current - compare) / compare) * 100;
+  }
+
+  // ---------- Formatting ----------
+  var moneyFmt = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 });
+  var numFmt = new Intl.NumberFormat('en-US');
+
+  function fmtMoney(v) { return moneyFmt.format(v); }
+  function fmtNum(v) { return numFmt.format(Math.round(v)); }
+  function fmtMoneyShort(v) {
+    if (Math.abs(v) >= 1000000) return '$' + (v / 1000000).toFixed(1) + 'M';
+    if (Math.abs(v) >= 1000) return '$' + Math.round(v / 1000) + 'K';
+    return '$' + Math.round(v);
+  }
+  function fmtPctSigned(v) { return (v >= 0 ? '+' : '') + v.toFixed(1) + '%'; }
+
+  function pctBadge(v) {
+    var up = v >= 0;
+    var color = up ? 'text-emerald-700 bg-emerald-50' : 'text-rose-700 bg-rose-50';
+    var arrow = up ? '▲' : '▼';
+    return '<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ' + color + '">' +
+      arrow + ' ' + Math.abs(v).toFixed(1) + '%</span>';
+  }
+
+  function pctText(v) {
+    return (v >= 0 ? 'text-emerald-600' : 'text-rose-600');
+  }
+
+  // ---------- Month range for selector ----------
+  var MONTH_OPTIONS = [];
+  for (var y = 2025; y <= 2026; y++) {
+    for (var m = 0; m < 12; m++) {
+      if (y === 2026 && m > 10) break; // cap at November 2026
+      MONTH_OPTIONS.push(offsetOf(y, m));
+    }
+  }
+  var DEFAULT_OFFSET = offsetOf(2026, 9); // October 2026
+
+  // ---------- State ----------
+  var state = {
+    offset: DEFAULT_OFFSET,
+    segment: 'All',
+    category: 'All',
+    search: '',
+    custSort: { col: 'current', dir: 'desc' },
+    prodSort: { col: 'current', dir: 'desc' }
+  };
+
+  var currentCustData = [];
+  var currentProdData = [];
+
+  // ---------- Data computation ----------
+  function computeDataset(offset) {
+    var custData = CUSTOMERS.map(function (c) {
+      var current = revenueFor(c.base, offset, 'cust:' + c.name);
+      var lastMonth = revenueFor(c.base, offset - 1, 'cust:' + c.name);
+      var lastYear = revenueFor(c.base, offset - 12, 'cust:' + c.name);
+      return {
+        name: c.name, segment: c.segment,
+        current: current, lastMonth: lastMonth, lastYear: lastYear,
+        momPct: pctChange(current, lastMonth), yoyPct: pctChange(current, lastYear)
+      };
+    });
+
+    var prodData = PRODUCTS.map(function (p) {
+      var current = revenueFor(p.base, offset, 'prod:' + p.name);
+      var lastMonth = revenueFor(p.base, offset - 1, 'prod:' + p.name);
+      var lastYear = revenueFor(p.base, offset - 12, 'prod:' + p.name);
+      var unitsCurrent = Math.round(p.units * seasonal(offset) * noise('units:' + p.name, offset));
+      return {
+        name: p.name, category: p.category, unitsCurrent: unitsCurrent,
+        current: current, lastMonth: lastMonth, lastYear: lastYear,
+        momPct: pctChange(current, lastMonth), yoyPct: pctChange(current, lastYear)
+      };
+    });
+
+    return { custData: custData, prodData: prodData };
+  }
+
+  function getFilteredCustomers(custData) {
+    var q = state.search.trim().toLowerCase();
+    return custData.filter(function (c) {
+      return (state.segment === 'All' || c.segment === state.segment) &&
+        (q === '' || c.name.toLowerCase().indexOf(q) !== -1);
+    });
+  }
+
+  function getFilteredProducts(prodData) {
+    var q = state.search.trim().toLowerCase();
+    return prodData.filter(function (p) {
+      return (state.category === 'All' || p.category === state.category) &&
+        (q === '' || p.name.toLowerCase().indexOf(q) !== -1);
+    });
+  }
+
+  function sortRows(rows, sortState) {
+    var col = sortState.col, dir = sortState.dir;
+    return rows.slice().sort(function (a, b) {
+      var av = a[col], bv = b[col];
+      if (typeof av === 'string') {
+        return dir === 'asc' ? av.localeCompare(bv) : bv.localeCompare(av);
+      }
+      return dir === 'asc' ? av - bv : bv - av;
+    });
+  }
+
+  // ---------- Rendering ----------
+  function renderMonthSelect() {
+    var sel = document.getElementById('monthSelect');
+    sel.innerHTML = MONTH_OPTIONS.map(function (o) {
+      return '<option value="' + o + '">' + monthLabel(o) + '</option>';
+    }).join('');
+    sel.value = state.offset;
+  }
+
+  function renderKPIs(custData) {
+    var totalCurrent = custData.reduce(function (s, c) { return s + c.current; }, 0);
+    var totalLastMonth = custData.reduce(function (s, c) { return s + c.lastMonth; }, 0);
+    var totalLastYear = custData.reduce(function (s, c) { return s + c.lastYear; }, 0);
+    var mom = pctChange(totalCurrent, totalLastMonth);
+    var yoy = pctChange(totalCurrent, totalLastYear);
+
+    document.getElementById('kpiTotalRevenue').textContent = fmtMoney(totalCurrent);
+    document.getElementById('reportPeriodBadge').textContent = monthLabel(state.offset);
+
+    var momEl = document.getElementById('kpiMoM');
+    momEl.textContent = fmtPctSigned(mom);
+    momEl.className = 'text-2xl font-semibold mt-1 tabular-nums ' + pctText(mom);
+    document.getElementById('kpiMoMSub').textContent = fmtMoney(totalLastMonth) + ' last month';
+
+    var yoyEl = document.getElementById('kpiYoY');
+    yoyEl.textContent = fmtPctSigned(yoy);
+    yoyEl.className = 'text-2xl font-semibold mt-1 tabular-nums ' + pctText(yoy);
+    document.getElementById('kpiYoYSub').textContent = fmtMoney(totalLastYear) + ' ' + monthLabel(state.offset - 12);
+
+    var prodFull = computeDataset(state.offset).prodData;
+    var top = prodFull.slice().sort(function (a, b) { return b.current - a.current; })[0];
+    document.getElementById('kpiTopProduct').textContent = top.name;
+    document.getElementById('kpiTopProductSub').textContent = fmtMoney(top.current) + ' this month';
+  }
+
+  function renderTrend(offset) {
+    var months = [];
+    for (var i = 5; i >= 0; i--) {
+      var o = offset - i;
+      var total = CUSTOMERS.reduce(function (s, c) { return s + revenueFor(c.base, o, 'cust:' + c.name); }, 0);
+      months.push({ offset: o, total: total });
+    }
+    var max = Math.max.apply(null, months.map(function (mo) { return mo.total; }));
+    var el = document.getElementById('trendChart');
+    el.innerHTML = months.map(function (mo) {
+      var pct = max > 0 ? (mo.total / max * 100) : 0;
+      var isCurrent = mo.offset === offset;
+      var label = monthLabel(mo.offset).split(' ');
+      var shortLabel = label[0].slice(0, 3) + " '" + label[1].slice(-2);
+      return '<div class="flex flex-col items-center gap-2 flex-1">' +
+        '<div class="text-xs font-medium text-slate-600">' + fmtMoneyShort(mo.total) + '</div>' +
+        '<div class="w-full bg-slate-100 rounded-t-md flex items-end" style="height:140px;">' +
+        '<div class="w-full rounded-t-md ' + (isCurrent ? 'bg-indigo-600' : 'bg-indigo-300') + '" style="height:' + pct.toFixed(1) + '%"></div>' +
+        '</div>' +
+        '<div class="text-xs ' + (isCurrent ? 'text-slate-700 font-semibold' : 'text-slate-500') + '">' + shortLabel + '</div>' +
+        '</div>';
+    }).join('');
+  }
+
+  function renderSegmentChart(custData) {
+    var totals = {};
+    custData.forEach(function (c) {
+      totals[c.segment] = (totals[c.segment] || 0) + c.current;
+    });
+    var grand = Object.keys(totals).reduce(function (s, k) { return s + totals[k]; }, 0);
+    var order = ['Enterprise', 'Mid-Market', 'SMB'];
+    var colors = { 'Enterprise': 'bg-indigo-600', 'Mid-Market': 'bg-sky-500', 'SMB': 'bg-amber-500' };
+    var el = document.getElementById('segmentChart');
+    el.innerHTML = order.filter(function (k) { return totals[k] !== undefined; }).map(function (k) {
+      var pct = grand > 0 ? (totals[k] / grand * 100) : 0;
+      return '<div>' +
+        '<div class="flex items-center justify-between text-xs mb-1">' +
+        '<span class="font-medium text-slate-600">' + k + '</span>' +
+        '<span class="text-slate-400">' + fmtMoneyShort(totals[k]) + ' &middot; ' + pct.toFixed(0) + '%</span>' +
+        '</div>' +
+        '<div class="w-full h-2 bg-slate-100 rounded-full overflow-hidden">' +
+        '<div class="h-2 rounded-full ' + colors[k] + '" style="width:' + pct.toFixed(1) + '%"></div>' +
+        '</div>' +
+        '</div>';
+    }).join('');
+  }
+
+  function renderCustomerTable(custData) {
+    var filtered = getFilteredCustomers(custData);
+    var sorted = sortRows(filtered, state.custSort);
+    var body = document.getElementById('customerTableBody');
+
+    if (sorted.length === 0) {
+      body.innerHTML = '<tr><td colspan="7" class="px-4 py-6 text-center text-slate-400">No customers match the current filters.</td></tr>';
+    } else {
+      body.innerHTML = sorted.map(function (c) {
+        return '<tr class="border-b border-slate-100 hover:bg-slate-50">' +
+          '<td class="px-4 py-2.5 font-medium text-slate-700">' + c.name + '</td>' +
+          '<td class="px-4 py-2.5"><span class="px-2 py-0.5 rounded-full text-xs bg-slate-100 text-slate-600">' + c.segment + '</span></td>' +
+          '<td class="px-4 py-2.5 text-right tabular-nums">' + fmtMoney(c.current) + '</td>' +
+          '<td class="px-4 py-2.5 text-right tabular-nums text-slate-500">' + fmtMoney(c.lastMonth) + '</td>' +
+          '<td class="px-4 py-2.5 text-right">' + pctBadge(c.momPct) + '</td>' +
+          '<td class="px-4 py-2.5 text-right tabular-nums text-slate-500">' + fmtMoney(c.lastYear) + '</td>' +
+          '<td class="px-4 py-2.5 text-right">' + pctBadge(c.yoyPct) + '</td>' +
+          '</tr>';
+      }).join('');
+    }
+
+    var totalCurrent = filtered.reduce(function (s, c) { return s + c.current; }, 0);
+    var totalLastMonth = filtered.reduce(function (s, c) { return s + c.lastMonth; }, 0);
+    var totalLastYear = filtered.reduce(function (s, c) { return s + c.lastYear; }, 0);
+    var totalsRow = document.getElementById('customerTotalsRow');
+    totalsRow.innerHTML = '<td class="px-4 py-2.5">Total (' + filtered.length + ' customers)</td>' +
+      '<td class="px-4 py-2.5"></td>' +
+      '<td class="px-4 py-2.5 text-right tabular-nums">' + fmtMoney(totalCurrent) + '</td>' +
+      '<td class="px-4 py-2.5 text-right tabular-nums">' + fmtMoney(totalLastMonth) + '</td>' +
+      '<td class="px-4 py-2.5 text-right ' + pctText(pctChange(totalCurrent, totalLastMonth)) + '">' + fmtPctSigned(pctChange(totalCurrent, totalLastMonth)) + '</td>' +
+      '<td class="px-4 py-2.5 text-right tabular-nums">' + fmtMoney(totalLastYear) + '</td>' +
+      '<td class="px-4 py-2.5 text-right ' + pctText(pctChange(totalCurrent, totalLastYear)) + '">' + fmtPctSigned(pctChange(totalCurrent, totalLastYear)) + '</td>';
+
+    document.getElementById('customerRowCount').textContent = filtered.length + ' of ' + custData.length + ' customers';
+    updateSortIndicators('customerTableBody', state.custSort);
+  }
+
+  function renderProductTable(prodData) {
+    var filtered = getFilteredProducts(prodData);
+    var sorted = sortRows(filtered, state.prodSort);
+    var body = document.getElementById('productTableBody');
+
+    if (sorted.length === 0) {
+      body.innerHTML = '<tr><td colspan="8" class="px-4 py-6 text-center text-slate-400">No products match the current filters.</td></tr>';
+    } else {
+      body.innerHTML = sorted.map(function (p) {
+        return '<tr class="border-b border-slate-100 hover:bg-slate-50">' +
+          '<td class="px-4 py-2.5 font-medium text-slate-700">' + p.name + '</td>' +
+          '<td class="px-4 py-2.5"><span class="px-2 py-0.5 rounded-full text-xs bg-slate-100 text-slate-600">' + p.category + '</span></td>' +
+          '<td class="px-4 py-2.5 text-right tabular-nums">' + fmtNum(p.unitsCurrent) + '</td>' +
+          '<td class="px-4 py-2.5 text-right tabular-nums">' + fmtMoney(p.current) + '</td>' +
+          '<td class="px-4 py-2.5 text-right tabular-nums text-slate-500">' + fmtMoney(p.lastMonth) + '</td>' +
+          '<td class="px-4 py-2.5 text-right">' + pctBadge(p.momPct) + '</td>' +
+          '<td class="px-4 py-2.5 text-right tabular-nums text-slate-500">' + fmtMoney(p.lastYear) + '</td>' +
+          '<td class="px-4 py-2.5 text-right">' + pctBadge(p.yoyPct) + '</td>' +
+          '</tr>';
+      }).join('');
+    }
+
+    var totalUnits = filtered.reduce(function (s, p) { return s + p.unitsCurrent; }, 0);
+    var totalCurrent = filtered.reduce(function (s, p) { return s + p.current; }, 0);
+    var totalLastMonth = filtered.reduce(function (s, p) { return s + p.lastMonth; }, 0);
+    var totalLastYear = filtered.reduce(function (s, p) { return s + p.lastYear; }, 0);
+    var totalsRow = document.getElementById('productTotalsRow');
+    totalsRow.innerHTML = '<td class="px-4 py-2.5">Total (' + filtered.length + ' products)</td>' +
+      '<td class="px-4 py-2.5"></td>' +
+      '<td class="px-4 py-2.5 text-right tabular-nums">' + fmtNum(totalUnits) + '</td>' +
+      '<td class="px-4 py-2.5 text-right tabular-nums">' + fmtMoney(totalCurrent) + '</td>' +
+      '<td class="px-4 py-2.5 text-right tabular-nums">' + fmtMoney(totalLastMonth) + '</td>' +
+      '<td class="px-4 py-2.5 text-right ' + pctText(pctChange(totalCurrent, totalLastMonth)) + '">' + fmtPctSigned(pctChange(totalCurrent, totalLastMonth)) + '</td>' +
+      '<td class="px-4 py-2.5 text-right tabular-nums">' + fmtMoney(totalLastYear) + '</td>' +
+      '<td class="px-4 py-2.5 text-right ' + pctText(pctChange(totalCurrent, totalLastYear)) + '">' + fmtPctSigned(pctChange(totalCurrent, totalLastYear)) + '</td>';
+
+    document.getElementById('productRowCount').textContent = filtered.length + ' of ' + prodData.length + ' products';
+    updateSortIndicators('productTableBody', state.prodSort);
+  }
+
+  function updateSortIndicators(tableBodyId, sortState) {
+    var table = document.getElementById(tableBodyId).closest('table');
+    var ths = table.querySelectorAll('th.sortable');
+    ths.forEach(function (th) {
+      var base = th.getAttribute('data-label') || th.textContent.replace(/[▲▼]/g, '').trim();
+      th.setAttribute('data-label', base);
+      if (th.getAttribute('data-col') === sortState.col) {
+        th.textContent = base + (sortState.dir === 'asc' ? ' ▲' : ' ▼');
+      } else {
+        th.textContent = base;
+      }
+    });
+  }
+
+  function renderAll() {
+    var ds = computeDataset(state.offset);
+    currentCustData = ds.custData;
+    currentProdData = ds.prodData;
+
+    renderKPIs(currentCustData);
+    renderTrend(state.offset);
+    renderSegmentChart(currentCustData);
+    renderCustomerTable(currentCustData);
+    renderProductTable(currentProdData);
+  }
+
+  // ---------- CSV export ----------
+  function downloadCsv(filename, header, rows) {
+    var csv = [header.join(',')].concat(rows.map(function (r) {
+      return r.map(function (v) {
+        if (typeof v === 'string' && (v.indexOf(',') !== -1 || v.indexOf('"') !== -1)) {
+          return '"' + v.replace(/"/g, '""') + '"';
+        }
+        return v;
+      }).join(',');
+    })).join('\r\n');
+    var blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }
+
+  function exportCustomers() {
+    var filtered = sortRows(getFilteredCustomers(currentCustData), state.custSort);
+    var header = ['Customer', 'Segment', 'This Month', 'Last Month', 'MoM %', 'Same Month Last Year', 'YoY %'];
+    var rows = filtered.map(function (c) {
+      return [c.name, c.segment, Math.round(c.current), Math.round(c.lastMonth), c.momPct.toFixed(1), Math.round(c.lastYear), c.yoyPct.toFixed(1)];
+    });
+    downloadCsv('revenue-by-customer-' + monthLabel(state.offset).replace(' ', '-') + '.csv', header, rows);
+  }
+
+  function exportProducts() {
+    var filtered = sortRows(getFilteredProducts(currentProdData), state.prodSort);
+    var header = ['Product', 'Category', 'Units Sold', 'This Month', 'Last Month', 'MoM %', 'Same Month Last Year', 'YoY %'];
+    var rows = filtered.map(function (p) {
+      return [p.name, p.category, p.unitsCurrent, Math.round(p.current), Math.round(p.lastMonth), p.momPct.toFixed(1), Math.round(p.lastYear), p.yoyPct.toFixed(1)];
+    });
+    downloadCsv('revenue-by-product-' + monthLabel(state.offset).replace(' ', '-') + '.csv', header, rows);
+  }
+
+  // ---------- Event wiring ----------
+  function wireEvents() {
+    document.getElementById('monthSelect').addEventListener('change', function (e) {
+      state.offset = parseInt(e.target.value, 10);
+      renderAll();
+    });
+    document.getElementById('segmentFilter').addEventListener('change', function (e) {
+      state.segment = e.target.value;
+      renderCustomerTable(currentCustData);
+    });
+    document.getElementById('categoryFilter').addEventListener('change', function (e) {
+      state.category = e.target.value;
+      renderProductTable(currentProdData);
+    });
+    document.getElementById('searchInput').addEventListener('input', function (e) {
+      state.search = e.target.value;
+      renderCustomerTable(currentCustData);
+      renderProductTable(currentProdData);
+    });
+    document.getElementById('resetFilters').addEventListener('click', function () {
+      state.segment = 'All';
+      state.category = 'All';
+      state.search = '';
+      document.getElementById('segmentFilter').value = 'All';
+      document.getElementById('categoryFilter').value = 'All';
+      document.getElementById('searchInput').value = '';
+      renderCustomerTable(currentCustData);
+      renderProductTable(currentProdData);
+    });
+
+    var exportMenuBtn = document.getElementById('exportMenuBtn');
+    var exportMenu = document.getElementById('exportMenu');
+    exportMenuBtn.addEventListener('click', function (e) {
+      e.stopPropagation();
+      exportMenu.classList.toggle('hidden');
+    });
+    document.addEventListener('click', function () {
+      exportMenu.classList.add('hidden');
+    });
+    exportMenu.addEventListener('click', function (e) {
+      var action = e.target.getAttribute('data-action');
+      if (action === 'csv-customers') exportCustomers();
+      else if (action === 'csv-products') exportProducts();
+      else if (action === 'print') window.print();
+      exportMenu.classList.add('hidden');
+    });
+
+    document.querySelectorAll('th.sortable').forEach(function (th) {
+      th.addEventListener('click', function () {
+        var table = th.closest('table');
+        var isCustomerTable = table.querySelector('#customerTableBody, tbody').id === 'customerTableBody';
+        var col = th.getAttribute('data-col');
+        var sortState = isCustomerTable ? state.custSort : state.prodSort;
+        if (sortState.col === col) {
+          sortState.dir = sortState.dir === 'asc' ? 'desc' : 'asc';
+        } else {
+          sortState.col = col;
+          sortState.dir = th.getAttribute('data-type') === 'string' ? 'asc' : 'desc';
+        }
+        if (isCustomerTable) renderCustomerTable(currentCustData);
+        else renderProductTable(currentProdData);
+      });
+    });
+  }
+
+  function renderFooter() {
+    var now = new Date();
+    document.getElementById('generatedAt').textContent = 'Generated ' + now.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+    document.getElementById('footerGenerated').textContent = 'Report generated on ' + now.toLocaleString('en-US');
+  }
+
+  // ---------- Init ----------
+  renderMonthSelect();
+  wireEvents();
+  renderAll();
+  renderFooter();
+})();
+</script>
+</body>
+</html>

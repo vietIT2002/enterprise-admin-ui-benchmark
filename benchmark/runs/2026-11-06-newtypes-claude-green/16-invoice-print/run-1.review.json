@@ -1,0 +1,55 @@
+{
+  "brief": "16-invoice-print",
+  "run": 1,
+  "items": [
+    {
+      "item": "A print stylesheet (`@media print`) hides the app navigation, buttons and toasts, and sets an A4 page size and margins with `@page`",
+      "pass": true,
+      "evidence": "`@media print { @page { size: A4; margin: 14mm 12mm; } ... .no-print { display: none !important; } ... }` (lines 11-21); header toolbar (`<header class=\"no-print ...\">`), aside sidebar, and `#toast-container` all carry `.no-print`, hiding nav, buttons and toasts on print."
+    },
+    {
+      "item": "The document shows seller and buyer blocks (name, address, tax code), the invoice number, the issue date and the due date",
+      "pass": false,
+      "evidence": "Seller block (Northbridge Studio LLC, 482 Harrison Ave, Boston MA) and buyer block (Minh Phát Co., Ltd., 123 Nguyễn Huệ Blvd...) both show name/address, and invoice no. INV-2026-0147, issue date 10/26/2026, due date 11/09/2026 are shown — but no tax code/Tax ID/VAT number appears anywhere in the markup for either party (grep for tax id/tax code/vat/ein found nothing)."
+    },
+    {
+      "item": "Line items show description, quantity, unit price, tax rate and line amount, with numbers right-aligned in tabular figures and the currency stated",
+      "pass": true,
+      "evidence": "Table head: `<th>Item</th><th>Description</th><th>Qty</th><th>Unit price (USD)</th><th>Tax</th><th>Amount (USD)</th>` (lines 132-137); numeric cells use `text-right tabular-nums`; audit.json numericCells: {total:12, misaligned:0, nonTabular:0}; currency USD stated in headers and via `fmtMoney` Intl currency formatter."
+    },
+    {
+      "item": "A totals block shows the subtotal, tax per rate, the total and the amount paid or due, and the totals equal the sum of the lines",
+      "pass": true,
+      "evidence": "Totals block shows Subtotal $4,860.00, Tax (8%) $388.80, Total $5,248.80, Amount paid -$1,500.00, Balance due $3,748.80. Line sums: 4200+150+510=4860 (matches subtotal); 4860×0.08=388.80 (matches tax); 4860+388.80=5248.80 (matches total); 5248.80-1500=3748.80 (matches balance due)."
+    },
+    {
+      "item": "A long item table breaks across pages without splitting rows, and its header row repeats on each printed page",
+      "pass": true,
+      "evidence": "Print CSS sets `thead { display: table-header-group; }` and `tr, .avoid-break { break-inside: avoid; page-break-inside: avoid; }` (lines 19-20), which repeats the `<thead>` and prevents row-splitting for any table length; only 3 sample rows exist so this cannot be visually confirmed spanning multiple pages, but the mechanism is correctly implemented."
+    },
+    {
+      "item": "The printed page stays readable in black and white: no meaning carried by colour alone and no light grey text below 4.5:1",
+      "pass": true,
+      "evidence": "Status badges always pair colour with a text label (e.g. 'Partially paid', 'Overdue by 3 days'), and due-date text colour changes are accompanied by explanatory text, not colour alone; audit.json reports contrast checked:98, unknown:0 with no contrast violations listed."
+    },
+    {
+      "item": "On screen, the status is a badge with text (Draft, Issued, Paid, Overdue) and the actions (Print, Download PDF, Send) have one primary action",
+      "pass": true,
+      "evidence": "`#header-status-badge`/`#doc-status-badge` render text via `renderBadge()` with states Sent/Partially paid/Paid/Overdue/Void (statusInfo() lines 296-302); toolbar has one primary-styled button 'Record payment' (`bg-blue-700`) and secondary outline buttons 'Print'/'Download PDF' (audit.json headerPrimaryActions:1); 'Send reminder' is reachable from the overflow (⋯) menu rather than as a top-level button."
+    },
+    {
+      "item": "Dates and amounts follow one locale throughout, and payment details (bank account, payment reference) are shown",
+      "pass": true,
+      "evidence": "All dates use `fmtDate`/`fmtDateTime` with `Intl.DateTimeFormat('en-US', ...)` (MM/DD/YYYY) and all amounts use `fmtMoney` with `Intl.NumberFormat('en-US', {style:'currency', currency:'USD'})`, applied consistently; 'Bank transfer details' block shows Bank, Account name, Account no., SWIFT (lines 160-166), and payment terms text instructs 'include the invoice number with your payment' as the reference."
+    },
+    {
+      "item": "The document has a heading structure, and the items table has column headers marked up as header cells",
+      "pass": true,
+      "evidence": "Heading hierarchy: `<h1>Invoice INV-2026-0147</h1>` in the page header, `<h2>Invoice</h2>` in the letterhead, `<h2>Payment summary</h2>` and `<h2>Activity</h2>` in the sidebar; line-items table uses `<th>` cells for Item/Description/Qty/Unit price/Tax/Amount (lines 132-137)."
+    }
+  ],
+  "tells": [
+    "initials-avatar-non-person"
+  ],
+  "notes": "Primary gap: no seller/buyer tax code (Tax ID/VAT) anywhere, failing the seller/buyer block checklist item. The 'NS' square initials badge in the letterhead represents the company (Northbridge Studio LLC), not a person, matching the initials-avatar-non-person tell. Print mechanics (@page, no-print, break-inside:avoid, thead repeat), totals math, locale consistency, and heading/th structure are all correctly implemented. No other listed template tells (gradients, glass, emoji icons, kpi tiles, rainbow status, sidebar promo, decorative chart, card-in-card, hover-lift, oversized radius, navy/indigo sidebar) were found."
+}

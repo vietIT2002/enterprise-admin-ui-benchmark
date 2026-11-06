@@ -1,0 +1,53 @@
+{
+  "brief": "19-chart-of-accounts",
+  "run": 1,
+  "items": [
+    {
+      "item": "The hierarchy expands and collapses with indentation, and uses tree semantics (`role=\"tree\"`/`treeitem` with `aria-expanded` and `aria-level`, or a `treegrid`)",
+      "pass": true,
+      "evidence": "`<div id=\"treeGrid\" role=\"treegrid\">` (line 75) with rows rendered via `div.setAttribute(\"role\",\"row\")`, `aria-level`, `aria-expanded`, `aria-setsize`, `aria-posinset` (renderRow, lines 359-366); cells use `role=\"gridcell\"`. Indentation set via `nameCell.style.paddingLeft = indent + \"px\"` where `indent = (row.level - 1) * 20` (line 371,376)."
+    },
+    {
+      "item": "Keyboard: arrow keys move, expand and collapse, Home and End jump, and a search reveals matching accounts together with their parents",
+      "pass": true,
+      "evidence": "onRowKeydown (lines 474-519) handles ArrowDown/ArrowUp to move focus, ArrowRight/ArrowLeft to expand/collapse or move to child/parent, Home/End to jump to first/last row. flattenSearch() (lines 311-329) computes matchIds then adds `pathTo(id)` ancestors to the visible set, so parents of matches are rendered alongside matches."
+    },
+    {
+      "item": "Each row shows the account code and name, balances are right-aligned in tabular figures, and a parent's balance equals the sum of its children",
+      "pass": true,
+      "evidence": "`nameLabel = node.code ? node.code + \" · \" + node.name : node.name` (line 370); balCell uses `justify-end text-sm tabular-nums` (line 395). `computeBalance()` recursively sums children for non-posting nodes (lines 215-218); verified e.g. \"Tài sản\" displayed balance 8.448.970.000 equals the sum of its child postings in ACCOUNTS."
+    },
+    {
+      "item": "Selecting an account shows its details on the right without losing the tree's scroll position or expanded state, and the selection is kept in the URL",
+      "pass": true,
+      "evidence": "selectAccount() (lines 526-534) sets `state.selectedId`, calls `setUrl()` which does `p.set(\"account\", state.selectedId)` (line 285), then `renderTree()`/`renderDetail()`. It never touches `state.expanded` or `treeScroll.scrollTop`, so expand state and scroll offset are preserved across selection."
+    },
+    {
+      "item": "Expand all and collapse all are available, and the expanded state survives a reload",
+      "pass": true,
+      "evidence": "`#btnExpandAll` and `#btnCollapseAll` buttons (lines 61-62) wired at lines 881-890. `saveExpanded()`/`loadExpanded()` persist `state.expanded` to `localStorage` under `coa-expanded` (lines 257-270), restored on boot."
+    },
+    {
+      "item": "Deactivating or deleting an account that has a balance or child accounts is blocked or explained, not silently allowed",
+      "pass": true,
+      "evidence": "requestDeactivate() (lines 667-687): blocks a header with children (\"...vẫn còn tài khoản con...\") and blocks any account with non-zero balance or entries (\"...số dư ... và ... giao dịch...\") via openBlockedDialog(); only a balance-zero, childless, entry-free account proceeds to the confirm dialog. No delete feature exists, only deactivate/activate, and deactivation is fully guarded."
+    },
+    {
+      "item": "The detail panel shows the selected account's path (such as \"Assets / Current assets / Cash\")",
+      "pass": true,
+      "evidence": "breadcrumbHtml(node) (lines 536-542) builds from `pathTo(node.id)` joined with \"/\", rendered in `<nav aria-label=\"Đường dẫn tài khoản\">` (line 572), e.g. \"Tài sản / Tiền mặt / 1111 Tiền Việt Nam\"."
+    },
+    {
+      "item": "A search with no match shows a no-results state, and loading and an error with retry are present",
+      "pass": true,
+      "evidence": "`#stateNoSearch` shown with text \"Không có tài khoản khớp với “...”\" when `rows.length === 0` (lines 428-432). `#stateLoading` skeleton shown during `state.pageState === \"loading\"` (line 417); `#stateError` with `role=\"alert\"` and `#btnRetry` button shown on error (lines 87-92, 418)."
+    },
+    {
+      "item": "Rows are single-line, and long account names truncate with the full name available",
+      "pass": false,
+      "evidence": "Name cell uses `truncate` class with a `title` attribute holding the full label (line 383), which works correctly. However the status badge \"Ngừng h.đ.\" wraps onto two lines inside the fixed `w-20` status column (visible on account 338 in run-1.png, text split as \"Ngừng\"/\"h.đ.\"), confirmed by the audit's row metrics `{\"single\":27,\"double\":1}` — at least one row is not single-line."
+    }
+  ],
+  "tells": [],
+  "notes": "Clean, minimal enterprise admin UI in Vietnamese with no detected template tells (no greeting header, gradients, glass, emoji icons, uppercase tracked labels, promo cards, or decorative chrome). The only defect found is the status badge 'Ngừng h.đ.' wrapping to two lines in the narrow 80px status column, breaking the single-line row requirement for inactive accounts (audit: rows.double=1)."
+}

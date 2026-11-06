@@ -75,6 +75,8 @@ export function claudeArgs(prompt, { model = 'sonnet', addDirs = [], effort = nu
     '-p', prompt,
     '--setting-sources', 'project', '--strict-mcp-config', '--no-session-persistence',
     '--output-format', 'json', '--model', model, '--permission-mode', 'acceptEdits',
+    // Pre-approve the file tools: without this a Write could stop at a permission prompt nobody answers in -p mode.
+    '--allowedTools', 'Read,Write,Edit,Glob,Grep',
     '--disallowedTools', 'Skill,Bash,WebFetch,WebSearch,NotebookEdit',
     ...(effort ? ['--effort', effort] : []),
     ...addDirs.flatMap((d) => ['--add-dir', d]),

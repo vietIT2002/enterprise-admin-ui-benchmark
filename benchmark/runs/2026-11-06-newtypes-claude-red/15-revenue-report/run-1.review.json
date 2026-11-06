@@ -1,0 +1,58 @@
+{
+  "brief": "15-revenue-report",
+  "run": 1,
+  "items": [
+    {
+      "item": "Filters include the period, with presets (this month, last month, custom range), and at least one dimension; the applied period is stated in the title or a summary line (such as \"Revenue · October 2026\")",
+      "pass": false,
+      "evidence": "Only a single `<select id=\"monthSelect\">` of discrete months (MONTH_OPTIONS loop Jan 2025–Nov 2026) is offered — no 'This month'/'Last month' quick-presets and no custom date-range picker. Dimension filters exist (`#segmentFilter`, `#categoryFilter`). Applied period is stated via `#reportPeriodBadge` showing 'October 2026', but the missing presets/custom-range fail the item."
+    },
+    {
+      "item": "Amounts are right-aligned in tabular figures, formatted as currency with consistent decimals, and negative values use a minus sign or parentheses rather than colour alone",
+      "pass": true,
+      "evidence": "All numeric `<td>` use `text-right tabular-nums` and `fmtMoney()` (Intl.NumberFormat currency, maximumFractionDigits:0) consistently. Negative deltas are never colour-only: `pctBadge()` pairs colour with an explicit ▲/▼ glyph, and the totals row uses `fmtPctSigned()` which prints a literal '-' sign (e.g. '-0.5%') alongside colour."
+    },
+    {
+      "item": "Every comparison names its base and period (such as \"+12.4% vs Sep 2026\"), and a missing base shows \"—\" rather than Infinity, NaN or 100%",
+      "pass": false,
+      "evidence": "`function pctChange(current, compare) { if (!compare) return 0; ... }` — a missing/zero base silently renders as 0% (styled green via `pctText`), not '—', masking the no-data case instead of surfacing it. Row-level MoM/YoY % cells also don't name the compared period inline (only the static column header 'MoM %'/'YoY %' implies it)."
+    },
+    {
+      "item": "A totals row equals the sum of the rows, with subtotals when rows are grouped, and stays visibly separate from the data rows",
+      "pass": true,
+      "evidence": "`#customerTotalsRow`/`#productTotalsRow` live in a `<tfoot>` with `bg-slate-50 font-semibold border-t-2 border-slate-200`, computed via `filtered.reduce(...)` so totals equal the sum of the currently filtered rows. Rows are not grouped, so no subtotal tier is needed."
+    },
+    {
+      "item": "Columns are sortable with the active sort shown (aria-sort), and the default order is meaningful, such as revenue from high to low",
+      "pass": false,
+      "evidence": "`th.sortable` click handlers toggle sort and `updateSortIndicators()` appends a ▲/▼ glyph to the header text, but no `aria-sort` attribute is ever set anywhere in the markup or script (confirmed absent via search). Default sort (`custSort/prodSort = {col:'current', dir:'desc'}`) is meaningful — revenue high to low — but the missing aria-sort fails the accessibility requirement."
+    },
+    {
+      "item": "Export downloads the current filtered view, and printing gives a clean report without the sidebar, buttons or filters",
+      "pass": true,
+      "evidence": "`exportCustomers()`/`exportProducts()` build CSVs from `sortRows(getFilteredCustomers(currentCustData), state.custSort)` — i.e. the current filtered/sorted view. Print: the filter bar wrapper `<div class=\"no-print sticky ...\">` and `@media print { .no-print { display: none !important; } }` hide filters/export/reset on print; `.print-card` loses shadow for a flat bordered look."
+    },
+    {
+      "item": "The page states when the data was last updated and the currency (and tax basis, if any) of the figures",
+      "pass": false,
+      "evidence": "Generation time is shown twice ('Generated Nov 6, 2026' badge and footer 'Report generated on 11/6/2026, 11:58:11 AM'), but currency is never stated as text anywhere in the DOM — only implied by the '$' glyph from `Intl.NumberFormat('en-US',{currency:'USD'})`; no 'USD' label, ISO code, or tax-basis note is rendered."
+    },
+    {
+      "item": "A period with no data shows an empty state; loading and an error with retry are present",
+      "pass": false,
+      "evidence": "A filter-driven empty state exists ('No customers match the current filters.' / 'No products match the current filters.'), but there is no loading placeholder (data renders synchronously on load) and no error state or retry control anywhere in the markup or script."
+    },
+    {
+      "item": "Any chart has a text or table equivalent, and no pie or donut chart is used for more than five categories",
+      "pass": true,
+      "evidence": "Both charts render their underlying values as visible text: `renderTrend()` prints `fmtMoneyShort(mo.total)` above each bar and `renderSegmentChart()` prints name + `fmtMoneyShort` + percentage next to each bar. No pie/donut chart is used at all (bars only)."
+    }
+  ],
+  "tells": [
+    "tracked-uppercase-labels — table headers use `class=\"... text-xs uppercase tracking-wide\"` (e.g. 'CUSTOMER', 'SEGMENT', 'THIS MONTH')",
+    "delta-pill-without-period — `pctBadge()` renders a colored rounded pill like '▲ 5.3%' on every row with no stated comparison period attached to the pill itself",
+    "initials-avatar-non-person — header logo `<div class=\"w-10 h-10 rounded-lg bg-indigo-500 ...\">L</div>` is a letter-avatar tile standing in for the company 'Ledger & Co.', not a person",
+    "oversized-radius — KPI cards use `rounded-xl` (12px), flagged directly by the audit's radius-scale rule ('actual: 12px, expected: ≤8px')"
+  ],
+  "notes": "Core data/table mechanics (filtering, sorting, totals, export, print) are solidly implemented, but the page falls short on several of the checklist's harder requirements: no period presets/custom range, missing-base comparisons silently render 0% instead of '—', no aria-sort, and no explicit currency statement or loading/error states. Audit also independently flags text-contrast failures (18, mostly the muted slate-400 sub-labels at 2.56:1) and a radius-scale violation on the KPI cards."
+}
