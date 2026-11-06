@@ -1,0 +1,484 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>New leave request</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+  tailwind.config = {
+    darkMode: 'class',
+    theme: {
+      extend: {
+        colors: {
+          background: 'var(--background)', foreground: 'var(--foreground)',
+          card: { DEFAULT: 'var(--card)', foreground: 'var(--card-foreground)' },
+          popover: { DEFAULT: 'var(--popover)', foreground: 'var(--popover-foreground)' },
+          primary: { DEFAULT: 'var(--primary)', foreground: 'var(--primary-foreground)' },
+          secondary: { DEFAULT: 'var(--secondary)', foreground: 'var(--secondary-foreground)' },
+          muted: { DEFAULT: 'var(--muted)', foreground: 'var(--muted-foreground)' },
+          accent: { DEFAULT: 'var(--accent)', foreground: 'var(--accent-foreground)' },
+          destructive: { DEFAULT: 'var(--destructive)', foreground: 'var(--destructive-foreground)' },
+          success: { DEFAULT: 'var(--success)', foreground: 'var(--success-foreground)', subtle: 'var(--success-subtle)', 'subtle-foreground': 'var(--success-subtle-foreground)' },
+          warning: { DEFAULT: 'var(--warning)', foreground: 'var(--warning-foreground)', subtle: 'var(--warning-subtle)', 'subtle-foreground': 'var(--warning-subtle-foreground)' },
+          info: { DEFAULT: 'var(--info)', foreground: 'var(--info-foreground)', subtle: 'var(--info-subtle)', 'subtle-foreground': 'var(--info-subtle-foreground)' },
+          danger: { subtle: 'var(--danger-subtle)', 'subtle-foreground': 'var(--danger-subtle-foreground)' },
+          neutral: { subtle: 'var(--neutral-subtle)', 'subtle-foreground': 'var(--neutral-subtle-foreground)' },
+          border: 'var(--border)', input: 'var(--input)', ring: 'var(--ring)',
+        },
+        borderRadius: { sm: '4px', DEFAULT: '4px', md: '6px', lg: '6px', xl: '8px', '2xl': '8px' },
+        fontFamily: { sans: ['system-ui', '"Segoe UI"', '-apple-system', '"SF Pro Text"', 'Roboto', '"Helvetica Neue"', 'Arial', 'sans-serif'] },
+      },
+    },
+  }
+</script>
+<style>
+  :root {
+    --background: #ffffff; --foreground: #0f172a; --card: #ffffff; --card-foreground: #0f172a;
+    --popover: #ffffff; --popover-foreground: #0f172a; --primary: #1d4ed8; --primary-foreground: #ffffff;
+    --secondary: #f1f5f9; --secondary-foreground: #0f172a; --muted: #f8fafc; --muted-foreground: #475569;
+    --accent: #eff6ff; --accent-foreground: #1e3a8a; --destructive: #b91c1c; --destructive-foreground: #ffffff;
+    --border: #e2e8f0; --input: #8592a6; --ring: #1d4ed8;
+    --success: #15803d; --success-foreground: #ffffff; --warning: #b45309; --warning-foreground: #ffffff;
+    --info: #1d4ed8; --info-foreground: #ffffff;
+    --neutral-subtle: #f1f5f9; --neutral-subtle-foreground: #334155;
+    --info-subtle: #eff6ff; --info-subtle-foreground: #1e40af;
+    --success-subtle: #f0fdf4; --success-subtle-foreground: #166534;
+    --warning-subtle: #fffbeb; --warning-subtle-foreground: #92400e;
+    --danger-subtle: #fef2f2; --danger-subtle-foreground: #991b1b;
+  }
+  [hidden] { display: none !important; }
+  body { font-family: var(--font-sans, system-ui); }
+</style>
+</head>
+<body class="bg-background text-foreground text-sm">
+
+<div class="min-h-screen flex flex-col">
+
+  <!-- Header -->
+  <header class="border-b border-border bg-card px-6 py-3 flex items-center justify-between">
+    <div class="flex items-center gap-2 text-sm">
+      <span class="text-muted-foreground">Time off</span>
+      <span class="text-muted-foreground">/</span>
+      <span class="font-medium">New leave request</span>
+    </div>
+    <div class="flex items-center gap-3">
+      <span class="text-sm text-muted-foreground">Nguyễn Hải An</span>
+      <div class="size-7 rounded-full bg-secondary flex items-center justify-center text-xs font-medium text-secondary-foreground">NA</div>
+    </div>
+  </header>
+
+  <main id="main" class="flex-1 overflow-y-auto scroll-pb-24">
+    <div class="max-w-2xl mx-auto px-6 py-8">
+
+      <h1 class="text-xl font-semibold mb-1">New leave request</h1>
+      <p class="text-sm text-muted-foreground mb-6">* Required</p>
+
+      <!-- Server / root error banner -->
+      <div role="alert" id="rootError" hidden class="mb-6 rounded-md border border-border bg-danger-subtle p-4 text-danger-subtle-foreground">
+        <p class="font-medium" id="rootErrorText">Couldn't submit the request. Your changes are kept — try again.</p>
+      </div>
+
+      <!-- Error summary -->
+      <div role="status" id="errorSummary" hidden class="mb-6 rounded-md border border-border bg-danger-subtle p-4 text-danger-subtle-foreground">
+        <p class="font-medium" id="errorSummaryTitle">3 fields need attention</p>
+        <ul class="mt-2 list-disc pl-5" id="errorSummaryList"></ul>
+      </div>
+
+      <form id="leaveForm" novalidate>
+
+        <!-- Section: Leave details -->
+        <section class="mb-8">
+          <h2 class="text-base font-semibold border-b border-border pb-2 mb-4">Leave details</h2>
+
+          <div class="mb-5 max-w-sm">
+            <label for="leaveType" class="block text-sm font-medium mb-1.5">Leave type <span aria-hidden="true" class="text-destructive">*</span></label>
+            <select id="leaveType" name="leaveType" required aria-required="true"
+              class="h-8 w-full rounded border border-input bg-card px-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+              aria-describedby="leaveType-help">
+              <option value="">Select a leave type</option>
+              <option value="annual">Annual leave</option>
+              <option value="sick">Sick leave</option>
+              <option value="unpaid">Unpaid leave</option>
+              <option value="maternity">Maternity / paternity leave</option>
+              <option value="bereavement">Bereavement leave</option>
+              <option value="other">Other</option>
+            </select>
+            <p id="leaveType-help" class="mt-1 text-sm text-muted-foreground">Annual leave balance: 8.5 days remaining</p>
+          </div>
+
+          <div class="mb-5 flex gap-4">
+            <div>
+              <label for="startDate" class="block text-sm font-medium mb-1.5">Start date <span aria-hidden="true" class="text-destructive">*</span></label>
+              <input id="startDate" name="startDate" type="date" required aria-required="true"
+                class="h-8 w-40 rounded border border-input bg-card px-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-ring" />
+              <p id="startDate-error" class="mt-1 hidden items-center gap-1 text-sm text-destructive"></p>
+            </div>
+            <div>
+              <label for="endDate" class="block text-sm font-medium mb-1.5">End date <span aria-hidden="true" class="text-destructive">*</span></label>
+              <input id="endDate" name="endDate" type="date" required aria-required="true"
+                class="h-8 w-40 rounded border border-input bg-card px-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-ring" />
+              <p id="endDate-error" class="mt-1 hidden items-center gap-1 text-sm text-destructive"></p>
+            </div>
+          </div>
+
+          <div class="mb-5">
+            <p id="daysSummary" class="text-sm text-muted-foreground" role="status"></p>
+          </div>
+
+          <div class="max-w-xl">
+            <label for="reason" class="block text-sm font-medium mb-1.5">Reason <span aria-hidden="true" class="text-destructive">*</span></label>
+            <textarea id="reason" name="reason" rows="3" required aria-required="true"
+              placeholder="Briefly describe the reason for this leave"
+              class="w-full rounded border border-input bg-card px-2.5 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"></textarea>
+            <p id="reason-error" class="mt-1 hidden items-center gap-1 text-sm text-destructive"></p>
+          </div>
+        </section>
+
+        <!-- Section: Approval -->
+        <section class="mb-8">
+          <h2 class="text-base font-semibold border-b border-border pb-2 mb-4">Approval</h2>
+
+          <div class="max-w-sm">
+            <label for="approver" class="block text-sm font-medium mb-1.5">Approver <span aria-hidden="true" class="text-destructive">*</span></label>
+            <select id="approver" name="approver" required aria-required="true"
+              class="h-8 w-full rounded border border-input bg-card px-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+              aria-describedby="approver-help">
+              <option value="">Select an approver</option>
+              <option value="tran-minh-quan">Trần Minh Quân — Engineering manager</option>
+              <option value="le-thu-ha">Lê Thu Hà — HR business partner</option>
+              <option value="pham-duc-thanh">Phạm Đức Thành — Department director</option>
+              <option value="vo-ngoc-lam">Võ Ngọc Lam — Team lead</option>
+            </select>
+            <p id="approver-help" class="mt-1 text-sm text-muted-foreground">Your request routes to this person for approval</p>
+            <p id="approver-error" class="mt-1 hidden items-center gap-1 text-sm text-destructive"></p>
+          </div>
+        </section>
+
+        <!-- Section: Supporting document -->
+        <section class="mb-8">
+          <h2 class="text-base font-semibold border-b border-border pb-2 mb-4">Supporting document</h2>
+
+          <div class="max-w-xl">
+            <label class="block text-sm font-medium mb-1.5">Attachment</label>
+            <p class="text-sm text-muted-foreground mb-2">Medical certificate or other supporting document. PDF, JPG or PNG, up to 10 MB.</p>
+
+            <div id="dropZone" class="rounded-md border border-dashed border-input bg-muted px-4 py-6 text-center cursor-pointer focus:outline-none focus:ring-2 focus:ring-ring"
+              tabindex="0" role="button" aria-label="Upload attachment">
+              <p class="text-sm text-muted-foreground">
+                <span class="text-primary font-medium underline">Choose a file</span> or drag it here
+              </p>
+            </div>
+            <input id="fileInput" type="file" class="hidden" accept=".pdf,.jpg,.jpeg,.png" />
+
+            <ul id="fileList" class="mt-3 space-y-2"></ul>
+          </div>
+        </section>
+
+      </form>
+    </div>
+  </main>
+
+  <!-- Sticky action bar -->
+  <div class="sticky bottom-0 flex items-center justify-end gap-3 border-t border-border bg-card px-6 py-3">
+    <span role="status" id="unsavedIndicator" class="text-sm text-muted-foreground mr-auto" hidden>
+      <span aria-hidden="true" class="mr-1.5 inline-block size-1.5 rounded-full bg-warning"></span>Unsaved changes
+    </span>
+    <button type="button" id="cancelBtn" class="h-8 rounded border border-input bg-card px-4 text-sm font-medium hover:bg-secondary">Cancel</button>
+    <button type="submit" form="leaveForm" id="submitBtn" class="h-8 rounded bg-primary px-4 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-60 flex items-center gap-2">
+      <svg id="submitSpinner" hidden class="size-4 animate-spin" viewBox="0 0 24 24" fill="none"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path></svg>
+      Submit request
+    </button>
+  </div>
+
+</div>
+
+<!-- Toast -->
+<div id="toast" role="status" aria-live="polite" class="fixed bottom-6 right-6 hidden items-center gap-2 rounded-md bg-card border border-border px-4 py-3 text-sm shadow-lg">
+  <svg class="size-4 text-success" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5"/></svg>
+  <span id="toastText"></span>
+</div>
+
+<!-- Unsaved-changes leave dialog -->
+<div id="leaveDialog" hidden class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
+  <div role="alertdialog" aria-modal="true" aria-labelledby="leaveDialogTitle" class="w-full max-w-md rounded-lg bg-card border border-border p-6 shadow-lg">
+    <h2 id="leaveDialogTitle" class="text-base font-semibold mb-2">You have unsaved changes</h2>
+    <p class="text-sm text-muted-foreground mb-5">Leave without saving?</p>
+    <div class="flex justify-end gap-3">
+      <button type="button" id="dialogStay" class="h-8 rounded border border-input bg-card px-4 text-sm font-medium hover:bg-secondary">Stay</button>
+      <button type="button" id="dialogLeave" class="h-8 rounded bg-destructive px-4 text-sm font-medium text-destructive-foreground hover:bg-destructive/90">Leave page</button>
+    </div>
+  </div>
+</div>
+
+<script>
+(function () {
+  const form = document.getElementById('leaveForm');
+  const fields = [
+    ['leaveType', 'Leave type'],
+    ['startDate', 'Start date'],
+    ['endDate', 'End date'],
+    ['reason', 'Reason'],
+    ['approver', 'Approver'],
+  ];
+  const touched = new Set();
+  let isDirty = false;
+  let hasAttachment = false;
+
+  const el = (id) => document.getElementById(id);
+  const errorSummary = el('errorSummary');
+  const errorSummaryList = el('errorSummaryList');
+  const errorSummaryTitle = el('errorSummaryTitle');
+  const unsavedIndicator = el('unsavedIndicator');
+  const submitBtn = el('submitBtn');
+  const submitSpinner = el('submitSpinner');
+  const rootError = el('rootError');
+
+  function validateField(name) {
+    const input = el(name);
+    const errorEl = el(name + '-error');
+    let message = '';
+
+    const val = input.value.trim();
+    if (!val) {
+      message = {
+        leaveType: 'Select a leave type',
+        startDate: 'Enter a start date',
+        endDate: 'Enter an end date',
+        reason: 'Enter a reason for this leave',
+        approver: 'Select an approver',
+      }[name];
+    }
+
+    if (!message && name === 'endDate') {
+      const start = el('startDate').value;
+      const end = el('endDate').value;
+      if (start && end && end < start) {
+        message = 'Enter an end date on or after the start date';
+      }
+    }
+
+    if (errorEl) {
+      if (message) {
+        errorEl.textContent = message;
+        errorEl.classList.remove('hidden');
+        errorEl.classList.add('flex');
+        input.setAttribute('aria-invalid', 'true');
+        input.classList.add('border-destructive');
+      } else {
+        errorEl.classList.add('hidden');
+        errorEl.classList.remove('flex');
+        input.removeAttribute('aria-invalid');
+        input.classList.remove('border-destructive');
+      }
+    }
+    return message;
+  }
+
+  function validateAll() {
+    const errs = {};
+    fields.forEach(([name]) => {
+      const msg = validateField(name);
+      if (msg) errs[name] = msg;
+    });
+    return errs;
+  }
+
+  function updateDaysSummary() {
+    const start = el('startDate').value;
+    const end = el('endDate').value;
+    const summary = el('daysSummary');
+    if (start && end && end >= start) {
+      const s = new Date(start + 'T00:00:00');
+      const e = new Date(end + 'T00:00:00');
+      const days = Math.round((e - s) / 86400000) + 1;
+      summary.textContent = `${days} day${days === 1 ? '' : 's'} requested`;
+    } else {
+      summary.textContent = '';
+    }
+  }
+
+  function markDirty() {
+    if (!isDirty) {
+      isDirty = true;
+      unsavedIndicator.hidden = false;
+    }
+  }
+
+  fields.forEach(([name]) => {
+    const input = el(name);
+    input.addEventListener('blur', () => {
+      touched.add(name);
+      validateField(name);
+    });
+    input.addEventListener('input', () => {
+      markDirty();
+      if (touched.has(name)) validateField(name);
+      if (name === 'startDate' || name === 'endDate') {
+        updateDaysSummary();
+        if (touched.has('endDate')) validateField('endDate');
+      }
+    });
+    input.addEventListener('change', () => {
+      markDirty();
+      if (touched.has(name)) validateField(name);
+    });
+  });
+
+  // File upload
+  const dropZone = el('dropZone');
+  const fileInput = el('fileInput');
+  const fileList = el('fileList');
+
+  function formatSize(bytes) {
+    if (bytes < 1024) return bytes + ' B';
+    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(0) + ' KB';
+    return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+  }
+
+  function addFile(file) {
+    hasAttachment = true;
+    markDirty();
+    fileList.innerHTML = '';
+    const li = document.createElement('li');
+    li.className = 'flex items-center justify-between rounded border border-border bg-card px-3 py-2';
+    li.innerHTML = `
+      <div class="flex items-center gap-2 min-w-0">
+        <svg class="size-4 text-muted-foreground shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><path d="M14 2v6h6"/></svg>
+        <span class="truncate text-sm font-medium">${file.name}</span>
+        <span class="text-sm text-muted-foreground shrink-0">${formatSize(file.size)}</span>
+      </div>
+      <button type="button" aria-label="Remove attachment" class="size-6 flex items-center justify-center rounded text-muted-foreground hover:bg-secondary hover:text-foreground shrink-0">
+        <svg class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg>
+      </button>`;
+    li.querySelector('button').addEventListener('click', () => {
+      fileList.innerHTML = '';
+      hasAttachment = false;
+      fileInput.value = '';
+    });
+    fileList.appendChild(li);
+  }
+
+  dropZone.addEventListener('click', () => fileInput.click());
+  dropZone.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); fileInput.click(); }
+  });
+  dropZone.addEventListener('dragover', (e) => { e.preventDefault(); dropZone.classList.add('bg-accent'); });
+  dropZone.addEventListener('dragleave', () => dropZone.classList.remove('bg-accent'));
+  dropZone.addEventListener('drop', (e) => {
+    e.preventDefault();
+    dropZone.classList.remove('bg-accent');
+    if (e.dataTransfer.files[0]) addFile(e.dataTransfer.files[0]);
+  });
+  fileInput.addEventListener('change', () => {
+    if (fileInput.files[0]) addFile(fileInput.files[0]);
+  });
+
+  // Toast
+  function showToast(text) {
+    const toast = el('toast');
+    el('toastText').textContent = text;
+    toast.classList.remove('hidden');
+    toast.classList.add('flex');
+    setTimeout(() => {
+      toast.classList.add('hidden');
+      toast.classList.remove('flex');
+    }, 4000);
+  }
+
+  // Submit
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    fields.forEach(([name]) => touched.add(name));
+    const errs = validateAll();
+    const errNames = Object.keys(errs);
+
+    rootError.hidden = true;
+
+    if (errNames.length >= 3) {
+      errorSummaryTitle.textContent = `${errNames.length} fields need attention`;
+      errorSummaryList.innerHTML = '';
+      fields.forEach(([name, label]) => {
+        if (errs[name]) {
+          const li = document.createElement('li');
+          li.innerHTML = `<a href="#${name}" class="inline-flex min-h-6 items-center underline">${label}: ${errs[name]}</a>`;
+          li.querySelector('a').addEventListener('click', (ev) => {
+            ev.preventDefault();
+            el(name).focus();
+          });
+          errorSummaryList.appendChild(li);
+        }
+      });
+      errorSummary.hidden = false;
+    } else {
+      errorSummary.hidden = true;
+    }
+
+    if (errNames.length > 0) {
+      el(errNames[0]).focus();
+      return;
+    }
+
+    submitBtn.disabled = true;
+    submitSpinner.hidden = false;
+
+    await new Promise((r) => setTimeout(r, 900));
+
+    submitBtn.disabled = false;
+    submitSpinner.hidden = true;
+
+    const requestId = 'LR-' + (2400 + Math.floor((new Date(el('startDate').value)).getDate())).toString();
+    isDirty = false;
+    unsavedIndicator.hidden = true;
+    form.reset();
+    fileList.innerHTML = '';
+    hasAttachment = false;
+    el('daysSummary').textContent = '';
+    touched.clear();
+    fields.forEach(([name]) => validateField(name));
+    showToast(`Leave request ${requestId} submitted`);
+  });
+
+  // Leave guard
+  window.addEventListener('beforeunload', (e) => {
+    if (isDirty) {
+      e.preventDefault();
+      e.returnValue = '';
+    }
+  });
+
+  const leaveDialog = el('leaveDialog');
+  function openLeaveDialog(onLeave) {
+    leaveDialog.hidden = false;
+    el('dialogStay').focus();
+    const stay = el('dialogStay');
+    const leave = el('dialogLeave');
+    function cleanup() {
+      leaveDialog.hidden = true;
+      stay.removeEventListener('click', onStay);
+      leave.removeEventListener('click', onLeaveClick);
+    }
+    function onStay() { cleanup(); }
+    function onLeaveClick() { cleanup(); onLeave(); }
+    stay.addEventListener('click', onStay);
+    leave.addEventListener('click', onLeaveClick);
+  }
+
+  el('cancelBtn').addEventListener('click', () => {
+    if (isDirty) {
+      openLeaveDialog(() => {
+        form.reset();
+        fileList.innerHTML = '';
+        hasAttachment = false;
+        el('daysSummary').textContent = '';
+        isDirty = false;
+        unsavedIndicator.hidden = true;
+        touched.clear();
+        fields.forEach(([name]) => validateField(name));
+      });
+    }
+  });
+})();
+</script>
+</body>
+</html>

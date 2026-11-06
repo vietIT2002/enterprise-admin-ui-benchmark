@@ -1,0 +1,59 @@
+{
+  "brief": "13-employee-onboarding",
+  "run": 1,
+  "items": [
+    {
+      "item": "The form is split into titled sections (personal, job and contract, bank and tax, emergency contact, documents) in a single column, with a visible label above every field and no placeholder-only labels",
+      "pass": false,
+      "evidence": "Titled h2 sections exist ('1. Personal Details', '2. Job & Contract', '3. Bank & Tax Information', '4. Emergency Contact', '5. Documents') and every field has a visible <label> above it, but the layout is not single-column: each section uses `<div class=\"grid grid-cols-1 sm:grid-cols-2 gap-5\">` so fields render two-up at 1440px (e.g. Legal First Name / Legal Last Name side-by-side, confirmed in screenshot). Also implemented as a 6-step wizard (only one step-panel visible at a time) rather than all sections shown together."
+    },
+    {
+      "item": "Required fields are marked consistently, and optional fields are labelled as optional or left unmarked by a stated convention",
+      "pass": true,
+      "evidence": "Every required input/select is suffixed with `<span class=\"text-red-500\">*</span>` after its label (e.g. 'Legal First Name *'), and non-required fields (Preferred Name, Gender, City, etc.) carry no marker. The secondary emergency contact block is explicitly headed 'Secondary Contact (Optional)'."
+    },
+    {
+      "item": "Field widths match their content: dates, postal codes and tax codes are narrow; inputs use the right types (email, tel, date)",
+      "pass": false,
+      "evidence": "Every input, regardless of content, uses the same `w-full` class, e.g. `<input required type=\"date\" name=\"dob\" ... class=\"w-full rounded-lg ...\">` and `<input type=\"text\" name=\"zip\" value=\"78745\" class=\"w-full ...\">` and the SSN field `<input ... name=\"ssn\" ... class=\"w-full ...\">` — none are narrowed to content. Input types are correct though (type=email for personalEmail/ecEmail, type=tel for phone/ecPhone, type=date for dob/startDate)."
+    },
+    {
+      "item": "An option to save the form as a draft is offered, and saving a draft does not demand every required field",
+      "pass": false,
+      "evidence": "No draft-saving control exists anywhere in the markup or script; the only actions are 'Back', 'Continue', and 'Submit Onboarding Form ✓'. A repo-wide search for 'draft' returns no matches."
+    },
+    {
+      "item": "Save and Cancel stay reachable while scrolling (a sticky bar or equivalent), Save is a verb label and is not disabled before submitting",
+      "pass": false,
+      "evidence": "The navigation row `<div class=\"mt-10 flex items-center justify-between border-t border-slate-200 pt-6\">` containing Back/Continue/Submit sits in normal document flow with no sticky/fixed positioning class, so it scrolls away on longer steps. There is also no Cancel button at all — only Back, Continue, and Submit."
+    },
+    {
+      "item": "Fields validate on blur and on submit; with several errors a summary at the top links to each field and focus moves to the first invalid field",
+      "pass": false,
+      "evidence": "validateStep() in the script only runs on the 'Continue' button click and on form submit — no 'blur' event listeners exist anywhere. Invalid fields just get an `.error` class added to their wrapper div (`wrapper.classList.add('error')`); there is no summary list of errors at the top and no `.focus()` call is made on any field, so focus never moves to the first invalid input."
+    },
+    {
+      "item": "Leaving the page with unsaved input triggers a warning",
+      "pass": false,
+      "evidence": "No 'beforeunload' listener or equivalent exists in the script (confirmed via search of the file)."
+    },
+    {
+      "item": "The document upload states accepted file types and the size limit, lists chosen files with a remove button, and is keyboard operable",
+      "pass": false,
+      "evidence": "Section intro states 'Accepted formats: PDF, JPG, PNG (max 10MB each)' and chosen filenames are shown via `statusSpan.textContent = '✅ ' + input.files[0].name`, but there is no remove/clear button anywhere in the doc-row markup. The file input is `<input type=\"file\" class=\"hidden doc-input\">` (display:none), which removes it from the tab order with no tabindex fallback on the wrapping `<label>`, so the control cannot be reached or activated by keyboard."
+    },
+    {
+      "item": "Success is confirmed with a message that names the employee and is announced to assistive technology",
+      "pass": false,
+      "evidence": "`<p>Thank you, <span id=\"successName\">...</span>. Your onboarding packet has been sent to HR...</p>` is populated with the employee's first and last name via `successName.textContent = `${data.get('firstName')} ${data.get('lastName')}``, but `#successPanel` has no `aria-live`, `role=\"status\"`, or `role=\"alert\"` attribute, so toggling it from `hidden` to visible is not announced to screen readers."
+    }
+  ],
+  "tells": [
+    "greeting-header",
+    "emoji-icon",
+    "initials-avatar-non-person",
+    "card-in-card",
+    "oversized-radius"
+  ],
+  "notes": "greeting-header: h1 'Welcome Aboard!' with subtext. emoji-icon: 🔒 in the bank/tax warning banner, 📎 'Choose file' and ✅ filename status in document rows, ✓ on the submit button and success icon. initials-avatar-non-person: header logo is a rounded-lg blue tile with the single letter 'N' standing for the company 'Northgate Industries', styled like a person-avatar initials badge. card-in-card: the whole wizard sits in one `bg-white rounded-xl shadow-sm border` card, which itself contains nested bordered cards (each doc-row `border border-slate-200 rounded-lg p-4`, and each review-step summary block `border border-slate-200 rounded-lg p-4`). oversized-radius: outer card uses rounded-xl (12px), flagged by the audit as exceeding the ≤8px radius-scale rule."
+}

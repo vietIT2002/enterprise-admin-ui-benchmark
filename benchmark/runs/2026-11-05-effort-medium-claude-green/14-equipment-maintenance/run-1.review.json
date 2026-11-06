@@ -1,0 +1,53 @@
+{
+  "brief": "14-equipment-maintenance",
+  "run": 1,
+  "items": [
+    {
+      "item": "The page header has a plural title and at most one primary action; other actions such as export sit in a secondary position",
+      "pass": true,
+      "evidence": "h1 'Equipment' (collective/plural-equivalent noun); header has 'Export' as a bordered secondary button and a single filled primary button 'Add equipment' (audit metric headerPrimaryActions: 1)."
+    },
+    {
+      "item": "The table appears in the first viewport, with search and 2–3 visible filters (such as location and status) and no row of KPI cards above it",
+      "pass": true,
+      "evidence": "audit firstTableTop: 254 (well within 900px viewport). Visible filters at top: #search-input, #location-filter select, and the status role=tablist (All/Operational/Under maintenance/Down/Retired); no KPI card row present above the table."
+    },
+    {
+      "item": "By default the list is ordered with overdue inspections first, then inspections due soon, then the rest",
+      "pass": true,
+      "evidence": "urgency() assigns rank 0 (overdue) < 1 (due-soon) < 2 (scheduled) < 3 (none); default state.sort = {key:'nextInspection', dir:'asc'} and sortRows() sorts by u.rank first. Screenshot confirms: 3 'Overdue' rows, then ascending 'Due in N days' rows, then the rest by date."
+    },
+    {
+      "item": "Overdue and due-soon inspections are marked with a text label (such as \"Overdue\" or \"Due in 7 days\"), not by colour alone",
+      "pass": true,
+      "evidence": "urgency() returns label: 'Overdue' or 'Due in ' + d + ' days'; rendered as a text badge next to the date, e.g. screenshot shows 'Overdue' and 'Due in 1 day' / 'Due in 7 days' text pills, not just colored dots."
+    },
+    {
+      "item": "Dates are absolute and consistently formatted, and every row has a human-readable equipment code",
+      "pass": true,
+      "evidence": "formatDate() uses Intl.DateTimeFormat('en-US', {day:'2-digit', month:'2-digit', year:'numeric'}) applied consistently to lastService and nextInspection (e.g. '05/22/2026'); each row shows id like 'EQ-1011' under the equipment name."
+    },
+    {
+      "item": "Status tabs or a summary line show counts (such as \"Overdue 4\")",
+      "pass": true,
+      "evidence": "Status tabs render counts via tabCount(): 'All 20', 'Operational 14', 'Under maintenance 3', 'Down 2', 'Retired 1'; summary line also reads '20 machines · 3 overdue inspections'."
+    },
+    {
+      "item": "Rows are single-line, and row actions show at most two visible controls, with icon-only controls having accessible names",
+      "pass": false,
+      "evidence": "Audit violation 'table-row-two-line': 'Most rows stack two or more lines per cell... 20 of 20 rows' (expected single-line rows) — each row stacks equipment name and 'EQ-10xx' id on two lines (rowHtml: '<a>'+r.name+'</a><div class=\"text-xs...\">'+r.id+'</div>'). Row actions themselves are fine (single kebab button, aria-label='Actions for '+r.name), but the two-line row layout fails the single-line requirement."
+    },
+    {
+      "item": "A filter combination with no matches shows a no-results state with a clear-filters action, distinct from the first-use empty state; a loading state and an error state with retry are present",
+      "pass": true,
+      "evidence": "emptyStateHtml() implements three distinct states: 'first-use' ('No equipment yet' + 'Add equipment' CTA), 'no-results' ('No equipment matches these filters' + #clear-filters-empty button), and 'error' ('Couldn’t load equipment' + #retry-load button). skeletonRows() renders a loading skeleton while state.view === 'loading'."
+    },
+    {
+      "item": "Interactive targets are at least 24×24px, and text and status contrast meets 4.5:1",
+      "pass": true,
+      "evidence": "audit metrics: smallTargets: 0 (out of 77 applicable target-size checks), contrast: {checked:157, unknown:0} with no text-contrast violations reported in the violations list."
+    }
+  ],
+  "tells": [],
+  "notes": "Clean, restrained admin list UI with no obvious AI-template tells (no KPI tiles, gradients, glass, emoji icons, uppercase tracked labels, rainbow statuses, sidebar promo, or decorative charts detected in markup/CSS). Sole functional failure is the two-line row (name + 'EQ-10xx' id stacked), flagged by the automated audit as table-row-two-line across all 20 rows; everything else — ordering, urgency labels, date formatting, tab counts, empty/no-results/error/loading states, and target size/contrast — checks out against both the markup and the rendered screenshots."
+}

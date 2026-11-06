@@ -1,0 +1,53 @@
+{
+  "brief": "13-employee-onboarding",
+  "run": 1,
+  "items": [
+    {
+      "item": "The form is split into titled sections (personal, job and contract, bank and tax, emergency contact, documents) in a single column, with a visible label above every field and no placeholder-only labels",
+      "pass": true,
+      "evidence": "Five <section> blocks each with an <h2>: 'Personal details', 'Job and contract', 'Bank and tax information', 'Emergency contact', 'Documents' (lines 80, 167, 246, 297, 336), stacked vertically inside a single max-w-3xl column. Every input/select has a <label class=\"block\" for=\"...\"> above it (e.g. <label for=\"firstName\">First name *</label>). Placeholders like 'Minh Anh' or 'name@email.com' are supplementary example text, not substitutes for labels."
+    },
+    {
+      "item": "Required fields are marked consistently, and optional fields are labelled as optional or left unmarked by a stated convention",
+      "pass": true,
+      "evidence": "Top-of-form legend '<p>* Required</p>' (line 71) establishes the convention; every required input/select carries a red '*' span (e.g. firstName, dob, bankName). The two optional fields, postalCode and ecEmail, have plain labels with no asterisk, consistent with the stated convention. Document items also append ' *' only when `doc.required` is true and show an explicit 'Optional' badge otherwise (renderDocuments(), lines 519-538)."
+    },
+    {
+      "item": "Field widths match their content: dates, postal codes and tax codes are narrow; inputs use the right types (email, tel, date)",
+      "pass": true,
+      "evidence": "dob/startDate/contractEndDate use type=\"date\" with class 'w-40' (160px); postalCode uses 'w-28' (112px) vs. free-text fields like address/jobTitle/accountHolder which use 'max-w-xl w-full' (up to 576px). taxCode/accountNumber use 'w-56' with inputmode=\"numeric\" and tabular-nums — narrower than the full-width text fields though not as tight as postal code. personalEmail/ecEmail use type=\"email\", phone/ecPhone use type=\"tel\"."
+    },
+    {
+      "item": "An option to save the form as a draft is offered, and saving a draft does not demand every required field",
+      "pass": true,
+      "evidence": "Sticky bar button id=\"draftBtn\" labelled 'Save draft' (line 355). Its click handler (lines 651-660) only updates the draft indicator and shows a toast — it never calls validateField/FIELDS validation, so an incomplete form can be saved as a draft."
+    },
+    {
+      "item": "Save and Cancel stay reachable while scrolling (a sticky bar or equivalent), Save is a verb label and is not disabled before submitting",
+      "pass": true,
+      "evidence": "`<main id=\"scroll-main\" class=\"h-[calc(100vh-73px)] overflow-y-auto\">` is the sole scrolling ancestor (comment at line 67: 'the only scrolling ancestor, so the bottom bar can stick'); the action bar `<div class=\"sticky bottom-0 ...\">` (line 350) sits outside it and stays visible. Save button text is 'Onboard employee' (verb phrase, line 361) and has no `disabled` attribute in markup — it's only set during submit (saveBtn.disabled = true at line 689) and cleared after."
+    },
+    {
+      "item": "Fields validate on blur and on submit; with several errors a summary at the top links to each field and focus moves to the first invalid field",
+      "pass": true,
+      "evidence": "blur listener calls runFieldValidation(name, true) (line 478); saveBtn click handler validates all FIELDS plus documents (lines 667-674). renderErrorSummary() builds a linked list of errors ('#${name}' anchors that call focusFirst on click) once entries.length >= 3 (lines 600-627). On submit, `focusFirst([firstInvalid[0]])` moves focus+scrolls to the first invalid field (lines 677-684)."
+    },
+    {
+      "item": "Leaving the page with unsaved input triggers a warning",
+      "pass": true,
+      "evidence": "`window.addEventListener('beforeunload', ...)` calls `e.preventDefault()`/sets `e.returnValue` when `isDirty` (lines 593-597); Cancel button also opens a custom alertdialog ('You have unsaved changes. Leave without saving?', lines 367-376) when isDirty is true (lines 709-717)."
+    },
+    {
+      "item": "The document upload states accepted file types and the size limit, lists chosen files with a remove button, and is keyboard operable",
+      "pass": false,
+      "evidence": "Documents section intro only reads 'Upload the documents required before the first day' (line 338) — no accepted file types or size limit are stated anywhere, and the hidden `<input type=\"file\" id=\"fileInput\" multiple>` (line 343) has no `accept` attribute and is never wired to any event listener; the visible 'Upload' button just fabricates a fake docState entry instead of opening a file picker (lines 561-571). Uploaded rows do show file name/size with a 'Remove' button (aria-label set, native <button>, keyboard operable), but the missing type/size disclosure fails this item."
+    },
+    {
+      "item": "Success is confirmed with a message that names the employee and is announced to assistive technology",
+      "pass": true,
+      "evidence": "On successful submit: `showToast(`Employee ${fullName} onboarded`)` (line 704) where fullName is built from firstName+lastName values; the toast container has `role=\"status\"` (line 379), making it an assistive-tech live region."
+    }
+  ],
+  "tells": [],
+  "notes": "No template tells from the given list were observed: no greeting-header, no KPI tiles, no delta pills, no avatars, no gradients/glass effects, no uppercase tracked labels, no emoji icons (grep for emoji code points found none), status badges use plain semantic success/warning/neutral colors (not a 'rainbow' palette), no sidebar at all (so no sidebar-promo-card or navy-sidebar-indigo-accent), no decorative charts, no nested card-in-card structures, no hover-lift animations, and borderRadius tokens are capped at 8px (not oversized). The one functional gap is the document upload: it never discloses accepted file types/size limits and the real <input type=\"file\"> is dead code — 'Upload' just mocks a successful upload rather than opening a file picker."
+}

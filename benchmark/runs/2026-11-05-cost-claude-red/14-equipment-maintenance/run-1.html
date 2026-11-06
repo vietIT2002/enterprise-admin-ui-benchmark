@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Factory Equipment Maintenance List</title>
+<script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-slate-100 min-h-screen">
+
+  <header class="bg-slate-800 text-white shadow">
+    <div class="max-w-7xl mx-auto px-6 py-5 flex items-center justify-between">
+      <div>
+        <h1 class="text-2xl font-semibold tracking-tight">Factory Equipment Maintenance</h1>
+        <p class="text-slate-300 text-sm mt-1">Equipment registry — location, operational status, and service schedule</p>
+      </div>
+      <div class="hidden sm:flex items-center gap-2 bg-slate-700/60 rounded-lg px-4 py-2">
+        <span class="w-2 h-2 rounded-full bg-emerald-400"></span>
+        <span class="text-sm text-slate-200">Data current as of <span id="asOfDate" class="font-medium"></span></span>
+      </div>
+    </div>
+  </header>
+
+  <main class="max-w-7xl mx-auto px-6 py-8">
+
+    <!-- Summary cards -->
+    <div class="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-8" id="summaryCards"></div>
+
+    <!-- Controls -->
+    <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-4 mb-6 flex flex-col sm:flex-row gap-3 sm:items-center sm:justify-between">
+      <div class="flex flex-col sm:flex-row gap-3 flex-1">
+        <input id="searchInput" type="text" placeholder="Search by machine name, ID, or location..."
+          class="w-full sm:w-80 px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-slate-500 focus:border-slate-500">
+        <select id="statusFilter" class="px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-slate-500">
+          <option value="all">All Statuses</option>
+          <option value="Operational">Operational</option>
+          <option value="Needs Attention">Needs Attention</option>
+          <option value="Under Maintenance">Under Maintenance</option>
+          <option value="Out of Service">Out of Service</option>
+        </select>
+        <select id="locationFilter" class="px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-slate-500">
+          <option value="all">All Locations</option>
+        </select>
+      </div>
+      <div class="text-sm text-slate-500" id="resultCount"></div>
+    </div>
+
+    <!-- Table -->
+    <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+      <div class="overflow-x-auto">
+        <table class="w-full text-sm">
+          <thead>
+            <tr class="bg-slate-50 border-b border-slate-200 text-left text-slate-600">
+              <th class="px-5 py-3 font-semibold cursor-pointer select-none" data-sort="id">Equipment ID <span class="sort-arrow"></span></th>
+              <th class="px-5 py-3 font-semibold cursor-pointer select-none" data-sort="name">Machine Name <span class="sort-arrow"></span></th>
+              <th class="px-5 py-3 font-semibold cursor-pointer select-none" data-sort="location">Location <span class="sort-arrow"></span></th>
+              <th class="px-5 py-3 font-semibold cursor-pointer select-none" data-sort="status">Status <span class="sort-arrow"></span></th>
+              <th class="px-5 py-3 font-semibold cursor-pointer select-none" data-sort="lastService">Last Service <span class="sort-arrow"></span></th>
+              <th class="px-5 py-3 font-semibold cursor-pointer select-none" data-sort="nextInspection">Next Inspection <span class="sort-arrow"></span></th>
+            </tr>
+          </thead>
+          <tbody id="tableBody" class="divide-y divide-slate-100"></tbody>
+        </table>
+      </div>
+      <div id="emptyState" class="hidden text-center text-slate-400 py-12 text-sm">No equipment matches your search.</div>
+    </div>
+
+    <footer class="text-center text-xs text-slate-400 mt-8 pb-4">
+      Equipment Maintenance System &mdash; Internal use only &mdash; Generated for demonstration purposes
+    </footer>
+  </main>
+
+<script>
+  const equipment = [
+    { id: "EQ-1001", name: "CNC Milling Machine A1", location: "Building 2 - Machining Floor", status: "Operational", lastService: "2026-09-12", nextInspection: "2026-12-12" },
+    { id: "EQ-1002", name: "Hydraulic Press 200T", location: "Building 1 - Press Shop", status: "Needs Attention", lastService: "2026-07-03", nextInspection: "2026-11-10" },
+    { id: "EQ-1003", name: "Industrial Robot Arm KR6", location: "Building 2 - Assembly Line 1", status: "Operational", lastService: "2026-10-01", nextInspection: "2027-01-01" },
+    { id: "EQ-1004", name: "Conveyor Belt System C3", location: "Building 1 - Packaging", status: "Under Maintenance", lastService: "2026-11-02", nextInspection: "2026-11-09" },
+    { id: "EQ-1005", name: "Air Compressor Unit 5", location: "Utility Room - Basement", status: "Operational", lastService: "2026-08-20", nextInspection: "2026-12-20" },
+    { id: "EQ-1006", name: "Laser Cutting Machine L4", location: "Building 3 - Fabrication", status: "Operational", lastService: "2026-09-28", nextInspection: "2026-12-28" },
+    { id: "EQ-1007", name: "Forklift FL-07", location: "Warehouse - Dock 2", status: "Needs Attention", lastService: "2026-06-15", nextInspection: "2026-11-06" },
+    { id: "EQ-1008", name: "Injection Molding Machine IM2", location: "Building 3 - Molding Floor", status: "Operational", lastService: "2026-10-18", nextInspection: "2027-01-18" },
+    { id: "EQ-1009", name: "Overhead Crane OC-3", location: "Building 2 - Heavy Assembly", status: "Out of Service", lastService: "2026-05-02", nextInspection: "2026-11-15" },
+    { id: "EQ-1010", name: "Welding Robot WR-9", location: "Building 2 - Assembly Line 2", status: "Operational", lastService: "2026-09-05", nextInspection: "2026-12-05" },
+    { id: "EQ-1011", name: "Packaging Sealer PS-12", location: "Building 1 - Packaging", status: "Operational", lastService: "2026-10-22", nextInspection: "2027-01-22" },
+    { id: "EQ-1012", name: "Boiler Unit B1", location: "Utility Room - Basement", status: "Under Maintenance", lastService: "2026-11-01", nextInspection: "2026-11-08" },
+    { id: "EQ-1013", name: "CNC Lathe L9", location: "Building 2 - Machining Floor", status: "Operational", lastService: "2026-08-30", nextInspection: "2026-11-30" },
+    { id: "EQ-1014", name: "Dust Collection System D2", location: "Building 3 - Fabrication", status: "Needs Attention", lastService: "2026-06-28", nextInspection: "2026-11-12" },
+    { id: "EQ-1015", name: "Pallet Wrapper PW-4", location: "Warehouse - Dock 1", status: "Operational", lastService: "2026-10-10", nextInspection: "2027-01-10" },
+    { id: "EQ-1016", name: "Generator Backup G1", location: "Utility Room - Basement", status: "Operational", lastService: "2026-09-15", nextInspection: "2026-12-15" },
+    { id: "EQ-1017", name: "Automated Guided Vehicle AGV-3", location: "Warehouse - Main Floor", status: "Operational", lastService: "2026-10-05", nextInspection: "2027-01-05" },
+    { id: "EQ-1018", name: "Paint Booth PB-2", location: "Building 3 - Finishing", status: "Out of Service", lastService: "2026-04-20", nextInspection: "2026-11-07" },
+  ];
+
+  const statusStyles = {
+    "Operational": "bg-emerald-100 text-emerald-700 ring-emerald-600/20",
+    "Needs Attention": "bg-amber-100 text-amber-700 ring-amber-600/20",
+    "Under Maintenance": "bg-sky-100 text-sky-700 ring-sky-600/20",
+    "Out of Service": "bg-rose-100 text-rose-700 ring-rose-600/20",
+  };
+
+  let sortKey = "id";
+  let sortAsc = true;
+
+  function formatDate(iso) {
+    const d = new Date(iso + "T00:00:00");
+    return d.toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric" });
+  }
+
+  function daysUntil(iso) {
+    const today = new Date("2026-11-05T00:00:00");
+    const target = new Date(iso + "T00:00:00");
+    return Math.round((target - today) / (1000 * 60 * 60 * 24));
+  }
+
+  function populateLocationFilter() {
+    const locations = [...new Set(equipment.map(e => e.location))].sort();
+    const select = document.getElementById("locationFilter");
+    locations.forEach(loc => {
+      const opt = document.createElement("option");
+      opt.value = loc;
+      opt.textContent = loc;
+      select.appendChild(opt);
+    });
+  }
+
+  function renderSummary() {
+    const counts = { total: equipment.length, Operational: 0, "Needs Attention": 0, "Under Maintenance": 0, "Out of Service": 0 };
+    equipment.forEach(e => counts[e.status] = (counts[e.status] || 0) + 1);
+
+    const cards = [
+      { label: "Total Equipment", value: counts.total, color: "text-slate-800" },
+      { label: "Operational", value: counts.Operational, color: "text-emerald-600" },
+      { label: "Needs Attention", value: counts["Needs Attention"] || 0, color: "text-amber-600" },
+      { label: "Out of Service", value: counts["Out of Service"] || 0, color: "text-rose-600" },
+    ];
+
+    document.getElementById("summaryCards").innerHTML = cards.map(c => `
+      <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-4">
+        <p class="text-xs font-medium text-slate-500 uppercase tracking-wide">${c.label}</p>
+        <p class="text-2xl font-bold mt-1 ${c.color}">${c.value}</p>
+      </div>
+    `).join("");
+  }
+
+  function getFiltered() {
+    const q = document.getElementById("searchInput").value.trim().toLowerCase();
+    const status = document.getElementById("statusFilter").value;
+    const location = document.getElementById("locationFilter").value;
+
+    return equipment.filter(e => {
+      const matchesQuery = !q || e.name.toLowerCase().includes(q) || e.id.toLowerCase().includes(q) || e.location.toLowerCase().includes(q);
+      const matchesStatus = status === "all" || e.status === status;
+      const matchesLocation = location === "all" || e.location === location;
+      return matchesQuery && matchesStatus && matchesLocation;
+    });
+  }
+
+  function sortRows(rows) {
+    return rows.slice().sort((a, b) => {
+      let av = a[sortKey], bv = b[sortKey];
+      if (sortKey === "lastService" || sortKey === "nextInspection") {
+        av = new Date(av); bv = new Date(bv);
+      } else {
+        av = av.toLowerCase(); bv = bv.toLowerCase();
+      }
+      if (av < bv) return sortAsc ? -1 : 1;
+      if (av > bv) return sortAsc ? 1 : -1;
+      return 0;
+    });
+  }
+
+  function render() {
+    const rows = sortRows(getFiltered());
+    const tbody = document.getElementById("tableBody");
+    const emptyState = document.getElementById("emptyState");
+
+    document.getElementById("resultCount").textContent = `${rows.length} of ${equipment.length} items`;
+
+    if (rows.length === 0) {
+      tbody.innerHTML = "";
+      emptyState.classList.remove("hidden");
+      return;
+    }
+    emptyState.classList.add("hidden");
+
+    tbody.innerHTML = rows.map(e => {
+      const inspectionDays = daysUntil(e.nextInspection);
+      const inspectionWarning = inspectionDays <= 7
+        ? `<span class="text-rose-500 text-xs ml-1.5">(${inspectionDays <= 0 ? 'overdue' : `in ${inspectionDays}d`})</span>`
+        : "";
+      return `
+        <tr class="hover:bg-slate-50 transition-colors">
+          <td class="px-5 py-3 font-mono text-xs text-slate-500">${e.id}</td>
+          <td class="px-5 py-3 font-medium text-slate-800">${e.name}</td>
+          <td class="px-5 py-3 text-slate-600">${e.location}</td>
+          <td class="px-5 py-3">
+            <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium ring-1 ring-inset ${statusStyles[e.status]}">${e.status}</span>
+          </td>
+          <td class="px-5 py-3 text-slate-600">${formatDate(e.lastService)}</td>
+          <td class="px-5 py-3 text-slate-600">${formatDate(e.nextInspection)}${inspectionWarning}</td>
+        </tr>
+      `;
+    }).join("");
+  }
+
+  function updateSortArrows() {
+    document.querySelectorAll("[data-sort]").forEach(th => {
+      const arrow = th.querySelector(".sort-arrow");
+      arrow.textContent = th.dataset.sort === sortKey ? (sortAsc ? "▲" : "▼") : "";
+    });
+  }
+
+  document.querySelectorAll("[data-sort]").forEach(th => {
+    th.addEventListener("click", () => {
+      const key = th.dataset.sort;
+      if (sortKey === key) {
+        sortAsc = !sortAsc;
+      } else {
+        sortKey = key;
+        sortAsc = true;
+      }
+      updateSortArrows();
+      render();
+    });
+  });
+
+  document.getElementById("searchInput").addEventListener("input", render);
+  document.getElementById("statusFilter").addEventListener("change", render);
+  document.getElementById("locationFilter").addEventListener("change", render);
+
+  document.getElementById("asOfDate").textContent = formatDate("2026-11-05");
+
+  populateLocationFilter();
+  renderSummary();
+  updateSortArrows();
+  render();
+</script>
+
+</body>
+</html>

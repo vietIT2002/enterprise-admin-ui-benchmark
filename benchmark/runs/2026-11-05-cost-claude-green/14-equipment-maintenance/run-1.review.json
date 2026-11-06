@@ -1,0 +1,53 @@
+{
+  "brief": "14-equipment-maintenance",
+  "run": 1,
+  "items": [
+    {
+      "item": "The page header has a plural title and at most one primary action; other actions such as export sit in a secondary position",
+      "pass": true,
+      "evidence": "h1 'Equipment' (run-1.html:87); header actions are '#btn-export' styled as a secondary outline button and '#btn-add' ('Add equipment') styled as the sole filled blue primary button (run-1.html:89-96); audit metrics.headerPrimaryActions: 1"
+    },
+    {
+      "item": "The table appears in the first viewport, with search and 2–3 visible filters (such as location and status) and no row of KPI cards above it",
+      "pass": true,
+      "evidence": "audit metrics.firstTableTop: 268 (within 900px viewport); filter bar has '#search-input' (Search equipment...) plus 'Location', 'Category' and 'More filters' trigger buttons (run-1.html:106-138); no KPI card row above the table, only status tabs and the filter bar"
+    },
+    {
+      "item": "By default the list is ordered with overdue inspections first, then inspections due soon, then the rest",
+      "pass": true,
+      "evidence": "state.sortKey defaults to 'urgency' (run-1.html:370) and urgencyGroup() returns 0 for overdue, 1 for due within 14 days, 2 for the rest, 3 for no inspection date (run-1.html:392-398); screenshot shows rows sorted from 'Overdue by 180 days' down to 'Due today' / 'Due in 12 days'"
+    },
+    {
+      "item": "Overdue and due-soon inspections are marked with a text label (such as \"Overdue\" or \"Due in 7 days\"), not by colour alone",
+      "pass": true,
+      "evidence": "urgencyText() produces strings like 'Overdue by 180 days', 'Due today', 'Due in 12 days' (run-1.html:400-407), rendered as text next to the date in the Next inspection column, visible in screenshot"
+    },
+    {
+      "item": "Dates are absolute and consistently formatted, and every row has a human-readable equipment code",
+      "pass": true,
+      "evidence": "dateFmt = Intl.DateTimeFormat('en-US', {day:'numeric', month:'short', year:'numeric'}) applied via formatDate() everywhere (run-1.html:289,294-297), producing 'Feb 24, 2026' style dates; every row shows an assetTag like 'WLD-1044' under the equipment name (run-1.html:750)"
+    },
+    {
+      "item": "Status tabs or a summary line show counts (such as \"Overdue 4\")",
+      "pass": true,
+      "evidence": "Status tabs render 'All 48', 'Operational 32', 'Scheduled maintenance 4', 'Needs attention 4', 'Down 4', 'Decommissioned 4' via renderTabs()/tabCounts() (run-1.html:423-428,488-501), visible in screenshot"
+    },
+    {
+      "item": "Rows are single-line, and row actions show at most two visible controls, with icon-only controls having accessible names",
+      "pass": false,
+      "evidence": "audit.violations: rule 'table-row-two-line', severity warn, '25 of 25 rows' stack two lines — the equipment cell renders the name on one line and the assetTag on a second line via a nested <div> (run-1.html:748-750: '<button ...>name</button><div class=\"text-xs text-slate-500\">assetTag</div>'), so rows are not single-line"
+    },
+    {
+      "item": "A filter combination with no matches shows a no-results state with a clear-filters action, distinct from the first-use empty state; a loading state and an error state with retry are present",
+      "pass": true,
+      "evidence": "renderBody() branches on state.pageState: 'loading' shows skeleton rows (run-1.html:701-705), 'error' shows 'Couldn't load equipment' with '#retry-load' button (run-1.html:708-715), 'empty' shows 'No equipment yet' first-use state with '#empty-add' (run-1.html:717-724), and zero-match filtering shows 'No equipment match ...' with '#clear-filters-empty' Clear filters button (run-1.html:734-741), distinct messaging/actions from the empty state"
+    },
+    {
+      "item": "Interactive targets are at least 24×24px, and text and status contrast meets 4.5:1",
+      "pass": false,
+      "evidence": "audit.violations: rule 'text-contrast', severity error — breadcrumb separator 'span.text-slate-400' measured at 2.56:1 vs required 4.5:1 (selector 'header.sticky.top-0 > div.mx-auto.flex > div.flex.items-center > span.text-slate-400:nth-of-type(2)'); target sizes pass (audit metrics.smallTargets: 0) but the contrast rule fails"
+    }
+  ],
+  "tells": [],
+  "notes": "Clean, restrained enterprise table UI with no obvious AI-template tells (no gradients, glass, emoji icons, KPI tiles, greeting header, or decorative chart). Two concrete defects found: (1) rows stack equipment name + asset tag onto two lines rather than a single line, flagged by the automated audit as 'table-row-two-line'; (2) the breadcrumb slash separator fails 4.5:1 text contrast (2.56:1), flagged by the automated audit as 'text-contrast'. Loading/error/empty/no-results states are all implemented and reachable via a '?state=loading|error|empty' URL param plus live zero-match filtering."
+}

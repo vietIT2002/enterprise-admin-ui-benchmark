@@ -1,0 +1,460 @@
+<title>Stock movements</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+  tailwind.config = {
+    theme: {
+      extend: {
+        colors: {
+          success: { subtle: '#dcfce7', 'subtle-foreground': '#166534' },
+          warning: { subtle: '#fef3c7', 'subtle-foreground': '#92400e' },
+          info: { subtle: '#dbeafe', 'subtle-foreground': '#1e40af' },
+          danger: { subtle: '#fee2e2', 'subtle-foreground': '#991b1b' },
+          neutral: { subtle: '#f1f5f9', 'subtle-foreground': '#334155' },
+        },
+      },
+    },
+  }
+</script>
+<style>
+  [hidden] { display: none !important; }
+  body { font-family: system-ui, "Segoe UI", -apple-system, "SF Pro Text", Roboto, "Helvetica Neue", Arial, sans-serif; }
+  .tabular-nums { font-variant-numeric: tabular-nums; }
+</style>
+
+<div class="min-h-screen bg-slate-50 text-slate-900">
+  <!-- App shell -->
+  <div class="flex">
+    <aside class="hidden md:flex w-56 flex-col border-r border-slate-200 bg-slate-50 min-h-screen shrink-0">
+      <div class="h-14 flex items-center px-4 border-b border-slate-200">
+        <span class="font-semibold text-sm">Northgate WMS</span>
+      </div>
+      <nav class="p-2 text-sm space-y-0.5">
+        <a href="#" class="block px-3 py-2 rounded text-slate-600 hover:bg-slate-100">Dashboard</a>
+        <a href="#" class="block px-3 py-2 rounded text-slate-600 hover:bg-slate-100">Inventory</a>
+        <a href="#" class="block px-3 py-2 rounded bg-blue-50 text-blue-700 font-medium">Stock movements</a>
+        <a href="#" class="block px-3 py-2 rounded text-slate-600 hover:bg-slate-100">Purchase orders</a>
+        <a href="#" class="block px-3 py-2 rounded text-slate-600 hover:bg-slate-100">Warehouses</a>
+        <a href="#" class="block px-3 py-2 rounded text-slate-600 hover:bg-slate-100">Reports</a>
+        <a href="#" class="block px-3 py-2 rounded text-slate-600 hover:bg-slate-100">Settings</a>
+      </nav>
+    </aside>
+
+    <main class="flex-1 min-w-0">
+      <div class="max-w-[1400px] mx-auto px-6 py-6">
+        <!-- Header -->
+        <div class="flex items-start justify-between gap-4 mb-4">
+          <div>
+            <nav class="text-xs text-slate-500 mb-1" aria-label="Breadcrumb">Inventory</nav>
+            <h1 class="text-2xl font-semibold text-slate-900">Stock movements</h1>
+          </div>
+          <div class="flex items-center gap-2 shrink-0">
+            <button type="button" class="h-8 px-3 rounded text-sm font-medium border border-slate-300 bg-white text-slate-700 hover:bg-slate-50">Export</button>
+            <div class="relative">
+              <button id="importBtn" type="button" class="h-8 px-3 rounded text-sm font-medium border border-slate-300 bg-white text-slate-700 hover:bg-slate-50">Import</button>
+            </div>
+            <button type="button" class="h-8 px-3 rounded text-sm font-medium bg-blue-700 text-white hover:bg-blue-800">Record movement</button>
+          </div>
+        </div>
+
+        <!-- Status tabs -->
+        <div class="border-b border-slate-200 mb-4">
+          <nav class="flex gap-6 text-sm" aria-label="Movement type tabs">
+            <button data-tab="all" class="tab-btn py-2.5 border-b-2 border-blue-700 text-blue-700 font-medium">All <span class="tabular-nums text-slate-400">(482)</span></button>
+            <button data-tab="receipt" class="tab-btn py-2.5 border-b-2 border-transparent text-slate-600 hover:text-slate-900 font-medium">Receipts <span class="tabular-nums text-slate-400">(164)</span></button>
+            <button data-tab="issue" class="tab-btn py-2.5 border-b-2 border-transparent text-slate-600 hover:text-slate-900 font-medium">Issues <span class="tabular-nums text-slate-400">(201)</span></button>
+            <button data-tab="transfer" class="tab-btn py-2.5 border-b-2 border-transparent text-slate-600 hover:text-slate-900 font-medium">Transfers <span class="tabular-nums text-slate-400">(78)</span></button>
+            <button data-tab="adjustment" class="tab-btn py-2.5 border-b-2 border-transparent text-slate-600 hover:text-slate-900 font-medium">Adjustments <span class="tabular-nums text-slate-400">(39)</span></button>
+          </nav>
+        </div>
+
+        <!-- Filter bar -->
+        <div class="flex flex-wrap items-center gap-2 mb-3">
+          <div class="relative">
+            <svg class="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
+            <input id="searchInput" type="text" placeholder="Search SKU, product or reference" class="h-8 w-72 pl-8 pr-3 rounded border border-slate-400 text-sm placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-700 focus:border-blue-700">
+          </div>
+          <select id="warehouseFilter" class="h-8 px-2 rounded border border-slate-400 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-700">
+            <option value="">All warehouses</option>
+            <option>Warehouse A — North DC</option>
+            <option>Warehouse B — East Hub</option>
+            <option>Warehouse C — South Depot</option>
+            <option>Warehouse D — West Yard</option>
+          </select>
+          <select id="dateFilter" class="h-8 px-2 rounded border border-slate-400 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-700">
+            <option value="">Last 30 days</option>
+            <option>Today</option>
+            <option>Last 7 days</option>
+            <option>Last 90 days</option>
+            <option>Custom range</option>
+          </select>
+          <button id="moreFiltersBtn" type="button" class="h-8 px-3 rounded border border-slate-300 bg-white text-sm text-slate-700 hover:bg-slate-50">More filters</button>
+          <div id="chipRow" class="flex items-center gap-2 ml-1" hidden>
+            <span class="inline-flex items-center gap-1 h-6 rounded-full bg-slate-100 pl-2 pr-1 text-xs font-medium text-slate-700">
+              Warehouse: Warehouse A — North DC
+              <button class="chip-clear w-4 h-4 inline-flex items-center justify-center rounded-full hover:bg-slate-200" aria-label="Remove warehouse filter">&times;</button>
+            </span>
+            <button id="clearAllChips" class="text-xs font-medium text-blue-700 hover:underline">Clear all</button>
+          </div>
+        </div>
+
+        <p class="text-sm text-slate-600 mb-3" id="summaryLine">482 movements · net +3.286 units this period</p>
+
+        <!-- Bulk bar (hidden by default) -->
+        <div id="bulkBar" class="hidden items-center h-10 px-3 mb-0 rounded-t border border-b-0 border-slate-200 bg-blue-50 text-sm">
+          <span class="font-medium tabular-nums text-slate-800" id="selCount">0 selected</span>
+          <button id="selectAllMatching" class="ml-3 text-blue-700 font-medium hover:underline">Select all 482 matching</button>
+          <div class="flex-1"></div>
+          <button class="h-7 px-2.5 rounded border border-slate-300 bg-white text-slate-700 hover:bg-slate-50 mr-2">Export selected</button>
+          <button class="h-7 px-2.5 rounded border border-slate-300 bg-white text-slate-700 hover:bg-slate-50 mr-3">Post selected</button>
+          <button id="cancelSelection" class="text-slate-600 hover:underline">Cancel</button>
+        </div>
+        <div role="status" class="sr-only" id="selStatus"></div>
+
+        <!-- Table -->
+        <div class="border border-slate-200 rounded-md bg-white overflow-hidden">
+          <div class="overflow-x-auto max-h-[calc(100dvh-20rem)] overflow-y-auto">
+            <table class="w-full text-sm" aria-label="Stock movements">
+              <thead class="sticky top-0 bg-white z-10">
+                <tr class="border-b border-slate-200 h-10">
+                  <th class="w-10 px-3"><input id="headerCheckbox" type="checkbox" aria-label="Select all rows on this page" class="w-4 h-4 rounded border-slate-400 text-blue-700 focus:ring-blue-700"></th>
+                  <th class="px-3 text-left font-medium text-slate-600">Reference</th>
+                  <th class="px-3 text-left font-medium text-slate-600">Type</th>
+                  <th class="px-3 text-left font-medium text-slate-600">Product</th>
+                  <th class="px-3 text-left font-medium text-slate-600">Warehouse</th>
+                  <th class="px-3 text-left font-medium text-slate-600">
+                    <button class="inline-flex items-center gap-1" aria-sort="descending">Date <svg class="w-4 h-4 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="m6 9 6 6 6-6"/></svg></button>
+                  </th>
+                  <th class="px-3 text-right font-medium text-slate-600">
+                    <button class="inline-flex flex-row-reverse items-center gap-1 text-right">Quantity</button>
+                  </th>
+                  <th class="px-3 text-left font-medium text-slate-600">Status</th>
+                  <th class="px-3 text-left font-medium text-slate-600">Performed by</th>
+                  <th class="px-3 text-right font-medium text-slate-600"><span class="sr-only">Actions</span></th>
+                </tr>
+              </thead>
+              <tbody id="tableBody"><!-- rows injected by JS --></tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Empty state (hidden by default) -->
+        <div id="emptyState" class="hidden border border-slate-200 border-t-0 rounded-b-md bg-white py-16 text-center">
+          <p class="text-sm font-medium text-slate-900 mb-1">No movements match these filters</p>
+          <p class="text-sm text-slate-600 mb-4">Try a different warehouse, date range or search term.</p>
+          <button id="clearFiltersBtn" class="h-8 px-3 rounded border border-slate-300 bg-white text-sm font-medium text-slate-700 hover:bg-slate-50">Clear filters</button>
+        </div>
+
+        <!-- Pagination -->
+        <div class="flex items-center justify-between mt-3 text-sm text-slate-600">
+          <span class="tabular-nums">1–20 of 482</span>
+          <div class="flex items-center gap-3">
+            <select class="h-8 px-2 rounded border border-slate-300 bg-white text-sm">
+              <option>20 / page</option>
+              <option>50 / page</option>
+              <option>100 / page</option>
+            </select>
+            <div class="flex items-center gap-1">
+              <button class="h-8 w-8 rounded border border-slate-300 bg-white disabled:opacity-40" disabled aria-label="Previous page">
+                <svg class="w-4 h-4 mx-auto text-slate-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="m15 18-6-6 6-6"/></svg>
+              </button>
+              <button class="h-8 w-8 rounded bg-blue-700 text-white font-medium">1</button>
+              <button class="h-8 w-8 rounded border border-slate-300 bg-white hover:bg-slate-50">2</button>
+              <button class="h-8 w-8 rounded border border-slate-300 bg-white hover:bg-slate-50">3</button>
+              <span class="px-1 text-slate-400">…</span>
+              <button class="h-8 w-8 rounded border border-slate-300 bg-white hover:bg-slate-50">25</button>
+              <button class="h-8 w-8 rounded border border-slate-300 bg-white hover:bg-slate-50" aria-label="Next page">
+                <svg class="w-4 h-4 mx-auto text-slate-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="m9 18 6-6-6-6"/></svg>
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+</div>
+
+<script>
+(function () {
+  const WAREHOUSES = ['Warehouse A — North DC', 'Warehouse B — East Hub', 'Warehouse C — South Depot', 'Warehouse D — West Yard'];
+  const PRODUCTS = [
+    { sku: 'SKU-10231', name: 'Steel hex bolt M8x40' },
+    { sku: 'SKU-10452', name: 'Industrial pallet wrap 500mm' },
+    { sku: 'SKU-20118', name: 'Safety helmet, class E' },
+    { sku: 'SKU-20390', name: 'Forklift hydraulic filter' },
+    { sku: 'SKU-30044', name: 'Nitrile gloves, size L (box of 100)' },
+    { sku: 'SKU-30871', name: 'Corrugated carton 400x300x200' },
+    { sku: 'SKU-41022', name: 'LED high-bay fixture 150W' },
+    { sku: 'SKU-41567', name: 'Anti-static wrist strap' },
+    { sku: 'SKU-50289', name: 'Pallet jack wheel assembly' },
+    { sku: 'SKU-50933', name: 'Barcode label roll 4x6' },
+  ];
+  const PEOPLE = ['Maria Gonzalez', 'David Okafor', 'Priya Shah', 'Tom Nilsson', 'Jenna Park', 'System (auto)'];
+
+  const TYPE_META = {
+    receipt:    { label: 'Receipt',    tone: 'info',    sign: 1  },
+    issue:      { label: 'Issue',      tone: 'neutral', sign: -1 },
+    transfer:   { label: 'Transfer',   tone: 'warning', sign: 0  },
+    adjustment: { label: 'Adjustment', tone: 'danger',  sign: 0  },
+  };
+  const STATUS_META = {
+    posted:   { label: 'Posted',   tone: 'success' },
+    pending:  { label: 'Pending',  tone: 'info' },
+    reversed: { label: 'Reversed', tone: 'danger' },
+  };
+
+  function toneClasses(tone) {
+    return {
+      neutral: 'bg-neutral-subtle text-neutral-subtle-foreground',
+      info: 'bg-info-subtle text-info-subtle-foreground',
+      success: 'bg-success-subtle text-success-subtle-foreground',
+      warning: 'bg-warning-subtle text-warning-subtle-foreground',
+      danger: 'bg-danger-subtle text-danger-subtle-foreground',
+    }[tone];
+  }
+
+  // Deterministic mock data generator (no Math.random dependence on real time; seeded for stability)
+  function seededRandom(seed) {
+    let s = seed;
+    return function () {
+      s = (s * 9301 + 49297) % 233280;
+      return s / 233280;
+    };
+  }
+  const rand = seededRandom(42);
+
+  function pad(n) { return n < 10 ? '0' + n : '' + n; }
+  function fmtDate(d) {
+    return pad(d.getDate()) + '/' + pad(d.getMonth() + 1) + '/' + d.getFullYear() + ' ' + pad(d.getHours()) + ':' + pad(d.getMinutes());
+  }
+
+  const TYPES = ['receipt', 'issue', 'transfer', 'adjustment'];
+  const STATUSES = ['posted', 'pending', 'reversed'];
+  const REF_PREFIX = { receipt: 'GRN', issue: 'ISS', transfer: 'TRF', adjustment: 'ADJ' };
+
+  const movements = [];
+  const baseDate = new Date(2026, 10, 6, 17, 0);
+  for (let i = 0; i < 46; i++) {
+    const type = TYPES[Math.floor(rand() * TYPES.length) % TYPES.length];
+    const product = PRODUCTS[Math.floor(rand() * PRODUCTS.length) % PRODUCTS.length];
+    const warehouse = WAREHOUSES[Math.floor(rand() * WAREHOUSES.length) % WAREHOUSES.length];
+    const statusRoll = rand();
+    const status = statusRoll < 0.78 ? 'posted' : statusRoll < 0.93 ? 'pending' : 'reversed';
+    const qty = Math.floor(rand() * 480) + 5;
+    const sign = TYPE_META[type].sign === 1 ? 1 : TYPE_META[type].sign === -1 ? -1 : (rand() > 0.5 ? 1 : -1);
+    const date = new Date(baseDate.getTime() - i * (1000 * 60 * 47) - Math.floor(rand() * 1000 * 60 * 30));
+    const person = PEOPLE[Math.floor(rand() * PEOPLE.length) % PEOPLE.length];
+    const refNum = 10234 + i * 3 + Math.floor(rand() * 7);
+    movements.push({
+      id: i,
+      ref: REF_PREFIX[type] + '-' + refNum,
+      type, product, warehouse, status, qty, sign, date, person,
+      toWarehouse: type === 'transfer' ? WAREHOUSES[(WAREHOUSES.indexOf(warehouse) + 1) % WAREHOUSES.length] : null,
+    });
+  }
+  movements.sort((a, b) => b.date - a.date);
+
+  let activeTab = 'all';
+  let searchTerm = '';
+  let warehouseFilter = '';
+  const selected = new Set();
+
+  function filtered() {
+    return movements.filter((m) => {
+      if (activeTab !== 'all' && m.type !== activeTab) return false;
+      if (warehouseFilter && m.warehouse !== warehouseFilter) return false;
+      if (searchTerm) {
+        const t = searchTerm.toLowerCase();
+        if (!m.ref.toLowerCase().includes(t) && !m.product.sku.toLowerCase().includes(t) && !m.product.name.toLowerCase().includes(t)) return false;
+      }
+      return true;
+    });
+  }
+
+  const tableBody = document.getElementById('tableBody');
+  const emptyState = document.getElementById('emptyState');
+  const bulkBar = document.getElementById('bulkBar');
+  const selCount = document.getElementById('selCount');
+  const selStatus = document.getElementById('selStatus');
+  const headerCheckbox = document.getElementById('headerCheckbox');
+  const summaryLine = document.getElementById('summaryLine');
+
+  function badge(tone, label) {
+    return '<span class="inline-flex h-6 items-center rounded-full px-2 text-xs leading-5 font-medium ' + toneClasses(tone) + '">' + label + '</span>';
+  }
+
+  function render() {
+    const rows = filtered();
+    tableBody.innerHTML = '';
+    if (rows.length === 0) {
+      emptyState.classList.remove('hidden');
+      tableBody.parentElement.parentElement.parentElement.classList.add('hidden');
+      summaryLine.textContent = '0 movements';
+      updateBulkBar();
+      return;
+    }
+    emptyState.classList.add('hidden');
+    tableBody.parentElement.parentElement.parentElement.classList.remove('hidden');
+
+    const netUnits = rows.reduce((acc, m) => acc + m.sign * m.qty, 0);
+    summaryLine.textContent = rows.length + ' movement' + (rows.length === 1 ? '' : 's') + ' · net ' + (netUnits >= 0 ? '+' : '') + netUnits.toLocaleString('en-US') + ' units this period';
+
+    for (const m of rows) {
+      const tm = TYPE_META[m.type];
+      const sm = STATUS_META[m.status];
+      const qtyDisplay = (m.sign > 0 ? '+' : m.sign < 0 ? '-' : '') + m.qty.toLocaleString('en-US');
+      const qtyColor = m.sign > 0 ? 'text-emerald-700' : m.sign < 0 ? 'text-slate-900' : 'text-slate-900';
+      const warehouseCell = m.toWarehouse ? m.warehouse + ' → ' + m.toWarehouse : m.warehouse;
+      const tr = document.createElement('tr');
+      tr.className = 'h-10 border-b border-slate-100 last:border-0 hover:bg-slate-50';
+      tr.innerHTML =
+        '<td class="px-3 py-2.5"><input type="checkbox" data-id="' + m.id + '" aria-label="Select movement ' + m.ref + '" class="row-checkbox w-4 h-4 rounded border-slate-400 text-blue-700 focus:ring-blue-700"></td>' +
+        '<td class="px-3 py-2.5"><a href="#" class="text-blue-700 font-medium hover:underline">' + m.ref + '</a></td>' +
+        '<td class="px-3 py-2.5">' + badge(tm.tone, tm.label) + '</td>' +
+        '<td class="px-3 py-2.5"><div class="text-slate-900">' + m.product.name + '</div><div class="text-xs text-slate-500">' + m.product.sku + '</div></td>' +
+        '<td class="px-3 py-2.5 text-slate-700">' + warehouseCell + '</td>' +
+        '<td class="px-3 py-2.5 text-slate-700 tabular-nums">' + fmtDate(m.date) + '</td>' +
+        '<td class="px-3 py-2.5 text-right tabular-nums font-medium ' + qtyColor + '">' + qtyDisplay + '</td>' +
+        '<td class="px-3 py-2.5">' + badge(sm.tone, sm.label) + '</td>' +
+        '<td class="px-3 py-2.5 text-slate-700">' + m.person + '</td>' +
+        '<td class="px-3 py-2.5 text-right">' +
+          '<button class="w-8 h-8 inline-flex items-center justify-center rounded hover:bg-slate-100" aria-label="Actions for movement ' + m.ref + '">' +
+            '<svg class="w-4 h-4 text-slate-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><circle cx="5" cy="12" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/></svg>' +
+          '</button>' +
+        '</td>';
+      tableBody.appendChild(tr);
+    }
+    attachRowCheckboxListeners();
+    updateBulkBar();
+  }
+
+  function attachRowCheckboxListeners() {
+    document.querySelectorAll('.row-checkbox').forEach((cb) => {
+      cb.checked = selected.has(Number(cb.dataset.id));
+      cb.addEventListener('change', () => {
+        const id = Number(cb.dataset.id);
+        if (cb.checked) selected.add(id); else selected.delete(id);
+        updateBulkBar();
+      });
+    });
+  }
+
+  function updateBulkBar() {
+    const rows = filtered();
+    const visibleIds = rows.map((m) => m.id);
+    const selectedVisible = visibleIds.filter((id) => selected.has(id));
+    if (selected.size === 0) {
+      bulkBar.classList.add('hidden');
+      bulkBar.classList.remove('flex');
+      headerCheckbox.checked = false;
+      headerCheckbox.indeterminate = false;
+      selStatus.textContent = '';
+      return;
+    }
+    bulkBar.classList.remove('hidden');
+    bulkBar.classList.add('flex');
+    selCount.textContent = selected.size.toLocaleString('en-US') + ' selected';
+    selStatus.textContent = selected.size + ' row' + (selected.size === 1 ? '' : 's') + ' selected';
+    if (selectedVisible.length === 0) {
+      headerCheckbox.checked = false;
+      headerCheckbox.indeterminate = false;
+    } else if (selectedVisible.length === visibleIds.length) {
+      headerCheckbox.checked = true;
+      headerCheckbox.indeterminate = false;
+    } else {
+      headerCheckbox.checked = false;
+      headerCheckbox.indeterminate = true;
+    }
+  }
+
+  headerCheckbox.addEventListener('change', () => {
+    const rows = filtered();
+    if (headerCheckbox.checked) {
+      rows.forEach((m) => selected.add(m.id));
+    } else {
+      rows.forEach((m) => selected.delete(m.id));
+    }
+    render();
+  });
+
+  document.getElementById('cancelSelection').addEventListener('click', () => {
+    selected.clear();
+    render();
+    headerCheckbox.focus();
+  });
+
+  document.getElementById('selectAllMatching').addEventListener('click', (e) => {
+    filtered().forEach((m) => selected.add(m.id));
+    render();
+    e.target.textContent = 'All ' + filtered().length + ' matching selected';
+  });
+
+  // Tabs
+  document.querySelectorAll('.tab-btn').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.tab-btn').forEach((b) => {
+        b.classList.remove('border-blue-700', 'text-blue-700');
+        b.classList.add('border-transparent', 'text-slate-600');
+      });
+      btn.classList.add('border-blue-700', 'text-blue-700');
+      btn.classList.remove('border-transparent', 'text-slate-600');
+      activeTab = btn.dataset.tab;
+      selected.clear();
+      render();
+    });
+  });
+
+  // Search
+  const searchInput = document.getElementById('searchInput');
+  searchInput.addEventListener('input', () => {
+    searchTerm = searchInput.value.trim();
+    selected.clear();
+    render();
+  });
+
+  // Warehouse filter + chip
+  const warehouseSelect = document.getElementById('warehouseFilter');
+  const chipRow = document.getElementById('chipRow');
+  const chipLabel = chipRow.querySelector('span');
+  warehouseSelect.addEventListener('change', () => {
+    warehouseFilter = warehouseSelect.value;
+    if (warehouseFilter) {
+      chipLabel.firstChild.textContent = 'Warehouse: ' + warehouseFilter + ' ';
+      chipRow.hidden = false;
+    } else {
+      chipRow.hidden = true;
+    }
+    selected.clear();
+    render();
+  });
+  chipRow.querySelector('.chip-clear').addEventListener('click', () => {
+    warehouseFilter = '';
+    warehouseSelect.value = '';
+    chipRow.hidden = true;
+    render();
+  });
+  document.getElementById('clearAllChips').addEventListener('click', () => {
+    warehouseFilter = '';
+    warehouseSelect.value = '';
+    chipRow.hidden = true;
+    render();
+  });
+  document.getElementById('clearFiltersBtn').addEventListener('click', () => {
+    warehouseFilter = '';
+    searchTerm = '';
+    activeTab = 'all';
+    warehouseSelect.value = '';
+    searchInput.value = '';
+    chipRow.hidden = true;
+    document.querySelectorAll('.tab-btn').forEach((b) => {
+      b.classList.remove('border-blue-700', 'text-blue-700');
+      b.classList.add('border-transparent', 'text-slate-600');
+    });
+    const allTab = document.querySelector('.tab-btn[data-tab="all"]');
+    allTab.classList.add('border-blue-700', 'text-blue-700');
+    allTab.classList.remove('border-transparent', 'text-slate-600');
+    render();
+  });
+
+  render();
+})();
+</script>

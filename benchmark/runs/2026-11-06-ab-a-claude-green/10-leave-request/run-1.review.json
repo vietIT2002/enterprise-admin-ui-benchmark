@@ -1,0 +1,53 @@
+{
+  "brief": "10-leave-request",
+  "run": 1,
+  "items": [
+    {
+      "item": "The page has a breadcrumb or back link to the leave list, a title such as \"New leave request\", and a single-column form with a visible label above every field and no placeholder-only labels",
+      "pass": true,
+      "evidence": "nav[aria-label=\"Breadcrumb\"] with <a href=\"#\">Leave</a> / New request (line 72-76); <h1>New leave request</h1> (line 78); every field (leave-type, start-date, end-date, day-portion legend, approver, attachment, notes) has a visible <label>/<legend> above it, e.g. 'Leave type *' at line 114 and 'Note to approver' at line 212; textarea placeholder 'Add context for your approver (optional)' is supplementary to its real label, not placeholder-only."
+    },
+    {
+      "item": "Required fields are marked consistently, and optional ones (such as the attachment) are labelled as optional",
+      "pass": true,
+      "evidence": "Intro text '* Required.' (line 79) and each required label has a red asterisk span (e.g. leave-type, start-date, end-date, approver at lines 114/131/138/166). Attachment label/help text explicitly states 'Optional unless required by the leave type...' (line 192)."
+    },
+    {
+      "item": "Leave type, start date, end date, approver and reason are present; the approver defaults to the employee's manager and can be changed",
+      "pass": false,
+      "evidence": "All five fields exist (leave-type, start-date, end-date, approver-input, notes textarea as 'Note to approver'), and the approver combobox lets the user pick from APPROVERS list via selectApprover() — but it is NOT pre-filled with a manager default: initial state is `approverId: ''` (line 269) and the button shows placeholder text 'Search people…' (line 170) with no default selection logic anywhere in the script."
+    },
+    {
+      "item": "Start and end dates each allow a full day, morning half or afternoon half, and a single-day request can be set as a half day",
+      "pass": false,
+      "evidence": "The 'Day portion' fieldset only offers two radio options, 'Full day(s)' and 'Half day' (lines 150-151) — there is no morning/afternoon half-day distinction anywhere in the markup or script."
+    },
+    {
+      "item": "The remaining leave balance for the chosen type is visible beside the form and updates with the selection, and the requested duration in days (such as 1.5) is calculated and shown live",
+      "pass": false,
+      "evidence": "The balance strip (lines 82-86) statically shows 'Annual leave balance 12.5 days' and 'Sick leave balance 6 days' at all times; the leave-type change handler (lines 391-396) never reads or updates balance text, so it does not react to the selected type. updateDuration() (lines 380-388) does compute and live-update 'Duration' text, but when dayPortion is 'half' it hardcodes `days = 0.5` regardless of the date range (line 386), so a multi-day half-day request (e.g. 1.5 days) can never be produced."
+    },
+    {
+      "item": "A request that exceeds the balance, or has an end date before the start date, shows an inline error tied to the field with `aria-invalid` and `aria-describedby`, and the entered input is kept",
+      "pass": false,
+      "evidence": "End-date-before-start-date IS validated ('Enter an end date on or after the start date', line 306) and sets aria-invalid via renderFieldError (line 325), but the date inputs never get an aria-describedby pointing at their error paragraph (start-date/end-date markup at lines 132-141 has no aria-describedby attribute at all). There is also no balance-exceeded validation anywhere in validateField() (lines 298-315) — requesting more days than the shown balance produces no error. Entered values are preserved on error (no reset), but the other two required sub-behaviors are missing."
+    },
+    {
+      "item": "The attachment control states accepted file types and size limit, lists the chosen file with a remove button, and is keyboard operable",
+      "pass": true,
+      "evidence": "Helper text 'Accepted: PDF, PNG, JPG. Max 10 MB.' (line 192); renderFileList() lists the chosen file name/size with a `<button aria-label=\"Remove ...\">` (lines 522-546); file selection is reachable via the keyboard-operable 'Browse a file' <button> (line 197) that triggers the hidden file input, and the remove button is a real <button> element."
+    },
+    {
+      "item": "The submit action is a verb label (\"Submit request\") with a secondary Cancel, shows a busy state while submitting to prevent a double submit, and confirms success with a status message that is announced to assistive technology",
+      "pass": true,
+      "evidence": "submit-btn label 'Submit request' (line 232) plus secondary 'Cancel' button (line 229); setSubmitting(true) disables submitBtn and reveals a spinner during the mock 900ms request (lines 563-568, 576); on success showToast('Leave request submitted for approval') populates #toast which has role=\"status\" (lines 238-241, 581)."
+    },
+    {
+      "item": "Leaving the page with unsaved input triggers a warning, and an option to save as draft is offered",
+      "pass": false,
+      "evidence": "beforeunload handler blocks navigation when state.dirty (lines 291-295) and the Cancel button opens a custom 'You have unsaved changes' dialog (lines 598-599, 244-253) — but that dialog only offers 'Stay' and 'Leave page' (lines 249-250); no 'Save as draft' option exists anywhere in the markup or script."
+    }
+  ],
+  "tells": [],
+  "notes": "Clean, non-templated layout overall (no sidebar, gradients, glass, emoji icons, or uppercase tracked labels found) and the automated audit scored 100/100 with zero violations. Main functional gaps are: approver not defaulted to manager, no morning/afternoon half-day option, leave balance panel is static (doesn't reflect selected type) and half-day duration math is wrong for multi-day ranges, no balance-exceeded validation, missing aria-describedby wiring on date field errors, and no save-as-draft option on the unsaved-changes dialog."
+}

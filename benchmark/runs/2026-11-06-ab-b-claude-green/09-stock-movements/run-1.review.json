@@ -1,0 +1,55 @@
+{
+  "brief": "09-stock-movements",
+  "run": 1,
+  "items": [
+    {
+      "item": "The page header has a plural title (\"Stock movements\") and at most one primary action; other actions such as export sit in a secondary position",
+      "pass": true,
+      "evidence": "h1 'Stock movements' (line 48); only 'Record movement' uses the solid blue primary button style (line 55), while 'Export' and 'Import' are white/bordered secondary buttons (lines 51,53). Audit confirms headerPrimaryActions: 1."
+    },
+    {
+      "item": "The movements table appears in the first viewport, with search and 2–3 visible filters (movement type, warehouse, date range) and no decorative hero above it",
+      "pass": true,
+      "evidence": "Audit metric firstTableTop: 228 (within 900px viewport). Search input #searchInput, #warehouseFilter select, #dateFilter select, plus movement-type tabs (All/Receipts/Issues/Transfers/Adjustments, lines 62-66) provide type+warehouse+date filtering; header is a plain title/breadcrumb with no hero banner."
+    },
+    {
+      "item": "Movement type is shown as a text label combined with an icon or shape, not by colour alone, and the set of types is limited to receipt, issue, transfer and adjustment",
+      "pass": false,
+      "evidence": "badge() (line 281-283) renders only a colored pill with a text label ('Receipt'/'Issue'/'Transfer'/'Adjustment') — same rounded-full shape for every type, no icon or distinguishing shape is used. TYPE_META is correctly limited to receipt/issue/transfer/adjustment (line 193-198), but the icon-or-shape requirement is unmet."
+    },
+    {
+      "item": "Quantity changes carry an explicit + or − sign, are right-aligned with tabular figures, and the unit of measure is in the column header or a separate unit column, not repeated inside cells",
+      "pass": false,
+      "evidence": "qtyDisplay prefixes '+'/'-' and cell uses 'text-right tabular-nums' (line 304,316) — sign/alignment/tabular-nums satisfied. However the column header is bare 'Quantity' (line 128) with no unit of measure, and there is no separate unit column anywhere in the table."
+    },
+    {
+      "item": "A transfer row shows both the source and destination warehouse, and each row has a human-readable document number plus an absolute date and time",
+      "pass": true,
+      "evidence": "warehouseCell = m.warehouse + ' → ' + m.toWarehouse for transfers (line 306), visible in screenshot as 'Warehouse A — North DC → Warehouse B — East Hub'. Each row has a readable ref like 'TRF-10243' (REF_PREFIX, line 232/249) and fmtDate produces 'DD/MM/YYYY HH:MM' (line 226-228, e.g. '06/11/2026 15:05')."
+    },
+    {
+      "item": "A running balance or resulting on-hand quantity column is available so users can reconcile each movement",
+      "pass": false,
+      "evidence": "Table columns are limited to Reference, Type, Product, Warehouse, Date, Quantity, Status, Performed by, Actions (lines 119-132) — no running-balance or on-hand quantity column exists."
+    },
+    {
+      "item": "The table is sorted by date, newest first, by default, with `aria-sort` on the sorted header and pagination at the bottom with a page-size control",
+      "pass": true,
+      "evidence": "movements.sort((a,b) => b.date - a.date) (line 254) sorts newest first; Date header button has aria-sort=\"descending\" (line 125); pagination footer includes page-number buttons and a '20 / page' size select (lines 148-169)."
+    },
+    {
+      "item": "A filter combination with no matches shows a no-results state with a clear-filters action, distinct from the first-use empty state; a loading skeleton and an error state with retry are also present",
+      "pass": false,
+      "evidence": "#emptyState (line 141-145) shows 'No movements match these filters' with a 'Clear filters' button when filtered() is empty — but there is no separate first-use/zero-data empty state, no loading skeleton markup, and no error state with a retry action anywhere in the HTML/script."
+    },
+    {
+      "item": "Icon-only controls have accessible names, interactive targets are at least 24×24px, and text and status contrast meets 4.5:1",
+      "pass": false,
+      "evidence": "Icon-only buttons do have aria-labels (e.g. 'Previous page'/'Next page' lines 157,165; 'Actions for movement ...' line 320) and audit reports smallTargets: 0, but the audit flags 6 text-contrast violations at 2.45:1 (expected 4.5:1) for the tab count spans, e.g. '.tab-btn:nth-of-type(1) > span.tabular-nums.text-slate-400' — text contrast requirement fails."
+    }
+  ],
+  "tells": [
+    "rainbow-status"
+  ],
+  "notes": "rainbow-status: type badges (info/neutral/warning/danger) plus status badges (success/info/danger) together span blue, gray, amber, red and green for non-ordinal categorical values, giving the table a multi-hue 'rainbow' badge palette. No other listed template tells (greeting-header, kpi-icon-tiles, delta-pill-without-period, initials-avatar-non-person, gradient, glass, tracked-uppercase-labels, emoji-icon, sidebar-promo-card, decorative-chart, card-in-card, hover-lift, oversized-radius, navy-sidebar-indigo-accent) were observed."
+}

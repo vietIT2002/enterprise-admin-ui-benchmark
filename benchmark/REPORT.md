@@ -12,6 +12,7 @@ Detailed reports:
 - [NEXT](runs/2026-11-05-next-green/NEXT.md) (a real Next.js + shadcn/ui codebase)
 - [CODEX](runs/2026-11-05-codex-green/CODEX.md) (Codex CLI as the agent)
 - [BLIND](runs/2026-11-05-blind-heldout2/BLIND.md) (blind re-review of the held-out 2 pages)
+- [COST](runs/2026-11-05-cost-claude-green/COST.md) (tokens and cost per page, with and without the skill)
 
 ![Orders list before and after](../docs/img/before-after-01-orders-list.png)
 
@@ -170,5 +171,19 @@ node benchmark/tools/audit-page.mjs --run benchmark/runs/<folder>
 node benchmark/tools/aggregate.mjs benchmark/runs/<folder>
 node benchmark/tools/compare.mjs benchmark/runs/<red-folder> benchmark/runs/<green-folder>
 ```
+
+To generate, audit, review and compare in one command, run `npm run bench`. Without `--yes` it only prints the plan and a token estimate:
+
+```bash
+npm run bench -- --name 2026-11-06-smoke --agent claude --briefs 12-contract-detail,13-employee-onboarding --runs 1
+npm run bench -- --name 2026-11-06-smoke --agent claude --briefs 12-contract-detail,13-employee-onboarding --runs 1 --yes
+```
+
+Each `claude -p` call is isolated:
+- project settings only, no MCP servers;
+- no Skill tool, so neither side can load a skill on its own; the GREEN prompt still tells the agent to read `SKILL.md`;
+- no shell or web tools.
+
+The measured tokens and cost of every call go to `bench-usage.json`. `--agent codex` uses the Codex CLI for generation (see CODEX.md).
 
 Generation and review prompts are in [GENERATION.md](GENERATION.md) and [REVIEW.md](REVIEW.md). The briefs, with their checklists, are in [briefs/](briefs/) and [briefs-heldout/](briefs-heldout/).

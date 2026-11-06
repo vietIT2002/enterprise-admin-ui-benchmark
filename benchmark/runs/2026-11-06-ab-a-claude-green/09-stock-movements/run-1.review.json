@@ -1,0 +1,53 @@
+{
+  "brief": "09-stock-movements",
+  "run": 1,
+  "items": [
+    {
+      "item": "The page header has a plural title (\"Stock movements\") and at most one primary action; other actions such as export sit in a secondary position",
+      "pass": true,
+      "evidence": "h1 text \"Stock movements\"; header has #exportBtn styled as secondary (border border-slate-300 bg-white) and #recordBtn styled as the sole primary action (bg-primary text-primary-foreground); audit metrics report headerPrimaryActions: 1"
+    },
+    {
+      "item": "The movements table appears in the first viewport, with search and 2–3 visible filters (movement type, warehouse, date range) and no decorative hero above it",
+      "pass": true,
+      "evidence": "Table visible at top of screenshot (firstTableTop: 216 per audit); filter bar has #searchInput, #warehouseFilter, #typeFilter directly visible plus a #moreFiltersBtn for date range; header above the table is a compact breadcrumb + title + status tabs, no hero banner/imagery"
+    },
+    {
+      "item": "Movement type is shown as a text label combined with an icon or shape, not by colour alone, and the set of types is limited to receipt, issue, transfer and adjustment",
+      "pass": false,
+      "evidence": "typeBadge() renders only `<span class=\"inline-flex h-6 ... rounded-full ... bg-${tone}-subtle ...\">${type}</span>` — a plain colored text pill with no icon or distinguishing shape per type. Types are correctly limited to Receipt/Issue/Transfer/Adjustment, but the icon/shape requirement is unmet."
+    },
+    {
+      "item": "Quantity changes carry an explicit + or − sign, are right-aligned with tabular figures, and the unit of measure is in the column header or a separate unit column, not repeated inside cells",
+      "pass": false,
+      "evidence": "qtyDisplay = (r.qty > 0 ? '+' : '') + fmtNumber(r.qty) rendered in `<td class=\"px-3 py-2.5 text-right tabular-nums font-medium ...\">` — sign and right-alignment/tabular-nums are correct, but the column header is plain \"Quantity\" with no unit shown anywhere (no unit in header, no separate unit column, no per-cell unit)"
+    },
+    {
+      "item": "A transfer row shows both the source and destination warehouse, and each row has a human-readable document number plus an absolute date and time",
+      "pass": true,
+      "evidence": "For type==='Transfer', from=wh1 and to=wh2 (a different warehouse) are both rendered in the From/To columns (e.g. \"TR-101133 ... Newark Cross-dock → Seattle Fulfillment\"); ref format like \"TR-101133\"; fmtDate uses Intl.DateTimeFormat with year/month/day/hour/minute e.g. \"11/03/2026, 11:24 PM\""
+    },
+    {
+      "item": "A running balance or resulting on-hand quantity column is available so users can reconcile each movement",
+      "pass": false,
+      "evidence": "Table columns are only: checkbox, Reference, Type, Item, From, To, Quantity, Date, Status, Performed by, Actions — no balance/on-hand column exists in the <thead> or row template"
+    },
+    {
+      "item": "The table is sorted by date, newest first, by default, with aria-sort on the sorted header and pagination at the bottom with a page-size control",
+      "pass": false,
+      "evidence": "ALL_ROWS.sort((a,b) => b.date - a.date) does default to newest-first, and pagination with #pageSizeSelect exists at the bottom — but aria-sort=\"descending\" is placed on the #sortRef button labeled \"Reference\", while the plain-text Date <th> (the column actually sorted) has no aria-sort attribute at all, so the sort indicator is on the wrong header"
+    },
+    {
+      "item": "A filter combination with no matches shows a no-results state with a clear-filters action, distinct from the first-use empty state; a loading skeleton and an error state with retry are also present",
+      "pass": false,
+      "evidence": "emptyStateHtml() correctly branches between a first-use message (\"No stock movements yet...\") and a filtered no-results message with a #clearFiltersEmpty \"Clear filters\" button — but there is no loading skeleton anywhere in the markup/script (audit env.loadingPlaceholders: 0) and no error state with a retry action exists in the code"
+    },
+    {
+      "item": "Icon-only controls have accessible names, interactive targets are at least 24×24px, and text and status contrast meets 4.5:1",
+      "pass": true,
+      "evidence": "Icon-only buttons carry aria-label (e.g. aria-label=\"Actions for movement ${r.ref}\", aria-label=\"Remove filter ${c.label}\", aria-label=\"Select all rows on this page\"); audit reports smallTargets: 0 and no text-contrast violations across 289 checked text nodes"
+    }
+  ],
+  "tells": [],
+  "notes": "Clean, restrained admin-table implementation with no gradient/glass/emoji/oversized-radius/navy-indigo tells detected; status and type badges use a limited, semantically-toned palette rather than a 'rainbow' set. Main gaps are the missing on-hand/balance column, missing unit-of-measure labeling, type badges relying on color+text only (no icon/shape), a mismatched aria-sort (placed on Reference instead of the actually-sorted Date column), and the absence of loading-skeleton and error/retry states."
+}

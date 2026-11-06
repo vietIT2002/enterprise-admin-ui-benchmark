@@ -19,7 +19,7 @@ ${out}
 
 When done, reply with only the file path.`;
 
-export const GREEN = (prompt, out) => `A skill for this kind of work is installed at ${SKILL_DIR}. Before you start, read its SKILL.md and follow it; open the reference files it points to when your task needs them. Do not read any other files under \`skills/\`, \`docs/\` or \`benchmark/\`, and do not create any file other than the one below.
+export const GREEN = (prompt, out, skillDir = SKILL_DIR) => `A skill for this kind of work is installed at ${skillDir}. Before you start, read its SKILL.md and follow it; open the reference files it points to when your task needs them. Do not read any other files under \`skills/\`, \`docs/\` or \`benchmark/\`, and do not create any file other than the one below.
 
 Task from a user: "${prompt}"
 
@@ -62,7 +62,8 @@ function codexJs() {
   return path.join(npmRoot, '@openai', 'codex', 'bin', 'codex.js');
 }
 
-function runOne(job, opts) {
+// Runs one Codex generation. job: { cond, brief, run, lang, work }; opts: { out, model, effort, winSandbox, folder? }.
+export function runCodex(job, opts) {
   return new Promise((resolve) => {
     fs.mkdirSync(job.work, { recursive: true });
     const out = path.join(job.work, `run-${job.run}.html`);
@@ -86,7 +87,7 @@ function runOne(job, opts) {
       fs.writeFileSync(path.join(job.work, 'stderr.txt'), stderr);
       const ok = fs.existsSync(out);
       if (ok) {
-        const dest = path.join(opts.out, `2026-11-05-codex-${job.cond}`, job.brief, `run-${job.run}.html`);
+        const dest = path.join(opts.out, opts.folder ? opts.folder(job.cond) : `2026-11-05-codex-${job.cond}`, job.brief, `run-${job.run}.html`);
         fs.mkdirSync(path.dirname(dest), { recursive: true });
         fs.copyFileSync(out, dest);
       }
@@ -117,7 +118,7 @@ async function main() {
   async function worker() {
     while (next < jobs.length) {
       const job = jobs[next++];
-      const r = await runOne(job, opts);
+      const r = await runCodex(job, opts);
       console.log(`${r.cond} ${r.brief} run-${r.run}: exit ${r.code}, file ${r.ok ? 'written' : 'MISSING'}, ${r.seconds}s, tokens in ${r.usage.input} (cached ${r.usage.cached}) out ${r.usage.output}`);
       results.push(r);
     }

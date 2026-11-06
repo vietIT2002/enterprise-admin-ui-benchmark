@@ -1,0 +1,55 @@
+{
+  "brief": "13-employee-onboarding",
+  "run": 1,
+  "items": [
+    {
+      "item": "The form is split into titled sections (personal, job and contract, bank and tax, emergency contact, documents) in a single column, with a visible label above every field and no placeholder-only labels",
+      "pass": true,
+      "evidence": "Five <section> blocks each with <h2 class=\"section-title\">: 'Personal details', 'Job and contract', 'Bank and tax information', 'Emergency contact', 'Documents' (lines 100,193,323,382,426). Every input has a <label class=\"field-label\" for=...> above it (e.g. 'First name', 'National ID / Passport number'); placeholders like 'e.g. Jane' are supplementary hints, not substitutes for labels. Layout is a single main column (max-w-3xl) with only closely-related pairs (first/last name, city/postal, start/end date) sharing a row."
+    },
+    {
+      "item": "Required fields are marked consistently, and optional fields are labelled as optional or left unmarked by a stated convention",
+      "pass": true,
+      "evidence": "Page states the convention 'p class=\"mb-6 text-sm text-slate-600\">* Required' (line 89). Every required field's label ends with '<span aria-hidden=\"true\" class=\"text-red-600\">*</span>' (e.g. firstName line 104); optional fields such as preferredName, addressLine, city, alternatePhone, contactEmail, filingStatus, probationPeriodMonths carry no asterisk, consistent with the stated convention."
+    },
+    {
+      "item": "Field widths match their content: dates, postal codes and tax codes are narrow; inputs use the right types (email, tel, date)",
+      "pass": true,
+      "evidence": "dateOfBirth/startDate/endDate wrapped in 'w-40' containers (lines 122,243,248), postalCode in 'w-28' (line 167), taxId in 'w-48' (line 360) — all narrow vs. max-w-md/max-w-xl text fields. Correct input types: type=\"date\" for date fields, type=\"email\" for personalEmail/contactEmail, type=\"tel\" for phone/contactPhone/alternatePhone (lines 124,146,153,245,250,406,412,418)."
+    },
+    {
+      "item": "An option to save the form as a draft is offered, and saving a draft does not demand every required field",
+      "pass": true,
+      "evidence": "'<button type=\"button\" id=\"draftBtn\" class=\"btn btn-secondary\">Save draft</button>' (line 530). Its click handler (line 846) only updates the status badge/toast and never calls validateAndShow/FIELDS validation, so an incomplete form can still be saved as a draft."
+    },
+    {
+      "item": "Save and Cancel stay reachable while scrolling (a sticky bar or equivalent), Save is a verb label and is not disabled before submitting",
+      "pass": true,
+      "evidence": "'<div class=\"sticky bottom-0 -mx-6 ... bg-white px-6 py-3\">' contains Cancel, Save draft and the primary '<button type=\"submit\" id=\"saveBtn\" class=\"btn btn-primary\">...<span>Save employee</span>' (lines 523-534). The button has no 'disabled' attribute on load; it is only disabled transiently inside doSave() while the spinner shows (line 806), not before submission."
+    },
+    {
+      "item": "Fields validate on blur and on submit; with several errors a summary at the top links to each field and focus moves to the first invalid field",
+      "pass": true,
+      "evidence": "Text inputs validate on 'blur' and selects on 'change' (line 681); form submit handler (line 818) re-validates all FIELDS. renderErrorSummary() builds an anchor list ('a.href=\"#\"+err.field.name') for each error once errors.length >= 3 (lines 696-729), and on submit focusField(errors[0].field.name) calls .focus() and scrollIntoView on the first invalid control (lines 649-653, 838-840)."
+    },
+    {
+      "item": "Leaving the page with unsaved input triggers a warning",
+      "pass": true,
+      "evidence": "markDirty() registers a 'beforeunload' handler that calls e.preventDefault() (lines 656,665-670); Cancel and the 'Employees' breadcrumb link both route through attemptLeave(), which shows an in-page '<div id=\"leaveDialog\" role=\"alertdialog\">You have unsaved changes / Leave without saving?' confirmation when isDirty is true (lines 539-548, 860-869)."
+    },
+    {
+      "item": "The document upload states accepted file types and the size limit, lists chosen files with a remove button, and is keyboard operable",
+      "pass": true,
+      "evidence": "'Accepted formats: PDF, JPG, PNG, up to 10 MB.' (line 427). Each uploaded row shows the chosen filename/type/size (doc-meta, e.g. 'passport_scan.pdf · PDF · 1.2 MB', line 437) plus a '<button class=\"btn-link doc-remove\">Remove</button>' (line 445/765). Uploads are triggered by real <button> elements calling fileInput.click() (lines 751, 462/515), so they respond to native keyboard activation (Enter/Space) despite the underlying <input type=\"file\" class=\"hidden\">."
+    },
+    {
+      "item": "Success is confirmed with a message that names the employee and is announced to assistive technology",
+      "pass": true,
+      "evidence": "doSave() builds the full name from firstName/lastName and calls showToast('Employee ' + name + ' submitted for approval.') (lines 811-812). The toast container is '<div id=\"toast\" role=\"status\" aria-live=\"polite\">' (line 550), so it is announced to assistive technology."
+    }
+  ],
+  "tells": [
+    "initials-avatar-non-person"
+  ],
+  "notes": "Header shows a generic role-initials avatar 'HR' for the signed-in user (user@example.com) rather than the actual person's initials, which reads as a templated placeholder rather than a bound user identity. Otherwise the screen is a clean, restrained enterprise form: no gradients/glass/emoji/uppercase tracked labels/rainbow badges/decorative charts were found, consistent with the audit's clean metrics (radii 4/6, no hard-stop gradients, no emoji-icon or uppercase-text violations). The sticky action bar appears mid-page in the stitched full-page screenshot; that is an artifact of how full-page capture freezes a sticky element at its last on-screen scroll position, not a real positioning bug — the bar is 'position: sticky; bottom: 0' inside the form and pins to the viewport bottom during actual scrolling."
+}

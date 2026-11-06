@@ -1,0 +1,57 @@
+{
+  "brief": "14-equipment-maintenance",
+  "run": 1,
+  "items": [
+    {
+      "item": "The page header has a plural title and at most one primary action; other actions such as export sit in a secondary position",
+      "pass": true,
+      "evidence": "Header title is 'Factory Equipment Maintenance' (collection-level, equipment as a mass/plural entity) with subtitle 'Equipment registry — location, operational status, and service schedule'. The header contains zero action buttons (only a non-interactive 'Data current as of' badge), so there is trivially at most one primary action and no export/secondary action is mis-positioned."
+    },
+    {
+      "item": "The table appears in the first viewport, with search and 2–3 visible filters (such as location and status) and no row of KPI cards above it",
+      "pass": false,
+      "evidence": "A KPI row `<div class=\"grid grid-cols-2 sm:grid-cols-4 gap-4 mb-8\" id=\"summaryCards\">` renders 4 cards (Total Equipment, Operational, Needs Attention, Out of Service) above the search/filter bar and table, visible at the top of run-1.png. Search (#searchInput) plus 2 filters (#statusFilter, #locationFilter) are present, but the KPI card row above the table violates this item."
+    },
+    {
+      "item": "By default the list is ordered with overdue inspections first, then inspections due soon, then the rest",
+      "pass": false,
+      "evidence": "`let sortKey = \"id\"; let sortAsc = true;` — the default sort is by Equipment ID ascending (EQ-1001, EQ-1002, EQ-1003...), confirmed in the screenshot. There is no logic ordering by nextInspection urgency by default."
+    },
+    {
+      "item": "Overdue and due-soon inspections are marked with a text label (such as \"Overdue\" or \"Due in 7 days\"), not by colour alone",
+      "pass": true,
+      "evidence": "`inspectionWarning = inspectionDays <= 7 ? '<span class=\"text-rose-500 text-xs ml-1.5\">(' + (inspectionDays <= 0 ? 'overdue' : 'in ' + inspectionDays + 'd') + ')</span>' : ''` renders visible text such as '(in 5d)' and '(in 1d)' next to the Next Inspection date, e.g. row EQ-1002 shows 'Nov 10, 2026 (in 5d)' in run-1.png."
+    },
+    {
+      "item": "Dates are absolute and consistently formatted, and every row has a human-readable equipment code",
+      "pass": true,
+      "evidence": "`formatDate()` uses `toLocaleDateString(\"en-US\", { year: \"numeric\", month: \"short\", day: \"numeric\" })` consistently for both Last Service and Next Inspection columns (e.g. 'Sep 12, 2026'). Every row has a readable code like 'EQ-1001' in the Equipment ID column."
+    },
+    {
+      "item": "Status tabs or a summary line show counts (such as \"Overdue 4\")",
+      "pass": false,
+      "evidence": "The summary cards only break down operational status counts ('Total Equipment 18', 'Operational 11', 'Needs Attention 3', 'Out of Service 2') via `renderSummary()`. No count is shown anywhere for overdue or due-soon inspections, which is the metric the row-level warning labels and item 3/4 are built around."
+    },
+    {
+      "item": "Rows are single-line, and row actions show at most two visible controls, with icon-only controls having accessible names",
+      "pass": true,
+      "evidence": "Audit confirms rows.single=18, rows.double=0, rows.multi=0 (single-line rows). No row action buttons/icons exist at all in the `<tr>` template (only data cells), so there are zero visible controls (≤2) and no icon-only accessibility issue."
+    },
+    {
+      "item": "A filter combination with no matches shows a no-results state with a clear-filters action, distinct from the first-use empty state; a loading state and an error state with retry are present",
+      "pass": false,
+      "evidence": "Only one empty-state div exists: `<div id=\"emptyState\" class=\"hidden text-center text-slate-400 py-12 text-sm\">No equipment matches your search.</div>`, shown for any zero-result filter combo with no 'clear filters' button, no distinct first-use state, and no loading or error/retry states anywhere in the script (data renders synchronously from a hard-coded array)."
+    },
+    {
+      "item": "Interactive targets are at least 24×24px, and text and status contrast meets 4.5:1",
+      "pass": false,
+      "evidence": "Audit violation 'text-contrast' ×7: e.g. `tbody#tableBody > tr:nth-of-type(2) > td:nth-of-type(6) > span.text-rose-500.text-xs` measured 3.67:1 (expected 4.5:1) — the rose-500 '(in Xd)'/'(overdue)' inline warning labels fail contrast."
+    }
+  ],
+  "tells": [
+    "tracked-uppercase-labels",
+    "rainbow-status",
+    "oversized-radius"
+  ],
+  "notes": "Audit score 62/100. Key violations beyond the checklist: table-row-height 49px vs 32–48px expected (×17), radius-scale 12px on summary cards vs ≤8px expected, uppercase-tracked KPI labels ('TOTAL EQUIPMENT', 'OPERATIONAL', etc.), and shadow-based cards instead of border-only per surface-shadow rule. No row-level action controls exist at all, which trivially satisfies the 'at most two controls' clause of item 7 but means the table offers no way to act on a piece of equipment (e.g. schedule service, view detail)."
+}

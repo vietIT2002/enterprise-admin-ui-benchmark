@@ -1,0 +1,442 @@
+<title>Equipment — Factory Maintenance</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+  [hidden] { display: none !important; }
+  .tabular-nums { font-variant-numeric: tabular-nums; }
+</style>
+
+<div class="min-h-screen bg-slate-50 text-slate-900 flex">
+  <!-- Sidebar -->
+  <aside class="hidden md:flex w-56 flex-col border-r border-slate-200 bg-white">
+    <div class="h-14 flex items-center px-4 border-b border-slate-200 font-semibold text-slate-900">Factory MMS</div>
+    <nav class="flex-1 py-3 text-sm">
+      <a href="#" class="flex items-center gap-2 px-4 py-2 rounded mx-2 bg-blue-50 text-blue-700 font-medium">Equipment</a>
+      <a href="#" class="flex items-center gap-2 px-4 py-2 rounded mx-2 text-slate-600 hover:bg-slate-100">Work orders</a>
+      <a href="#" class="flex items-center gap-2 px-4 py-2 rounded mx-2 text-slate-600 hover:bg-slate-100">Inspections</a>
+      <a href="#" class="flex items-center gap-2 px-4 py-2 rounded mx-2 text-slate-600 hover:bg-slate-100">Parts inventory</a>
+      <a href="#" class="flex items-center gap-2 px-4 py-2 rounded mx-2 text-slate-600 hover:bg-slate-100">Reports</a>
+      <a href="#" class="flex items-center gap-2 px-4 py-2 rounded mx-2 text-slate-600 hover:bg-slate-100">Settings</a>
+    </nav>
+  </aside>
+
+  <!-- Main -->
+  <div class="flex-1 min-w-0">
+    <header class="h-14 border-b border-slate-200 bg-white flex items-center justify-between px-4 md:px-6">
+      <div class="text-sm text-slate-500">Maintenance</div>
+      <div class="flex items-center gap-3">
+        <span class="text-sm text-slate-600">user@example.com</span>
+        <div class="h-8 w-8 rounded-full bg-slate-200 flex items-center justify-center text-xs font-medium text-slate-700">AD</div>
+      </div>
+    </header>
+
+    <main class="p-4 md:p-6 max-w-[1440px] mx-auto">
+      <!-- Page header -->
+      <div class="flex items-start justify-between gap-4 flex-wrap mb-4">
+        <div>
+          <h1 class="text-xl font-semibold text-slate-900">Equipment</h1>
+          <p class="text-sm text-slate-500 mt-0.5">Machines and assets across all production lines</p>
+        </div>
+        <div class="flex items-center gap-2">
+          <button class="h-8 px-3 text-sm font-medium text-slate-700 border border-slate-300 rounded bg-white hover:bg-slate-50">Export</button>
+          <button class="h-8 px-3 text-sm font-medium text-slate-700 border border-slate-300 rounded bg-white hover:bg-slate-50">Import</button>
+          <button id="addEquipmentBtn" class="h-8 px-3 text-sm font-medium text-white bg-blue-700 rounded hover:bg-blue-800">Add equipment</button>
+        </div>
+      </div>
+
+      <!-- Status tabs -->
+      <div class="border-b border-slate-200 mb-4">
+        <nav class="flex gap-6 text-sm">
+          <button data-tab="all" class="tab-btn py-2.5 border-b-2 border-blue-700 text-blue-700 font-medium">All <span class="tabular-nums">24</span></button>
+          <button data-tab="operational" class="tab-btn py-2.5 border-b-2 border-transparent text-slate-600 hover:text-slate-900">Operational <span class="tabular-nums">16</span></button>
+          <button data-tab="maintenance" class="tab-btn py-2.5 border-b-2 border-transparent text-slate-600 hover:text-slate-900">In maintenance <span class="tabular-nums">3</span></button>
+          <button data-tab="down" class="tab-btn py-2.5 border-b-2 border-transparent text-slate-600 hover:text-slate-900">Down <span class="tabular-nums">2</span></button>
+          <button data-tab="retired" class="tab-btn py-2.5 border-b-2 border-transparent text-slate-600 hover:text-slate-900">Retired <span class="tabular-nums">3</span></button>
+        </nav>
+      </div>
+
+      <!-- Filter bar -->
+      <div class="flex items-center gap-2 flex-wrap mb-3">
+        <div class="relative flex-1 min-w-[220px] max-w-sm">
+          <input id="searchInput" type="search" placeholder="Search equipment or code…" class="w-full h-8 pl-8 pr-3 text-sm border border-slate-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-700" />
+          <svg class="w-4 h-4 text-slate-400 absolute left-2.5 top-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-4.35-4.35m1.35-5.65a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+        </div>
+        <select id="locationFilter" class="h-8 text-sm border border-slate-300 rounded px-2 bg-white">
+          <option value="">All locations</option>
+          <option>Line A — Assembly</option>
+          <option>Line B — Packaging</option>
+          <option>Line C — Welding</option>
+          <option>Warehouse</option>
+          <option>Utility room</option>
+        </select>
+        <select id="statusFilter" class="h-8 text-sm border border-slate-300 rounded px-2 bg-white">
+          <option value="">All statuses</option>
+          <option value="operational">Operational</option>
+          <option value="maintenance">In maintenance</option>
+          <option value="down">Down</option>
+          <option value="retired">Retired</option>
+        </select>
+        <button id="moreFiltersBtn" class="h-8 px-3 text-sm text-slate-700 border border-slate-300 rounded bg-white hover:bg-slate-50">More filters</button>
+        <div id="chipsRow" class="flex items-center gap-2 flex-wrap"></div>
+      </div>
+
+      <p id="summaryLine" class="text-sm text-slate-500 mb-2">24 machines</p>
+
+      <!-- Bulk bar (hidden by default) -->
+      <div id="bulkBar" hidden class="flex items-center h-10 px-3 mb-2 bg-blue-50 border border-blue-200 rounded text-sm">
+        <span class="font-medium text-blue-900 tabular-nums"><span id="selCount">0</span> selected</span>
+        <div class="flex-1"></div>
+        <button class="h-8 px-3 mr-2 text-slate-700 border border-slate-300 rounded bg-white hover:bg-slate-50">Schedule service</button>
+        <button class="h-8 px-3 mr-2 text-slate-700 border border-slate-300 rounded bg-white hover:bg-slate-50">Change status</button>
+        <button id="cancelSelectionBtn" class="h-8 px-3 text-slate-600 hover:text-slate-900">Cancel</button>
+      </div>
+      <div role="status" class="sr-only" id="selectionAnnounce"></div>
+
+      <!-- Table -->
+      <div class="rounded-md border border-slate-200 bg-white overflow-x-auto">
+        <table class="w-full text-sm" aria-label="Equipment">
+          <thead>
+            <tr class="border-b border-slate-200">
+              <th class="w-10 px-3 h-10"><input type="checkbox" id="headerCheckbox" aria-label="Select all rows on this page" class="h-4 w-4" /></th>
+              <th class="text-left font-medium text-slate-600 px-3 h-10">Machine</th>
+              <th class="text-left font-medium text-slate-600 px-3 h-10">Location</th>
+              <th class="text-left font-medium text-slate-600 px-3 h-10">Status</th>
+              <th class="text-left font-medium text-slate-600 px-3 h-10">Last service</th>
+              <th class="text-left font-medium text-slate-600 px-3 h-10">Next inspection</th>
+              <th class="px-3 h-10"><span class="sr-only">Actions</span></th>
+            </tr>
+          </thead>
+          <tbody id="tableBody"></tbody>
+          <tbody id="skeletonBody" hidden></tbody>
+          <tbody id="emptyBody" hidden>
+            <tr><td colspan="7" class="py-12 text-center">
+              <p class="text-sm text-slate-500 mb-3">No equipment match these filters.</p>
+              <button id="clearFiltersBtn" class="h-8 px-3 text-sm text-blue-700 border border-blue-700 rounded hover:bg-blue-50">Clear filters</button>
+            </td></tr>
+          </tbody>
+          <tbody id="errorBody" hidden>
+            <tr><td colspan="7" class="py-12 text-center">
+              <p class="text-sm text-slate-500 mb-3">Couldn't load equipment.</p>
+              <button id="retryBtn" class="h-8 px-3 text-sm text-blue-700 border border-blue-700 rounded hover:bg-blue-50">Retry</button>
+            </td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Pagination -->
+      <div class="flex items-center justify-between mt-3 text-sm text-slate-600">
+        <span>1–24 of <span class="tabular-nums">24</span></span>
+        <div class="flex items-center gap-2">
+          <select class="h-8 text-sm border border-slate-300 rounded px-2 bg-white">
+            <option>25 / page</option>
+            <option>50 / page</option>
+            <option>100 / page</option>
+          </select>
+          <button class="h-8 px-3 border border-slate-300 rounded bg-white text-slate-400" disabled>Previous</button>
+          <button class="h-8 px-3 border border-blue-700 rounded bg-blue-50 text-blue-700 font-medium">1</button>
+          <button class="h-8 px-3 border border-slate-300 rounded bg-white text-slate-400" disabled>Next</button>
+        </div>
+      </div>
+    </main>
+  </div>
+</div>
+
+<!-- Delete confirmation dialog -->
+<div id="confirmDialog" hidden class="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
+  <div class="bg-white rounded-lg shadow-lg w-full max-w-sm p-5" role="dialog" aria-modal="true" aria-labelledby="confirmTitle">
+    <h2 id="confirmTitle" class="text-base font-semibold text-slate-900 mb-2">Retire this machine?</h2>
+    <p id="confirmBody" class="text-sm text-slate-600 mb-4">This will mark the machine as retired. It can be reactivated later.</p>
+    <div class="flex justify-end gap-2">
+      <button id="confirmCancel" class="h-8 px-3 text-sm border border-slate-300 rounded bg-white hover:bg-slate-50">Cancel</button>
+      <button id="confirmOk" class="h-8 px-3 text-sm text-white bg-red-600 rounded hover:bg-red-700">Retire machine</button>
+    </div>
+  </div>
+</div>
+
+<!-- Toast -->
+<div id="toast" hidden role="status" class="fixed bottom-4 right-4 bg-slate-900 text-white text-sm px-4 py-2.5 rounded shadow-lg z-50"></div>
+
+<script>
+const MACHINES = [
+  { id:'EQ-1001', name:'CNC Mill 3-Axis #1', location:'Line A — Assembly', status:'operational', lastService:'2026-09-14', nextInspection:'2026-11-02' },
+  { id:'EQ-1002', name:'Robotic Welder RW-220', location:'Line C — Welding', status:'down', nextInspection:'2026-11-06', lastService:'2026-06-20' },
+  { id:'EQ-1003', name:'Hydraulic Press HP-9', location:'Line A — Assembly', status:'maintenance', lastService:'2026-10-28', nextInspection:'2026-11-10' },
+  { id:'EQ-1004', name:'Conveyor Belt C-12', location:'Line B — Packaging', status:'operational', lastService:'2026-08-30', nextInspection:'2026-11-18' },
+  { id:'EQ-1005', name:'Industrial Air Compressor AC-5', location:'Utility room', status:'operational', lastService:'2026-07-11', nextInspection:'2026-11-22' },
+  { id:'EQ-1006', name:'Palletizer PZ-3', location:'Line B — Packaging', status:'operational', lastService:'2026-09-02', nextInspection:'2026-11-28' },
+  { id:'EQ-1007', name:'Laser Cutter LC-700', location:'Line C — Welding', status:'down', lastService:'2026-05-15', nextInspection:'2026-11-04' },
+  { id:'EQ-1008', name:'Forklift FL-02', location:'Warehouse', status:'operational', lastService:'2026-10-05', nextInspection:'2026-12-01' },
+  { id:'EQ-1009', name:'Shrink Wrap Machine SW-1', location:'Line B — Packaging', status:'operational', lastService:'2026-09-20', nextInspection:'2026-12-04' },
+  { id:'EQ-1010', name:'Boiler Unit BU-1', location:'Utility room', status:'maintenance', lastService:'2026-10-30', nextInspection:'2026-11-08' },
+  { id:'EQ-1011', name:'CNC Mill 3-Axis #2', location:'Line A — Assembly', status:'operational', lastService:'2026-08-18', nextInspection:'2026-12-10' },
+  { id:'EQ-1012', name:'Spot Welder SW-220', location:'Line C — Welding', status:'operational', lastService:'2026-09-25', nextInspection:'2026-12-12' },
+  { id:'EQ-1013', name:'Pallet Jack PJ-4', location:'Warehouse', status:'operational', lastService:'2026-07-02', nextInspection:'2026-12-15' },
+  { id:'EQ-1014', name:'Air Handling Unit AHU-2', location:'Utility room', status:'operational', lastService:'2026-08-09', nextInspection:'2026-12-18' },
+  { id:'EQ-1015', name:'Injection Molder IM-30', location:'Line A — Assembly', status:'maintenance', lastService:'2026-10-31', nextInspection:'2026-11-12' },
+  { id:'EQ-1016', name:'Label Printer LP-6', location:'Line B — Packaging', status:'operational', lastService:'2026-09-08', nextInspection:'2026-12-20' },
+  { id:'EQ-1017', name:'Overhead Crane OC-1', location:'Line C — Welding', status:'operational', lastService:'2026-06-14', nextInspection:'2026-12-22' },
+  { id:'EQ-1018', name:'Vacuum Sealer VS-2', location:'Line B — Packaging', status:'operational', lastService:'2026-09-29', nextInspection:'2026-12-26' },
+  { id:'EQ-1019', name:'Belt Sander BS-8', location:'Line A — Assembly', status:'retired', lastService:'2025-12-01', nextInspection:'—' },
+  { id:'EQ-1020', name:'Drill Press DP-3', location:'Line A — Assembly', status:'retired', lastService:'2025-11-20', nextInspection:'—' },
+  { id:'EQ-1021', name:'Pneumatic Riveter PR-1', location:'Line C — Welding', status:'retired', lastService:'2025-10-05', nextInspection:'—' },
+  { id:'EQ-1022', name:'Water Chiller WC-2', location:'Utility room', status:'operational', lastService:'2026-10-02', nextInspection:'2027-01-05' },
+  { id:'EQ-1023', name:'Barcode Scanner Dock BD-9', location:'Warehouse', status:'operational', lastService:'2026-09-16', nextInspection:'2027-01-10' },
+  { id:'EQ-1024', name:'Dust Collector DC-1', location:'Line A — Assembly', status:'operational', lastService:'2026-08-22', nextInspection:'2027-01-14' },
+];
+
+const STATUS_META = {
+  operational: { label: 'Operational', cls: 'bg-green-50 text-green-700' },
+  maintenance: { label: 'In maintenance', cls: 'bg-blue-50 text-blue-700' },
+  down: { label: 'Down', cls: 'bg-red-50 text-red-700' },
+  retired: { label: 'Retired', cls: 'bg-slate-100 text-slate-600' },
+};
+
+const TODAY = new Date('2026-11-05T00:00:00');
+
+function fmtDate(iso) {
+  if (iso === '—') return '—';
+  const d = new Date(iso + 'T00:00:00');
+  return d.toLocaleDateString('en-US', { day: '2-digit', month: '2-digit', year: 'numeric' });
+}
+
+function daysUntil(iso) {
+  if (iso === '—') return null;
+  const d = new Date(iso + 'T00:00:00');
+  return Math.round((d - TODAY) / 86400000);
+}
+
+function inspectionText(iso) {
+  if (iso === '—') return '<span class="text-slate-400">—</span>';
+  const n = daysUntil(iso);
+  const date = fmtDate(iso);
+  if (n < 0) return `<span class="text-red-700 font-medium">${date} · overdue ${Math.abs(n)}d</span>`;
+  if (n <= 7) return `<span class="text-amber-700 font-medium">${date} · in ${n}d</span>`;
+  return `<span class="text-slate-700">${date} · in ${n}d</span>`;
+}
+
+let state = { tab: 'all', search: '', location: '', status: '', mode: 'data', selected: new Set() };
+
+function urgencyRank(m) {
+  if (m.nextInspection === '—') return 3;
+  const n = daysUntil(m.nextInspection);
+  if (n < 0) return 0;
+  if (n <= 7) return 1;
+  return 2;
+}
+
+function getFiltered() {
+  let rows = MACHINES.slice();
+  if (state.tab !== 'all') rows = rows.filter(m => m.status === state.tab);
+  if (state.search) {
+    const q = state.search.toLowerCase();
+    rows = rows.filter(m => m.name.toLowerCase().includes(q) || m.id.toLowerCase().includes(q));
+  }
+  if (state.location) rows = rows.filter(m => m.location === state.location);
+  if (state.status) rows = rows.filter(m => m.status === state.status);
+  rows.sort((a, b) => {
+    const ra = urgencyRank(a), rb = urgencyRank(b);
+    if (ra !== rb) return ra - rb;
+    if (a.nextInspection === '—') return 0;
+    return new Date(a.nextInspection) - new Date(b.nextInspection);
+  });
+  return rows;
+}
+
+function rowActionsMenu(m) {
+  return `
+    <div class="relative inline-block">
+      <button class="h-8 w-8 flex items-center justify-center rounded hover:bg-slate-100 text-slate-500" aria-label="Actions for ${m.name}" onclick="toggleMenu(event, '${m.id}')">
+        <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path d="M10 6a2 2 0 110-4 2 2 0 010 4zm0 6a2 2 0 110-4 2 2 0 010 4zm0 6a2 2 0 110-4 2 2 0 010 4z"/></svg>
+      </button>
+      <div id="menu-${m.id}" hidden class="absolute right-0 mt-1 w-44 bg-white border border-slate-200 rounded shadow-lg z-10 text-sm py-1">
+        <button class="w-full text-left px-3 py-1.5 hover:bg-slate-50" onclick="toast('Opening ${m.name}')">View details</button>
+        <button class="w-full text-left px-3 py-1.5 hover:bg-slate-50" onclick="toast('Schedule service for ${m.name}')">Schedule service</button>
+        <div class="border-t border-slate-100 my-1"></div>
+        <button class="w-full text-left px-3 py-1.5 text-red-600 hover:bg-red-50" onclick="openConfirm('${m.id}')">Retire machine</button>
+      </div>
+    </div>`;
+}
+
+function render() {
+  const tbody = document.getElementById('tableBody');
+  const rows = getFiltered();
+  document.getElementById('summaryLine').textContent = `${rows.length} machine${rows.length === 1 ? '' : 's'}`;
+
+  ['tableBody','skeletonBody','emptyBody','errorBody'].forEach(id => document.getElementById(id).hidden = true);
+
+  if (state.mode === 'loading') {
+    const sk = document.getElementById('skeletonBody');
+    sk.hidden = false;
+    sk.innerHTML = Array.from({length: 8}).map(() => `
+      <tr class="border-b border-slate-100 h-10">
+        ${Array.from({length:7}).map(() => `<td class="px-3"><div class="h-3 bg-slate-100 rounded w-5/6 animate-pulse"></div></td>`).join('')}
+      </tr>`).join('');
+    return;
+  }
+  if (state.mode === 'error') {
+    document.getElementById('errorBody').hidden = false;
+    return;
+  }
+  if (rows.length === 0) {
+    document.getElementById('emptyBody').hidden = false;
+    return;
+  }
+
+  tbody.hidden = false;
+  tbody.innerHTML = rows.map(m => {
+    const sm = STATUS_META[m.status];
+    const checked = state.selected.has(m.id) ? 'checked' : '';
+    return `
+    <tr class="border-b border-slate-100 h-10 hover:bg-slate-50 ${checked ? 'bg-blue-50/40' : ''}">
+      <td class="px-3"><input type="checkbox" class="row-check h-4 w-4" data-id="${m.id}" aria-label="Select ${m.name}" ${checked} /></td>
+      <td class="px-3"><a href="#" class="font-medium text-blue-700 hover:underline">${m.name}</a><div class="text-xs text-slate-500">${m.id}</div></td>
+      <td class="px-3 text-slate-700">${m.location}</td>
+      <td class="px-3"><span class="inline-flex h-6 items-center rounded-full px-2 text-xs leading-5 font-medium ${sm.cls}">${sm.label}</span></td>
+      <td class="px-3 text-slate-700">${fmtDate(m.lastService)}</td>
+      <td class="px-3">${inspectionText(m.nextInspection)}</td>
+      <td class="px-3 text-right">${rowActionsMenu(m)}</td>
+    </tr>`;
+  }).join('');
+
+  document.querySelectorAll('.row-check').forEach(cb => {
+    cb.addEventListener('change', () => {
+      if (cb.checked) state.selected.add(cb.dataset.id); else state.selected.delete(cb.dataset.id);
+      updateBulkBar();
+      render();
+    });
+  });
+  updateHeaderCheckbox(rows);
+  renderChips();
+}
+
+function updateHeaderCheckbox(rows) {
+  const hc = document.getElementById('headerCheckbox');
+  const selectedOnPage = rows.filter(m => state.selected.has(m.id)).length;
+  hc.checked = selectedOnPage > 0 && selectedOnPage === rows.length;
+  hc.indeterminate = selectedOnPage > 0 && selectedOnPage < rows.length;
+}
+
+function updateBulkBar() {
+  const bar = document.getElementById('bulkBar');
+  const count = state.selected.size;
+  document.getElementById('selCount').textContent = count;
+  document.getElementById('selectionAnnounce').textContent = count > 0 ? `${count} selected` : '';
+  bar.hidden = count === 0;
+}
+
+function renderChips() {
+  const el = document.getElementById('chipsRow');
+  const chips = [];
+  if (state.location) chips.push(['location', state.location]);
+  if (state.status) chips.push(['status', STATUS_META[state.status]?.label || state.status]);
+  if (!chips.length) { el.innerHTML = ''; return; }
+  el.innerHTML = chips.map(([k,v]) => `
+    <span class="inline-flex items-center gap-1 h-7 px-2 text-xs bg-slate-100 text-slate-700 rounded-full">
+      ${v}
+      <button aria-label="Remove filter ${v}" class="chip-remove" data-key="${k}">&times;</button>
+    </span>`).join('') + `<button id="clearAllChips" class="text-xs text-blue-700 hover:underline">Clear all</button>`;
+
+  el.querySelectorAll('.chip-remove').forEach(btn => btn.addEventListener('click', () => {
+    state[btn.dataset.key] = '';
+    document.getElementById(btn.dataset.key + 'Filter').value = '';
+    render();
+  }));
+  const clearAll = document.getElementById('clearAllChips');
+  if (clearAll) clearAll.addEventListener('click', () => {
+    state.location = ''; state.status = '';
+    document.getElementById('locationFilter').value = '';
+    document.getElementById('statusFilter').value = '';
+    render();
+  });
+}
+
+function toggleMenu(e, id) {
+  e.stopPropagation();
+  document.querySelectorAll('[id^="menu-"]').forEach(m => { if (m.id !== 'menu-' + id) m.hidden = true; });
+  const menu = document.getElementById('menu-' + id);
+  menu.hidden = !menu.hidden;
+}
+document.addEventListener('click', () => document.querySelectorAll('[id^="menu-"]').forEach(m => m.hidden = true));
+
+let pendingRetireId = null;
+function openConfirm(id) {
+  document.querySelectorAll('[id^="menu-"]').forEach(m => m.hidden = true);
+  pendingRetireId = id;
+  const m = MACHINES.find(x => x.id === id);
+  document.getElementById('confirmTitle').textContent = `Retire ${m.name}?`;
+  document.getElementById('confirmBody').textContent = `This will mark ${m.name} (${m.id}) as retired. It can be reactivated later.`;
+  const dialog = document.getElementById('confirmDialog');
+  dialog.hidden = false;
+  document.getElementById('confirmCancel').focus();
+}
+document.getElementById('confirmCancel').addEventListener('click', () => { document.getElementById('confirmDialog').hidden = true; });
+document.getElementById('confirmOk').addEventListener('click', () => {
+  const m = MACHINES.find(x => x.id === pendingRetireId);
+  if (m) m.status = 'retired';
+  document.getElementById('confirmDialog').hidden = true;
+  toast(`${m.name} retired`);
+  render();
+});
+
+function toast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.hidden = false;
+  clearTimeout(window.__toastTimer);
+  window.__toastTimer = setTimeout(() => { t.hidden = true; }, 2500);
+}
+
+document.querySelectorAll('.tab-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.tab-btn').forEach(b => { b.classList.remove('border-blue-700','text-blue-700'); b.classList.add('border-transparent','text-slate-600'); });
+    btn.classList.add('border-blue-700','text-blue-700');
+    btn.classList.remove('border-transparent','text-slate-600');
+    state.tab = btn.dataset.tab;
+    render();
+  });
+});
+
+document.getElementById('searchInput').addEventListener('input', e => { state.search = e.target.value; render(); });
+document.getElementById('locationFilter').addEventListener('change', e => { state.location = e.target.value; render(); });
+document.getElementById('statusFilter').addEventListener('change', e => { state.status = e.target.value; render(); });
+document.getElementById('clearFiltersBtn').addEventListener('click', () => {
+  state.search = ''; state.location = ''; state.status = '';
+  document.getElementById('searchInput').value = '';
+  document.getElementById('locationFilter').value = '';
+  document.getElementById('statusFilter').value = '';
+  render();
+});
+document.getElementById('retryBtn').addEventListener('click', () => { state.mode = 'loading'; render(); setTimeout(() => { state.mode = 'data'; render(); }, 500); });
+document.getElementById('headerCheckbox').addEventListener('change', e => {
+  const rows = getFiltered();
+  if (e.target.checked) rows.forEach(m => state.selected.add(m.id));
+  else rows.forEach(m => state.selected.delete(m.id));
+  updateBulkBar();
+  render();
+});
+document.getElementById('cancelSelectionBtn').addEventListener('click', () => {
+  state.selected.clear();
+  updateBulkBar();
+  render();
+  document.getElementById('headerCheckbox').focus();
+});
+document.getElementById('addEquipmentBtn').addEventListener('click', () => toast('Add equipment form would open here'));
+document.getElementById('moreFiltersBtn').addEventListener('click', () => toast('More filters panel would open here'));
+
+// Initial load sequence: skeleton -> data, honoring ?state= for demo purposes
+const params = new URLSearchParams(location.search);
+const demoState = params.get('state');
+if (demoState === 'empty') {
+  state.search = 'zzzznotfound';
+  render();
+} else if (demoState === 'error') {
+  state.mode = 'error';
+  render();
+} else if (demoState === 'loading') {
+  state.mode = 'loading';
+  render();
+} else {
+  state.mode = 'loading';
+  render();
+  setTimeout(() => { state.mode = 'data'; render(); }, 500);
+}
+</script>

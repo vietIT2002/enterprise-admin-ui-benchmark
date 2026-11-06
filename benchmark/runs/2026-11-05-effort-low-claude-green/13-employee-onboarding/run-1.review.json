@@ -1,0 +1,53 @@
+{
+  "brief": "13-employee-onboarding",
+  "run": 1,
+  "items": [
+    {
+      "item": "The form is split into titled sections (personal, job and contract, bank and tax, emergency contact, documents) in a single column, with a visible label above every field and no placeholder-only labels",
+      "pass": true,
+      "evidence": "Five <section> blocks with <h2> headings: 'Personal details', 'Job and contract', 'Bank and tax information', 'Emergency contact', 'Documents'. Every input has a <label class=\"block font-medium\"> above it (e.g. <label for=\"firstName\">First name *</label>); placeholders like placeholder=\"Minh\" duplicate the label text rather than replacing it. Layout is a single max-w-3xl column (first/last name and city/postal are paired rows within that column, not separate columns)."
+    },
+    {
+      "item": "Required fields are marked consistently, and optional fields are labelled as optional or left unmarked by a stated convention",
+      "pass": true,
+      "evidence": "'* Required' legend at top (<p>* Required</p>), and every required field label includes '<span aria-hidden=\"true\">*</span>' (e.g. firstName, email, department). Optional fields (preferredName, gender, city, postalCode, contractEndDate, workLocation, socialInsurance, dependents, emergencyAddress) carry no asterisk, consistent with the stated convention. Document rows go further with explicit 'Required'/'Optional' badges."
+    },
+    {
+      "item": "Field widths match their content: dates, postal codes and tax codes are narrow; inputs use the right types (email, tel, date)",
+      "pass": true,
+      "evidence": "dob/startDate/contractEndDate use class 'w-40' (narrow date fields), postalCode uses 'w-28'; taxCode/nationalId/socialInsurance use 'w-56' vs free-text fields using 'max-w-xl'. Types: type=\"email\" on #email, type=\"tel\" on #phone/#emergencyPhone, type=\"date\" on #dob/#startDate/#contractEndDate."
+    },
+    {
+      "item": "An option to save the form as a draft is offered, and saving a draft does not demand every required field",
+      "pass": true,
+      "evidence": "#draft-btn 'Save draft' sets draftMode=true before calling submitForm(true); validateField() returns msg='' when draftMode is true and validateDocuments() skips the missing-required-docs check when draftMode is true, so draft save bypasses required-field/document validation."
+    },
+    {
+      "item": "Save and Cancel stay reachable while scrolling (a sticky bar or equivalent), Save is a verb label and is not disabled before submitting",
+      "pass": true,
+      "evidence": "<div class=\"sticky bottom-0 ... border-t border-border bg-card\"> contains #cancel-btn, #draft-btn, and #save-btn labelled 'Save employee' with no disabled attribute present in markup; button only gets .disabled=true transiently inside submitForm()'s setTimeout simulation."
+    },
+    {
+      "item": "Fields validate on blur and on submit; with several errors a summary at the top links to each field and focus moves to the first invalid field",
+      "pass": true,
+      "evidence": "el.addEventListener('blur', () => { touched.add(name); validateField(name); }) validates per field on blur. submitForm() calls renderErrorSummary(), which (for items.length >= 3) renders '<ul>' with anchor links (href=\"#name\", class=\"jump-link\") that focus+scroll the target field on click, and separately focuses/scrolls the first invalid field (el.focus()) on submit."
+    },
+    {
+      "item": "Leaving the page with unsaved input triggers a warning",
+      "pass": true,
+      "evidence": "window.addEventListener('beforeunload', (e) => { if (!isDirty) return; e.preventDefault(); e.returnValue = ''; }) plus a custom #leave-dialog ('You have unsaved changes. Leave without saving?') shown when Cancel is clicked while isDirty."
+    },
+    {
+      "item": "The document upload states accepted file types and the size limit, lists chosen files with a remove button, and is keyboard operable",
+      "pass": true,
+      "evidence": "Text: 'Accepted formats: PDF, JPG, PNG — up to 10 MB each.' Uploaded rows show fileName + size with a native <button class=\"doc-remove\" aria-label=\"Remove {label}\">Remove</button>; all upload/remove/preview controls are real <button> elements, so they are reachable and activatable via keyboard by default."
+    },
+    {
+      "item": "Success is confirmed with a message that names the employee and is announced to assistive technology",
+      "pass": false,
+      "evidence": "On submit, showToast('Employee Minh Nguyễn saved') names the employee, but the toast element is '<div id=\"toast\" class=\"hidden fixed bottom-20 right-6 z-50 ...\">' with no role=\"status\"/role=\"alert\"/aria-live attribute, so screen readers are not notified when it becomes visible. (Only #unsaved-indicator and #error-summary-wrap carry role=\"status\"; #root-banner carries role=\"alert\" but is never populated on success.)"
+    }
+  ],
+  "tells": [],
+  "notes": "Automated audit score was 100/100 with no violations, but the success toast's missing aria-live/role causes the final checklist item to fail. No template tells (gradients, glass, uppercase tracked labels, emoji icons, rainbow status, promo cards, decorative charts, oversized radii, navy/indigo sidebar) were observed — the screen is a plain, flat single-column form with a neutral header bar."
+}

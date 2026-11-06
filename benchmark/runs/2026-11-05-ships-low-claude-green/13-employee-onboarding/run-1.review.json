@@ -1,0 +1,53 @@
+{
+  "brief": "13-employee-onboarding",
+  "run": 1,
+  "items": [
+    {
+      "item": "The form is split into titled sections (personal, job and contract, bank and tax, emergency contact, documents) in a single column, with a visible label above every field and no placeholder-only labels",
+      "pass": true,
+      "evidence": "Five <section data-step-panel=\"1..5\"> blocks each with an <h2> title ('Personal details', 'Job & contract', 'Bank & tax information', 'Emergency contact', 'Documents'); fields stack in a single column (minor 2-col pairing only for firstName/lastName and city/postalCode); every input has a <label for=...> above it (e.g. <label for=\"email\">Personal email</label>) and preferredName's placeholder text is supplementary to its real label, not a substitute."
+    },
+    {
+      "item": "Required fields are marked consistently, and optional fields are labelled as optional or left unmarked by a stated convention",
+      "pass": true,
+      "evidence": "Top of form states convention: '<p ...>* Required</p>'. Every required input's label ends with '<span aria-hidden=\"true\">*</span>' (firstName, lastName, dob, nationalId, email, phone, address, jobTitle, etc.); optional fields (preferredName, gender, city, postalCode, probationEnd, socialInsurance, dependents, ecEmail, ecAddress, degree/bankLetter uploads) consistently carry no asterisk."
+    },
+    {
+      "item": "Field widths match their content: dates, postal codes and tax codes are narrow; inputs use the right types (email, tel, date)",
+      "pass": true,
+      "evidence": "dob/startDate/probationEnd use type=\"date\" class=\"h-8 w-40\"; postalCode is class=\"h-8 w-28\"; taxCode/nationalId/accountNumber are capped at w-56/w-64 rather than full width; email field is type=\"email\", phone/ecPhone are type=\"tel\", dependents is type=\"number\"."
+    },
+    {
+      "item": "An option to save the form as a draft is offered, and saving a draft does not demand every required field",
+      "pass": true,
+      "evidence": "button#draft-btn onclick=\"saveDraft()\"; saveDraft() only toggles the draft pill/toast and sets isDirty=false — it never calls collectErrors()/validateField(), so it does not enforce required fields."
+    },
+    {
+      "item": "Save and Cancel stay reachable while scrolling (a sticky bar or equivalent), Save is a verb label and is not disabled before submitting",
+      "pass": true,
+      "evidence": "<div class=\"sticky bottom-0 flex items-center justify-end gap-3 border-t border-border bg-card px-6 py-3\"> contains Cancel, Save draft and button#save-btn labelled 'Create employee' (verb); save-btn has no disabled attribute at load, only set disabled:true transiently inside submitForm()'s 1200ms mock request."
+    },
+    {
+      "item": "Fields validate on blur and on submit; with several errors a summary at the top links to each field and focus moves to the first invalid field",
+      "pass": true,
+      "evidence": "Required inputs get `el.addEventListener('blur', () => validateField(name,label))`; submitForm() calls collectErrors() (re-runs validateField for all required fields/uploads); renderErrorSummary() shows #error-summary with <a href=\"#name\" onclick=\"jumpToField(...)\"> links once errors.length>=3; submitForm() always calls jumpToField(errors[0].name) which does goToStep + el.focus() on the first invalid field."
+    },
+    {
+      "item": "Leaving the page with unsaved input triggers a warning",
+      "pass": true,
+      "evidence": "window.addEventListener('beforeunload', ...) calls e.preventDefault()/sets e.returnValue when isDirty; additionally Cancel button (handleCancel()) opens a custom 'You have unsaved changes. Leave without saving?' dialog (#leave-dialog) when isDirty is true."
+    },
+    {
+      "item": "The document upload states accepted file types and the size limit, lists chosen files with a remove button, and is keyboard operable",
+      "pass": false,
+      "evidence": "Accepted types/size are stated ('Accepted file types: PDF, JPG or PNG. 10 MB per file maximum.') and uploaded files are listed (data-upload-name shows 'id_front_back.pdf · 1.2 MB'), but there is no remove/delete control anywhere — mockUpload() only re-renders 'Preview' and 'Replace' buttons, never a Remove option. The actual file picker is also not keyboard operable: `<input type=\"file\" class=\"hidden\" onchange=\"mockUpload(...)\">` is display:none (removed from tab order) and is wrapped only in a plain `<label>` with no tabindex, so it cannot be reached or activated by keyboard."
+    },
+    {
+      "item": "Success is confirmed with a message that names the employee and is announced to assistive technology",
+      "pass": true,
+      "evidence": "submitForm()'s success path calls showToast('Employee Trần Thị Thu Hà created'); #toast has role=\"status\" aria-live=\"polite\", so the named-employee message is announced to assistive technology."
+    }
+  ],
+  "tells": [],
+  "notes": "Form is implemented as a 5-step wizard (stepper with goToStep()) rather than one continuously-scrollable page with all sections visible at once; each step is still a clearly titled single-column section so the sections/labels checklist item was scored a pass. No classic AI-dashboard template tells (no greeting header, KPI tiles, gradients, glass panels, uppercase tracked labels, emoji icons, decorative sidebar, or oversized radii) were found — this reads as a genuine enterprise form build. The only real failure is the Documents step: no way to remove an already-selected file, and the hidden file inputs (display:none, only wrapped in a non-focusable <label>) are not keyboard operable."
+}

@@ -1,0 +1,53 @@
+{
+  "brief": "14-equipment-maintenance",
+  "run": 1,
+  "items": [
+    {
+      "item": "The page header has a plural title and at most one primary action; other actions such as export sit in a secondary position",
+      "pass": true,
+      "evidence": "h1 'Equipment' (collective/plural noun); header actions are `Export` and `Import` as outlined secondary buttons (`border border-slate-300 bg-white`) and a single solid primary button `#addEquipmentBtn` ('Add equipment', `bg-blue-700`). Audit confirms `headerPrimaryActions: 1`."
+    },
+    {
+      "item": "The table appears in the first viewport, with search and 2–3 visible filters (such as location and status) and no row of KPI cards above it",
+      "pass": true,
+      "evidence": "Audit `firstTableTop: 278` (within 900px viewport). Filter bar has `#searchInput` search box plus `#locationFilter` and `#statusFilter` selects (2 filters) and a 'More filters' button; no KPI card row appears above the table in the screenshot."
+    },
+    {
+      "item": "By default the list is ordered with overdue inspections first, then inspections due soon, then the rest",
+      "pass": true,
+      "evidence": "`urgencyRank(m)` returns 0 for overdue, 1 for due in ≤7 days, 2 for later, 3 for retired/no date, and `getFiltered()` sorts by this rank then by date; screenshot shows rows ordered 'overdue 3d', 'overdue 1d', 'in 1d', 'in 3d', 'in 5d', 'in 7d', 'in 13d'..."
+    },
+    {
+      "item": "Overdue and due-soon inspections are marked with a text label (such as \"Overdue\" or \"Due in 7 days\"), not by colour alone",
+      "pass": true,
+      "evidence": "`inspectionText()` renders explicit text: `overdue ${n}d` in red and `in ${n}d` in amber (e.g. visible '11/02/2026 · overdue 3d', '11/06/2026 · in 1d'), not color-only."
+    },
+    {
+      "item": "Dates are absolute and consistently formatted, and every row has a human-readable equipment code",
+      "pass": true,
+      "evidence": "`fmtDate()` formats all dates as MM/DD/YYYY via `toLocaleDateString('en-US', {day:'2-digit', month:'2-digit', year:'numeric'})`, applied consistently to Last service and Next inspection columns; each row shows a code under the name, e.g. 'CNC Mill 3-Axis #1' / 'EQ-1001'."
+    },
+    {
+      "item": "Status tabs or a summary line show counts (such as \"Overdue 4\")",
+      "pass": true,
+      "evidence": "Tab bar shows counts: 'All 24', 'Operational 16', 'In maintenance 3', 'Down 2', 'Retired 3' (`<span class=\"tabular-nums\">`); also `#summaryLine` shows '24 machines'."
+    },
+    {
+      "item": "Rows are single-line, and row actions show at most two visible controls, with icon-only controls having accessible names",
+      "pass": false,
+      "evidence": "Audit violation `table-row-two-line` (count 1, '24 of 24 rows'): the Machine cell stacks the name and `<div class=\"text-xs text-slate-500\">${m.id}</div>` on a second line in every row, so rows are not single-line. Row actions themselves are fine — `rowActionsMenu()` renders a single kebab button with `aria-label=\"Actions for ${m.name}\"`, opening a menu with 3 items (only 1 visible control shown inline)."
+    },
+    {
+      "item": "A filter combination with no matches shows a no-results state with a clear-filters action, distinct from the first-use empty state; a loading state and an error state with retry are present",
+      "pass": true,
+      "evidence": "`#emptyBody` shows 'No equipment match these filters.' plus `#clearFiltersBtn` ('Clear filters') when filters yield zero rows (also reachable via `?state=empty`); `#skeletonBody` renders animated skeleton rows during `state.mode === 'loading'`; `#errorBody` shows \"Couldn't load equipment.\" with `#retryBtn` ('Retry') for `state.mode === 'error'` (`?state=error`). No separate zero-equipment first-use state exists, but the dataset is always populated so this isn't a gap for this page."
+    },
+    {
+      "item": "Interactive targets are at least 24×24px, and text and status contrast meets 4.5:1",
+      "pass": false,
+      "evidence": "Audit reports `smallTargets: 0` (target size passes), but `text-contrast` violation ×3 at 2.56:1 (expected 4.5:1) for the '—' placeholder in the Next inspection column on retired rows, e.g. `tbody#tableBody > tr:nth-of-type(22) > td:nth-of-type(6) > span.text-slate-400`."
+    }
+  ],
+  "tells": [],
+  "notes": "Overall a clean, low-tell implementation (no KPI tiles, gradients, glass, emoji icons, or oversized radii). Two concrete failures: every row is two-line because the equipment code is stacked under the machine name instead of occupying its own column, and three low-contrast '—' placeholders (text-slate-400 on white, 2.56:1) fail the 4.5:1 text contrast requirement for retired equipment's Next inspection cell."
+}

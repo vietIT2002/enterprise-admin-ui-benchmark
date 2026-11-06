@@ -1,0 +1,55 @@
+{
+  "brief": "10-leave-request",
+  "run": 1,
+  "items": [
+    {
+      "item": "The page has a breadcrumb or back link to the leave list, a title such as \"New leave request\", and a single-column form with a visible label above every field and no placeholder-only labels",
+      "pass": true,
+      "evidence": "Header breadcrumb `<span>Time off</span> / <span class=\"font-medium\">New leave request</span>` plus `<h1>New leave request</h1>`; form is single-column with `<label>` elements above every input (leaveType, startDate, endDate, reason, approver, Attachment). The breadcrumb 'Time off' is plain text, not a link (no href), so it's not an actual navigable back-link, but it functions as a breadcrumb trail indicator."
+    },
+    {
+      "item": "Required fields are marked consistently, and optional ones (such as the attachment) are labelled as optional",
+      "pass": false,
+      "evidence": "All required fields show a red asterisk (e.g. `<label for=\"leaveType\">Leave type <span aria-hidden=\"true\" class=\"text-destructive\">*</span></label>`) with a '* Required' legend. However the Attachment field label is just `<label class=\"block text-sm font-medium mb-1.5\">Attachment</label>` with no '(optional)' text or styling to mark it as optional."
+    },
+    {
+      "item": "Leave type, start date, end date, approver and reason are present; the approver defaults to the employee's manager and can be changed",
+      "pass": false,
+      "evidence": "All five fields exist (`#leaveType`, `#startDate`, `#endDate`, `#approver`, `#reason`). But the approver select defaults to a blank option `<option value=\"\">Select an approver</option>` with no option pre-selected — it does not default to the employee's manager."
+    },
+    {
+      "item": "Start and end dates each allow a full day, morning half or afternoon half, and a single-day request can be set as a half day",
+      "pass": false,
+      "evidence": "Start/end date inputs are plain `<input type=\"date\">` fields with no half-day/AM-PM selector or control anywhere in the markup or script; `updateDaysSummary()` only computes whole days."
+    },
+    {
+      "item": "The remaining leave balance for the chosen type is visible beside the form and updates with the selection, and the requested duration in days (such as 1.5) is calculated and shown live",
+      "pass": false,
+      "evidence": "Balance text `<p id=\"leaveType-help\">Annual leave balance: 8.5 days remaining</p>` is static markup with no change listener on `#leaveType` to update it for other leave types — it always reads 'Annual leave balance' regardless of selection. Duration is computed live via `updateDaysSummary()` but only as whole integer days (`Math.round((e - s) / 86400000) + 1`), never fractional values like 1.5."
+    },
+    {
+      "item": "A request that exceeds the balance, or has an end date before the start date, shows an inline error tied to the field with `aria-invalid` and `aria-describedby`, and the entered input is kept",
+      "pass": false,
+      "evidence": "End-before-start is handled: `validateField` sets message 'Enter an end date on or after the start date' and sets `input.setAttribute('aria-invalid','true')`, but the error paragraph `#endDate-error` is never referenced via `aria-describedby` on the `#endDate` input (no such attribute present in markup). There is also no balance-exceeded check at all — no code compares requested days to the 8.5-day balance."
+    },
+    {
+      "item": "The attachment control states accepted file types and size limit, lists the chosen file with a remove button, and is keyboard operable",
+      "pass": true,
+      "evidence": "Helper text: 'PDF, JPG or PNG, up to 10 MB.' Chosen file rendered in `#fileList` with name/size and a `<button aria-label=\"Remove attachment\">`. Drop zone has `tabindex=\"0\" role=\"button\"` and a keydown handler for Enter/Space to trigger `fileInput.click()`."
+    },
+    {
+      "item": "The submit action is a verb label (\"Submit request\") with a secondary Cancel, shows a busy state while submitting to prevent a double submit, and confirms success with a status message that is announced to assistive technology",
+      "pass": true,
+      "evidence": "`<button type=\"submit\" id=\"submitBtn\">Submit request</button>` and `<button id=\"cancelBtn\">Cancel</button>`; on submit `submitBtn.disabled = true` and spinner shown during the 900ms await; success shown via `showToast()` into `<div id=\"toast\" role=\"status\" aria-live=\"polite\">`."
+    },
+    {
+      "item": "Leaving the page with unsaved input triggers a warning, and an option to save as draft is offered",
+      "pass": false,
+      "evidence": "`beforeunload` listener guards tab close/navigation, and Cancel button opens `#leaveDialog` ('You have unsaved changes... Leave without saving?') with Stay/Leave page buttons. No 'Save as draft' option exists anywhere in the dialog or page."
+    }
+  ],
+  "tells": [
+    "initials-avatar-non-person"
+  ],
+  "notes": "The header avatar 'NA' is a real person's initials (Nguyễn Hải An), so it's a borderline/weak instance of initials-avatar-non-person rather than a clear template tell. No gradients, glass, uppercase tracked labels, emoji icons, KPI tiles, decorative charts, or rainbow status chips were found; the page is a clean, restrained enterprise form. Main functional gaps: approver has no default, no half-day/AM-PM date granularity, leave balance doesn't update per leave type, duration is integer-only (no 1.5-day support), no balance-exceeded validation, endDate error lacks aria-describedby wiring, and no save-as-draft option."
+}
