@@ -1,0 +1,948 @@
+<title>Accounts receivable aging · Northwind Supply Co.</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+  [hidden]{display:none!important;}
+  .tabular-nums{font-variant-numeric:tabular-nums;}
+  ::-webkit-scrollbar{height:10px;width:10px;}
+  ::-webkit-scrollbar-thumb{background:#cbd5e1;border-radius:6px;}
+  @keyframes pulse2{0%,100%{opacity:1}50%{opacity:.5}}
+  .skeleton{background:#e2e8f0;border-radius:4px;animation:pulse2 1.6s ease-in-out infinite;}
+  @media (prefers-reduced-motion: reduce){.skeleton{animation:none;}}
+  @page{size:A4 landscape;margin:12mm;}
+  @media print{
+    html,body{background:#fff;}
+    .no-print{display:none!important;}
+    #app-shell{margin:0;padding:0;max-width:none;}
+    table{border-collapse:collapse;width:100%;}
+    thead{display:table-header-group;}
+    tfoot{display:table-row-group;}
+    tr{break-inside:avoid;}
+    h1,h2{break-after:avoid;}
+    *{-webkit-print-color-adjust:exact;print-color-adjust:exact;}
+  }
+</style>
+
+<div id="app-shell" class="min-h-screen bg-slate-50 text-slate-900 text-sm">
+  <!-- Toasts -->
+  <div id="toast-region" class="no-print fixed top-4 right-4 z-50 flex flex-col gap-2" aria-live="polite"></div>
+
+  <div class="mx-auto max-w-[1440px] px-6 py-6">
+    <!-- Breadcrumb -->
+    <nav class="mb-2 text-xs text-slate-500" aria-label="Breadcrumb">Reports <span aria-hidden="true">/</span> Accounts receivable aging</nav>
+
+    <!-- Page header -->
+    <header class="no-print mb-5 flex flex-wrap items-start justify-between gap-3">
+      <div>
+        <h1 class="text-2xl font-semibold text-slate-900">Accounts receivable aging</h1>
+        <p id="basis-line" class="mt-1 text-sm text-slate-600"></p>
+      </div>
+      <div class="flex items-center gap-2">
+        <button id="btn-refresh" type="button" class="inline-flex h-8 items-center gap-1.5 rounded border border-slate-300 bg-white px-3 text-sm font-medium text-slate-700 hover:bg-slate-50">
+          <svg class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12a9 9 0 0 1 15.3-6.4L21 8M21 3v5h-5M21 12a9 9 0 0 1-15.3 6.4L3 16m0 5v-5h5"/></svg>
+          Refresh
+        </button>
+        <button id="btn-print" type="button" class="inline-flex h-8 items-center gap-1.5 rounded border border-slate-300 bg-white px-3 text-sm font-medium text-slate-700 hover:bg-slate-50">
+          <svg class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9V2h12v7M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2M6 14h12v8H6z"/></svg>
+          Print
+        </button>
+        <button id="btn-export" type="button" class="inline-flex h-8 items-center gap-1.5 rounded bg-blue-700 px-3 text-sm font-medium text-white hover:bg-blue-800">
+          <svg class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3v12m0 0-4-4m4 4 4-4M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/></svg>
+          Export
+        </button>
+      </div>
+    </header>
+
+    <!-- Filter bar -->
+    <div class="no-print rounded-md border border-slate-200 bg-white p-3">
+      <div class="flex flex-wrap items-end gap-2">
+        <div>
+          <label for="f-asof" class="mb-1 block text-xs font-medium text-slate-600">As of</label>
+          <select id="f-asof" class="h-8 rounded border border-slate-300 bg-white px-2 text-sm text-slate-800">
+            <option value="today">Today · 06/11/2026</option>
+            <option value="eom">End of last month · 31/10/2026</option>
+            <option value="eoq">End of last quarter · 30/09/2026</option>
+          </select>
+        </div>
+        <div class="min-w-[260px] flex-1">
+          <label for="f-search" class="mb-1 block text-xs font-medium text-slate-600">Search</label>
+          <div class="relative">
+            <svg class="pointer-events-none absolute left-2 top-1/2 size-4 -translate-y-1/2 text-slate-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
+            <input id="f-search" type="text" aria-label="Search customers" placeholder="Search customer, account #, email" class="h-8 w-full rounded border border-slate-300 bg-white pl-8 pr-8 text-sm text-slate-800 placeholder:text-slate-400">
+            <button id="f-search-clear" type="button" hidden aria-label="Clear search" class="absolute right-1.5 top-1/2 flex size-5 -translate-y-1/2 items-center justify-center rounded hover:bg-slate-100">
+              <svg class="size-3.5 text-slate-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18M6 6l12 12"/></svg>
+            </button>
+          </div>
+        </div>
+        <div>
+          <label for="f-group" class="mb-1 block text-xs font-medium text-slate-600">Customer group</label>
+          <select id="f-group" class="h-8 rounded border border-slate-300 bg-white px-2 text-sm text-slate-800">
+            <option value="">All groups</option>
+            <option value="Wholesale">Wholesale</option>
+            <option value="Retail">Retail</option>
+            <option value="Government">Government</option>
+            <option value="Healthcare">Healthcare</option>
+          </select>
+        </div>
+        <div class="relative">
+          <button id="btn-status-filter" type="button" aria-haspopup="true" aria-expanded="false" class="h-8 rounded border border-slate-300 bg-white px-3 text-sm font-medium text-slate-700 hover:bg-slate-50">
+            Aging status<span id="status-filter-count"></span>
+          </button>
+          <div id="status-filter-panel" hidden class="absolute z-20 mt-1 w-56 rounded-md border border-slate-200 bg-white p-2 shadow-lg">
+            <p class="px-1 pb-1 text-xs font-medium text-slate-500">Show customers with a balance in</p>
+            <label class="flex items-center gap-2 rounded px-1 py-1.5 text-sm hover:bg-slate-50"><input type="checkbox" value="current" class="status-cb size-4 rounded border-slate-300"> Current</label>
+            <label class="flex items-center gap-2 rounded px-1 py-1.5 text-sm hover:bg-slate-50"><input type="checkbox" value="b1" class="status-cb size-4 rounded border-slate-300"> 1–30 days overdue</label>
+            <label class="flex items-center gap-2 rounded px-1 py-1.5 text-sm hover:bg-slate-50"><input type="checkbox" value="b2" class="status-cb size-4 rounded border-slate-300"> 31–60 days overdue</label>
+            <label class="flex items-center gap-2 rounded px-1 py-1.5 text-sm hover:bg-slate-50"><input type="checkbox" value="b3" class="status-cb size-4 rounded border-slate-300"> 61–90 days overdue</label>
+            <label class="flex items-center gap-2 rounded px-1 py-1.5 text-sm hover:bg-slate-50"><input type="checkbox" value="b4" class="status-cb size-4 rounded border-slate-300"> 90+ days overdue</label>
+            <div class="mt-1 flex justify-end border-t border-slate-100 pt-2">
+              <button id="status-filter-reset" type="button" class="text-xs font-medium text-blue-700 hover:underline">Reset</button>
+            </div>
+          </div>
+        </div>
+        <div class="relative">
+          <button id="btn-more-filters" type="button" aria-haspopup="true" aria-expanded="false" class="h-8 rounded border border-slate-300 bg-white px-3 text-sm font-medium text-slate-700 hover:bg-slate-50">
+            More filters<span id="more-filters-count"></span>
+          </button>
+          <div id="more-filters-panel" hidden class="absolute right-0 z-20 mt-1 w-72 rounded-md border border-slate-200 bg-white p-3 shadow-lg">
+            <div class="mb-3">
+              <label for="f-region" class="mb-1 block text-xs font-medium text-slate-600">Region</label>
+              <select id="f-region" class="h-8 w-full rounded border border-slate-300 bg-white px-2 text-sm text-slate-800">
+                <option value="">All regions</option>
+                <option value="Northeast">Northeast</option>
+                <option value="Midwest">Midwest</option>
+                <option value="South">South</option>
+                <option value="West">West</option>
+              </select>
+            </div>
+            <div class="mb-3">
+              <span class="mb-1 block text-xs font-medium text-slate-600">Balance due (USD)</span>
+              <div class="flex items-center gap-2">
+                <input id="f-min" type="number" min="0" placeholder="Min" class="h-8 w-full rounded border border-slate-300 px-2 text-sm">
+                <span class="text-slate-400">–</span>
+                <input id="f-max" type="number" min="0" placeholder="Max" class="h-8 w-full rounded border border-slate-300 px-2 text-sm">
+              </div>
+            </div>
+            <label class="flex items-center gap-2 py-1 text-sm text-slate-700"><input id="f-zero" type="checkbox" class="size-4 rounded border-slate-300"> Include customers with a zero balance</label>
+            <div class="mt-3 flex justify-between border-t border-slate-100 pt-3">
+              <button id="more-filters-reset" type="button" class="text-xs font-medium text-slate-600 hover:underline">Reset</button>
+              <button id="more-filters-apply" type="button" class="h-8 rounded bg-blue-700 px-3 text-sm font-medium text-white hover:bg-blue-800">Apply</button>
+            </div>
+          </div>
+        </div>
+        <div class="ml-auto flex items-center gap-2">
+          <label for="f-density" class="text-xs font-medium text-slate-600">Density</label>
+          <select id="f-density" class="h-8 rounded border border-slate-300 bg-white px-2 text-sm text-slate-800">
+            <option value="standard">Standard</option>
+            <option value="compact">Compact</option>
+          </select>
+        </div>
+      </div>
+      <!-- Applied chips -->
+      <div id="chips-row" class="mt-2 flex flex-wrap items-center gap-2"></div>
+    </div>
+
+    <!-- Summary line -->
+    <p id="summary-line" class="no-print mt-3 text-sm text-slate-700"></p>
+    <p id="live-region" role="status" class="sr-only"></p>
+
+    <!-- Table container -->
+    <div class="mt-2 overflow-hidden rounded-md border border-slate-200 bg-white">
+      <div id="table-scroll" class="max-h-[calc(100dvh-20rem)] overflow-auto">
+        <table class="w-full border-collapse text-sm" aria-label="Accounts receivable aging by customer">
+          <thead class="sticky top-0 z-10 bg-slate-50">
+            <tr class="text-slate-600">
+              <th scope="col" class="sticky left-0 z-20 bg-slate-50 px-3 py-2 text-left font-medium" style="min-width:220px">
+                <button data-sort="name" class="inline-flex items-center gap-1 font-medium text-slate-600 hover:text-slate-900">Customer <svg class="sort-icon size-3.5 opacity-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m6 9 6 6 6-6"/></svg></button>
+              </th>
+              <th scope="col" class="px-3 py-2 text-left font-medium" style="min-width:110px">Account #</th>
+              <th scope="col" class="px-3 py-2 text-left font-medium" style="min-width:170px">Status</th>
+              <th scope="col" class="px-3 py-2 text-right font-medium" style="min-width:120px">
+                <button data-sort="current" class="inline-flex flex-row-reverse items-center gap-1 text-right font-medium text-slate-600 hover:text-slate-900">Current (USD) <svg class="sort-icon size-3.5 opacity-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m6 9 6 6 6-6"/></svg></button>
+              </th>
+              <th scope="col" class="px-3 py-2 text-right font-medium" style="min-width:120px">
+                <button data-sort="b1" class="inline-flex flex-row-reverse items-center gap-1 text-right font-medium text-slate-600 hover:text-slate-900">1–30 days (USD) <svg class="sort-icon size-3.5 opacity-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m6 9 6 6 6-6"/></svg></button>
+              </th>
+              <th scope="col" class="px-3 py-2 text-right font-medium" style="min-width:120px">
+                <button data-sort="b2" class="inline-flex flex-row-reverse items-center gap-1 text-right font-medium text-slate-600 hover:text-slate-900">31–60 days (USD) <svg class="sort-icon size-3.5 opacity-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m6 9 6 6 6-6"/></svg></button>
+              </th>
+              <th scope="col" class="px-3 py-2 text-right font-medium" style="min-width:120px">
+                <button data-sort="b3" class="inline-flex flex-row-reverse items-center gap-1 text-right font-medium text-slate-600 hover:text-slate-900">61–90 days (USD) <svg class="sort-icon size-3.5 opacity-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m6 9 6 6 6-6"/></svg></button>
+              </th>
+              <th scope="col" class="px-3 py-2 text-right font-medium" style="min-width:120px">
+                <button data-sort="b4" class="inline-flex flex-row-reverse items-center gap-1 text-right font-medium text-slate-600 hover:text-slate-900">90+ days (USD) <svg class="sort-icon size-3.5 opacity-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m6 9 6 6 6-6"/></svg></button>
+              </th>
+              <th scope="col" aria-sort="descending" class="px-3 py-2 text-right font-medium" style="min-width:130px">
+                <button data-sort="total" class="inline-flex flex-row-reverse items-center gap-1 text-right font-medium text-slate-900 hover:text-slate-900">Total due (USD) <svg class="sort-icon size-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m6 9 6 6 6-6"/></svg></button>
+              </th>
+              <th scope="col" class="px-3 py-2 text-right font-medium"><span class="sr-only">Actions</span></th>
+            </tr>
+          </thead>
+          <tbody id="table-body"></tbody>
+          <tfoot id="table-foot" class="border-t-2 border-slate-300 bg-slate-50 font-medium"></tfoot>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- Drawer backdrop -->
+  <div id="drawer-backdrop" hidden class="no-print fixed inset-0 z-40 bg-slate-900/30"></div>
+  <!-- Customer detail drawer -->
+  <aside id="drawer" hidden class="no-print fixed inset-y-0 right-0 z-50 flex w-full max-w-xl flex-col bg-white shadow-xl" role="dialog" aria-modal="true" aria-labelledby="drawer-title">
+    <div class="flex items-start justify-between gap-3 border-b border-slate-200 px-5 py-4">
+      <div>
+        <p class="text-xs text-slate-500">Customers / <span id="drawer-account"></span></p>
+        <h2 id="drawer-title" class="mt-0.5 text-lg font-semibold text-slate-900"></h2>
+        <div id="drawer-status" class="mt-1"></div>
+      </div>
+      <button id="drawer-close" type="button" aria-label="Close customer details" class="flex size-8 items-center justify-center rounded hover:bg-slate-100">
+        <svg class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18M6 6l12 12"/></svg>
+      </button>
+    </div>
+    <div class="flex-1 overflow-auto px-5 py-4">
+      <dl class="grid grid-cols-2 gap-3 text-sm">
+        <div><dt class="text-xs text-slate-500">Primary contact</dt><dd id="drawer-contact" class="mt-0.5 text-slate-800"></dd></div>
+        <div><dt class="text-xs text-slate-500">Terms</dt><dd id="drawer-terms" class="mt-0.5 text-slate-800"></dd></div>
+        <div><dt class="text-xs text-slate-500">Email</dt><dd class="mt-0.5"><a id="drawer-email" class="text-blue-700 hover:underline" href="#"></a></dd></div>
+        <div><dt class="text-xs text-slate-500">Phone</dt><dd class="mt-0.5"><a id="drawer-phone" class="text-blue-700 hover:underline" href="#"></a></dd></div>
+      </dl>
+      <h3 class="mt-5 mb-2 text-sm font-medium text-slate-800">Open invoices</h3>
+      <div class="overflow-hidden rounded-md border border-slate-200">
+        <table class="w-full text-sm">
+          <thead class="bg-slate-50 text-slate-600">
+            <tr>
+              <th scope="col" class="px-2.5 py-2 text-left font-medium">Invoice #</th>
+              <th scope="col" class="px-2.5 py-2 text-left font-medium">Due date</th>
+              <th scope="col" class="px-2.5 py-2 text-left font-medium">Status</th>
+              <th scope="col" class="px-2.5 py-2 text-right font-medium">Amount (USD)</th>
+            </tr>
+          </thead>
+          <tbody id="drawer-invoices"></tbody>
+          <tfoot>
+            <tr class="border-t border-slate-200 font-medium">
+              <td colspan="3" class="px-2.5 py-2">Total</td>
+              <td id="drawer-total" class="px-2.5 py-2 text-right tabular-nums"></td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+    </div>
+    <div class="flex items-center justify-end gap-2 border-t border-slate-200 bg-white px-5 py-3">
+      <button id="drawer-remind" type="button" class="h-8 rounded border border-slate-300 bg-white px-3 text-sm font-medium text-slate-700 hover:bg-slate-50">Send reminder</button>
+      <button id="drawer-pay" type="button" class="h-8 rounded bg-blue-700 px-3 text-sm font-medium text-white hover:bg-blue-800">Record payment</button>
+    </div>
+  </aside>
+
+  <!-- Export dialog -->
+  <div id="export-backdrop" hidden class="no-print fixed inset-0 z-40 flex items-center justify-center bg-slate-900/30 p-4">
+    <div role="dialog" aria-modal="true" aria-labelledby="export-title" class="w-full max-w-sm rounded-lg bg-white p-5 shadow-xl">
+      <h2 id="export-title" class="text-base font-semibold text-slate-900">Export aging report</h2>
+      <fieldset class="mt-3">
+        <legend class="mb-1 text-xs font-medium text-slate-600">Scope</legend>
+        <label class="flex items-center gap-2 py-1 text-sm"><input type="radio" name="export-scope" value="filtered" checked class="size-4"> <span id="export-scope-filtered"></span></label>
+        <label class="flex items-center gap-2 py-1 text-sm"><input type="radio" name="export-scope" value="all" class="size-4"> <span id="export-scope-all"></span></label>
+      </fieldset>
+      <fieldset class="mt-3">
+        <legend class="mb-1 text-xs font-medium text-slate-600">Format</legend>
+        <label class="flex items-center gap-2 py-1 text-sm"><input type="radio" name="export-format" value="csv" checked class="size-4"> CSV (UTF-8)</label>
+        <label class="flex items-center gap-2 py-1 text-sm"><input type="radio" name="export-format" value="xls" class="size-4"> Excel (.xls)</label>
+      </fieldset>
+      <p class="mt-3 text-xs text-slate-500">Exports the customer, account #, aging buckets and total due shown in the report.</p>
+      <div class="mt-5 flex justify-end gap-2">
+        <button id="export-cancel" type="button" class="h-8 rounded border border-slate-300 bg-white px-3 text-sm font-medium text-slate-700 hover:bg-slate-50">Cancel</button>
+        <button id="export-confirm" type="button" class="h-8 rounded bg-blue-700 px-3 text-sm font-medium text-white hover:bg-blue-800">Export</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Record payment dialog -->
+  <div id="pay-backdrop" hidden class="no-print fixed inset-0 z-40 flex items-center justify-center bg-slate-900/30 p-4">
+    <div role="dialog" aria-modal="true" aria-labelledby="pay-title" class="w-full max-w-sm rounded-lg bg-white p-5 shadow-xl">
+      <h2 id="pay-title" class="text-base font-semibold text-slate-900">Record payment</h2>
+      <p id="pay-sub" class="mt-1 text-sm text-slate-600"></p>
+      <div class="mt-3">
+        <label for="pay-amount" class="mb-1 block text-xs font-medium text-slate-600">Amount (USD) *</label>
+        <input id="pay-amount" type="number" min="0.01" step="0.01" class="h-9 w-full rounded border border-slate-300 px-2 text-sm">
+        <p id="pay-error" role="alert" hidden class="mt-1 text-xs text-red-700"></p>
+      </div>
+      <div class="mt-3">
+        <label for="pay-date" class="mb-1 block text-xs font-medium text-slate-600">Payment date *</label>
+        <input id="pay-date" type="date" class="h-9 w-full rounded border border-slate-300 px-2 text-sm">
+      </div>
+      <p class="mt-2 text-xs text-slate-500">Applied to the oldest open invoices first.</p>
+      <div class="mt-5 flex justify-end gap-2">
+        <button id="pay-cancel" type="button" class="h-8 rounded border border-slate-300 bg-white px-3 text-sm font-medium text-slate-700 hover:bg-slate-50">Cancel</button>
+        <button id="pay-confirm" type="button" class="h-8 rounded bg-blue-700 px-3 text-sm font-medium text-white hover:bg-blue-800">
+          <span id="pay-confirm-label">Record payment</span>
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+  "use strict";
+
+  /* ---------- seeded RNG for stable mock data ---------- */
+  function mulberry32(seed){
+    return function(){
+      seed |= 0; seed = (seed + 0x6D2B79F5) | 0;
+      var t = Math.imul(seed ^ (seed >>> 15), 1 | seed);
+      t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+  }
+  var rng = mulberry32(42);
+
+  var TODAY = new Date(Date.UTC(2026, 10, 6)); // 06 Nov 2026
+  var UPDATED_AT = "06/11/2026 08:42";
+  var MS_DAY = 86400000;
+
+  var fmtMoney = new Intl.NumberFormat('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  var fmtDate = new Intl.DateTimeFormat('en-US', { day: '2-digit', month: '2-digit', year: 'numeric' });
+  function money(n){ return fmtMoney.format(n); }
+  function dateStr(d){ return fmtDate.format(d); }
+  function isoDate(d){ return d.toISOString().slice(0,10); }
+  function addDays(d, n){ return new Date(d.getTime() + n * MS_DAY); }
+
+  /* ---------- mock company directory ---------- */
+  var COMPANIES = [
+    ["Acme Industrial Supply","Wholesale","Midwest"],
+    ["Northfield Logistics","Wholesale","Northeast"],
+    ["Blue Harbor Manufacturing","Wholesale","Northeast"],
+    ["Crestview Hospitality Group","Retail","South"],
+    ["Delta Ridge Construction","Wholesale","West"],
+    ["Evergreen Office Solutions","Retail","Northeast"],
+    ["Fairmont Medical Supply","Healthcare","South"],
+    ["Granite State Electrical","Wholesale","Northeast"],
+    ["Harbor Point Seafood Co.","Wholesale","Northeast"],
+    ["Ironwood Furniture","Retail","Midwest"],
+    ["Juniper Creek Landscaping","Retail","West"],
+    ["Kestrel Aviation Services","Government","South"],
+    ["Lakeside Printing & Design","Retail","Midwest"],
+    ["Meridian Software Partners","Retail","West"],
+    ["Northstar Freight Carriers","Wholesale","Midwest"],
+    ["Oakmont Dental Group","Healthcare","Northeast"],
+    ["Pacific Rim Imports","Wholesale","West"],
+    ["Quarry Hill Builders","Wholesale","South"],
+    ["Riverbend Agricultural Co.","Wholesale","Midwest"],
+    ["Sterling Hardware Distributors","Wholesale","South"],
+    ["Timberline Roofing","Retail","West"],
+    ["Union Square Catering","Retail","Northeast"],
+    ["Vanguard Security Systems","Government","South"],
+    ["Westbrook Auto Parts","Retail","Midwest"],
+    ["Yellowstone Outdoor Gear","Retail","West"],
+    ["Zenith Industrial Coatings","Wholesale","Midwest"],
+    ["Apex Fitness Equipment","Retail","South"],
+    ["Birchwood Interiors","Retail","Northeast"],
+    ["Cascade Water Treatment","Government","West"],
+    ["Dunmore Legal Services","Retail","Northeast"],
+    ["Elmhurst Bakery Supply","Wholesale","Midwest"],
+    ["Falcon Point Technologies","Retail","West"],
+    ["Glenwood HVAC Services","Wholesale","South"],
+    ["Hillcrest Pharmacy Group","Healthcare","Northeast"]
+  ];
+  var FIRST_NAMES = ["Maria","James","Linh","David","Sarah","Michael","Priya","Robert","Emily","Carlos","Anh","Jennifer","Thomas","Laura","Kevin","Nicole"];
+  var LAST_NAMES = ["Alvarez","Chen","Nguyen","Thompson","Patel","Mitchell","Rodriguez","Walsh","Kim","Brennan","Tran","Osei","Larson","Fitzgerald","Novak","Diaz"];
+  var TERMS = ["Net 15","Net 30","Net 45","Net 60"];
+
+  function pick(arr){ return arr[Math.floor(rng() * arr.length)]; }
+  function round2(n){ return Math.round(n * 100) / 100; }
+  function slug(name){ return name.toLowerCase().replace(/[^a-z0-9]+/g,'').slice(0,14); }
+
+  var customers = COMPANIES.map(function(c, i){
+    var first = pick(FIRST_NAMES), last = pick(LAST_NAMES);
+    return {
+      id: "CUST-" + (1000 + i * 7 + 103),
+      name: c[0], group: c[1], region: c[2],
+      contact: first + " " + last,
+      email: (first + "." + last).toLowerCase() + "@" + slug(c[0]) + ".com",
+      phone: "(" + (200 + Math.floor(rng()*700)) + ") " + (100 + Math.floor(rng()*900)) + "-" + (1000 + Math.floor(rng()*9000)),
+      terms: pick(TERMS)
+    };
+  });
+
+  /* ---------- open invoices (drive the aging buckets) ---------- */
+  var PAID_UP_COUNT = 4; // last N companies have no open invoices
+  var invoices = [];
+  var invSeq = 10050;
+  customers.forEach(function(cust, idx){
+    if (idx >= customers.length - PAID_UP_COUNT) return; // paid up, no open invoices
+    var count = 1 + Math.floor(rng() * 5);
+    for (var k = 0; k < count; k++){
+      var r = rng();
+      var dueOffset; // days from TODAY to due date; negative = overdue
+      if (r < 0.38) dueOffset = Math.floor(rng() * 45) - 5;        // mostly current / just due
+      else if (r < 0.63) dueOffset = -(1 + Math.floor(rng() * 30));   // 1-30 overdue
+      else if (r < 0.80) dueOffset = -(31 + Math.floor(rng() * 30));  // 31-60
+      else if (r < 0.92) dueOffset = -(61 + Math.floor(rng() * 30));  // 61-90
+      else dueOffset = -(91 + Math.floor(rng() * 95));                // 90+
+      var termDays = parseInt(cust.terms.replace(/\D/g,''), 10);
+      var dueDate = addDays(TODAY, dueOffset);
+      var issueDate = addDays(dueDate, -termDays);
+      var amount = round2(250 + rng() * (rng() < 0.12 ? 42000 : 7500));
+      invoices.push({
+        no: "INV-" + (invSeq++),
+        customerId: cust.id,
+        issueDate: issueDate, dueDate: dueDate, amount: amount
+      });
+    }
+  });
+
+  function bucketFor(daysPastDue){
+    if (daysPastDue <= 0) return 'current';
+    if (daysPastDue <= 30) return 'b1';
+    if (daysPastDue <= 60) return 'b2';
+    if (daysPastDue <= 90) return 'b3';
+    return 'b4';
+  }
+  var BUCKET_LABEL = { current: 'Current', b1: '1–30 days overdue', b2: '31–60 days overdue', b3: '61–90 days overdue', b4: '90+ days overdue' };
+  var BUCKET_TONE = {
+    current: 'bg-slate-100 text-slate-700',
+    b1: 'bg-sky-50 text-sky-800',
+    b2: 'bg-amber-50 text-amber-800',
+    b3: 'bg-amber-50 text-amber-800',
+    b4: 'bg-red-50 text-red-700'
+  };
+  var BUCKET_ORDER = ['current','b1','b2','b3','b4'];
+
+  function asOfDate(){
+    var v = state.asOf;
+    if (v === 'eom') return new Date(Date.UTC(2026, 9, 31));
+    if (v === 'eoq') return new Date(Date.UTC(2026, 8, 30));
+    return TODAY;
+  }
+
+  function buildRows(){
+    var asOf = asOfDate();
+    var byCustomer = {};
+    customers.forEach(function(c){ byCustomer[c.id] = { current:0, b1:0, b2:0, b3:0, b4:0 }; });
+    invoices.forEach(function(inv){
+      var days = Math.round((asOf.getTime() - inv.dueDate.getTime()) / MS_DAY);
+      var b = bucketFor(days);
+      byCustomer[inv.customerId][b] += inv.amount;
+    });
+    return customers.map(function(c){
+      var buckets = byCustomer[c.id];
+      var total = round2(buckets.current + buckets.b1 + buckets.b2 + buckets.b3 + buckets.b4);
+      var worst = 'current';
+      for (var i = BUCKET_ORDER.length - 1; i >= 1; i--){ if (buckets[BUCKET_ORDER[i]] > 0.004){ worst = BUCKET_ORDER[i]; break; } }
+      var status = total <= 0.004 ? 'paid' : worst;
+      return { customer: c, buckets: buckets, total: total, status: status };
+    });
+  }
+
+  /* ---------- state ---------- */
+  var qs = new URLSearchParams(location.search);
+  var state = {
+    asOf: 'today', search: '', group: '', region: '',
+    statuses: [], minBalance: '', maxBalance: '', includeZero: false,
+    sortKey: 'total', sortDir: 'desc', density: 'standard',
+    pageState: qs.get('state') === 'empty' ? 'empty' : qs.get('state') === 'error' ? 'error' : 'loading'
+  };
+
+  /* ---------- DOM refs ---------- */
+  var $ = function(id){ return document.getElementById(id); };
+  var tbody = $('table-body'), tfoot = $('table-foot');
+
+  function setQuery(){
+    var p = new URLSearchParams();
+    if (state.pageState === 'empty' || state.pageState === 'error') p.set('state', state.pageState);
+    var qsStr = p.toString();
+    history.replaceState(null, '', qsStr ? ('?' + qsStr) : location.pathname);
+  }
+
+  /* ---------- filtering / sorting ---------- */
+  function foldText(s){ return s.toLowerCase(); }
+
+  function filteredRows(all){
+    var term = foldText(state.search.trim());
+    return all.filter(function(r){
+      if (state.group && r.customer.group !== state.group) return false;
+      if (state.region && r.customer.region !== state.region) return false;
+      if (!state.includeZero && r.status === 'paid') return false;
+      if (state.statuses.length){
+        var match = state.statuses.indexOf(r.status === 'paid' ? 'current' : r.status) !== -1;
+        if (!match) return false;
+      }
+      if (state.minBalance !== '' && r.total < parseFloat(state.minBalance)) return false;
+      if (state.maxBalance !== '' && r.total > parseFloat(state.maxBalance)) return false;
+      if (term){
+        var hay = foldText(r.customer.name + ' ' + r.customer.id + ' ' + r.customer.email);
+        if (hay.indexOf(term) === -1) return false;
+      }
+      return true;
+    });
+  }
+
+  function sortRows(rows){
+    var key = state.sortKey, dir = state.sortDir === 'asc' ? 1 : -1;
+    rows.sort(function(a, b){
+      var av, bv;
+      if (key === 'name'){ av = a.customer.name; bv = b.customer.name; return av.localeCompare(bv) * dir; }
+      if (key === 'total'){ av = a.total; bv = b.total; }
+      else { av = a.buckets[key]; bv = b.buckets[key]; }
+      return (av - bv) * dir;
+    });
+    return rows;
+  }
+
+  /* ---------- rendering ---------- */
+  function statusBadge(status){
+    if (status === 'paid') return '<span class="inline-flex h-6 items-center whitespace-nowrap rounded-full bg-emerald-50 px-2 text-xs font-medium leading-5 text-emerald-700">Paid in full</span>';
+    var cls = BUCKET_TONE[status], label = BUCKET_LABEL[status];
+    return '<span class="inline-flex h-6 items-center whitespace-nowrap rounded-full ' + cls + ' px-2 text-xs font-medium leading-5">' + label + '</span>';
+  }
+
+  function cell(v){ return v > 0.004 ? money(v) : '<span class="text-slate-400">—</span>'; }
+
+  function rowHeight(){ return state.density === 'compact' ? 'h-8' : 'h-10'; }
+  function cellPad(){ return state.density === 'compact' ? 'py-1' : 'py-2'; }
+
+  var currentRows = []; // the sorted+filtered rows backing the table, for export/menu lookups
+
+  function render(){
+    setQuery();
+    $('basis-line').textContent = 'Amounts in USD · As of ' + dateStr(asOfDate()) + ' · Updated ' + UPDATED_AT;
+    renderChips();
+    $('status-filter-count').textContent = state.statuses.length ? (' (' + state.statuses.length + ')') : '';
+    var moreCount = (state.region ? 1 : 0) + (state.minBalance !== '' || state.maxBalance !== '' ? 1 : 0) + (state.includeZero ? 1 : 0);
+    $('more-filters-count').textContent = moreCount ? (' (' + moreCount + ')') : '';
+
+    document.querySelectorAll('th button[data-sort]').forEach(function(btn){
+      var th = btn.closest('th');
+      var icon = btn.querySelector('.sort-icon');
+      if (btn.dataset.sort === state.sortKey){
+        th.setAttribute('aria-sort', state.sortDir === 'asc' ? 'ascending' : 'descending');
+        icon.classList.remove('opacity-0');
+        icon.style.transform = state.sortDir === 'asc' ? 'rotate(180deg)' : '';
+      } else {
+        th.removeAttribute('aria-sort');
+        icon.classList.add('opacity-0');
+      }
+    });
+
+    if (state.pageState === 'loading'){
+      tbody.innerHTML = skeletonRows();
+      tfoot.innerHTML = '';
+      $('summary-line').textContent = '';
+      $('live-region').textContent = '';
+      document.querySelector('table').setAttribute('aria-busy', 'true');
+      return;
+    }
+    document.querySelector('table').setAttribute('aria-busy', 'false');
+
+    if (state.pageState === 'error'){
+      tbody.innerHTML = '<tr><td colspan="10" class="px-3 py-14 text-center"><p class="text-sm font-medium text-slate-800">Couldn’t load the aging report</p><p class="mt-1 text-sm text-slate-500">Check your connection and try again.</p><button id="retry-btn" type="button" class="mt-3 h-8 rounded border border-slate-300 bg-white px-3 text-sm font-medium text-slate-700 hover:bg-slate-50">Retry</button></td></tr>';
+      tfoot.innerHTML = '';
+      $('summary-line').textContent = '';
+      $('retry-btn').addEventListener('click', function(){ state.pageState = 'loading'; render(); setTimeout(function(){ state.pageState = 'ready'; render(); }, 450); });
+      return;
+    }
+
+    var all = buildRows();
+    var totalCustomersWithBalance = all.filter(function(r){ return r.status !== 'paid'; }).length;
+
+    if (state.pageState === 'empty' || (totalCustomersWithBalance === 0 && !state.search && !state.group && !state.region && !state.statuses.length && state.minBalance === '' && state.maxBalance === '')){
+      tbody.innerHTML = '<tr><td colspan="10" class="px-3 py-14 text-center"><p class="text-sm font-medium text-slate-800">No open invoices yet</p><p class="mt-1 max-w-sm mx-auto text-sm text-slate-500">Once customers carry an outstanding balance, they’ll appear here grouped by how many days overdue they are.</p></td></tr>';
+      tfoot.innerHTML = '';
+      $('summary-line').textContent = '';
+      $('live-region').textContent = 'No open invoices';
+      return;
+    }
+
+    var rows = sortRows(filteredRows(all));
+    currentRows = rows;
+
+    if (rows.length === 0){
+      tbody.innerHTML = '<tr><td colspan="10" class="px-3 py-14 text-center"><p class="text-sm font-medium text-slate-800">No customers match these filters</p><p class="mt-1 text-sm text-slate-500">Try widening the balance range or clearing a filter.</p><button id="clear-filters-btn" type="button" class="mt-3 h-8 rounded border border-slate-300 bg-white px-3 text-sm font-medium text-slate-700 hover:bg-slate-50">Clear filters</button></td></tr>';
+      tfoot.innerHTML = '';
+      $('summary-line').textContent = '0 of ' + totalCustomersWithBalance + ' customers · $0.00 outstanding';
+      $('live-region').textContent = 'No customers match these filters';
+      $('clear-filters-btn').addEventListener('click', clearAllFilters);
+      return;
+    }
+
+    var h = rowHeight(), p = cellPad();
+    tbody.innerHTML = rows.map(function(r){
+      return '<tr class="' + h + ' hover:bg-slate-50" data-id="' + r.customer.id + '">' +
+        '<td class="sticky left-0 z-[1] bg-white px-3 ' + p + ' text-left">' +
+          '<button class="row-open font-medium text-blue-700 hover:underline" data-id="' + r.customer.id + '">' + r.customer.name + '</button>' +
+        '</td>' +
+        '<td class="px-3 ' + p + ' text-left text-slate-600">' + r.customer.id + '</td>' +
+        '<td class="px-3 ' + p + ' text-left">' + statusBadge(r.status) + '</td>' +
+        '<td class="px-3 ' + p + ' text-right tabular-nums">' + cell(r.buckets.current) + '</td>' +
+        '<td class="px-3 ' + p + ' text-right tabular-nums">' + cell(r.buckets.b1) + '</td>' +
+        '<td class="px-3 ' + p + ' text-right tabular-nums">' + cell(r.buckets.b2) + '</td>' +
+        '<td class="px-3 ' + p + ' text-right tabular-nums">' + cell(r.buckets.b3) + '</td>' +
+        '<td class="px-3 ' + p + ' text-right tabular-nums">' + cell(r.buckets.b4) + '</td>' +
+        '<td class="px-3 ' + p + ' text-right font-medium tabular-nums">' + money(r.total) + '</td>' +
+        '<td class="px-3 ' + p + ' text-right">' +
+          '<div class="relative inline-block">' +
+            '<button class="row-menu-btn flex size-7 items-center justify-center rounded hover:bg-slate-100" aria-haspopup="true" aria-expanded="false" aria-label="Actions for ' + r.customer.name + '" data-id="' + r.customer.id + '">' +
+              '<svg class="size-4" viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="19" cy="12" r="1.6"/></svg>' +
+            '</button>' +
+          '</div>' +
+        '</td>' +
+      '</tr>';
+    }).join('');
+
+    var totals = { current:0, b1:0, b2:0, b3:0, b4:0, total:0 };
+    rows.forEach(function(r){ totals.current += r.buckets.current; totals.b1 += r.buckets.b1; totals.b2 += r.buckets.b2; totals.b3 += r.buckets.b3; totals.b4 += r.buckets.b4; totals.total += r.total; });
+    tfoot.innerHTML = '<tr class="' + h + '">' +
+      '<td class="sticky left-0 bg-slate-50 px-3 ' + p + ' text-left">Total</td>' +
+      '<td class="px-3 ' + p + '"></td>' +
+      '<td class="px-3 ' + p + '"></td>' +
+      '<td class="px-3 ' + p + ' text-right tabular-nums">' + money(totals.current) + '</td>' +
+      '<td class="px-3 ' + p + ' text-right tabular-nums">' + money(totals.b1) + '</td>' +
+      '<td class="px-3 ' + p + ' text-right tabular-nums">' + money(totals.b2) + '</td>' +
+      '<td class="px-3 ' + p + ' text-right tabular-nums">' + money(totals.b3) + '</td>' +
+      '<td class="px-3 ' + p + ' text-right tabular-nums">' + money(totals.b4) + '</td>' +
+      '<td class="px-3 ' + p + ' text-right tabular-nums">' + money(totals.total) + '</td>' +
+      '<td class="px-3 ' + p + '"></td>' +
+    '</tr>';
+
+    $('summary-line').textContent = rows.length + ' of ' + totalCustomersWithBalance + ' customers · $' + money(totals.total) + ' outstanding · Current $' + money(totals.current) + ' · 1–30d $' + money(totals.b1) + ' · 31–60d $' + money(totals.b2) + ' · 61–90d $' + money(totals.b3) + ' · 90+d $' + money(totals.b4);
+    $('live-region').textContent = rows.length + ' customers match';
+  }
+
+  function skeletonRows(){
+    var out = '';
+    for (var i = 0; i < 8; i++){
+      out += '<tr class="h-10" aria-hidden="true"><td class="sticky left-0 bg-white px-3 py-2" colspan="1"><div class="skeleton h-4 w-32"></div></td>' +
+        '<td class="px-3 py-2"><div class="skeleton h-4 w-16"></div></td>' +
+        '<td class="px-3 py-2"><div class="skeleton h-5 w-28 rounded-full"></div></td>' +
+        '<td class="px-3 py-2"><div class="skeleton ml-auto h-4 w-16"></div></td>' +
+        '<td class="px-3 py-2"><div class="skeleton ml-auto h-4 w-16"></div></td>' +
+        '<td class="px-3 py-2"><div class="skeleton ml-auto h-4 w-16"></div></td>' +
+        '<td class="px-3 py-2"><div class="skeleton ml-auto h-4 w-16"></div></td>' +
+        '<td class="px-3 py-2"><div class="skeleton ml-auto h-4 w-16"></div></td>' +
+        '<td class="px-3 py-2"><div class="skeleton ml-auto h-4 w-20"></div></td>' +
+        '<td class="px-3 py-2"></td></tr>';
+    }
+    return out;
+  }
+
+  /* ---------- chips ---------- */
+  function chip(label, onRemove){
+    return '<span class="inline-flex h-6 items-center gap-1 rounded-full border border-slate-200 bg-slate-50 pl-2 pr-1 text-xs font-medium leading-5 text-slate-700">' + label +
+      '<button type="button" data-chip aria-label="Remove filter ' + label + '" class="inline-flex size-5 items-center justify-center rounded-full hover:bg-slate-200"><svg class="size-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18M6 6l12 12"/></svg></button></span>';
+  }
+  function renderChips(){
+    var chips = [];
+    var defs = [];
+    if (state.search) defs.push({ k:'search', label: 'Search: ' + state.search });
+    if (state.group) defs.push({ k:'group', label: state.group });
+    state.statuses.forEach(function(s){ defs.push({ k:'status:' + s, label: BUCKET_LABEL[s] }); });
+    if (state.region) defs.push({ k:'region', label: 'Region: ' + state.region });
+    if (state.minBalance !== '' || state.maxBalance !== '') defs.push({ k:'balance', label: 'Balance: ' + (state.minBalance || '0') + '–' + (state.maxBalance || '∞') });
+    if (state.includeZero) defs.push({ k:'zero', label: 'Includes zero balance' });
+
+    var row = $('chips-row');
+    if (!defs.length){ row.innerHTML = ''; return; }
+    row.innerHTML = defs.map(function(d){ return chip(d.label).replace('data-chip', 'data-chip data-key="' + d.k + '"'); }).join('') +
+      '<button id="chips-clear-all" type="button" class="text-xs font-medium text-blue-700 hover:underline">Clear all</button>';
+    row.querySelectorAll('[data-chip]').forEach(function(btn){
+      btn.addEventListener('click', function(){ removeChip(btn.getAttribute('data-key')); });
+    });
+    $('chips-clear-all').addEventListener('click', clearAllFilters);
+  }
+  function removeChip(key){
+    if (key === 'search'){ state.search = ''; $('f-search').value = ''; toggleSearchClear(); }
+    else if (key === 'group'){ state.group = ''; $('f-group').value = ''; }
+    else if (key === 'region'){ state.region = ''; $('f-region').value = ''; }
+    else if (key === 'balance'){ state.minBalance = ''; state.maxBalance = ''; $('f-min').value = ''; $('f-max').value = ''; }
+    else if (key === 'zero'){ state.includeZero = false; $('f-zero').checked = false; }
+    else if (key.indexOf('status:') === 0){
+      var v = key.slice(7);
+      state.statuses = state.statuses.filter(function(s){ return s !== v; });
+      var cb = document.querySelector('.status-cb[value="' + v + '"]'); if (cb) cb.checked = false;
+    }
+    render();
+  }
+  function clearAllFilters(){
+    state.search = ''; state.group = ''; state.region = ''; state.statuses = [];
+    state.minBalance = ''; state.maxBalance = ''; state.includeZero = false;
+    $('f-search').value = ''; $('f-group').value = ''; $('f-region').value = '';
+    $('f-min').value = ''; $('f-max').value = ''; $('f-zero').checked = false;
+    document.querySelectorAll('.status-cb').forEach(function(cb){ cb.checked = false; });
+    toggleSearchClear();
+    render();
+  }
+
+  /* ---------- toasts ---------- */
+  function toast(msg){
+    var region = $('toast-region');
+    var el = document.createElement('div');
+    el.setAttribute('role', 'status');
+    el.className = 'flex items-center gap-2 rounded-md border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 shadow-lg';
+    el.innerHTML = '<svg class="size-4 text-emerald-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6 9 17l-5-5"/></svg><span>' + msg + '</span>';
+    region.appendChild(el);
+    setTimeout(function(){ el.remove(); }, 5000);
+  }
+
+  /* ---------- popovers (status filter / more filters / row menu) ---------- */
+  function closeAllPopovers(except){
+    ['status-filter-panel','more-filters-panel'].forEach(function(id){
+      if (id !== except) $(id).setAttribute('hidden', '');
+    });
+    document.querySelectorAll('.row-menu-pop').forEach(function(el){ if (el.id !== except) el.remove(); });
+  }
+  document.addEventListener('click', function(e){
+    if (!e.target.closest('#btn-status-filter') && !e.target.closest('#status-filter-panel')) $('status-filter-panel').setAttribute('hidden','');
+    if (!e.target.closest('#btn-more-filters') && !e.target.closest('#more-filters-panel')) $('more-filters-panel').setAttribute('hidden','');
+    if (!e.target.closest('.row-menu-btn') && !e.target.closest('.row-menu-pop')) document.querySelectorAll('.row-menu-pop').forEach(function(el){ el.remove(); });
+  });
+  $('btn-status-filter').addEventListener('click', function(){
+    var panel = $('status-filter-panel');
+    var willOpen = panel.hasAttribute('hidden');
+    closeAllPopovers(willOpen ? 'status-filter-panel' : null);
+    if (willOpen) panel.removeAttribute('hidden'); else panel.setAttribute('hidden','');
+    this.setAttribute('aria-expanded', String(willOpen));
+  });
+  $('btn-more-filters').addEventListener('click', function(){
+    var panel = $('more-filters-panel');
+    var willOpen = panel.hasAttribute('hidden');
+    closeAllPopovers(willOpen ? 'more-filters-panel' : null);
+    if (willOpen) panel.removeAttribute('hidden'); else panel.setAttribute('hidden','');
+    this.setAttribute('aria-expanded', String(willOpen));
+  });
+  document.querySelectorAll('.status-cb').forEach(function(cb){
+    cb.addEventListener('change', function(){
+      var v = cb.value;
+      if (cb.checked){ if (state.statuses.indexOf(v) === -1) state.statuses.push(v); }
+      else { state.statuses = state.statuses.filter(function(s){ return s !== v; }); }
+      render();
+    });
+  });
+  $('status-filter-reset').addEventListener('click', function(){
+    state.statuses = [];
+    document.querySelectorAll('.status-cb').forEach(function(cb){ cb.checked = false; });
+    render();
+  });
+  $('more-filters-apply').addEventListener('click', function(){
+    state.region = $('f-region').value;
+    state.minBalance = $('f-min').value;
+    state.maxBalance = $('f-max').value;
+    state.includeZero = $('f-zero').checked;
+    $('more-filters-panel').setAttribute('hidden','');
+    render();
+  });
+  $('more-filters-reset').addEventListener('click', function(){
+    $('f-region').value = ''; $('f-min').value = ''; $('f-max').value = ''; $('f-zero').checked = false;
+  });
+
+  /* ---------- row actions menu ---------- */
+  tbody.addEventListener('click', function(e){
+    var openBtn = e.target.closest('.row-open');
+    if (openBtn){ openDrawer(openBtn.getAttribute('data-id')); return; }
+    var menuBtn = e.target.closest('.row-menu-btn');
+    if (menuBtn){
+      var existing = document.querySelector('.row-menu-pop');
+      if (existing) existing.remove();
+      if (existing && existing.dataset.id === menuBtn.getAttribute('data-id')) return;
+      var id = menuBtn.getAttribute('data-id');
+      var rect = menuBtn.getBoundingClientRect();
+      var pop = document.createElement('div');
+      pop.className = 'row-menu-pop fixed z-30 w-48 rounded-md border border-slate-200 bg-white p-1 shadow-lg';
+      pop.dataset.id = id;
+      pop.style.top = (rect.bottom + 4 + window.scrollY) + 'px';
+      pop.style.left = (rect.right - 192 + window.scrollX) + 'px';
+      pop.innerHTML =
+        '<button data-act="view" class="block w-full rounded px-2.5 py-1.5 text-left text-sm hover:bg-slate-50">View statement</button>' +
+        '<button data-act="remind" class="block w-full rounded px-2.5 py-1.5 text-left text-sm hover:bg-slate-50">Send reminder</button>' +
+        '<button data-act="pay" class="block w-full rounded px-2.5 py-1.5 text-left text-sm hover:bg-slate-50">Record payment</button>';
+      document.body.appendChild(pop);
+      pop.addEventListener('click', function(ev){
+        var act = ev.target.getAttribute('data-act');
+        if (!act) return;
+        pop.remove();
+        if (act === 'view') openDrawer(id);
+        else if (act === 'remind') sendReminder(id);
+        else if (act === 'pay') openPayDialog(id);
+      });
+      menuBtn.setAttribute('aria-expanded', 'true');
+    }
+  });
+
+  function findRow(id){ return currentRows.concat(buildRows()).find(function(r){ return r.customer.id === id; }); }
+
+  function sendReminder(id){
+    var r = findRow(id);
+    toast('Reminder emailed to ' + r.customer.contact + ' (' + r.customer.email + ')');
+  }
+
+  /* ---------- drawer ---------- */
+  var drawerCustomerId = null;
+  function openDrawer(id){
+    drawerCustomerId = id;
+    var r = findRow(id);
+    $('drawer-account').textContent = r.customer.id;
+    $('drawer-title').textContent = r.customer.name;
+    $('drawer-status').innerHTML = statusBadge(r.status);
+    $('drawer-contact').textContent = r.customer.contact;
+    $('drawer-terms').textContent = r.customer.terms;
+    var emailEl = $('drawer-email'); emailEl.textContent = r.customer.email; emailEl.href = 'mailto:' + r.customer.email;
+    var phoneEl = $('drawer-phone'); phoneEl.textContent = r.customer.phone; phoneEl.href = 'tel:' + r.customer.phone.replace(/\D/g,'');
+
+    var asOf = asOfDate();
+    var custInvoices = invoices.filter(function(inv){ return inv.customerId === id; }).slice().sort(function(a,b){ return a.dueDate - b.dueDate; });
+    var total = 0;
+    $('drawer-invoices').innerHTML = custInvoices.length ? custInvoices.map(function(inv){
+      var days = Math.round((asOf.getTime() - inv.dueDate.getTime()) / MS_DAY);
+      var b = bucketFor(days);
+      total += inv.amount;
+      return '<tr class="border-t border-slate-100"><td class="px-2.5 py-2">' + inv.no + '</td>' +
+        '<td class="px-2.5 py-2">' + dateStr(inv.dueDate) + '</td>' +
+        '<td class="px-2.5 py-2">' + statusBadge(b) + '</td>' +
+        '<td class="px-2.5 py-2 text-right tabular-nums">' + money(inv.amount) + '</td></tr>';
+    }).join('') : '<tr><td colspan="4" class="px-2.5 py-6 text-center text-slate-500">No open invoices · paid in full</td></tr>';
+    $('drawer-total').textContent = money(total);
+
+    $('drawer-backdrop').removeAttribute('hidden');
+    $('drawer').removeAttribute('hidden');
+    $('drawer-close').focus();
+  }
+  function closeDrawer(){
+    $('drawer-backdrop').setAttribute('hidden','');
+    $('drawer').setAttribute('hidden','');
+    drawerCustomerId = null;
+  }
+  $('drawer-close').addEventListener('click', closeDrawer);
+  $('drawer-backdrop').addEventListener('click', closeDrawer);
+  $('drawer-remind').addEventListener('click', function(){ sendReminder(drawerCustomerId); });
+  $('drawer-pay').addEventListener('click', function(){ openPayDialog(drawerCustomerId); });
+  document.addEventListener('keydown', function(e){
+    if (e.key === 'Escape'){
+      if (!$('drawer').hasAttribute('hidden')) closeDrawer();
+      if (!$('export-backdrop').hasAttribute('hidden')) closeExportDialog();
+      if (!$('pay-backdrop').hasAttribute('hidden')) closePayDialog();
+    }
+  });
+
+  /* ---------- record payment dialog ---------- */
+  var payCustomerId = null;
+  function openPayDialog(id){
+    payCustomerId = id;
+    var r = findRow(id);
+    $('pay-sub').textContent = r.customer.name + ' · balance due $' + money(r.total);
+    $('pay-amount').value = r.total.toFixed(2);
+    $('pay-date').value = isoDate(asOfDate());
+    $('pay-error').setAttribute('hidden','');
+    $('pay-backdrop').removeAttribute('hidden');
+    $('pay-amount').focus();
+  }
+  function closePayDialog(){ $('pay-backdrop').setAttribute('hidden',''); payCustomerId = null; }
+  $('pay-cancel').addEventListener('click', closePayDialog);
+  $('pay-backdrop').addEventListener('click', function(e){ if (e.target === this) closePayDialog(); });
+  $('pay-confirm').addEventListener('click', function(){
+    var amt = parseFloat($('pay-amount').value);
+    var errEl = $('pay-error');
+    if (!amt || amt <= 0){ errEl.textContent = 'Enter an amount greater than $0.00.'; errEl.removeAttribute('hidden'); return; }
+    var r = findRow(payCustomerId);
+    if (amt > r.total + 0.005){ errEl.textContent = 'Amount can’t exceed the balance due ($' + money(r.total) + ').'; errEl.removeAttribute('hidden'); return; }
+    errEl.setAttribute('hidden','');
+    var btn = $('pay-confirm'); btn.disabled = true; $('pay-confirm-label').textContent = 'Recording…';
+    setTimeout(function(){
+      applyPayment(payCustomerId, amt);
+      btn.disabled = false; $('pay-confirm-label').textContent = 'Record payment';
+      closePayDialog();
+      if (!$('drawer').hasAttribute('hidden')) openDrawer(r.customer.id);
+      render();
+      toast('Payment of $' + money(amt) + ' recorded for ' + r.customer.name);
+    }, 500);
+  });
+  function applyPayment(id, amount){
+    var remaining = amount;
+    var custInvoices = invoices.filter(function(inv){ return inv.customerId === id; })
+      .sort(function(a,b){ return a.dueDate - b.dueDate; }); // oldest due date first
+    for (var i = 0; i < custInvoices.length && remaining > 0.004; i++){
+      var inv = custInvoices[i];
+      var applied = Math.min(inv.amount, remaining);
+      inv.amount = round2(inv.amount - applied);
+      remaining = round2(remaining - applied);
+    }
+    invoices = invoices.filter(function(inv){ return inv.amount > 0.004; });
+  }
+
+  /* ---------- export dialog ---------- */
+  function openExportDialog(){
+    var all = buildRows();
+    var filteredCount = sortRows(filteredRows(all)).length;
+    var allCount = all.filter(function(r){ return r.status !== 'paid'; }).length + (state.includeZero ? all.filter(function(r){return r.status==='paid';}).length : 0);
+    $('export-scope-filtered').textContent = 'Filtered view (' + filteredCount + ')';
+    $('export-scope-all').textContent = 'All customers (' + customers.length + ')';
+    $('export-backdrop').removeAttribute('hidden');
+  }
+  function closeExportDialog(){ $('export-backdrop').setAttribute('hidden',''); }
+  $('btn-export').addEventListener('click', openExportDialog);
+  $('export-cancel').addEventListener('click', closeExportDialog);
+  $('export-backdrop').addEventListener('click', function(e){ if (e.target === this) closeExportDialog(); });
+
+  $('export-confirm').addEventListener('click', function(){
+    var scope = document.querySelector('input[name="export-scope"]:checked').value;
+    var format = document.querySelector('input[name="export-format"]:checked').value;
+    var all = buildRows();
+    var rows = scope === 'all' ? all.filter(function(r){ return r.status !== 'paid' || state.includeZero; }) : sortRows(filteredRows(all));
+    var headers = ['Account #','Customer','Status','Current (USD)','1-30 days (USD)','31-60 days (USD)','61-90 days (USD)','90+ days (USD)','Total due (USD)'];
+    var dataRows = rows.map(function(r){
+      return [r.customer.id, r.customer.name, r.status === 'paid' ? 'Paid in full' : BUCKET_LABEL[r.status],
+        r.buckets.current.toFixed(2), r.buckets.b1.toFixed(2), r.buckets.b2.toFixed(2), r.buckets.b3.toFixed(2), r.buckets.b4.toFixed(2), r.total.toFixed(2)];
+    });
+    var dateTag = '2026-11-06';
+    var filename = 'ar-aging-report-' + dateTag + (format === 'csv' ? '.csv' : '.xls');
+    var blob;
+    if (format === 'csv'){
+      var csv = [headers].concat(dataRows).map(function(row){
+        return row.map(function(v){ return /[",\n]/.test(v) ? '"' + String(v).replace(/"/g,'""') + '"' : v; }).join(',');
+      }).join('\r\n');
+      blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' });
+    } else {
+      var html = '<table><thead><tr>' + headers.map(function(h){ return '<th>' + h + '</th>'; }).join('') + '</tr></thead><tbody>' +
+        dataRows.map(function(row){ return '<tr>' + row.map(function(v){ return '<td>' + v + '</td>'; }).join('') + '</tr>'; }).join('') + '</tbody></table>';
+      blob = new Blob(['﻿' + html], { type: 'application/vnd.ms-excel' });
+    }
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement('a'); a.href = url; a.download = filename; document.body.appendChild(a); a.click();
+    document.body.removeChild(a); URL.revokeObjectURL(url);
+    closeExportDialog();
+    toast('Exported ' + rows.length + ' customers · ' + filename);
+  });
+
+  /* ---------- print ---------- */
+  $('btn-print').addEventListener('click', function(){ window.print(); });
+
+  /* ---------- filter wiring ---------- */
+  $('f-asof').addEventListener('change', function(){ state.asOf = this.value; render(); });
+  var searchTimer;
+  function toggleSearchClear(){ $('f-search-clear').toggleAttribute('hidden', $('f-search').value === ''); }
+  $('f-search').addEventListener('input', function(){
+    toggleSearchClear();
+    clearTimeout(searchTimer);
+    searchTimer = setTimeout(function(){ state.search = $('f-search').value; render(); }, 300);
+  });
+  $('f-search-clear').addEventListener('click', function(){ $('f-search').value = ''; state.search = ''; toggleSearchClear(); render(); });
+  $('f-group').addEventListener('change', function(){ state.group = this.value; render(); });
+  $('f-density').addEventListener('change', function(){ state.density = this.value; render(); });
+
+  document.querySelectorAll('th button[data-sort]').forEach(function(btn){
+    btn.addEventListener('click', function(){
+      var key = btn.dataset.sort;
+      if (state.sortKey === key) state.sortDir = state.sortDir === 'asc' ? 'desc' : 'asc';
+      else { state.sortKey = key; state.sortDir = 'desc'; }
+      render();
+    });
+  });
+
+  $('btn-refresh').addEventListener('click', function(){
+    state.pageState = 'loading'; render();
+    setTimeout(function(){ state.pageState = 'ready'; render(); toast('Report refreshed'); }, 450);
+  });
+
+  /* ---------- boot ---------- */
+  render();
+  if (state.pageState === 'loading'){
+    setTimeout(function(){ state.pageState = 'ready'; render(); }, 500);
+  }
+})();
+</script>

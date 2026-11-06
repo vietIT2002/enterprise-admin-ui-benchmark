@@ -1,0 +1,902 @@
+<!doctype html>
+<html lang="en-GB">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Meeting rooms · Room booking calendar</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+  [hidden] { display: none !important; }
+  body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
+  .focus-ring:focus-visible { outline: 2px solid #1d4ed8; outline-offset: 2px; }
+  ::-webkit-scrollbar { height: 10px; width: 10px; }
+  ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 6px; }
+</style>
+</head>
+<body class="bg-slate-50 text-[#0f172a]">
+
+<div class="max-w-[1400px] mx-auto px-6 py-6">
+
+  <!-- Page header -->
+  <div class="flex items-start justify-between gap-4 mb-5">
+    <div>
+      <h1 class="text-xl font-semibold text-[#0f172a]">Meeting rooms</h1>
+      <p class="text-sm text-slate-600 mt-0.5">See which rooms are free and book one.</p>
+    </div>
+    <button id="newBookingBtn" type="button" data-action="new-booking"
+      class="focus-ring shrink-0 inline-flex items-center gap-1.5 rounded bg-blue-700 text-white text-sm font-medium px-3 py-2 hover:bg-blue-800">
+      <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M8 3v10M3 8h10" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
+      Book a room
+    </button>
+  </div>
+
+  <!-- Toolbar -->
+  <div class="flex flex-wrap items-center gap-3 mb-3 rounded-md border border-slate-200 bg-white px-3 py-2.5">
+    <div class="flex items-center gap-1">
+      <button id="todayBtn" type="button" data-action="nav-today"
+        class="focus-ring rounded border border-slate-300 bg-white text-sm font-medium px-2.5 py-1.5 hover:bg-slate-50">Today</button>
+      <button id="prevBtn" type="button" data-action="nav-prev" aria-label="Previous day"
+        class="focus-ring rounded border border-slate-300 bg-white p-1.5 hover:bg-slate-50">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M10 3l-5 5 5 5" stroke="#334155" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </button>
+      <button id="nextBtn" type="button" data-action="nav-next" aria-label="Next day"
+        class="focus-ring rounded border border-slate-300 bg-white p-1.5 hover:bg-slate-50">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M6 3l5 5-5 5" stroke="#334155" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </button>
+    </div>
+    <h2 id="rangeHeading" class="text-sm font-semibold text-[#0f172a] min-w-[200px]"></h2>
+
+    <div class="flex-1"></div>
+
+    <div role="group" aria-label="Calendar view" class="inline-flex rounded border border-slate-300 overflow-hidden">
+      <button id="viewDayBtn" type="button" data-action="set-view" data-view="day" aria-pressed="true"
+        class="focus-ring text-sm font-medium px-3 py-1.5 bg-blue-700 text-white">Day</button>
+      <button id="viewWeekBtn" type="button" data-action="set-view" data-view="week" aria-pressed="false"
+        class="focus-ring text-sm font-medium px-3 py-1.5 bg-white text-slate-700 hover:bg-slate-50 border-l border-slate-300">Week</button>
+    </div>
+
+    <label class="text-sm text-slate-600 flex items-center gap-1.5">
+      <span class="sr-only">Capacity</span>
+      <select id="capacitySelect" class="focus-ring rounded border border-slate-300 text-sm py-1.5 pl-2 pr-7 bg-white">
+        <option value="any">Any size</option>
+        <option value="1-4">1–4 seats</option>
+        <option value="5-8">5–8 seats</option>
+        <option value="9plus">9+ seats</option>
+      </select>
+    </label>
+    <label class="text-sm text-slate-600 flex items-center gap-1.5">
+      <span class="sr-only">Equipment</span>
+      <select id="equipmentSelect" class="focus-ring rounded border border-slate-300 text-sm py-1.5 pl-2 pr-7 bg-white">
+        <option value="any">Any equipment</option>
+        <option value="projector">Projector</option>
+        <option value="video">Video conferencing</option>
+        <option value="whiteboard">Whiteboard</option>
+        <option value="tv">TV screen</option>
+        <option value="phone">Phone booth</option>
+      </select>
+    </label>
+    <button id="clearFiltersBtn" type="button" data-action="clear-filters" hidden
+      class="focus-ring text-sm font-medium text-blue-700 hover:underline px-1">Clear filters</button>
+  </div>
+
+  <!-- Legend -->
+  <div class="flex flex-wrap items-center gap-4 text-xs text-slate-600 mb-4 px-1">
+    <span class="inline-flex items-center gap-1.5"><span class="inline-block w-2.5 h-2.5 rounded-full bg-blue-700"></span>Today</span>
+    <span class="inline-flex items-center gap-1.5"><span class="inline-block w-3 h-3 rounded-sm bg-blue-600"></span>Booked</span>
+    <span class="inline-flex items-center gap-1.5"><span class="inline-block w-3 h-3 rounded-sm border-2 border-dashed border-blue-400 bg-blue-50"></span>Pending</span>
+    <span class="inline-flex items-center gap-1.5"><span class="inline-block w-3 h-3 rounded-sm border border-slate-200 bg-white"></span>Free · click to book</span>
+    <span class="inline-flex items-center gap-1.5"><span class="inline-block w-3 h-3 rounded-sm bg-slate-50 border border-slate-200"></span>Weekend</span>
+  </div>
+
+  <div id="emptyBanner" hidden class="mb-4 rounded-md border border-blue-200 bg-blue-50 px-4 py-3 flex items-center justify-between gap-3">
+    <p class="text-sm text-blue-900">No bookings yet for this view. Book a room to get started.</p>
+    <button type="button" data-action="new-booking" class="focus-ring shrink-0 rounded bg-blue-700 text-white text-sm font-medium px-3 py-1.5 hover:bg-blue-800">Book a room</button>
+  </div>
+
+  <!-- Calendar region -->
+  <div id="calendarRoot" role="region" aria-label="Room schedule" class="rounded-md border border-slate-200 bg-white overflow-hidden"></div>
+
+</div>
+
+<!-- Booking modal -->
+<div id="bookingDialog" hidden class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 px-4">
+  <div role="dialog" aria-modal="true" aria-labelledby="bookingDialogTitle" class="w-full max-w-lg rounded-lg bg-white border border-slate-200 shadow-lg max-h-[90vh] flex flex-col">
+    <div class="flex items-center justify-between px-5 py-4 border-b border-slate-200">
+      <h2 id="bookingDialogTitle" class="text-base font-semibold">Book a room</h2>
+      <button type="button" data-action="close-modal" aria-label="Close" class="focus-ring rounded p-1 text-slate-500 hover:bg-slate-100">
+        <svg width="18" height="18" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M4 4l8 8M12 4l-8 8" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
+      </button>
+    </div>
+    <form id="bookingForm" class="overflow-y-auto px-5 py-4 space-y-4" novalidate>
+      <div id="formErrorSummary" hidden role="alert" class="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">
+        <p class="font-medium mb-1">Fix these before saving:</p>
+        <ul id="formErrorList" class="list-disc list-inside space-y-0.5"></ul>
+      </div>
+      <div id="formConflict" hidden role="alert" class="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800"></div>
+
+      <div>
+        <label for="f_title" class="block text-sm font-medium text-slate-700 mb-1">Meeting title <span class="text-red-600">*</span></label>
+        <input id="f_title" name="title" type="text" class="focus-ring w-full rounded border border-slate-300 text-sm px-3 py-2" maxlength="120">
+        <p id="e_title" class="text-sm text-red-700 mt-1" hidden></p>
+      </div>
+
+      <div>
+        <label for="f_room" class="block text-sm font-medium text-slate-700 mb-1">Room <span class="text-red-600">*</span></label>
+        <select id="f_room" name="room" class="focus-ring w-full rounded border border-slate-300 text-sm px-3 py-2"></select>
+        <p id="e_room" class="text-sm text-red-700 mt-1" hidden></p>
+      </div>
+
+      <div>
+        <label for="f_date" class="block text-sm font-medium text-slate-700 mb-1">Date <span class="text-red-600">*</span></label>
+        <input id="f_date" name="date" type="date" class="focus-ring w-full rounded border border-slate-300 text-sm px-3 py-2">
+        <p id="e_date" class="text-sm text-red-700 mt-1" hidden></p>
+      </div>
+
+      <div class="flex gap-3">
+        <div class="flex-1">
+          <label for="f_start" class="block text-sm font-medium text-slate-700 mb-1">Start time <span class="text-red-600">*</span></label>
+          <input id="f_start" name="start" type="time" step="1800" class="focus-ring w-full rounded border border-slate-300 text-sm px-3 py-2">
+          <p id="e_start" class="text-sm text-red-700 mt-1" hidden></p>
+        </div>
+        <div class="flex-1">
+          <label for="f_end" class="block text-sm font-medium text-slate-700 mb-1">End time <span class="text-red-600">*</span></label>
+          <input id="f_end" name="end" type="time" step="1800" class="focus-ring w-full rounded border border-slate-300 text-sm px-3 py-2">
+          <p id="e_end" class="text-sm text-red-700 mt-1" hidden></p>
+        </div>
+      </div>
+
+      <div>
+        <label for="f_organizer" class="block text-sm font-medium text-slate-700 mb-1">Organiser <span class="text-red-600">*</span></label>
+        <input id="f_organizer" name="organizer" type="text" class="focus-ring w-full rounded border border-slate-300 text-sm px-3 py-2" maxlength="80">
+        <p id="e_organizer" class="text-sm text-red-700 mt-1" hidden></p>
+      </div>
+
+      <div>
+        <label for="f_attendees" class="block text-sm font-medium text-slate-700 mb-1">Attendees</label>
+        <input id="f_attendees" name="attendees" type="number" min="1" max="200" value="1" class="focus-ring w-28 rounded border border-slate-300 text-sm px-3 py-2">
+        <p id="w_attendees" class="text-sm text-amber-700 mt-1" hidden></p>
+      </div>
+
+      <div>
+        <label for="f_notes" class="block text-sm font-medium text-slate-700 mb-1">Notes</label>
+        <textarea id="f_notes" name="notes" rows="2" class="focus-ring w-full rounded border border-slate-300 text-sm px-3 py-2" maxlength="300"></textarea>
+      </div>
+    </form>
+    <div class="sticky bottom-0 border-t border-slate-200 bg-white px-5 py-3 flex justify-end gap-2">
+      <button type="button" data-action="close-modal" class="focus-ring rounded border border-slate-300 bg-white text-sm font-medium px-3 py-2 hover:bg-slate-50">Cancel</button>
+      <button type="button" id="saveBookingBtn" data-action="submit-booking" class="focus-ring inline-flex items-center gap-2 rounded bg-blue-700 text-white text-sm font-medium px-3 py-2 hover:bg-blue-800 disabled:opacity-60">
+        <svg id="saveSpinner" hidden class="animate-spin" width="14" height="14" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="6" stroke="white" stroke-width="2" stroke-opacity="0.3"/><path d="M14 8a6 6 0 00-6-6" stroke="white" stroke-width="2" stroke-linecap="round"/></svg>
+        <span id="saveBookingLabel">Save booking</span>
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- Booking details dialog -->
+<div id="detailsDialog" hidden class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 px-4">
+  <div role="dialog" aria-modal="true" aria-labelledby="detailsTitle" class="w-full max-w-md rounded-lg bg-white border border-slate-200 shadow-lg">
+    <div class="flex items-center justify-between px-5 py-4 border-b border-slate-200">
+      <h2 id="detailsTitle" class="text-base font-semibold"></h2>
+      <button type="button" data-action="close-details" aria-label="Close" class="focus-ring rounded p-1 text-slate-500 hover:bg-slate-100">
+        <svg width="18" height="18" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M4 4l8 8M12 4l-8 8" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
+      </button>
+    </div>
+    <div id="detailsBody" class="px-5 py-4 space-y-2 text-sm"></div>
+    <div class="border-t border-slate-200 px-5 py-3 flex items-center justify-between gap-2">
+      <button type="button" id="cancelBookingBtn" data-action="open-cancel" class="focus-ring rounded border border-red-300 text-red-700 text-sm font-medium px-3 py-2 hover:bg-red-50">Cancel booking</button>
+      <button type="button" data-action="close-details" class="focus-ring rounded border border-slate-300 bg-white text-sm font-medium px-3 py-2 hover:bg-slate-50">Close</button>
+    </div>
+  </div>
+</div>
+
+<!-- Agenda ("+N more") dialog -->
+<div id="agendaDialog" hidden class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 px-4">
+  <div role="dialog" aria-modal="true" aria-labelledby="agendaTitle" class="w-full max-w-md rounded-lg bg-white border border-slate-200 shadow-lg max-h-[80vh] flex flex-col">
+    <div class="flex items-center justify-between px-5 py-4 border-b border-slate-200">
+      <h2 id="agendaTitle" class="text-base font-semibold"></h2>
+      <button type="button" data-action="close-agenda" aria-label="Close" class="focus-ring rounded p-1 text-slate-500 hover:bg-slate-100">
+        <svg width="18" height="18" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M4 4l8 8M12 4l-8 8" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
+      </button>
+    </div>
+    <div id="agendaBody" class="px-5 py-4 space-y-2 overflow-y-auto"></div>
+  </div>
+</div>
+
+<!-- Confirm cancel dialog -->
+<div id="confirmDialog" hidden class="fixed inset-0 z-[60] flex items-center justify-center bg-slate-900/40 px-4">
+  <div role="alertdialog" aria-modal="true" aria-labelledby="confirmTitle" aria-describedby="confirmBody" class="w-full max-w-sm rounded-lg bg-white border border-slate-200 shadow-lg px-5 py-4">
+    <h2 id="confirmTitle" class="text-base font-semibold mb-2">Cancel booking?</h2>
+    <p id="confirmBody" class="text-sm text-slate-700 mb-4"></p>
+    <div class="flex justify-end gap-2">
+      <button type="button" id="keepBookingBtn" data-action="dismiss-confirm" class="focus-ring rounded border border-slate-300 bg-white text-sm font-medium px-3 py-2 hover:bg-slate-50">Keep booking</button>
+      <button type="button" data-action="confirm-cancel" class="focus-ring rounded bg-red-600 text-white text-sm font-medium px-3 py-2 hover:bg-red-700">Cancel booking</button>
+    </div>
+  </div>
+</div>
+
+<!-- Toasts -->
+<div id="toastContainer" class="fixed bottom-4 right-4 z-[70] flex flex-col gap-2 w-80"></div>
+
+<script>
+(function(){
+  "use strict";
+
+  /* ---------- Data ---------- */
+  var ROOMS = [
+    { id:'alpha', name:'Alpha', floor:2, capacity:8,  equipment:['Projector','Video conferencing'] },
+    { id:'birch', name:'Birch', floor:2, capacity:4,  equipment:['Whiteboard'] },
+    { id:'cedar', name:'Cedar', floor:3, capacity:12, equipment:['Video conferencing','Projector'] },
+    { id:'delta', name:'Delta', floor:3, capacity:6,  equipment:['Whiteboard','TV screen'] },
+    { id:'elm',   name:'Elm',   floor:1, capacity:2,  equipment:['Phone booth'] },
+    { id:'fir',   name:'Fir',  floor:1, capacity:20, equipment:['Projector','Video conferencing'] }
+  ];
+  var EQUIPMENT_MAP = { projector:'Projector', video:'Video conferencing', whiteboard:'Whiteboard', tv:'TV screen', phone:'Phone booth' };
+
+  var BOOKING_TEMPLATES = [
+    { d:-3, r:'alpha', s:'09:00', e:'10:00', t:'Sprint retrospective', o:'Minh Tran', a:6, st:'confirmed' },
+    { d:-3, r:'cedar', s:'14:00', e:'15:30', t:'Client call - Acme Corp', o:'Sarah Lee', a:8, st:'confirmed' },
+    { d:-2, r:'birch', s:'10:00', e:'10:30', t:'1:1 - Minh & Ha', o:'Minh Tran', a:2, st:'confirmed' },
+    { d:-2, r:'fir',   s:'13:00', e:'14:00', t:'All-hands weekly', o:'Priya Nair', a:18, st:'confirmed' },
+    { d:-1, r:'alpha', s:'11:00', e:'12:00', t:'Design sync - Checkout flow', o:'James Carter', a:5, st:'confirmed' },
+    { d:-1, r:'delta', s:'15:00', e:'16:00', t:'Vendor negotiation', o:'Olivia Brooks', a:4, st:'pending' },
+    { d:0,  r:'alpha', s:'09:00', e:'10:00', t:'Sprint planning', o:'Minh Tran', a:7, st:'confirmed' },
+    { d:0,  r:'alpha', s:'13:30', e:'14:30', t:'Design review', o:'James Carter', a:5, st:'confirmed' },
+    { d:0,  r:'birch', s:'11:00', e:'11:30', t:'1:1 - Ha & An', o:'Nguyen Van An', a:2, st:'confirmed' },
+    { d:0,  r:'cedar', s:'10:00', e:'11:30', t:'Q4 budget review', o:'Sarah Lee', a:10, st:'confirmed' },
+    { d:0,  r:'cedar', s:'15:00', e:'16:00', t:'Candidate interview - Backend Engineer', o:'Olivia Brooks', a:3, st:'pending' },
+    { d:0,  r:'fir',   s:'09:00', e:'10:00', t:'All-hands weekly', o:'Priya Nair', a:20, st:'confirmed' },
+    { d:0,  r:'elm',   s:'12:00', e:'12:30', t:'Focus block', o:'David Kim', a:1, st:'confirmed' },
+    { d:1,  r:'alpha', s:'14:00', e:'15:00', t:'Design sync - Checkout flow', o:'James Carter', a:5, st:'confirmed' },
+    { d:1,  r:'birch', s:'09:30', e:'10:00', t:'Standup - Mobile team', o:'Minh Tran', a:4, st:'confirmed' },
+    { d:1,  r:'delta', s:'11:00', e:'12:00', t:'Contract review', o:'Olivia Brooks', a:3, st:'confirmed' },
+    { d:1,  r:'fir',   s:'16:00', e:'17:00', t:'Board meeting prep', o:'Priya Nair', a:10, st:'pending' },
+    { d:2,  r:'cedar', s:'09:00', e:'10:00', t:'Client call - Acme Corp', o:'Sarah Lee', a:6, st:'confirmed' },
+    { d:2,  r:'birch', s:'13:00', e:'13:30', t:'1:1 - An & Minh', o:'Nguyen Van An', a:2, st:'confirmed' },
+    { d:2,  r:'elm',   s:'10:00', e:'10:30', t:'Focus block', o:'David Kim', a:1, st:'confirmed' },
+    { d:3,  r:'alpha', s:'10:00', e:'11:00', t:'Sprint planning', o:'Minh Tran', a:7, st:'confirmed' },
+    { d:3,  r:'delta', s:'14:00', e:'15:30', t:'Vendor negotiation', o:'Olivia Brooks', a:5, st:'confirmed' },
+    { d:3,  r:'fir',   s:'09:00', e:'11:00', t:'Quarterly all-hands', o:'Priya Nair', a:20, st:'confirmed' },
+    { d:4,  r:'birch', s:'10:00', e:'10:30', t:'Design crit', o:'James Carter', a:4, st:'confirmed' },
+    { d:4,  r:'cedar', s:'13:00', e:'14:00', t:'Candidate interview - Product Manager', o:'Sarah Lee', a:3, st:'confirmed' },
+    { d:7,  r:'alpha', s:'09:00', e:'10:00', t:'Sprint planning', o:'Minh Tran', a:7, st:'confirmed' },
+    { d:7,  r:'cedar', s:'11:00', e:'12:00', t:'Budget follow-up', o:'Sarah Lee', a:8, st:'confirmed' },
+    { d:7,  r:'delta', s:'15:00', e:'16:00', t:'1:1 - Olivia & David', o:'Olivia Brooks', a:2, st:'confirmed' },
+    { d:8,  r:'birch', s:'09:00', e:'09:30', t:'Standup - Mobile team', o:'Minh Tran', a:4, st:'confirmed' },
+    { d:8,  r:'fir',   s:'14:00', e:'15:00', t:'Client call - Nova Industries', o:'Priya Nair', a:12, st:'pending' },
+    { d:9,  r:'alpha', s:'13:00', e:'14:00', t:'Design sync - Checkout flow', o:'James Carter', a:5, st:'confirmed' },
+    { d:9,  r:'elm',   s:'11:00', e:'11:30', t:'Focus block', o:'David Kim', a:1, st:'confirmed' },
+    { d:10, r:'cedar', s:'10:00', e:'11:00', t:'Candidate interview - Backend Engineer', o:'Olivia Brooks', a:3, st:'confirmed' },
+    { d:10, r:'delta', s:'13:00', e:'14:30', t:'Vendor negotiation', o:'Olivia Brooks', a:5, st:'confirmed' }
+  ];
+
+  /* ---------- Date helpers ---------- */
+  function pad(n){ return String(n).padStart(2,'0'); }
+  function todayDate(){ var d = new Date(); d.setHours(0,0,0,0); return d; }
+  function addDays(d, n){ var r = new Date(d); r.setDate(r.getDate()+n); return r; }
+  function toISODate(d){ return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate()); }
+  function parseISODate(s){ var p = s.split('-').map(Number); return new Date(p[0], p[1]-1, p[2]); }
+  function startOfWeek(d){ var day = d.getDay(); var diff = (day===0 ? -6 : 1-day); return addDays(d, diff); }
+  function formatLong(d){ return d.toLocaleDateString('en-GB',{ weekday:'long', day:'numeric', month:'long', year:'numeric' }); }
+  function formatShort(d){ return pad(d.getDate())+'/'+pad(d.getMonth()+1)+'/'+d.getFullYear(); }
+  function formatWeekday(d){ return d.toLocaleDateString('en-GB',{ weekday:'short' }); }
+  function isWeekend(d){ return d.getDay()===0 || d.getDay()===6; }
+  function formatWeekRange(start, end){
+    var sameMonth = start.getMonth()===end.getMonth() && start.getFullYear()===end.getFullYear();
+    var monthLong = end.toLocaleDateString('en-GB',{ month:'long' });
+    if (sameMonth) return start.getDate()+'–'+end.getDate()+' '+monthLong+' '+end.getFullYear();
+    var sm = start.toLocaleDateString('en-GB',{ month:'short' });
+    var em = end.toLocaleDateString('en-GB',{ month:'short' });
+    if (start.getFullYear()===end.getFullYear()) return start.getDate()+' '+sm+' – '+end.getDate()+' '+em+' '+end.getFullYear();
+    return start.getDate()+' '+sm+' '+start.getFullYear()+' – '+end.getDate()+' '+em+' '+end.getFullYear();
+  }
+
+  var DAY_START = 480, DAY_END = 1080, SLOT_MIN = 30, SLOT_COUNT = (DAY_END-DAY_START)/SLOT_MIN, SLOT_H = 40;
+  function toMinutes(hhmm){ var p = hhmm.split(':').map(Number); return p[0]*60+p[1]; }
+  function slotFromTime(hhmm){ return (toMinutes(hhmm)-DAY_START)/SLOT_MIN; }
+  function timeFromSlot(i){ var total = DAY_START + i*SLOT_MIN; return pad(Math.floor(total/60))+':'+pad(total%60); }
+
+  function escapeHtml(s){
+    return String(s).replace(/[&<>"']/g, function(c){
+      return { '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c];
+    });
+  }
+
+  var TODAY = todayDate();
+  var TODAY_ISO = toISODate(TODAY);
+
+  var bookingSeq = 1;
+  var bookings = BOOKING_TEMPLATES.map(function(t){
+    return {
+      id: 'bk' + (bookingSeq++),
+      roomId: t.r,
+      date: toISODate(addDays(TODAY, t.d)),
+      start: t.s, end: t.e,
+      title: t.t, organizer: t.o, attendees: t.a,
+      status: t.st, notes: ''
+    };
+  });
+
+  /* ---------- URL state ---------- */
+  var qs = new URLSearchParams(location.search);
+  var urlDebugState = qs.get('state'); // loading | empty | error | (none)
+  var viewState = {
+    view: (qs.get('view')==='week') ? 'week' : 'day',
+    date: (qs.get('date') && /^\d{4}-\d{2}-\d{2}$/.test(qs.get('date'))) ? qs.get('date') : TODAY_ISO,
+    capacity: qs.get('capacity') || 'any',
+    equipment: qs.get('equipment') || 'any'
+  };
+  if (urlDebugState === 'empty') bookings = [];
+
+  function syncURL(){
+    var p = new URLSearchParams();
+    p.set('view', viewState.view);
+    p.set('date', viewState.date);
+    if (viewState.capacity !== 'any') p.set('capacity', viewState.capacity);
+    if (viewState.equipment !== 'any') p.set('equipment', viewState.equipment);
+    if (urlDebugState) p.set('state', urlDebugState);
+    history.replaceState(null, '', '?' + p.toString());
+  }
+
+  /* ---------- Room filtering ---------- */
+  function roomMatches(room){
+    if (viewState.capacity !== 'any'){
+      if (viewState.capacity === '1-4' && !(room.capacity>=1 && room.capacity<=4)) return false;
+      if (viewState.capacity === '5-8' && !(room.capacity>=5 && room.capacity<=8)) return false;
+      if (viewState.capacity === '9plus' && !(room.capacity>=9)) return false;
+    }
+    if (viewState.equipment !== 'any'){
+      var label = EQUIPMENT_MAP[viewState.equipment];
+      if (room.equipment.indexOf(label) === -1) return false;
+    }
+    return true;
+  }
+  function filteredRooms(){ return ROOMS.filter(roomMatches); }
+  function roomById(id){ return ROOMS.filter(function(r){ return r.id===id; })[0]; }
+
+  /* ---------- Toast ---------- */
+  function showToast(message){
+    var container = document.getElementById('toastContainer');
+    var el = document.createElement('div');
+    el.setAttribute('role','status');
+    el.className = 'rounded-md border border-slate-200 bg-white shadow-lg px-4 py-3 text-sm text-slate-800';
+    el.textContent = message;
+    container.appendChild(el);
+    setTimeout(function(){ el.remove(); }, 4000);
+  }
+
+  /* ---------- Dialog helpers ---------- */
+  var lastFocused = null;
+  function openDialog(id){
+    lastFocused = document.activeElement;
+    var el = document.getElementById(id);
+    el.hidden = false;
+    var focusable = el.querySelector('input, select, textarea, button');
+    if (focusable) focusable.focus();
+    document.addEventListener('keydown', trapHandlerFor(el));
+    el._trap = trapHandlerFor(el);
+  }
+  function trapHandlerFor(el){
+    return function(e){
+      if (e.key === 'Escape'){
+        var closeBtn = el.querySelector('[data-action^="close-"], [data-action^="dismiss-"]');
+        if (closeBtn) closeBtn.click();
+      }
+      if (e.key === 'Tab'){
+        var items = el.querySelectorAll('input, select, textarea, button, [href]');
+        if (!items.length) return;
+        var first = items[0], last = items[items.length-1];
+        if (e.shiftKey && document.activeElement === first){ e.preventDefault(); last.focus(); }
+        else if (!e.shiftKey && document.activeElement === last){ e.preventDefault(); first.focus(); }
+      }
+    };
+  }
+  function closeDialog(id){
+    var el = document.getElementById(id);
+    el.hidden = true;
+    if (el._trap) document.removeEventListener('keydown', el._trap);
+    if (lastFocused && document.body.contains(lastFocused)) lastFocused.focus();
+  }
+
+  /* ---------- Rendering: toolbar ---------- */
+  function renderToolbar(){
+    var date = parseISODate(viewState.date);
+    document.getElementById('viewDayBtn').setAttribute('aria-pressed', String(viewState.view==='day'));
+    document.getElementById('viewWeekBtn').setAttribute('aria-pressed', String(viewState.view==='week'));
+    document.getElementById('viewDayBtn').className = 'focus-ring text-sm font-medium px-3 py-1.5 ' + (viewState.view==='day' ? 'bg-blue-700 text-white' : 'bg-white text-slate-700 hover:bg-slate-50');
+    document.getElementById('viewWeekBtn').className = 'focus-ring text-sm font-medium px-3 py-1.5 border-l border-slate-300 ' + (viewState.view==='week' ? 'bg-blue-700 text-white' : 'bg-white text-slate-700 hover:bg-slate-50');
+
+    if (viewState.view === 'day'){
+      document.getElementById('rangeHeading').textContent = formatLong(date);
+      document.getElementById('prevBtn').setAttribute('aria-label','Previous day');
+      document.getElementById('nextBtn').setAttribute('aria-label','Next day');
+    } else {
+      var ws = startOfWeek(date), we = addDays(ws,6);
+      document.getElementById('rangeHeading').textContent = formatWeekRange(ws, we);
+      document.getElementById('prevBtn').setAttribute('aria-label','Previous week');
+      document.getElementById('nextBtn').setAttribute('aria-label','Next week');
+    }
+    document.getElementById('capacitySelect').value = viewState.capacity;
+    document.getElementById('equipmentSelect').value = viewState.equipment;
+    document.getElementById('clearFiltersBtn').hidden = (viewState.capacity==='any' && viewState.equipment==='any');
+  }
+
+  /* ---------- Rendering: calendar ---------- */
+  function renderNoRoomsEmpty(){
+    document.getElementById('calendarRoot').innerHTML =
+      '<div class="p-10 text-center">' +
+      '<p class="text-sm font-medium text-slate-900 mb-1">No rooms match these filters</p>' +
+      '<p class="text-sm text-slate-600 mb-4">Try a different capacity or equipment.</p>' +
+      '<button type="button" data-action="clear-filters" class="focus-ring rounded border border-slate-300 bg-white text-sm font-medium px-3 py-2 hover:bg-slate-50">Clear filters</button>' +
+      '</div>';
+  }
+
+  function render(){
+    renderToolbar();
+    var rooms = filteredRooms();
+    document.getElementById('emptyBanner').hidden = bookings.length > 0;
+    if (rooms.length === 0){ renderNoRoomsEmpty(); return; }
+    if (viewState.view === 'day') renderDayView(rooms); else renderWeekView(rooms);
+  }
+
+  function roomMetaLine(room){
+    return 'Floor ' + room.floor + ' · ' + room.capacity + ' seats · ' + room.equipment.join(', ');
+  }
+
+  function renderDayView(rooms){
+    var dateIso = viewState.date;
+    var isToday = dateIso === TODAY_ISO;
+    var n = rooms.length;
+    var colTemplate = '64px repeat(' + n + ', minmax(150px, 1fr))';
+
+    var dayBookings = bookings.filter(function(b){ return b.date===dateIso && roomMatches(roomById(b.roomId)); });
+
+    // header row
+    var headerHtml = '<div class="grid border-b border-slate-200 bg-white sticky top-0 z-20" style="grid-template-columns:' + colTemplate + '">';
+    headerHtml += '<div class="px-2 py-2 text-xs text-slate-500 border-r border-slate-100">Time</div>';
+    rooms.forEach(function(room){
+      headerHtml += '<div class="px-3 py-2 border-r border-slate-100 last:border-r-0">' +
+        '<div class="text-sm font-medium text-slate-900">' + escapeHtml(room.name) + '</div>' +
+        '<div class="text-xs text-slate-600 mt-0.5">' + escapeHtml(roomMetaLine(room)) + '</div>' +
+        '<button type="button" data-action="book-slot" data-room="' + room.id + '" data-date="' + dateIso + '" data-start="" data-end="" ' +
+        'class="focus-ring text-xs font-medium text-blue-700 hover:underline mt-1">+ Book</button>' +
+        '</div>';
+    });
+    headerHtml += '</div>';
+
+    // occupied slot map per room
+    var occupied = {};
+    rooms.forEach(function(r){ occupied[r.id] = {}; });
+    dayBookings.forEach(function(b){
+      var s = slotFromTime(b.start), e = slotFromTime(b.end);
+      for (var i=s; i<e; i++) occupied[b.roomId][i] = true;
+    });
+
+    var bodyHtml = '<div class="relative grid" style="grid-template-columns:' + colTemplate + '; grid-auto-rows:' + SLOT_H + 'px">';
+
+    // time gutter + free slot buttons
+    for (var slot=0; slot<SLOT_COUNT; slot++){
+      var onHour = (DAY_START + slot*SLOT_MIN) % 60 === 0;
+      bodyHtml += '<div class="relative border-r border-slate-100 ' + (onHour ? 'border-t border-slate-200' : 'border-t border-slate-50') + '" style="grid-row:' + (slot+1) + '/' + (slot+2) + '; grid-column:1">' +
+        (onHour ? '<span class="absolute -top-2 right-2 text-xs text-slate-500 bg-white px-0.5">' + timeFromSlot(slot) + '</span>' : '') +
+        '</div>';
+      rooms.forEach(function(room, ci){
+        var isOcc = !!occupied[room.id][slot];
+        var borderCls = onHour ? 'border-t border-slate-200' : 'border-t border-slate-50';
+        if (isOcc){
+          bodyHtml += '<div class="border-r border-slate-100 last:border-r-0 ' + borderCls + '" style="grid-row:' + (slot+1) + '/' + (slot+2) + '; grid-column:' + (ci+2) + '"></div>';
+        } else {
+          var st = timeFromSlot(slot), et = timeFromSlot(slot+1);
+          bodyHtml += '<button type="button" data-action="book-slot" data-room="' + room.id + '" data-date="' + dateIso + '" data-start="' + st + '" data-end="' + et + '" ' +
+            'aria-label="Book ' + escapeHtml(room.name) + ', ' + st + '–' + et + ', free" ' +
+            'class="focus-ring block w-full h-full border-r border-slate-100 last:border-r-0 ' + borderCls + ' hover:bg-blue-50" ' +
+            'style="grid-row:' + (slot+1) + '/' + (slot+2) + '; grid-column:' + (ci+2) + '"></button>';
+        }
+      });
+    }
+
+    // booking blocks
+    dayBookings.forEach(function(b){
+      var ci = rooms.findIndex(function(r){ return r.id===b.roomId; });
+      if (ci === -1) return;
+      var s = slotFromTime(b.start), e = slotFromTime(b.end);
+      var pending = b.status === 'pending';
+      var cls = pending
+        ? 'border-2 border-dashed border-blue-400 bg-blue-50 text-blue-900'
+        : 'bg-blue-600 text-white';
+      var label = escapeHtml(b.title) + ', ' + b.start + '–' + b.end + ', ' + escapeHtml(b.organizer) + (pending ? ', pending approval' : ', confirmed');
+      bodyHtml += '<button type="button" data-action="open-details" data-id="' + b.id + '" aria-label="' + label + '" ' +
+        'class="focus-ring relative z-10 m-0.5 rounded-md px-2 py-1 text-left overflow-hidden ' + cls + '" ' +
+        'style="grid-row:' + (s+1) + '/' + (e+1) + '; grid-column:' + (ci+2) + '">' +
+        '<span class="block text-xs font-medium leading-tight truncate">' + b.start + '–' + b.end + ' · ' + escapeHtml(b.title) + '</span>' +
+        '<span class="block text-xs leading-tight truncate ' + (pending ? 'text-blue-700' : 'text-blue-100') + '">' + escapeHtml(b.organizer) + (pending ? ' · Pending' : '') + '</span>' +
+        '</button>';
+    });
+
+    // current time indicator
+    if (isToday){
+      var now = new Date();
+      var mins = now.getHours()*60 + now.getMinutes();
+      if (mins >= DAY_START && mins <= DAY_END){
+        var top = ((mins - DAY_START) / SLOT_MIN) * SLOT_H;
+        bodyHtml += '<div class="absolute left-0 right-0 z-20 pointer-events-none" style="top:' + top + 'px">' +
+          '<div class="h-0.5 bg-blue-700"></div>' +
+          '<div class="absolute -top-1.5 left-[62px] w-3 h-3 rounded-full bg-blue-700"></div>' +
+          '</div>';
+      }
+    }
+
+    bodyHtml += '</div>';
+
+    document.getElementById('calendarRoot').innerHTML =
+      headerHtml +
+      '<div class="overflow-y-auto max-h-[75vh]">' + bodyHtml + '</div>';
+  }
+
+  function renderWeekView(rooms){
+    var ws = startOfWeek(parseISODate(viewState.date));
+    var days = []; for (var i=0;i<7;i++) days.push(addDays(ws,i));
+    var colTemplate = '190px repeat(7, minmax(140px, 1fr))';
+
+    var header = '<div class="grid border-b border-slate-200 bg-white sticky top-0 z-20" style="grid-template-columns:' + colTemplate + '">';
+    header += '<div class="px-3 py-2 text-xs font-medium text-slate-500 border-r border-slate-100 flex items-end">Room</div>';
+    days.forEach(function(d){
+      var iso = toISODate(d);
+      var today = iso === TODAY_ISO;
+      var weekend = isWeekend(d);
+      header += '<div class="px-2 py-2 border-r border-slate-100 last:border-r-0 text-center ' + (weekend ? 'bg-slate-50' : '') + (today ? ' border-b-2 border-b-blue-700' : '') + '" ' + (today ? 'aria-current="date"' : '') + '>' +
+        '<div class="text-xs text-slate-500">' + formatWeekday(d) + '</div>' +
+        '<div class="text-sm font-medium text-slate-900 flex items-center justify-center gap-1">' +
+        (today ? '<span class="inline-block w-1.5 h-1.5 rounded-full bg-blue-700"></span>' : '') +
+        d.getDate() + '/' + pad(d.getMonth()+1) +
+        '</div>' +
+        (today ? '<div class="text-xs text-blue-700 font-medium">Today</div>' : '') +
+        '</div>';
+    });
+    header += '</div>';
+
+    var body = '<div class="grid" style="grid-template-columns:' + colTemplate + '">';
+    rooms.forEach(function(room){
+      body += '<div class="px-3 py-2 border-r border-t border-slate-100">' +
+        '<div class="text-sm font-medium text-slate-900">' + escapeHtml(room.name) + '</div>' +
+        '<div class="text-xs text-slate-600 mt-0.5">' + escapeHtml(roomMetaLine(room)) + '</div>' +
+        '</div>';
+      days.forEach(function(d){
+        var iso = toISODate(d);
+        var weekend = isWeekend(d);
+        var dayBookings = bookings.filter(function(b){ return b.roomId===room.id && b.date===iso; })
+          .sort(function(a,b){ return toMinutes(a.start)-toMinutes(b.start); });
+        var shown = dayBookings.slice(0,3);
+        var rest = dayBookings.length - shown.length;
+        var cellHtml = '<div class="min-h-[120px] px-1.5 py-1.5 border-r border-t border-slate-100 last:border-r-0 ' + (weekend ? 'bg-slate-50' : '') + '">';
+        shown.forEach(function(b){
+          var pending = b.status==='pending';
+          var cls = pending ? 'border border-dashed border-blue-400 bg-blue-50 text-blue-900' : 'bg-blue-600 text-white';
+          var label = escapeHtml(b.title) + ', ' + b.start + '–' + b.end + ', ' + escapeHtml(b.organizer) + (pending ? ', pending approval' : ', confirmed');
+          cellHtml += '<button type="button" data-action="open-details" data-id="' + b.id + '" aria-label="' + label + '" ' +
+            'class="focus-ring block w-full text-left rounded px-1.5 py-1 text-xs mb-1 truncate ' + cls + '">' +
+            b.start + '–' + b.end + ' · ' + escapeHtml(b.title) + (pending ? ' · Pending' : '') +
+            '</button>';
+        });
+        if (rest > 0){
+          cellHtml += '<button type="button" data-action="more" data-room="' + room.id + '" data-date="' + iso + '" ' +
+            'class="focus-ring block w-full text-left rounded px-1.5 py-1 text-xs font-medium text-blue-700 hover:bg-blue-50">+' + rest + ' more</button>';
+        }
+        cellHtml += '<button type="button" data-action="book-slot" data-room="' + room.id + '" data-date="' + iso + '" data-start="" data-end="" ' +
+          'class="focus-ring block w-full text-left rounded px-1.5 py-1 text-xs text-slate-500 hover:bg-slate-100 hover:text-blue-700">+ Book</button>';
+        cellHtml += '</div>';
+        body += cellHtml;
+      });
+    });
+
+    // footer totals
+    body += '<div class="px-3 py-2 border-r border-t border-slate-200 text-xs font-medium text-slate-600 bg-slate-50">Total bookings</div>';
+    days.forEach(function(d){
+      var iso = toISODate(d);
+      var weekend = isWeekend(d);
+      var count = bookings.filter(function(b){ return b.date===iso && roomMatches(roomById(b.roomId)); }).length;
+      body += '<div class="px-2 py-2 border-r border-t border-slate-200 last:border-r-0 text-xs text-slate-700 text-center tabular-nums bg-slate-50">' + count + ' booking' + (count===1?'':'s') + '</div>';
+    });
+    body += '</div>';
+
+    document.getElementById('calendarRoot').innerHTML =
+      header +
+      '<div class="overflow-y-auto max-h-[75vh] overflow-x-auto">' + body + '</div>';
+  }
+
+  /* ---------- Skeleton / error / load ---------- */
+  function renderSkeleton(){
+    var rows = '';
+    for (var i=0;i<10;i++) rows += '<div class="h-9 bg-slate-100 rounded"></div>';
+    document.getElementById('calendarRoot').innerHTML =
+      '<div class="p-4 animate-pulse space-y-2">' +
+      '<div class="h-10 bg-slate-200 rounded"></div>' + rows +
+      '</div>';
+  }
+  function renderError(){
+    document.getElementById('calendarRoot').innerHTML =
+      '<div class="p-10 text-center">' +
+      '<p class="text-sm font-medium text-red-800 mb-1">Couldn’t load the room schedule</p>' +
+      '<p class="text-sm text-slate-600 mb-4">Check your connection and try again.</p>' +
+      '<button type="button" id="retryBtn" class="focus-ring rounded border border-red-300 text-red-800 bg-white text-sm font-medium px-3 py-2 hover:bg-red-50">Retry</button>' +
+      '</div>';
+    document.getElementById('retryBtn').onclick = initialLoad;
+  }
+  var dataLoaded = false;
+  function initialLoad(){
+    renderToolbar();
+    renderSkeleton();
+    if (urlDebugState === 'loading') return; // held indefinitely
+    if (urlDebugState === 'error'){ setTimeout(renderError, 450); return; }
+    setTimeout(function(){ dataLoaded = true; render(); }, 500);
+  }
+
+  /* ---------- Booking modal ---------- */
+  var editingContext = null; // {room, date, start, end}
+  var formDirty = false;
+
+  function populateRoomSelect(selectedId){
+    var sel = document.getElementById('f_room');
+    sel.innerHTML = ROOMS.map(function(r){
+      return '<option value="' + r.id + '">' + escapeHtml(r.name) + ' · ' + r.capacity + ' seats · Floor ' + r.floor + '</option>';
+    }).join('');
+    if (selectedId) sel.value = selectedId;
+  }
+
+  function openBookingModal(room, date, start, end){
+    document.getElementById('bookingForm').reset();
+    ['e_title','e_room','e_date','e_start','e_end','e_organizer','w_attendees','formErrorSummary','formConflict'].forEach(function(id){
+      document.getElementById(id).hidden = true;
+    });
+    populateRoomSelect(room);
+    document.getElementById('f_date').value = date || viewState.date;
+    document.getElementById('f_start').value = start || '';
+    document.getElementById('f_end').value = end || '';
+    document.getElementById('f_attendees').value = 1;
+    document.getElementById('bookingDialogTitle').textContent = 'Book a room';
+    formDirty = false;
+    openDialog('bookingDialog');
+  }
+
+  document.getElementById('bookingForm').addEventListener('input', function(){ formDirty = true; checkCapacityWarning(); });
+  document.getElementById('f_room').addEventListener('change', function(){ formDirty = true; checkCapacityWarning(); });
+
+  function checkCapacityWarning(){
+    var room = roomById(document.getElementById('f_room').value);
+    var attendees = Number(document.getElementById('f_attendees').value || 0);
+    var warn = document.getElementById('w_attendees');
+    if (room && attendees > room.capacity){
+      warn.hidden = false;
+      warn.textContent = 'Exceeds ' + room.name + '’s capacity of ' + room.capacity + ' seats';
+    } else {
+      warn.hidden = true;
+    }
+  }
+
+  function setFieldError(id, message){
+    var el = document.getElementById(id);
+    if (message){ el.textContent = message; el.hidden = false; } else { el.hidden = true; }
+  }
+
+  function validateAndSave(){
+    var title = document.getElementById('f_title').value.trim();
+    var roomId = document.getElementById('f_room').value;
+    var date = document.getElementById('f_date').value;
+    var start = document.getElementById('f_start').value;
+    var end = document.getElementById('f_end').value;
+    var organizer = document.getElementById('f_organizer').value.trim();
+    var attendees = Number(document.getElementById('f_attendees').value || 1);
+    var notes = document.getElementById('f_notes').value.trim();
+
+    var errors = [];
+    setFieldError('e_title', ''); setFieldError('e_room', ''); setFieldError('e_date', '');
+    setFieldError('e_start', ''); setFieldError('e_end', ''); setFieldError('e_organizer', '');
+    document.getElementById('formConflict').hidden = true;
+
+    if (!title) errors.push({ field:'f_title', id:'e_title', msg:'Meeting title is required' });
+    if (!roomId) errors.push({ field:'f_room', id:'e_room', msg:'Room is required' });
+    if (!date) errors.push({ field:'f_date', id:'e_date', msg:'Date is required' });
+    if (!start) errors.push({ field:'f_start', id:'e_start', msg:'Start time is required' });
+    if (!end) errors.push({ field:'f_end', id:'e_end', msg:'End time is required' });
+    if (!organizer) errors.push({ field:'f_organizer', id:'e_organizer', msg:'Organiser is required' });
+
+    if (start && end && toMinutes(end) <= toMinutes(start)){
+      errors.push({ field:'f_end', id:'e_end', msg:'End time must be after start time' });
+    }
+
+    var conflict = null;
+    if (roomId && date && start && end && toMinutes(end) > toMinutes(start)){
+      conflict = bookings.filter(function(b){
+        return b.roomId===roomId && b.date===date &&
+          toMinutes(b.start) < toMinutes(end) && toMinutes(b.end) > toMinutes(start);
+      })[0];
+      if (conflict){
+        var room = roomById(roomId);
+        document.getElementById('formConflict').hidden = false;
+        document.getElementById('formConflict').textContent =
+          room.name + ' is already booked ' + conflict.start + '–' + conflict.end + ' by ' + conflict.organizer + ' (' + conflict.title + ').';
+      }
+    }
+
+    errors.forEach(function(e){ setFieldError(e.id, e.msg); });
+
+    var summary = document.getElementById('formErrorSummary');
+    var list = document.getElementById('formErrorList');
+    if (errors.length >= 3){
+      summary.hidden = false;
+      list.innerHTML = errors.map(function(e){
+        return '<li><a href="#' + e.field + '" class="underline text-red-800" data-focus="' + e.field + '">' + e.msg + '</a></li>';
+      }).join('');
+    } else {
+      summary.hidden = true;
+    }
+
+    if (errors.length || conflict){
+      var first = errors[0];
+      if (first) document.getElementById(first.field).focus();
+      else document.getElementById('f_start').focus();
+      return;
+    }
+
+    var saveBtn = document.getElementById('saveBookingBtn');
+    var spinner = document.getElementById('saveSpinner');
+    var label = document.getElementById('saveBookingLabel');
+    saveBtn.disabled = true;
+    spinner.hidden = false;
+    label.textContent = 'Saving…';
+
+    setTimeout(function(){
+      bookings.push({
+        id: 'bk' + (bookingSeq++),
+        roomId: roomId, date: date, start: start, end: end,
+        title: title, organizer: organizer, attendees: attendees,
+        status: 'confirmed', notes: notes
+      });
+      saveBtn.disabled = false;
+      spinner.hidden = true;
+      label.textContent = 'Save booking';
+      closeDialog('bookingDialog');
+      var room = roomById(roomId);
+      render();
+      showToast('Booking confirmed for ' + room.name + ', ' + start + '–' + end + ' on ' + formatShort(parseISODate(date)) + '.');
+    }, 600);
+  }
+
+  document.getElementById('formErrorList').addEventListener('click', function(e){
+    var a = e.target.closest('[data-focus]');
+    if (a){ e.preventDefault(); document.getElementById(a.getAttribute('data-focus')).focus(); }
+  });
+
+  /* ---------- Details dialog ---------- */
+  var activeBookingId = null;
+  function openDetails(id){
+    var b = bookings.filter(function(x){ return x.id===id; })[0];
+    if (!b) return;
+    activeBookingId = id;
+    var room = roomById(b.roomId);
+    var pending = b.status === 'pending';
+    document.getElementById('detailsTitle').textContent = b.title;
+    document.getElementById('detailsBody').innerHTML =
+      '<div>' +
+      '<span class="inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-xs font-medium ' +
+      (pending ? 'border border-dashed border-blue-400 text-blue-800 bg-blue-50' : 'bg-blue-100 text-blue-800') + '">' +
+      (pending ? 'Pending approval' : 'Confirmed') + '</span>' +
+      '</div>' +
+      '<p><span class="text-slate-500">Room:</span> ' + escapeHtml(room.name) + ' · Floor ' + room.floor + ' · ' + room.capacity + ' seats</p>' +
+      '<p><span class="text-slate-500">Date:</span> ' + formatLong(parseISODate(b.date)) + '</p>' +
+      '<p><span class="text-slate-500">Time:</span> ' + b.start + '–' + b.end + '</p>' +
+      '<p><span class="text-slate-500">Organiser:</span> ' + escapeHtml(b.organizer) + '</p>' +
+      '<p><span class="text-slate-500">Attendees:</span> ' + b.attendees + '</p>' +
+      (b.notes ? '<p><span class="text-slate-500">Notes:</span> ' + escapeHtml(b.notes) + '</p>' : '');
+    openDialog('detailsDialog');
+  }
+
+  function openCancelConfirm(){
+    var b = bookings.filter(function(x){ return x.id===activeBookingId; })[0];
+    if (!b) return;
+    var room = roomById(b.roomId);
+    document.getElementById('confirmTitle').textContent = 'Cancel booking?';
+    document.getElementById('confirmBody').textContent =
+      'Cancel “' + b.title + '”? This will free ' + room.name + ' from ' + b.start + '–' + b.end + ' on ' + formatShort(parseISODate(b.date)) + '.';
+    openDialog('confirmDialog');
+    setTimeout(function(){ document.getElementById('keepBookingBtn').focus(); }, 0);
+  }
+
+  function confirmCancel(){
+    var b = bookings.filter(function(x){ return x.id===activeBookingId; })[0];
+    if (!b) return;
+    var room = roomById(b.roomId);
+    bookings = bookings.filter(function(x){ return x.id !== activeBookingId; });
+    closeDialog('confirmDialog');
+    closeDialog('detailsDialog');
+    render();
+    showToast('Booking cancelled for ' + room.name + ', ' + b.start + '–' + b.end + '.');
+  }
+
+  /* ---------- Agenda ("+N more") dialog ---------- */
+  function openAgenda(roomId, dateIso){
+    var room = roomById(roomId);
+    var list = bookings.filter(function(b){ return b.roomId===roomId && b.date===dateIso; })
+      .sort(function(a,b){ return toMinutes(a.start)-toMinutes(b.start); });
+    document.getElementById('agendaTitle').textContent = room.name + ' · ' + formatShort(parseISODate(dateIso));
+    document.getElementById('agendaBody').innerHTML = list.map(function(b){
+      var pending = b.status === 'pending';
+      var cls = pending ? 'border border-dashed border-blue-400 bg-blue-50 text-blue-900' : 'bg-blue-600 text-white';
+      return '<button type="button" data-action="open-details-from-agenda" data-id="' + b.id + '" ' +
+        'class="focus-ring block w-full text-left rounded px-3 py-2 text-sm ' + cls + '">' +
+        '<span class="block font-medium">' + b.start + '–' + b.end + ' · ' + escapeHtml(b.title) + (pending ? ' · Pending' : '') + '</span>' +
+        '<span class="block text-xs ' + (pending ? 'text-blue-700' : 'text-blue-100') + '">' + escapeHtml(b.organizer) + '</span>' +
+        '</button>';
+    }).join('');
+    openDialog('agendaDialog');
+  }
+
+  /* ---------- Event delegation ---------- */
+  document.addEventListener('click', function(e){
+    var el = e.target.closest('[data-action]');
+    if (!el) return;
+    var action = el.getAttribute('data-action');
+
+    switch(action){
+      case 'nav-today':
+        viewState.date = TODAY_ISO; syncURL(); render(); break;
+      case 'nav-prev':
+        viewState.date = toISODate(addDays(parseISODate(viewState.date), viewState.view==='day' ? -1 : -7));
+        syncURL(); render(); break;
+      case 'nav-next':
+        viewState.date = toISODate(addDays(parseISODate(viewState.date), viewState.view==='day' ? 1 : 7));
+        syncURL(); render(); break;
+      case 'set-view':
+        viewState.view = el.getAttribute('data-view'); syncURL(); render(); break;
+      case 'clear-filters':
+        viewState.capacity = 'any'; viewState.equipment = 'any'; syncURL(); render(); break;
+      case 'new-booking':
+        openBookingModal('', viewState.date, '', ''); break;
+      case 'book-slot':
+        openBookingModal(el.getAttribute('data-room'), el.getAttribute('data-date'), el.getAttribute('data-start'), el.getAttribute('data-end'));
+        break;
+      case 'close-modal':
+        if (formDirty && !window.confirm('Discard this unsaved booking?')) return;
+        closeDialog('bookingDialog'); break;
+      case 'submit-booking':
+        validateAndSave(); break;
+      case 'open-details':
+        openDetails(el.getAttribute('data-id')); break;
+      case 'open-details-from-agenda':
+        closeDialog('agendaDialog');
+        openDetails(el.getAttribute('data-id'));
+        break;
+      case 'close-details':
+        closeDialog('detailsDialog'); break;
+      case 'more':
+        openAgenda(el.getAttribute('data-room'), el.getAttribute('data-date')); break;
+      case 'close-agenda':
+        closeDialog('agendaDialog'); break;
+      case 'open-cancel':
+        openCancelConfirm(); break;
+      case 'dismiss-confirm':
+        closeDialog('confirmDialog'); break;
+      case 'confirm-cancel':
+        confirmCancel(); break;
+    }
+  });
+
+  document.getElementById('capacitySelect').addEventListener('change', function(){
+    viewState.capacity = this.value; syncURL(); render();
+  });
+  document.getElementById('equipmentSelect').addEventListener('change', function(){
+    viewState.equipment = this.value; syncURL(); render();
+  });
+
+  window.addEventListener('beforeunload', function(e){
+    if (formDirty && !document.getElementById('bookingDialog').hidden){
+      e.preventDefault(); e.returnValue = '';
+    }
+  });
+
+  /* ---------- Init ---------- */
+  syncURL();
+  initialLoad();
+})();
+</script>
+</body>
+</html>

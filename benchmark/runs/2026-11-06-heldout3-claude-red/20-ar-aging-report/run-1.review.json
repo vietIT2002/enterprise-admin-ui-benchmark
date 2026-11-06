@@ -1,0 +1,60 @@
+{
+  "brief": "20-ar-aging-report",
+  "run": 1,
+  "items": [
+    {
+      "item": "Balances are split into Current (not yet due) and past-due buckets of 1–30, 31–60, 61–90 and over 90 days, with no gaps or overlaps between ranges, and the page states whether days are counted from the due date or the invoice date",
+      "pass": false,
+      "evidence": "bucketOf() (page.html:211-217) correctly partitions daysOverdue into current/1-30/31-60/61-90/90+ with no gaps or overlaps, and daysOverdue is in fact computed from the due date (daysBetween(TODAY, dueDate), line 309). However, nothing in the UI (header, column label 'Days Overdue', footer 'All amounts in USD') ever states that aging is measured from the due date rather than the invoice date, so the disclosure half of this requirement is not implemented."
+    },
+    {
+      "item": "Each customer's row total equals the sum of its buckets, and a grand-total row, set apart from the customer rows, equals the sum of every bucket column and of the total column",
+      "pass": true,
+      "evidence": "buildCustomerSummaries() (page.html:325-355) accumulates s.total and each bucket from the same invoice loop so total always equals the bucket sum. The grand total is rendered into a separate <tfoot><tr id=\"summaryTotalsRow\" class=\"bg-slate-50 font-semibold border-t-2...\"> (lines 139-140, 504-513), visually set apart from tbody rows, and computed via the same reduce over filtered summaries (lines 498-502), confirmed in full.png: Total (12) row = $102,425.75 + $23,175.50 + $54,750.00 + $11,550.00 + $30,120.00 = $222,021.25."
+    },
+    {
+      "item": "An as-of date control is present, and the heading or a summary line states the as-of date, the currency, the total receivable and the total overdue (such as \"As of 31 Oct 2026 · VND\")",
+      "pass": false,
+      "evidence": "span#asOfLabel only renders 'As of Nov 6, 2026' (page.html:670); the 'Refresh' button (line 37) just recalculates against today's date rather than letting the user pick an as-of date. No single heading/summary line combines the date with currency, total receivable and total overdue — currency ('USD') only appears in the page footer (line 177), and total receivable/overdue are split across separate summary cards (lines 451-458) rather than stated as text."
+    },
+    {
+      "item": "Money columns are right-aligned with fixed-width digits, thousand separators and one decimal convention, and credit balances such as overpayments carry a leading minus or brackets instead of being signalled by red text alone",
+      "pass": false,
+      "evidence": "Cells use text-right and fmtMoney() applies toLocaleString with fixed 2-decimal places and thousand separators (page.html:198-201), and negative values would get a leading '-' sign (no credit balances exist in the mock data to confirm visually). But audit.json's tabular-nums rule fails on all 39 numeric cells ('actual: normal, expected: tabular-nums'), so digits are not fixed-width/monospaced as required."
+    },
+    {
+      "item": "Users can search by customer name or code, filter by at least one of salesperson, customer group or branch, and restrict the list to customers with overdue balances, with the number of customers shown",
+      "pass": false,
+      "evidence": "matchesFilters() (page.html:411-431) only searches customer name and invoice number (not customer code), and the only filters offered are 'Aging bucket', 'Status' (which includes an 'Overdue' option satisfying the overdue-restriction part) and 'Min. balance due' — there is no salesperson, customer group or branch filter anywhere in the markup. resultCount does show 'Showing 12 of 12 customers' (line 472)."
+    },
+    {
+      "item": "Each customer row expands, through a keyboard-operable control such as a button with aria-expanded, into its open invoices (invoice number, invoice date, due date, days overdue, open amount), and those amounts add up to the customer's row",
+      "pass": false,
+      "evidence": "Clicking a <tr data-customer=...> (page.html:483, 516-523) opens a separate #detailSection panel with invoice #, invoice date, due date, amount and days overdue — but the control is a plain table row with a click listener, not a button, has no aria-expanded, tabindex or keydown handler, so it is not keyboard-operable."
+    },
+    {
+      "item": "Clicking a column header re-orders the customers and the header in use carries aria-sort; by default customers are ordered by their over-90 amount (or total balance), largest first",
+      "pass": false,
+      "evidence": "th.sortable elements (lines 128, 134) do re-sort on click via th.addEventListener (588-594), and the default state.sort='balance-desc' sorts by total balance descending (lines 439, 366), matching full.png where Hartwell $52,100 > Ashbourne $47,700 > ... in descending total order. But no th ever gets an aria-sort attribute — grep for 'aria-sort' in the page returns no matches."
+    },
+    {
+      "item": "An Excel or CSV export is offered, and an @media print style removes navigation, filters and buttons while keeping the as-of date, column headings and grand total on paper",
+      "pass": false,
+      "evidence": "Export menu offers 'Export summary (CSV)' and 'Export invoice detail (CSV)' (lines 108-109) via downloadCsv(). The @media print rule hides all .no-print elements (lines 9-12) including the filters section, which is correct, but span#asOfLabel is nested inside the same no-print wrapper as the Refresh button ('<div class=\"flex items-center gap-2 no-print\">', line 35), so the as-of date is also stripped from the printed page, violating the requirement to keep it on paper."
+    },
+    {
+      "item": "Filters that leave no balances show a message saying so instead of an empty grid or a row of zeros, and both a loading state and an error state with a retry action are built in",
+      "pass": false,
+      "evidence": "#emptyState div shows 'No customers match the current filters.' when filtered.length===0 (lines 144-146, 474-479), satisfying the empty-filter message. But there is no loading state (data is built synchronously from the static RAW_INVOICES array with no fetch/spinner/skeleton) and no error state or retry control anywhere in the script."
+    }
+  ],
+  "tells": [
+    "initials-avatar-non-person — 'LN' initials badge (h-11 w-11 rounded-lg bg-indigo-600 ... text-white font-bold) represents the company 'Lumen & North Co.', not a person, styled like a user avatar (page.html:27-29)",
+    "tracked-uppercase-labels — table header row uses 'text-xs uppercase tracking-wide' (page.html:127, visible in screenshots as 'CUSTOMER', 'CURRENT', 'TOTAL DUE', etc.)",
+    "oversized-radius — summary cards use rounded-xl (12px), flagged directly by audit.json's radius-scale violation ('actual: 12px, expected ≤8px')",
+    "rainbow-status — status badges span four distinct hues (emerald/orange/red/amber) for Current/Overdue/Critical/Disputed (statusBadge(), page.html:381-392) with overlapping red/orange/amber tones rather than a restrained semantic palette",
+    "emoji-icon — Close button uses a bare Unicode symbol instead of an icon: 'Close ✕' (page.html:156)"
+  ],
+  "notes": "Core aging-math (bucket assignment, row/grand totals) is solid and internally consistent, and CSV export plus an empty-state message exist. The report fails most of the enterprise-grade interaction/accessibility requirements: no aria-sort or aria-expanded anywhere, no salesperson/group/branch filter, no loading/error+retry states, the as-of date is accidentally hidden on print, and audit.json independently confirms a tabular-nums violation across all 39 numeric cells plus an oversized 12px card radius.",
+  "blind": true
+}

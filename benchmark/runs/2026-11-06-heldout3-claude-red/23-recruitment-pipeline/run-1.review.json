@@ -1,0 +1,60 @@
+{
+  "brief": "23-recruitment-pipeline",
+  "run": 1,
+  "items": [
+    {
+      "item": "Stage columns run in hiring order (such as Applied → Screening → Interview → Offer → Hired), and rejected or withdrawn candidates are kept out of the active columns, in a separate collapsed column or behind a filter",
+      "pass": true,
+      "evidence": "STAGES array order is applied, screening, interview, offer, hired, rejected (page.html:100-107) and renderBoard() renders one column per STAGES entry in that order, so Rejected sits in its own column after Hired rather than mixed into the active stages. It is not collapsed and there is no 'withdrawn' status in the data model, but rejected candidates are structurally segregated into their own trailing column."
+    },
+    {
+      "item": "Each stage header shows a candidate count that matches the number of cards in that column under the current filters",
+      "pass": true,
+      "evidence": "renderBoard(): `const items = filtered.filter(c => c.stage === stage.id);` then the header badge renders `${items.length}` (page.html:407-417) — the same filtered array used to render the cards, so the count always matches."
+    },
+    {
+      "item": "The page names the opening being shown (job title, department, positions to fill and hired so far, such as \"Senior Accountant · Finance · 1 of 2 hired\"), and a selector switches to another opening",
+      "pass": false,
+      "evidence": "jobSelect dropdown (page.html:46, 533-536) switches openings, and jobMeta shows title/department/location/type/posted/status. But JOBS objects (page.html:117-123) have no 'positions to fill' field, and no 'X of Y hired' string is ever rendered anywhere — statsRow shows a standalone 'Hired' count (e.g. '1') with no total-openings denominator."
+    },
+    {
+      "item": "Each card gives the candidate's name, application source and days in the current stage, and candidates who have stayed past a stated limit are flagged with a text label or icon rather than colour alone",
+      "pass": false,
+      "evidence": "candidateCard() shows name and c.source, but the day figure is `Applied ${daysAgo(c.appliedDate)}d ago` (page.html:391-394) — days since original application, not days in the current stage. There is no stated SLA/limit anywhere in the code and no overstay flag/icon/label of any kind."
+    },
+    {
+      "item": "A card can change stage without dragging, through a \"Move to\" menu or buttons that work from the keyboard, and each move is announced through an aria-live region",
+      "pass": false,
+      "evidence": "A real `<button data-action=\"advance\">Move to ${label}</button>` (page.html:396-400) and modal 'Move to Stage' buttons (page.html:513-518) allow non-drag, keyboard-operable stage changes. But there is no `aria-live` attribute anywhere in the document (grep found zero matches), so moves are never announced to assistive tech."
+    },
+    {
+      "item": "Moving a candidate to Rejected opens a confirmation that names the candidate and requires a rejection reason before it completes",
+      "pass": false,
+      "evidence": "Board click handler: `if (rejectBtn) { ... c.stage = 'rejected'; renderAll(); }` (page.html:581-586) and modal set-stage handler (page.html:594-604) both set stage to 'rejected' immediately on click with no confirmation dialog and no reason field."
+    },
+    {
+      "item": "Search by candidate name or email and filters by source and by recruiter narrow the board, and the active filters are displayed with a way to clear them",
+      "pass": false,
+      "evidence": "searchInput matches name/email/skills/title and sourceFilter narrows by c.source (getFiltered(), page.html:285-298); a 'Clear filters' button exists (page.html:76). But there is no recruiter field in the data model or a recruiter filter control, and no UI displays which filters are currently active (no chips/summary beyond the generic 'Showing N of M candidates' count)."
+    },
+    {
+      "item": "Opening a card shows the candidate's contact details, a link to the CV and a stage history listing each move with its date and the person who made it",
+      "pass": false,
+      "evidence": "openModal() shows email, phone, location, experience, source, applied date, salary and rating (page.html:467-474), and a 'Pipeline Progress' stepper shows which stages were reached. But there is no CV/resume link anywhere, and the stepper has no dates for each move and no recruiter/person attribution — only the rejected case prints one date ('Rejected after … on …', page.html:502)."
+    },
+    {
+      "item": "A stage with no candidates keeps its column and shows a placeholder such as \"No candidates\", and loading and error-with-retry states are built in",
+      "pass": false,
+      "evidence": "Empty columns render `<p class=\"text-xs text-slate-400 text-center py-6\">No candidates</p>` (page.html:420), which passes that half. However there is no loading state and no error-with-retry state anywhere in the script — data is synchronous mock data rendered once at init with no fetch/async/error path."
+    }
+  ],
+  "tells": [
+    "oversized-radius: modal panel uses rounded-2xl and top sections use rounded-xl (12px), exceeding the ≤8px guidance — flagged directly by audit.json's radius-scale violation (`section.bg-white.border:nth-of-type(1)` actual 12px)",
+    "glass: `[data-modal-backdrop] { backdrop-filter: blur(2px); }` (page.html:15) applies a frosted-glass blur behind the candidate modal",
+    "card-in-card: statsRow renders six bordered mini-cards (`border border-slate-100 rounded-lg bg-slate-50/50`) inside the already-bordered job-opening section card, and each Kanban column (bordered slate-50 card) contains individually bordered white candidate cards",
+    "emoji-icon: 'Avg. Rating' stat appends a literal '★' character to the number (page.html:345) instead of using the SVG star icon the rest of the UI (stars() function) relies on",
+    "rainbow-status: each pipeline stage gets its own hue (slate/sky/amber/violet/emerald/rose) for dot, header background and badge (STAGES array, page.html:100-107) purely to distinguish six columns, without any legend explaining the color coding"
+  ],
+  "notes": "Automated audit.json flags 83 text-contrast failures (many slate-400-on-white label pairs at ~2.5:1) and a 12px/4-radius violation, consistent with the oversized-radius tell noted above. Core Kanban mechanics (render, filter, drag-and-drop, button-based stage advance, modal) all work, but several checklist items concerning accessibility announcements (aria-live), rejection safeguards, recruiter filtering, CV links, and loading/error states are simply unimplemented rather than partially implemented.",
+  "blind": true
+}

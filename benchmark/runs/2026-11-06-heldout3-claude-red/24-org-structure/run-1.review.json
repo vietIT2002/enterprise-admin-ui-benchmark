@@ -1,0 +1,57 @@
+{
+  "brief": "24-org-structure",
+  "run": 1,
+  "items": [
+    {
+      "item": "The hierarchy is an indented tree in which every unit with sub-units expands and collapses, exposed as role=\"tree\"/\"treeitem\" with aria-expanded (or nested lists whose toggles are buttons with aria-expanded) and operable from the keyboard",
+      "pass": false,
+      "evidence": "buildNodeHtml() in the script always renders every descendant's markup inline (`<div class=\"mt-1 ml-5 ...\">${node.children.map(...)}</div>`) with no toggle control, no role=\"tree\"/\"treeitem\" attributes, and no aria-expanded anywhere in the generated markup; full.png shows the entire 706-person org chart permanently expanded with no collapse affordance. Rows are plain divs with a click handler (attachTreeHandlers), not buttons, so there is no keyboard operability either."
+    },
+    {
+      "item": "Each unit shows its total headcount including sub-units alongside its direct staff (such as \"42 · 8 direct\"), and every parent's total equals its direct staff plus its children's totals",
+      "pass": false,
+      "evidence": "Each tree row only renders a single badge `${sumHeadcount(node)}` (e.g. Engineering shows just \"426\"); direct headcount is never shown next to it in the tree. sumHeadcount() does correctly compute total = node.headcount + sum(children totals), but that direct+total pairing is only split apart in the details panel as two separate stat tiles (\"6 Direct staff\" / \"706 Total headcount\"), never combined into one \"total · N direct\" display as required."
+    },
+    {
+      "item": "Each unit names its manager, and a unit without one shows \"Vacant\" rather than a blank",
+      "pass": false,
+      "evidence": "Every row/panel renders `node.manager.name` and `node.manager.title` directly (e.g. `<p ...>${node.manager.name} &middot; ${node.manager.title}</p>`) with no null-check or fallback string; no \"Vacant\" literal exists anywhere in the script, so a unit without a manager would render blank/undefined rather than \"Vacant\"."
+    },
+    {
+      "item": "The selected unit is marked in the tree (aria-selected or aria-current), and the details panel shows its name, code, path from the top (such as \"Company › Finance › Accounts Payable\"), manager and cost centre or location",
+      "pass": false,
+      "evidence": "Selection is only indicated via Tailwind classes (`isSelected ? \"bg-indigo-50 border-indigo-200\" : ...`) with no aria-selected or aria-current attribute set on `.unit-row`. The details panel (renderDetails) shows name, cost centre and location (`${node.costCenter} &middot; ${node.location}`) and manager, but never renders a unit code or a breadcrumb path like \"Company › Finance › Accounts Payable\"."
+    },
+    {
+      "item": "The details panel compares approved positions with filled ones and gives vacancies as approved minus filled",
+      "pass": false,
+      "evidence": "renderDetails() only renders Direct staff / Total headcount / Sub-units stat tiles from node.headcount and sumHeadcount(); there is no 'approved' or 'filled' field in the ORG data model and no vacancy calculation anywhere in the script."
+    },
+    {
+      "item": "The details panel lists the unit's direct employees with name and job title, and their number equals the unit's direct headcount",
+      "pass": false,
+      "evidence": "The panel's only list is \"Reporting units (${descendantUnits})\", which enumerates child sub-units with their aggregate headcount (e.g. \"Engineering 426 people\"), not individual employees. No employee names or job titles are rendered anywhere in the page."
+    },
+    {
+      "item": "Searching by unit or manager name expands the ancestors of each match and highlights it, and a search with no match says so",
+      "pass": false,
+      "evidence": "No search input exists in the markup (page.html has no <input> element at all) and no search/filter logic exists in the script."
+    },
+    {
+      "item": "Deactivating or moving a unit asks for confirmation in a dialog that names the unit and the number of employees and sub-units affected",
+      "pass": false,
+      "evidence": "There is no deactivate or move action, button, or dialog anywhere in the markup or script — the only interactions are selecting a row and jumping to a sub-unit via '.jump-link'."
+    },
+    {
+      "item": "A unit with no direct employees shows an explicit empty message in the details panel, and loading and error-with-retry states exist for both the tree and the panel",
+      "pass": false,
+      "evidence": "There is no employee list at all, so no corresponding empty-employees message exists (the only empty-state text, \"No sub-units — this is a leaf team.\", covers sub-units, not direct employees). Rendering is fully synchronous from the in-memory ORG constant (renderTree()/renderDetails() called immediately) with no loading skeleton, no error state, and no retry control for either the tree or the panel."
+    }
+  ],
+  "tells": [
+    "tracked-uppercase-labels",
+    "initials-avatar-non-person"
+  ],
+  "notes": "Page is a fully static, synchronously-rendered org chart built from a hard-coded ORG object with no interactivity beyond row-click selection and sub-unit jump-links. All nine checklist capabilities (collapsible accessible tree, combined headcount display, vacant-manager handling, selection ARIA + breadcrumb/code, approved-vs-filled vacancies, employee roster, search, confirm-dialog for destructive actions, and loading/error/empty states) are absent; the UI only covers read-only browsing of a flat, always-expanded hierarchy with per-unit summary stats. tracked-uppercase-labels: `uppercase tracking-wide` on 'DEPARTMENT HIERARCHY', 'UNIT DETAILS', 'MANAGER', 'DESCRIPTION', 'REPORTING UNITS (26)' section headers/labels. initials-avatar-non-person: round initials avatars (e.g. \"DW\", \"PN\") are attached to each org-unit row as if representing the unit itself, but the initials are actually the unit's manager's, conflating a department (non-person) with a person avatar.",
+  "blind": true
+}

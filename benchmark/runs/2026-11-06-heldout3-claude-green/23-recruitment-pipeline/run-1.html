@@ -1,0 +1,1756 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Hiring pipeline · HR System</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+  [hidden] { display: none !important; }
+  * { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
+  .clamp-2 { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+  .tabular-nums { font-variant-numeric: tabular-nums; }
+  .scroll-thin::-webkit-scrollbar { width: 8px; height: 8px; }
+  .scroll-thin::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+  .scroll-thin::-webkit-scrollbar-track { background: transparent; }
+  dialog::backdrop { background: rgba(15,23,42,0.4); }
+  dialog { border: none; }
+  @media (prefers-reduced-motion: reduce) { .animate-pulse { animation: none; } }
+  .drop-placeholder { height: 56px; border: 2px dashed #60a5fa; background: #eff6ff; border-radius: 6px; }
+  [draggable="true"] { cursor: grab; }
+  .card-lifted { outline: 2px solid #1d4ed8; outline-offset: 1px; }
+  .col-target { outline: 2px dashed #1d4ed8; outline-offset: -2px; }
+  sr-only-focusable:focus { position: static !important; width: auto !important; height: auto !important; }
+</style>
+</head>
+<body class="h-screen flex flex-col bg-slate-50 text-slate-900 text-sm overflow-hidden">
+
+<a href="#mainRegion" class="sr-only focus:not-sr-only focus:absolute focus:z-50 focus:top-2 focus:left-2 focus:bg-white focus:px-3 focus:py-2 focus:rounded focus:border focus:border-blue-700">Skip to board</a>
+
+<div id="liveRegion" class="sr-only" role="status" aria-live="polite"></div>
+<div id="toastRegion" class="fixed bottom-4 right-4 z-[60] flex flex-col gap-2 w-80"></div>
+
+<!-- ============ HEADER ============ -->
+<header id="pageHeader" class="bg-white border-b border-slate-200 px-6 py-3 shrink-0">
+  <nav aria-label="Breadcrumb" class="text-xs text-slate-500 mb-1">
+    <ol class="flex items-center gap-1.5">
+      <li>Recruiting</li><li aria-hidden="true">/</li><li>Job openings</li><li aria-hidden="true">/</li>
+      <li class="text-slate-700 font-medium" id="breadcrumbJobTitle">—</li>
+    </ol>
+  </nav>
+  <div class="flex items-start justify-between gap-4 flex-wrap">
+    <div class="flex items-center gap-3 flex-wrap">
+      <h1 class="text-xl font-semibold text-slate-900">Hiring pipeline</h1>
+      <label for="jobSelect" class="sr-only">Job opening</label>
+      <select id="jobSelect" class="h-8 rounded border border-slate-300 bg-white px-2 text-sm font-medium text-slate-700 focus:outline-2 focus:outline-blue-700"></select>
+    </div>
+    <div class="flex items-center gap-2">
+      <div class="inline-flex rounded border border-slate-300 overflow-hidden" role="group" aria-label="Board or list view">
+        <button id="viewBoardBtn" type="button" class="px-3 h-8 text-sm font-medium" aria-pressed="true">Board</button>
+        <button id="viewListBtn" type="button" class="px-3 h-8 text-sm font-medium border-l border-slate-300" aria-pressed="false">List</button>
+      </div>
+      <button id="exportBtn" type="button" class="h-8 px-3 rounded border border-slate-300 text-sm font-medium text-slate-700 hover:bg-slate-50 inline-flex items-center gap-1.5">
+        <svg class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 15V3"/><path d="m7 10 5 5 5-5"/><path d="M5 21h14"/></svg>
+        Export
+      </button>
+      <button id="addCandidateBtn" type="button" class="h-8 px-3 rounded bg-blue-700 text-sm font-medium text-white hover:bg-blue-800 inline-flex items-center gap-1.5">
+        <svg class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="M12 5v14"/></svg>
+        Add candidate
+      </button>
+    </div>
+  </div>
+  <p class="text-xs text-slate-500 mt-1" id="jobMetaLine">—</p>
+</header>
+
+<!-- ============ TOOLBAR ============ -->
+<div id="toolbarRegion" class="bg-white border-b border-slate-200 px-6 py-2 shrink-0 relative">
+  <div class="flex items-center gap-2 flex-wrap">
+    <div class="relative">
+      <svg class="size-4 text-slate-400 absolute left-2 top-2" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+      <input id="searchInput" type="search" placeholder="Search name, email or candidate ID" aria-label="Search candidates" class="h-8 w-72 rounded border border-slate-300 pl-8 pr-8 text-sm focus:outline-2 focus:outline-blue-700" />
+    </div>
+    <select id="sourceFilter" aria-label="Source" class="h-8 rounded border border-slate-300 px-2 text-sm text-slate-700 bg-white"></select>
+    <select id="recruiterFilter" aria-label="Recruiter" class="h-8 rounded border border-slate-300 px-2 text-sm text-slate-700 bg-white"></select>
+    <button id="mineToggle" type="button" aria-pressed="false" class="h-8 px-3 rounded border border-slate-300 text-sm text-slate-700 hover:bg-slate-50">Assigned to me</button>
+    <div class="relative">
+      <button id="moreFiltersBtn" type="button" aria-expanded="false" class="h-8 px-3 rounded border border-slate-300 text-sm text-slate-700 hover:bg-slate-50 inline-flex items-center gap-1">
+        <span id="moreFiltersLabel">More filters</span>
+        <svg class="size-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>
+      </button>
+      <div id="moreFiltersPanel" hidden class="absolute z-30 mt-1 w-72 rounded-md border border-slate-200 bg-white shadow-lg p-3">
+        <div class="space-y-3">
+          <div>
+            <label class="block text-xs font-medium text-slate-700 mb-1" for="ratingFilterDraft">Interview rating</label>
+            <select id="ratingFilterDraft" class="h-8 w-full rounded border border-slate-300 px-2 text-sm bg-white">
+              <option value="">Any rating</option>
+              <option value="Strong yes">Strong yes</option>
+              <option value="Yes">Yes</option>
+              <option value="Maybe">Maybe</option>
+              <option value="No">No</option>
+              <option value="none">Not yet rated</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-xs font-medium text-slate-700 mb-1" for="flagFilterDraft">Flag</label>
+            <select id="flagFilterDraft" class="h-8 w-full rounded border border-slate-300 px-2 text-sm bg-white">
+              <option value="">Any</option>
+              <option value="On hold">On hold</option>
+              <option value="Withdrawn">Withdrawn</option>
+              <option value="none">No flag</option>
+            </select>
+          </div>
+        </div>
+        <div class="flex justify-between items-center mt-3 pt-2 border-t border-slate-200">
+          <button id="moreFiltersReset" type="button" class="h-8 px-2 text-sm font-medium text-slate-600 hover:text-slate-900">Reset</button>
+          <button id="moreFiltersApply" type="button" class="h-8 px-3 rounded bg-blue-700 text-sm font-medium text-white hover:bg-blue-800">Apply</button>
+        </div>
+      </div>
+    </div>
+    <div class="ml-auto text-xs text-slate-500" id="resultCountLine"></div>
+  </div>
+  <div id="chipsRow" class="flex flex-wrap items-center gap-2 pt-2"></div>
+  <p id="srResultAnnounce" class="sr-only" role="status"></p>
+</div>
+
+<!-- ============ MAIN ============ -->
+<main id="mainRegion" class="flex-1 min-h-0 overflow-hidden relative bg-slate-50">
+  <div id="boardView" class="h-full flex flex-col"></div>
+  <div id="listView" class="h-full flex flex-col" hidden></div>
+</main>
+
+<!-- ============ DETAIL PANEL ============ -->
+<div id="detailBackdrop" class="fixed inset-0 bg-black/30 z-40" hidden></div>
+<aside id="detailPanel" class="fixed right-0 top-0 h-full w-[520px] max-w-full bg-white border-l border-slate-200 shadow-xl z-50 flex flex-col" hidden role="dialog" aria-modal="false" aria-labelledby="detailPanelTitle"></aside>
+
+<!-- ============ DIALOGS ============ -->
+<dialog id="dialogOffer" class="rounded-lg w-[440px] max-w-[92vw] shadow-xl p-0">
+  <form id="offerForm" class="flex flex-col">
+    <div class="px-5 py-4 border-b border-slate-200">
+      <h2 class="text-base font-semibold text-slate-900">Extend offer</h2>
+      <p class="text-sm text-slate-600 mt-1" id="offerDialogSubtitle"></p>
+    </div>
+    <div class="px-5 py-4 space-y-3">
+      <div>
+        <label class="block text-sm font-medium text-slate-700 mb-1" for="offerAmount">Offer amount (USD) <span class="text-red-600">*</span></label>
+        <input id="offerAmount" name="offerAmount" type="number" min="0" step="1000" required class="h-8 w-full rounded border border-slate-300 px-2 text-sm tabular-nums focus:outline-2 focus:outline-blue-700" />
+        <p class="text-xs text-red-600 mt-1 hidden" id="offerAmountError">Enter an offer amount.</p>
+      </div>
+      <div>
+        <label class="block text-sm font-medium text-slate-700 mb-1" for="offerExpiry">Offer expires <span class="text-red-600">*</span></label>
+        <input id="offerExpiry" name="offerExpiry" type="date" required class="h-8 w-full rounded border border-slate-300 px-2 text-sm focus:outline-2 focus:outline-blue-700" />
+        <p class="text-xs text-red-600 mt-1 hidden" id="offerExpiryError">Choose an expiry date.</p>
+      </div>
+    </div>
+    <div class="px-5 py-3 border-t border-slate-200 flex justify-end gap-2">
+      <button type="button" data-close-dialog="dialogOffer" class="h-8 px-3 rounded border border-slate-300 text-sm font-medium text-slate-700 hover:bg-slate-50">Cancel</button>
+      <button type="submit" class="h-8 px-3 rounded bg-blue-700 text-sm font-medium text-white hover:bg-blue-800">Send offer</button>
+    </div>
+  </form>
+</dialog>
+
+<dialog id="dialogReject" class="rounded-lg w-[440px] max-w-[92vw] shadow-xl p-0">
+  <form id="rejectForm" class="flex flex-col">
+    <div class="px-5 py-4 border-b border-slate-200">
+      <h2 class="text-base font-semibold text-slate-900">Reject candidate</h2>
+      <p class="text-sm text-slate-600 mt-1" id="rejectDialogSubtitle"></p>
+    </div>
+    <div class="px-5 py-4 space-y-3">
+      <div>
+        <label class="block text-sm font-medium text-slate-700 mb-1" for="rejectReason">Reason <span class="text-red-600">*</span></label>
+        <select id="rejectReason" name="rejectReason" required class="h-8 w-full rounded border border-slate-300 px-2 text-sm bg-white focus:outline-2 focus:outline-blue-700">
+          <option value="">Select a reason</option>
+          <option>Not a fit skillwise</option>
+          <option>Compensation mismatch</option>
+          <option>Position filled</option>
+          <option>Withdrew</option>
+          <option>Other</option>
+        </select>
+        <p class="text-xs text-red-600 mt-1 hidden" id="rejectReasonError">Choose a reason.</p>
+      </div>
+      <div>
+        <label class="block text-sm font-medium text-slate-700 mb-1" for="rejectNote">Note (optional)</label>
+        <textarea id="rejectNote" name="rejectNote" rows="2" class="w-full rounded border border-slate-300 px-2 py-1.5 text-sm focus:outline-2 focus:outline-blue-700"></textarea>
+      </div>
+    </div>
+    <div class="px-5 py-3 border-t border-slate-200 flex justify-end gap-2">
+      <button type="button" id="rejectCancelBtn" data-close-dialog="dialogReject" class="h-8 px-3 rounded border border-slate-300 text-sm font-medium text-slate-700 hover:bg-slate-50">Cancel</button>
+      <button type="submit" class="h-8 px-3 rounded bg-red-700 text-sm font-medium text-white hover:bg-red-800">Reject candidate</button>
+    </div>
+  </form>
+</dialog>
+
+<dialog id="dialogHire" class="rounded-lg w-[440px] max-w-[92vw] shadow-xl p-0">
+  <form id="hireForm" class="flex flex-col">
+    <div class="px-5 py-4 border-b border-slate-200">
+      <h2 class="text-base font-semibold text-slate-900">Mark as hired</h2>
+      <p class="text-sm text-slate-600 mt-1" id="hireDialogSubtitle"></p>
+    </div>
+    <div class="px-5 py-4 space-y-3">
+      <div>
+        <label class="block text-sm font-medium text-slate-700 mb-1" for="hireStartDate">Start date <span class="text-red-600">*</span></label>
+        <input id="hireStartDate" name="hireStartDate" type="date" required class="h-8 w-full rounded border border-slate-300 px-2 text-sm focus:outline-2 focus:outline-blue-700" />
+        <p class="text-xs text-red-600 mt-1 hidden" id="hireStartDateError">Choose a start date.</p>
+      </div>
+    </div>
+    <div class="px-5 py-3 border-t border-slate-200 flex justify-end gap-2">
+      <button type="button" data-close-dialog="dialogHire" class="h-8 px-3 rounded border border-slate-300 text-sm font-medium text-slate-700 hover:bg-slate-50">Cancel</button>
+      <button type="submit" class="h-8 px-3 rounded bg-blue-700 text-sm font-medium text-white hover:bg-blue-800">Mark as hired</button>
+    </div>
+  </form>
+</dialog>
+
+<dialog id="dialogAddCandidate" class="rounded-lg w-[460px] max-w-[92vw] shadow-xl p-0">
+  <form id="addCandidateForm" class="flex flex-col">
+    <div class="px-5 py-4 border-b border-slate-200">
+      <h2 class="text-base font-semibold text-slate-900">Add candidate</h2>
+      <p class="text-sm text-slate-600 mt-1" id="addCandidateSubtitle"></p>
+    </div>
+    <div class="px-5 py-4 space-y-3 max-h-[60vh] overflow-y-auto">
+      <div>
+        <label class="block text-sm font-medium text-slate-700 mb-1" for="newName">Full name <span class="text-red-600">*</span></label>
+        <input id="newName" name="newName" type="text" required class="h-8 w-full rounded border border-slate-300 px-2 text-sm focus:outline-2 focus:outline-blue-700" />
+        <p class="text-xs text-red-600 mt-1 hidden" id="newNameError">Enter the candidate's name.</p>
+      </div>
+      <div>
+        <label class="block text-sm font-medium text-slate-700 mb-1" for="newEmail">Email <span class="text-red-600">*</span></label>
+        <input id="newEmail" name="newEmail" type="email" required class="h-8 w-full rounded border border-slate-300 px-2 text-sm focus:outline-2 focus:outline-blue-700" />
+        <p class="text-xs text-red-600 mt-1 hidden" id="newEmailError">Enter a valid email.</p>
+      </div>
+      <div>
+        <label class="block text-sm font-medium text-slate-700 mb-1" for="newSource">Source <span class="text-red-600">*</span></label>
+        <select id="newSource" name="newSource" required class="h-8 w-full rounded border border-slate-300 px-2 text-sm bg-white focus:outline-2 focus:outline-blue-700"></select>
+      </div>
+      <div>
+        <label class="block text-sm font-medium text-slate-700 mb-1" for="newRecruiter">Recruiter <span class="text-red-600">*</span></label>
+        <select id="newRecruiter" name="newRecruiter" required class="h-8 w-full rounded border border-slate-300 px-2 text-sm bg-white focus:outline-2 focus:outline-blue-700"></select>
+      </div>
+    </div>
+    <div class="px-5 py-3 border-t border-slate-200 flex justify-end gap-2">
+      <button type="button" data-close-dialog="dialogAddCandidate" class="h-8 px-3 rounded border border-slate-300 text-sm font-medium text-slate-700 hover:bg-slate-50">Cancel</button>
+      <button type="submit" class="h-8 px-3 rounded bg-blue-700 text-sm font-medium text-white hover:bg-blue-800">Add candidate</button>
+    </div>
+  </form>
+</dialog>
+
+<script>
+(function(){
+  "use strict";
+
+  /* ============================================================
+     DATA
+  ============================================================ */
+  const JOB_OPENINGS = [
+    { id: 'frontend-eng', title: 'Senior Frontend Engineer', dept: 'Engineering', location: 'Remote', openSince: '2026-09-15' },
+    { id: 'product-designer', title: 'Product Designer', dept: 'Design', location: 'Austin, TX (Hybrid)', openSince: '2026-10-01' },
+    { id: 'data-analyst', title: 'Data Analyst', dept: 'Data', location: 'New York, NY', openSince: '2026-11-02' },
+  ];
+
+  const RECRUITERS = [
+    { id: 'priya', name: 'Priya Shah', initials: 'PS' },
+    { id: 'marcus', name: 'Marcus Reed', initials: 'MR' },
+    { id: 'elena', name: 'Elena Novak', initials: 'EN' },
+  ];
+  const CURRENT_USER_ID = 'priya';
+
+  const SOURCES = ['LinkedIn', 'Referral', 'Company site', 'Indeed', 'Agency'];
+
+  const STAGES = [
+    { id: 'applied',    label: 'Applied',    tone: 'neutral' },
+    { id: 'screening',  label: 'Screening',  tone: 'info' },
+    { id: 'interview',  label: 'Interview',  tone: 'info', limit: 6 },
+    { id: 'offer',      label: 'Offer',      tone: 'warning' },
+    { id: 'hired',      label: 'Hired',      tone: 'success' },
+    { id: 'rejected',   label: 'Rejected',   tone: 'danger', collapsible: true },
+  ];
+
+  function recruiter(id) { return RECRUITERS.find(r => r.id === id); }
+  function stageInfo(id) { return STAGES.find(s => s.id === id); }
+  function stageLabel(id) { const s = stageInfo(id); return s ? s.label : id; }
+  function initialsOf(name) { return name.split(' ').map(p => p[0]).join('').slice(0,2).toUpperCase(); }
+
+  function cand(o) {
+    return Object.assign({
+      email: (o.name.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^a-z ]/g,'').trim().replace(/\s+/g,'.')) + '@example.com',
+      phone: '+1 (555) 0100',
+      location: 'San Francisco, CA',
+      experienceYears: 5,
+      expectedSalary: null,
+      resumeFile: o.name.replace(/\s+/g,'_') + '_Resume.pdf',
+      resumeSize: '164 KB',
+      nextInterviewDate: null,
+      offerExpiry: null,
+      startDate: null,
+      rating: null,
+      flag: null,
+      rejectionReason: null,
+      notes: null,
+    }, o, { initials: initialsOf(o.name) });
+  }
+
+  // deterministic fake phone numbers
+  let phoneSeed = 2000;
+  function nextPhone(){ phoneSeed += 7; return '+1 (415) 555-' + String(phoneSeed).padStart(4,'0'); }
+
+  const DATA = {
+    'frontend-eng': [
+      cand({ id:'CAND-1001', name:'Daniel Osei', source:'LinkedIn', recruiter:'marcus', stage:'applied', appliedDate:'2026-11-04', stageEnteredDate:'2026-11-04', location:'Atlanta, GA', experienceYears:4, phone:nextPhone() }),
+      cand({ id:'CAND-1002', name:'Hana Kobayashi', source:'Referral', recruiter:'priya', stage:'applied', appliedDate:'2026-11-05', stageEnteredDate:'2026-11-05', location:'Seattle, WA', experienceYears:6, phone:nextPhone() }),
+      cand({ id:'CAND-1003', name:'Thiago Alves', source:'Company site', recruiter:'elena', stage:'applied', appliedDate:'2026-11-02', stageEnteredDate:'2026-11-02', location:'Lisbon, Portugal', experienceYears:3, phone:nextPhone() }),
+      cand({ id:'CAND-1004', name:'Fatima Al-Sayed', source:'Indeed', recruiter:'priya', stage:'applied', appliedDate:'2026-10-29', stageEnteredDate:'2026-10-29', location:'Chicago, IL', experienceYears:7, phone:nextPhone(), notes:'Strong systems-design background; worth fast-tracking to screening.' }),
+      cand({ id:'CAND-1005', name:'Jonas Weber', source:'Agency', recruiter:'marcus', stage:'applied', appliedDate:'2026-11-06', stageEnteredDate:'2026-11-06', location:'Berlin, Germany', experienceYears:5, phone:nextPhone() }),
+      cand({ id:'CAND-1006', name:'Sofia Marchetti', source:'LinkedIn', recruiter:'elena', stage:'applied', appliedDate:'2026-11-01', stageEnteredDate:'2026-11-01', location:'Milan, Italy', experienceYears:4, phone:nextPhone() }),
+
+      cand({ id:'CAND-1007', name:'Liam Fitzgerald', source:'Referral', recruiter:'priya', stage:'screening', appliedDate:'2026-10-27', stageEnteredDate:'2026-10-30', location:'Dublin, Ireland', experienceYears:5, phone:nextPhone() }),
+      cand({ id:'CAND-1008', name:'Aaliyah Jackson', source:'LinkedIn', recruiter:'marcus', stage:'screening', appliedDate:'2026-10-25', stageEnteredDate:'2026-10-28', location:'Houston, TX', experienceYears:6, phone:nextPhone() }),
+      cand({ id:'CAND-1009', name:'Kenji Watanabe', source:'Company site', recruiter:'elena', stage:'screening', appliedDate:'2026-10-20', stageEnteredDate:'2026-10-24', location:'Osaka, Japan', experienceYears:8, phone:nextPhone(), flag:'On hold', notes:'Asked to pause for two weeks for a personal matter.' }),
+      cand({ id:'CAND-1010', name:'Isabela Santos', source:'Indeed', recruiter:'priya', stage:'screening', appliedDate:'2026-10-30', stageEnteredDate:'2026-11-01', location:'Sao Paulo, Brazil', experienceYears:3, phone:nextPhone() }),
+      cand({ id:'CAND-1011', name:'Omar Haddad', source:'Agency', recruiter:'marcus', stage:'screening', appliedDate:'2026-10-22', stageEnteredDate:'2026-10-26', location:'Cairo, Egypt', experienceYears:5, phone:nextPhone() }),
+
+      cand({ id:'CAND-1012', name:'Grace Lindqvist', source:'Referral', recruiter:'elena', stage:'interview', appliedDate:'2026-10-15', stageEnteredDate:'2026-10-28', nextInterviewDate:'2026-11-10T14:00:00', location:'Stockholm, Sweden', experienceYears:6, phone:nextPhone() }),
+      cand({ id:'CAND-1013', name:'Noah Bergström', source:'LinkedIn', recruiter:'priya', stage:'interview', appliedDate:'2026-10-10', stageEnteredDate:'2026-10-25', nextInterviewDate:'2026-11-07T10:30:00', rating:'Yes', location:'Oslo, Norway', experienceYears:5, phone:nextPhone(), notes:'Solid React and accessibility fundamentals in round one; scheduling a system-design round.' }),
+      cand({ id:'CAND-1014', name:'Mei Lin Tan', source:'Company site', recruiter:'marcus', stage:'interview', appliedDate:'2026-10-12', stageEnteredDate:'2026-10-20', rating:'Maybe', location:'Singapore', experienceYears:4, phone:nextPhone(), notes:'Good communicator, thinner on performance optimisation. Awaiting panel availability to schedule round two.' }),
+      cand({ id:'CAND-1015', name:'Carlos Mendoza', source:'Indeed', recruiter:'elena', stage:'interview', appliedDate:'2026-10-18', stageEnteredDate:'2026-11-01', nextInterviewDate:'2026-11-08T15:00:00', location:'Mexico City, Mexico', experienceYears:7, phone:nextPhone() }),
+
+      cand({ id:'CAND-1016', name:'Yuki Sato', source:'Referral', recruiter:'priya', stage:'offer', appliedDate:'2026-09-25', stageEnteredDate:'2026-10-29', offerExpiry:'2026-11-10', rating:'Strong yes', expectedSalary:165000, location:'Tokyo, Japan', experienceYears:8, phone:nextPhone(), notes:'Panel unanimous strong yes. Offer sent, awaiting response.' }),
+      cand({ id:'CAND-1017', name:'Ethan Brooks', source:'LinkedIn', recruiter:'marcus', stage:'offer', appliedDate:'2026-09-20', stageEnteredDate:'2026-10-20', offerExpiry:'2026-11-05', rating:'Strong yes', expectedSalary:158000, location:'Denver, CO', experienceYears:6, phone:nextPhone(), notes:'Excellent system-design round. Offer expiry needs an extension call.' }),
+
+      cand({ id:'CAND-1018', name:'Amara Okafor', source:'Referral', recruiter:'elena', stage:'hired', appliedDate:'2026-09-01', stageEnteredDate:'2026-10-15', startDate:'2026-11-17', rating:'Strong yes', expectedSalary:171000, location:'Lagos, Nigeria', experienceYears:9, phone:nextPhone(), notes:'Signed offer, background check complete.' }),
+      cand({ id:'CAND-1019', name:'Lucas Pereira', source:'Company site', recruiter:'priya', stage:'hired', appliedDate:'2026-08-20', stageEnteredDate:'2026-10-05', startDate:'2026-11-03', rating:'Strong yes', expectedSalary:149000, location:'Porto, Portugal', experienceYears:5, phone:nextPhone() }),
+
+      cand({ id:'CAND-1020', name:'Ravi Chandrasekaran', source:'LinkedIn', recruiter:'marcus', stage:'rejected', appliedDate:'2026-10-05', stageEnteredDate:'2026-10-24', rejectionReason:'Compensation mismatch', location:'Bangalore, India', experienceYears:6, phone:nextPhone() }),
+      cand({ id:'CAND-1021', name:'Nina Petrov', source:'Agency', recruiter:'elena', stage:'rejected', appliedDate:'2026-09-28', stageEnteredDate:'2026-10-20', rejectionReason:'Position filled', location:'Sofia, Bulgaria', experienceYears:4, phone:nextPhone() }),
+      cand({ id:'CAND-1022', name:'Tomás Rivera', source:'Indeed', recruiter:'priya', stage:'rejected', appliedDate:'2026-10-02', stageEnteredDate:'2026-10-22', rejectionReason:'Not a fit skillwise', location:'Madrid, Spain', experienceYears:3, phone:nextPhone() }),
+      cand({ id:'CAND-1023', name:'Chloe Dubois', source:'Referral', recruiter:'marcus', stage:'rejected', appliedDate:'2026-09-30', stageEnteredDate:'2026-10-18', rejectionReason:'Withdrew', location:'Lyon, France', experienceYears:5, phone:nextPhone() }),
+      cand({ id:'CAND-1024', name:'Hassan Malik', source:'Company site', recruiter:'elena', stage:'rejected', appliedDate:'2026-10-08', stageEnteredDate:'2026-10-26', rejectionReason:'Not a fit skillwise', location:'Dubai, UAE', experienceYears:4, phone:nextPhone() }),
+    ],
+    'product-designer': [
+      cand({ id:'CAND-2001', name:'Zara Ahmed', source:'LinkedIn', recruiter:'elena', stage:'applied', appliedDate:'2026-11-03', stageEnteredDate:'2026-11-03', location:'Austin, TX', experienceYears:4, phone:nextPhone() }),
+      cand({ id:'CAND-2002', name:'Felix Huang', source:'Referral', recruiter:'priya', stage:'applied', appliedDate:'2026-11-05', stageEnteredDate:'2026-11-05', location:'Vancouver, Canada', experienceYears:6, phone:nextPhone() }),
+      cand({ id:'CAND-2003', name:'Ingrid Larsen', source:'Company site', recruiter:'marcus', stage:'applied', appliedDate:'2026-10-30', stageEnteredDate:'2026-10-30', location:'Copenhagen, Denmark', experienceYears:5, phone:nextPhone() }),
+      cand({ id:'CAND-2004', name:'Marco Silva', source:'Indeed', recruiter:'elena', stage:'screening', appliedDate:'2026-10-24', stageEnteredDate:'2026-10-27', location:'Rio de Janeiro, Brazil', experienceYears:5, phone:nextPhone() }),
+      cand({ id:'CAND-2005', name:'Aisha Bello', source:'LinkedIn', recruiter:'priya', stage:'screening', appliedDate:'2026-10-21', stageEnteredDate:'2026-10-25', location:'Toronto, Canada', experienceYears:7, phone:nextPhone() }),
+      cand({ id:'CAND-2006', name:'Oliver Kane', source:'Referral', recruiter:'marcus', stage:'interview', appliedDate:'2026-10-12', stageEnteredDate:'2026-10-26', nextInterviewDate:'2026-11-09T11:00:00', rating:'Yes', location:'London, UK', experienceYears:6, phone:nextPhone() }),
+      cand({ id:'CAND-2007', name:'Sana Qureshi', source:'Company site', recruiter:'elena', stage:'interview', appliedDate:'2026-10-14', stageEnteredDate:'2026-10-18', location:'Karachi, Pakistan', experienceYears:4, phone:nextPhone(), notes:'Strong portfolio in design systems; awaiting scheduling for the final round.' }),
+      cand({ id:'CAND-2008', name:'Diego Fernandez', source:'LinkedIn', recruiter:'priya', stage:'offer', appliedDate:'2026-09-28', stageEnteredDate:'2026-10-29', offerExpiry:'2026-11-12', rating:'Strong yes', expectedSalary:132000, location:'Barcelona, Spain', experienceYears:7, phone:nextPhone() }),
+      cand({ id:'CAND-2009', name:'Wei Zhang', source:'Referral', recruiter:'marcus', stage:'hired', appliedDate:'2026-09-02', stageEnteredDate:'2026-10-01', startDate:'2026-10-20', rating:'Strong yes', expectedSalary:128000, location:'Shanghai, China', experienceYears:6, phone:nextPhone() }),
+      cand({ id:'CAND-2010', name:'Paulo Costa', source:'Indeed', recruiter:'elena', stage:'rejected', appliedDate:'2026-09-25', stageEnteredDate:'2026-10-10', rejectionReason:'Withdrew', location:'Porto, Portugal', experienceYears:3, phone:nextPhone() }),
+    ],
+    'data-analyst': [],
+  };
+
+  /* ============================================================
+     DATE / FORMAT HELPERS
+  ============================================================ */
+  function parseDate(iso) {
+    if (!iso) return null;
+    return iso.length > 10 ? new Date(iso) : new Date(iso + 'T00:00:00');
+  }
+  function fmtDate(iso) {
+    const d = parseDate(iso);
+    if (!d) return '—';
+    return new Intl.DateTimeFormat('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' }).format(d);
+  }
+  function fmtDateTime(iso) {
+    const d = parseDate(iso);
+    if (!d) return '—';
+    return new Intl.DateTimeFormat('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' }).format(d) + ' ' +
+      new Intl.DateTimeFormat('en-GB', { hour: '2-digit', minute: '2-digit', hour12: false }).format(d);
+  }
+  function daysBetween(fromIso, toDate) {
+    const from = parseDate(fromIso);
+    if (!from) return 0;
+    const a = new Date(from.getFullYear(), from.getMonth(), from.getDate());
+    const b = new Date(toDate.getFullYear(), toDate.getMonth(), toDate.getDate());
+    return Math.round((b - a) / 86400000);
+  }
+  function agoLabel(iso) {
+    const days = daysBetween(iso, new Date());
+    if (days === 0) return 'today';
+    if (days === 1) return '1 day ago';
+    if (days > 1) return days + ' days ago';
+    if (days === -1) return 'in 1 day';
+    return 'in ' + (-days) + ' days';
+  }
+  function fmtMoney(n) {
+    if (n == null) return '—';
+    return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(n);
+  }
+  function badgeTone(tone) {
+    return {
+      neutral: 'bg-slate-100 text-slate-700',
+      info: 'bg-blue-50 text-blue-700',
+      success: 'bg-green-50 text-green-800',
+      warning: 'bg-amber-50 text-amber-800',
+      danger: 'bg-red-50 text-red-700',
+    }[tone] || 'bg-slate-100 text-slate-700';
+  }
+  function ratingTone(r) {
+    return { 'Strong yes': 'success', 'Yes': 'info', 'Maybe': 'warning', 'No': 'danger' }[r] || 'neutral';
+  }
+  function flagTone(f) {
+    return { 'On hold': 'warning', 'Withdrawn': 'neutral' }[f] || 'neutral';
+  }
+  function escapeHtml(s) {
+    return String(s).replace(/[&<>"']/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c]));
+  }
+
+  /* ============================================================
+     STATE
+  ============================================================ */
+  const state = {
+    jobId: 'frontend-eng',
+    view: 'board',
+    q: '',
+    source: '',
+    recruiterId: '',
+    mine: false,
+    rating: '',
+    flag: '',
+    page: 1,
+    size: 10,
+    sortDir: 'desc',
+    selected: new Set(),
+    rejectedCollapsed: true,
+    simState: null,   // null | 'loading' | 'empty' | 'error'
+    pendingMove: null,
+    liftedId: null,
+  };
+
+  function currentCandidates() { return DATA[state.jobId] || []; }
+  function findCandidate(id) { return currentCandidates().find(c => c.id === id); }
+
+  /* ============================================================
+     URL STATE
+  ============================================================ */
+  function readUrl() {
+    let sp;
+    try { sp = new URLSearchParams(location.search); } catch (e) { sp = new URLSearchParams(); }
+    if (sp.get('job') && JOB_OPENINGS.some(j => j.id === sp.get('job'))) state.jobId = sp.get('job');
+    if (sp.get('view') === 'list' || sp.get('view') === 'board') state.view = sp.get('view');
+    state.q = sp.get('q') || '';
+    state.source = sp.get('source') || '';
+    state.recruiterId = sp.get('recruiter') || '';
+    state.mine = sp.get('mine') === '1';
+    state.rating = sp.get('rating') || '';
+    state.flag = sp.get('flag') || '';
+    state.page = Math.max(1, Number(sp.get('page')) || 1);
+    state.size = [10,25,50].includes(Number(sp.get('size'))) ? Number(sp.get('size')) : 10;
+    const st = sp.get('state');
+    state.simState = (st === 'loading' || st === 'empty' || st === 'error') ? st : null;
+    state.openCandidateId = sp.get('candidate') || null;
+  }
+
+  function writeUrl(opts) {
+    opts = opts || {};
+    try {
+      const sp = new URLSearchParams();
+      if (state.jobId !== 'frontend-eng') sp.set('job', state.jobId);
+      if (state.view !== 'board') sp.set('view', state.view);
+      if (state.q) sp.set('q', state.q);
+      if (state.source) sp.set('source', state.source);
+      if (state.recruiterId) sp.set('recruiter', state.recruiterId);
+      if (state.mine) sp.set('mine', '1');
+      if (state.rating) sp.set('rating', state.rating);
+      if (state.flag) sp.set('flag', state.flag);
+      if (state.page !== 1) sp.set('page', String(state.page));
+      if (state.size !== 10) sp.set('size', String(state.size));
+      if (state.simState) sp.set('state', state.simState);
+      if (state.openCandidateId) sp.set('candidate', state.openCandidateId);
+      const qs = sp.toString();
+      const url = location.pathname + (qs ? '?' + qs : '');
+      const method = opts.push ? 'pushState' : 'replaceState';
+      history[method](null, '', url);
+    } catch (e) { /* file:// origin may restrict history API; ignore */ }
+  }
+
+  /* ============================================================
+     ACTIVITY LOG (synthesised from the candidate's recorded dates)
+  ============================================================ */
+  function buildActivity(c) {
+    const acts = [];
+    acts.push({ who: 'System', what: 'Application received via ' + c.source, when: c.appliedDate });
+    if (c.stage !== 'applied') {
+      acts.push({ who: recruiter(c.recruiter).name, what: 'Advanced to ' + stageLabel(c.stage), when: c.stageEnteredDate });
+    }
+    if (c.rating) {
+      acts.push({ who: recruiter(c.recruiter).name, what: 'Recorded interview rating: ' + c.rating, when: c.stageEnteredDate });
+    }
+    if (c.nextInterviewDate) {
+      acts.push({ who: recruiter(c.recruiter).name, what: 'Interview scheduled for ' + fmtDateTime(c.nextInterviewDate), when: c.stageEnteredDate });
+    }
+    if (c.offerExpiry) {
+      acts.push({ who: recruiter(c.recruiter).name, what: 'Offer sent, expires ' + fmtDate(c.offerExpiry), when: c.stageEnteredDate });
+    }
+    if (c.startDate) {
+      acts.push({ who: recruiter(c.recruiter).name, what: 'Start date confirmed for ' + fmtDate(c.startDate), when: c.stageEnteredDate });
+    }
+    if (c.flag) {
+      acts.push({ who: recruiter(c.recruiter).name, what: 'Flagged: ' + c.flag, when: c.stageEnteredDate });
+    }
+    if (c.rejectionReason) {
+      acts.push({ who: recruiter(c.recruiter).name, what: 'Rejected — ' + c.rejectionReason, when: c.stageEnteredDate });
+    }
+    (c._extraActivity || []).forEach(a => acts.push(a));
+    return acts.slice().reverse();
+  }
+
+  /* ============================================================
+     FILTERING
+  ============================================================ */
+  function foldSearch(s) { return s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, ''); }
+
+  function matchesFilters(c) {
+    if (state.q) {
+      const q = foldSearch(state.q);
+      const hay = foldSearch(c.name + ' ' + c.email + ' ' + c.id);
+      if (!hay.includes(q)) return false;
+    }
+    if (state.source && c.source !== state.source) return false;
+    if (state.recruiterId && c.recruiter !== state.recruiterId) return false;
+    if (state.mine && c.recruiter !== CURRENT_USER_ID) return false;
+    if (state.rating) {
+      if (state.rating === 'none' ? c.rating : c.rating !== state.rating) return false;
+    }
+    if (state.flag) {
+      if (state.flag === 'none' ? c.flag : c.flag !== state.flag) return false;
+    }
+    return true;
+  }
+
+  function filteredCandidates() { return currentCandidates().filter(matchesFilters); }
+
+  function hasAnyFilter() {
+    return !!(state.q || state.source || state.recruiterId || state.mine || state.rating || state.flag);
+  }
+
+  /* ============================================================
+     TOASTS & LIVE REGION
+  ============================================================ */
+  function announce(msg) {
+    const el = document.getElementById('liveRegion');
+    el.textContent = '';
+    requestAnimationFrame(() => { el.textContent = msg; });
+  }
+
+  function showToast(message, opts) {
+    opts = opts || {};
+    const region = document.getElementById('toastRegion');
+    const toast = document.createElement('div');
+    toast.setAttribute('role', 'status');
+    toast.className = 'bg-slate-900 text-white rounded-md shadow-md px-4 py-3 text-sm flex items-center justify-between gap-3';
+    const text = document.createElement('span');
+    text.textContent = message;
+    toast.appendChild(text);
+    let timer;
+    const duration = opts.onUndo ? 5000 : 5000;
+    if (opts.onUndo) {
+      const btn = document.createElement('button');
+      btn.className = 'font-medium text-blue-300 hover:text-blue-200 shrink-0';
+      btn.textContent = 'Undo';
+      btn.addEventListener('click', () => { opts.onUndo(); dismiss(); });
+      toast.appendChild(btn);
+    }
+    function dismiss() { clearTimeout(timer); toast.remove(); }
+    function schedule() { timer = setTimeout(dismiss, duration); }
+    toast.addEventListener('mouseenter', () => clearTimeout(timer));
+    toast.addEventListener('mouseleave', schedule);
+    toast.addEventListener('focusin', () => clearTimeout(timer));
+    toast.addEventListener('focusout', schedule);
+    region.appendChild(toast);
+    schedule();
+  }
+
+  /* ============================================================
+     RENDER: HEADER
+  ============================================================ */
+  function renderJobSelect() {
+    const sel = document.getElementById('jobSelect');
+    sel.innerHTML = JOB_OPENINGS.map(j => `<option value="${j.id}" ${j.id===state.jobId?'selected':''}>${escapeHtml(j.title)}</option>`).join('');
+  }
+
+  function renderHeaderMeta() {
+    const job = JOB_OPENINGS.find(j => j.id === state.jobId);
+    document.getElementById('breadcrumbJobTitle').textContent = job.title;
+    const total = currentCandidates().length;
+    document.getElementById('jobMetaLine').textContent =
+      `${job.dept} · ${job.location} · Open since ${fmtDate(job.openSince)} · ${total} candidate${total===1?'':'s'}`;
+  }
+
+  function renderFilterOptions() {
+    const srcSel = document.getElementById('sourceFilter');
+    srcSel.innerHTML = '<option value="">Source: All</option>' + SOURCES.map(s => `<option value="${s}" ${state.source===s?'selected':''}>${s}</option>`).join('');
+    const recSel = document.getElementById('recruiterFilter');
+    recSel.innerHTML = '<option value="">Recruiter: All</option>' + RECRUITERS.map(r => `<option value="${r.id}" ${state.recruiterId===r.id?'selected':''}>${r.name}</option>`).join('');
+  }
+
+  /* ============================================================
+     CHIPS
+  ============================================================ */
+  function renderChips() {
+    const row = document.getElementById('chipsRow');
+    const chips = [];
+    if (state.q) chips.push({ key:'q', label:`Search: ${state.q}`, clear:() => { state.q=''; document.getElementById('searchInput').value=''; } });
+    if (state.source) chips.push({ key:'source', label:`Source: ${state.source}`, clear:() => { state.source=''; } });
+    if (state.recruiterId) chips.push({ key:'recruiter', label:`Recruiter: ${recruiter(state.recruiterId).name}`, clear:() => { state.recruiterId=''; } });
+    if (state.mine) chips.push({ key:'mine', label:'Assigned to me', clear:() => { state.mine=false; } });
+    if (state.rating) chips.push({ key:'rating', label:`Rating: ${state.rating==='none'?'Not yet rated':state.rating}`, clear:() => { state.rating=''; } });
+    if (state.flag) chips.push({ key:'flag', label:`Flag: ${state.flag==='none'?'No flag':state.flag}`, clear:() => { state.flag=''; } });
+
+    if (chips.length === 0) { row.innerHTML = ''; return; }
+    row.innerHTML = chips.map((c,i) =>
+      `<span class="inline-flex h-6 items-center gap-1 rounded-full border border-slate-300 bg-slate-100 pl-2 pr-1 text-xs leading-5 font-medium text-slate-700">
+        ${escapeHtml(c.label)}
+        <button type="button" data-chip-index="${i}" aria-label="Remove filter ${escapeHtml(c.label)}" class="inline-flex size-6 items-center justify-center rounded-full hover:bg-slate-200">
+          <svg class="size-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="M6 6l12 12"/></svg>
+        </button>
+      </span>`
+    ).join('') + `<button type="button" id="clearAllChipsBtn" class="text-xs font-medium text-blue-700 hover:text-blue-800 underline">Clear all</button>`;
+
+    row.querySelectorAll('[data-chip-index]').forEach(btn => {
+      btn.addEventListener('click', () => { chips[Number(btn.dataset.chipIndex)].clear(); afterFilterChange(); });
+    });
+    document.getElementById('clearAllChipsBtn').addEventListener('click', clearAllFilters);
+  }
+
+  function clearAllFilters() {
+    state.q = ''; state.source = ''; state.recruiterId = ''; state.mine = false; state.rating = ''; state.flag = '';
+    document.getElementById('searchInput').value = '';
+    document.getElementById('sourceFilter').value = '';
+    document.getElementById('recruiterFilter').value = '';
+    document.getElementById('mineToggle').setAttribute('aria-pressed','false');
+    document.getElementById('mineToggle').classList.remove('bg-blue-50','border-blue-300','text-blue-700');
+    afterFilterChange();
+  }
+
+  function afterFilterChange() {
+    state.page = 1;
+    writeUrl();
+    renderChips();
+    renderMain();
+  }
+
+  /* ============================================================
+     SKELETON
+  ============================================================ */
+  function skeletonColumnsHtml() {
+    return STAGES.map(s => `
+      <section class="flex w-[300px] shrink-0 flex-col rounded-md border border-slate-200 bg-slate-50 h-full" aria-hidden="true">
+        <div class="px-3 py-2 border-b border-slate-200 bg-slate-50 rounded-t-md">
+          <div class="h-4 w-20 rounded bg-slate-200 animate-pulse"></div>
+        </div>
+        <div class="flex-1 px-2 py-2 space-y-2">
+          ${[1,2,3].map(() => `<div class="h-20 rounded-md border border-slate-200 bg-white p-2.5">
+            <div class="h-3 w-16 rounded bg-slate-200 animate-pulse mb-2"></div>
+            <div class="h-3 w-32 rounded bg-slate-200 animate-pulse mb-2"></div>
+            <div class="h-3 w-24 rounded bg-slate-200 animate-pulse"></div>
+          </div>`).join('')}
+        </div>
+      </section>`).join('');
+  }
+
+  function skeletonRowsHtml() {
+    return Array.from({ length: 8 }, () => `
+      <tr class="border-b border-slate-100 h-10" aria-hidden="true">
+        ${Array.from({ length: 9 }, () => `<td class="px-3 py-2"><div class="h-3 w-full max-w-24 rounded bg-slate-200 animate-pulse"></div></td>`).join('')}
+      </tr>`).join('');
+  }
+
+  function renderLoading() {
+    document.getElementById('boardView').hidden = state.view !== 'board';
+    document.getElementById('listView').hidden = state.view !== 'list';
+    const target = state.view === 'board' ? document.getElementById('boardView') : document.getElementById('listView');
+    target.setAttribute('aria-busy', 'true');
+    if (state.view === 'board') {
+      target.innerHTML = `<div class="flex-1 min-h-0 overflow-x-auto scroll-thin"><div class="flex h-full gap-3 px-4 py-3">${skeletonColumnsHtml()}</div></div>`;
+    } else {
+      target.innerHTML = `<div class="flex-1 overflow-auto scroll-thin"><table class="w-full text-sm border-collapse"><tbody>${skeletonRowsHtml()}</tbody></table></div>`;
+    }
+  }
+
+  /* ============================================================
+     ERROR STATE
+  ============================================================ */
+  function renderError() {
+    const target = state.view === 'board' ? document.getElementById('boardView') : document.getElementById('listView');
+    document.getElementById('boardView').hidden = state.view !== 'board';
+    document.getElementById('listView').hidden = state.view !== 'list';
+    target.innerHTML = `
+      <div class="flex-1 flex items-center justify-center">
+        <div class="text-center max-w-sm px-6">
+          <p class="text-base font-medium text-slate-900">Couldn't load candidates</p>
+          <p class="text-sm text-slate-600 mt-1">Check your connection and try again.</p>
+          <button id="retryLoadBtn" type="button" class="mt-4 h-8 px-3 rounded bg-blue-700 text-sm font-medium text-white hover:bg-blue-800">Retry</button>
+        </div>
+      </div>`;
+    document.getElementById('retryLoadBtn').addEventListener('click', retryLoad);
+  }
+
+  function retryLoad() {
+    state.simState = 'loading';
+    writeUrl();
+    renderLoading();
+    setTimeout(() => {
+      state.simState = null;
+      writeUrl();
+      renderMain();
+    }, 450);
+  }
+
+  /* ============================================================
+     EMPTY / NO-RESULTS
+  ============================================================ */
+  function emptyStateHtml(isFirstUse) {
+    if (isFirstUse) {
+      return `
+        <div class="flex flex-col items-center gap-3 px-6 py-16 text-center">
+          <p class="text-base font-medium text-slate-900">No candidates yet</p>
+          <p class="max-w-sm text-sm text-slate-600">Candidates who apply to this opening will appear here as they move through the pipeline.</p>
+          <button type="button" id="emptyAddCandidateBtn" class="h-8 px-3 rounded bg-blue-700 text-sm font-medium text-white hover:bg-blue-800">Add candidate</button>
+        </div>`;
+    }
+    return `
+      <div class="flex flex-col items-center gap-3 px-6 py-16 text-center">
+        <p class="text-base font-medium text-slate-900">No candidates match ${state.q ? `"${escapeHtml(state.q)}"` : 'these filters'}</p>
+        <p class="max-w-sm text-sm text-slate-600">Check the spelling, or widen the source and recruiter filters.</p>
+        <button type="button" id="emptyClearFiltersBtn" class="h-8 px-3 rounded border border-slate-300 text-sm font-medium text-slate-700 hover:bg-slate-50">Clear filters</button>
+      </div>`;
+  }
+
+  function wireEmptyStateButtons(root) {
+    const addBtn = root.querySelector('#emptyAddCandidateBtn');
+    if (addBtn) addBtn.addEventListener('click', openAddCandidateDialog);
+    const clearBtn = root.querySelector('#emptyClearFiltersBtn');
+    if (clearBtn) clearBtn.addEventListener('click', clearAllFilters);
+  }
+
+  /* ============================================================
+     RESULT COUNT LINE
+  ============================================================ */
+  function updateResultCountLine(filtered) {
+    const total = currentCandidates().length;
+    const line = document.getElementById('resultCountLine');
+    const sr = document.getElementById('srResultAnnounce');
+    if (hasAnyFilter() && filtered.length !== total) {
+      line.textContent = `${filtered.length} of ${total} candidates`;
+    } else {
+      line.textContent = `${total} candidate${total===1?'':'s'}`;
+    }
+    sr.textContent = `${filtered.length} candidate${filtered.length===1?'':'s'} match`;
+  }
+
+  /* ============================================================
+     MAIN RENDER DISPATCH
+  ============================================================ */
+  function renderMain() {
+    renderHeaderMeta();
+
+    if (state.simState === 'loading') { renderLoading(); return; }
+    if (state.simState === 'error') { renderError(); return; }
+
+    document.getElementById('boardView').hidden = state.view !== 'board';
+    document.getElementById('listView').hidden = state.view !== 'list';
+
+    const total = currentCandidates().length;
+    const filtered = filteredCandidates();
+    updateResultCountLine(filtered);
+
+    const forceEmpty = state.simState === 'empty';
+    const isFirstUse = forceEmpty || total === 0;
+    const isNoResults = !isFirstUse && filtered.length === 0;
+
+    if (state.view === 'board') {
+      renderBoard(filtered, isFirstUse, isNoResults);
+    } else {
+      renderList(filtered, isFirstUse, isNoResults);
+    }
+  }
+
+  /* ============================================================
+     BOARD VIEW
+  ============================================================ */
+  function renderBoard(filtered, isFirstUse, isNoResults) {
+    const container = document.getElementById('boardView');
+    container.removeAttribute('aria-busy');
+
+    if (isFirstUse || isNoResults) {
+      container.innerHTML = emptyStateHtml(isFirstUse);
+      wireEmptyStateButtons(container);
+      return;
+    }
+
+    const byStage = {};
+    STAGES.forEach(s => byStage[s.id] = []);
+    filtered.forEach(c => byStage[c.stage] && byStage[c.stage].push(c));
+    Object.keys(byStage).forEach(k => byStage[k].sort((a,b) => parseDate(b.stageEnteredDate) - parseDate(a.stageEnteredDate)));
+
+    const totalByStage = {};
+    STAGES.forEach(s => totalByStage[s.id] = currentCandidates().filter(c => c.stage === s.id).length);
+
+    const colsHtml = STAGES.map(s => {
+      const list = byStage[s.id];
+      const count = list.length;
+      const total = totalByStage[s.id];
+      const countText = hasAnyFilter() && count !== total ? `${count} of ${total}` : `${count}`;
+      let limitText = '';
+      if (s.limit) {
+        const over = count > s.limit;
+        limitText = `<span class="tabular-nums ${over ? 'text-amber-700 font-medium' : 'text-slate-500'}">${countText} / ${s.limit}${over ? ' · Over limit' : ''}</span>`;
+      } else {
+        limitText = `<span class="tabular-nums text-slate-500">${countText}</span>`;
+      }
+
+      if (s.collapsible && state.rejectedCollapsed) {
+        return `
+          <section class="flex w-16 shrink-0 flex-col rounded-md border border-slate-200 bg-slate-50 h-full" aria-label="${s.label} column, collapsed">
+            <button type="button" data-expand-stage="${s.id}" class="flex-1 flex flex-col items-center justify-start gap-2 py-3 hover:bg-slate-100 rounded-md" aria-expanded="false">
+              <span class="text-xs font-medium text-slate-600" style="writing-mode: vertical-rl; text-orientation: mixed;">${s.label}</span>
+              <span class="tabular-nums text-xs text-slate-500">${count}</span>
+            </button>
+          </section>`;
+      }
+
+      return `
+        <section class="flex w-[300px] shrink-0 flex-col rounded-md border border-slate-200 bg-slate-50 h-full" aria-labelledby="col-${s.id}" data-stage="${s.id}">
+          <h2 id="col-${s.id}" class="sticky top-0 z-10 flex items-center justify-between gap-2 border-b border-slate-200 bg-slate-50 px-3 py-2 text-sm font-medium text-slate-700 rounded-t-md">
+            <span class="flex items-center gap-1">${s.label}${s.collapsible ? `<button type="button" data-collapse-stage="${s.id}" class="ml-1 text-slate-400 hover:text-slate-600" aria-label="Collapse ${s.label} column"><svg class="size-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 6l-6 6 6 6"/></svg></button>` : ''}</span>
+            ${limitText}
+          </h2>
+          <ol class="flex-1 min-h-0 space-y-2 overflow-y-auto scroll-thin px-2 py-2" data-dropzone="${s.id}" aria-label="${s.label} candidates">
+            ${list.length === 0 ? `<li class="text-xs text-slate-500 px-1 py-4 text-center">No candidates in ${s.label.toLowerCase()}</li>` : list.map(c => renderCardHtml(c)).join('')}
+          </ol>
+        </section>`;
+    }).join('');
+
+    container.innerHTML = `<div class="flex-1 min-h-0 overflow-x-auto scroll-thin"><div id="boardColumns" class="flex h-full gap-3 px-4 py-3" role="region" aria-label="Candidate pipeline board">${colsHtml}</div></div>`;
+
+    wireBoardInteractions(container);
+  }
+
+  function cardAgeingBadge(c) {
+    const today = new Date();
+    if (c.stage === 'applied' || c.stage === 'screening' || c.stage === 'interview') {
+      const days = daysBetween(c.stageEnteredDate, today);
+      const threshold = c.stage === 'interview' ? 7 : 5;
+      if (days > threshold) {
+        const tone = days > 14 ? 'danger' : 'warning';
+        return `<span class="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${badgeTone(tone)}">No update ${days} days</span>`;
+      }
+    }
+    if (c.stage === 'offer' && c.offerExpiry) {
+      const daysLeft = daysBetween(new Date().toISOString().slice(0,10), c.offerExpiry);
+      if (daysLeft < 0) return `<span class="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${badgeTone('danger')}">Offer expired</span>`;
+      if (daysLeft <= 3) return `<span class="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${badgeTone('warning')}">Expires in ${daysLeft} day${daysLeft===1?'':'s'}</span>`;
+    }
+    return '';
+  }
+
+  function cardMetaLine(c) {
+    if (c.stage === 'applied') return `Applied ${fmtDate(c.appliedDate)} · ${agoLabel(c.appliedDate)}`;
+    if (c.stage === 'screening') return `In screening ${agoLabel(c.stageEnteredDate)}`;
+    if (c.stage === 'interview') return c.nextInterviewDate ? `Interview ${fmtDate(c.nextInterviewDate)} · ${agoLabel(c.nextInterviewDate)}` : `Awaiting scheduling · ${agoLabel(c.stageEnteredDate)}`;
+    if (c.stage === 'offer') return c.offerExpiry ? `Expires ${fmtDate(c.offerExpiry)}` : '';
+    if (c.stage === 'hired') return c.startDate ? `Starts ${fmtDate(c.startDate)} · ${agoLabel(c.startDate)}` : '';
+    if (c.stage === 'rejected') return c.rejectionReason || '';
+    return '';
+  }
+
+  function renderCardHtml(c) {
+    const ageing = cardAgeingBadge(c);
+    const tagHtml = c.rating
+      ? `<span class="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${badgeTone(ratingTone(c.rating))}">${c.rating}</span>`
+      : `<span class="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${badgeTone('neutral')}">${c.source}</span>`;
+    const flagHtml = c.flag ? `<span class="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${badgeTone(flagTone(c.flag))} mt-1">${c.flag}</span>` : '';
+    const rec = recruiter(c.recruiter);
+    const accessibleName = `${c.id} ${c.name}, ${stageLabel(c.stage)}`;
+
+    return `
+      <li>
+        <div class="group relative rounded-md border border-slate-200 bg-white p-2.5 hover:border-slate-300 focus-within:ring-2 focus-within:ring-blue-700"
+             draggable="true" data-candidate-id="${c.id}">
+          <div class="relative flex items-center justify-between gap-2">
+            <span class="text-xs text-slate-500 tabular-nums">${c.id}</span>
+            <div class="flex items-center gap-1">
+              ${tagHtml}
+              <div class="relative">
+                <button type="button" data-kebab="${c.id}" aria-haspopup="true" aria-expanded="false" aria-label="Actions for candidate ${c.id} ${escapeHtml(c.name)}" class="rounded p-0.5 text-slate-400 hover:bg-slate-100 hover:text-slate-700">
+                  <svg class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></svg>
+                </button>
+              </div>
+            </div>
+          </div>
+          <button type="button" data-card-main="${c.id}" data-open-detail="${c.id}" class="relative block w-full text-left mt-1 rounded focus:outline-2 focus:outline-blue-700" aria-label="${escapeHtml(accessibleName)}. Press Space to move, Enter to view details.">
+            <p class="text-sm font-medium text-slate-900 clamp-2" title="${escapeHtml(c.name)}">${escapeHtml(c.name)}</p>
+            <div class="mt-1.5 flex items-center gap-1.5 text-xs text-slate-600">
+              <span class="inline-flex items-center justify-center size-5 rounded-full bg-slate-200 text-slate-700 text-[10px] font-semibold shrink-0">${rec.initials}</span>
+              ${rec.name}
+            </div>
+            <p class="mt-1 text-xs text-slate-500">${escapeHtml(cardMetaLine(c))}</p>
+          </button>
+          ${ageing || flagHtml ? `<div class="relative mt-1.5 flex flex-wrap gap-1">${ageing}${flagHtml}</div>` : ''}
+        </div>
+      </li>`;
+  }
+
+  /* ============================================================
+     BOARD INTERACTIONS: kebab menu, move, keyboard lift, drag/drop
+  ============================================================ */
+  let openMenuEl = null;
+  let openMenuTriggerBtn = null;
+  function closeOpenMenu() {
+    if (openMenuEl) { openMenuEl.remove(); openMenuEl = null; }
+    if (openMenuTriggerBtn) { openMenuTriggerBtn.setAttribute('aria-expanded', 'false'); openMenuTriggerBtn = null; }
+  }
+
+  function createAnchoredMenu(btn, innerHtml) {
+    closeOpenMenu();
+    btn.setAttribute('aria-expanded', 'true');
+    const menu = document.createElement('div');
+    menu.setAttribute('role', 'menu');
+    menu.className = 'fixed z-50 w-56 rounded-md border border-slate-200 bg-white shadow-lg py-1';
+    menu.innerHTML = innerHtml;
+    document.body.appendChild(menu);
+    const rect = btn.getBoundingClientRect();
+    const menuRect = menu.getBoundingClientRect();
+    let left = rect.right - menuRect.width;
+    if (left < 8) left = rect.left;
+    left = Math.min(left, window.innerWidth - menuRect.width - 8);
+    let top = rect.bottom + 4;
+    if (top + menuRect.height > window.innerHeight - 8) top = rect.top - menuRect.height - 4;
+    menu.style.left = Math.max(8, left) + 'px';
+    menu.style.top = Math.max(8, top) + 'px';
+    openMenuEl = menu;
+    openMenuTriggerBtn = btn;
+    return menu;
+  }
+
+  function openKebabMenu(btn, candidateId) {
+    const c = findCandidate(candidateId);
+    if (!c) return;
+    const others = STAGES.filter(s => s.id !== c.stage);
+    const html = `
+      <p class="px-3 pt-1 pb-1 text-xs font-medium text-slate-500">Move to</p>
+      ${others.map(s => `<button type="button" role="menuitem" data-move-to="${s.id}" class="block w-full text-left px-3 py-1.5 text-sm text-slate-700 hover:bg-slate-50">${s.label}</button>`).join('')}
+      <div class="border-t border-slate-200 my-1"></div>
+      <button type="button" role="menuitem" data-view-details class="block w-full text-left px-3 py-1.5 text-sm text-slate-700 hover:bg-slate-50">View details</button>
+    `;
+    const menu = createAnchoredMenu(btn, html);
+    menu.querySelectorAll('[data-move-to]').forEach(item => {
+      item.addEventListener('click', () => { closeOpenMenu(); requestMove(candidateId, item.dataset.moveTo); });
+    });
+    menu.querySelector('[data-view-details]').addEventListener('click', () => { closeOpenMenu(); openDetailPanel(candidateId); });
+    menu.querySelector('button').focus();
+  }
+
+  function wireBoardInteractions(container) {
+    container.querySelectorAll('[data-kebab]').forEach(btn => {
+      btn.addEventListener('click', (e) => { e.stopPropagation(); openKebabMenu(btn, btn.dataset.kebab); });
+    });
+    container.querySelectorAll('[data-open-detail]').forEach(el => {
+      if (el.tagName === 'BUTTON' && el.hasAttribute('data-card-main')) {
+        el.addEventListener('click', () => openDetailPanel(el.dataset.openDetail));
+      }
+    });
+    container.querySelectorAll('[data-expand-stage]').forEach(btn => {
+      btn.addEventListener('click', () => { state.rejectedCollapsed = false; renderMain(); });
+    });
+    container.querySelectorAll('[data-collapse-stage]').forEach(btn => {
+      btn.addEventListener('click', (e) => { e.stopPropagation(); state.rejectedCollapsed = true; renderMain(); });
+    });
+
+    // keyboard lift/move
+    container.querySelectorAll('[data-card-main]').forEach(card => {
+      card.addEventListener('keydown', onCardKeydown);
+    });
+
+    // drag and drop
+    container.querySelectorAll('[draggable="true"]').forEach(el => {
+      el.addEventListener('dragstart', (e) => {
+        e.dataTransfer.setData('text/plain', el.dataset.candidateId);
+        e.dataTransfer.effectAllowed = 'move';
+      });
+    });
+    container.querySelectorAll('[data-dropzone]').forEach(zone => {
+      zone.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        zone.closest('section').classList.add('col-target');
+      });
+      zone.addEventListener('dragleave', () => {
+        zone.closest('section').classList.remove('col-target');
+      });
+      zone.addEventListener('drop', (e) => {
+        e.preventDefault();
+        zone.closest('section').classList.remove('col-target');
+        const id = e.dataTransfer.getData('text/plain');
+        if (id) requestMove(id, zone.dataset.dropzone);
+      });
+    });
+  }
+
+  function stageOrderIds() { return STAGES.map(s => s.id); }
+
+  function onCardKeydown(e) {
+    const card = e.currentTarget;
+    const id = card.dataset.cardMain;
+    const c = findCandidate(id);
+    if (!c) return;
+
+    if (e.key === ' ' || e.code === 'Space') {
+      e.preventDefault();
+      if (state.liftedId !== id) {
+        state.liftedId = id;
+        state.liftedTarget = c.stage;
+        card.classList.add('card-lifted');
+        highlightColumn(state.liftedTarget);
+        announce(`Picked up ${c.id}. ${stageLabel(c.stage)}. Use the left and right arrow keys to choose a column, then press Space to move, or Escape to cancel.`);
+      } else {
+        const target = state.liftedTarget;
+        card.classList.remove('card-lifted');
+        clearColumnHighlight();
+        state.liftedId = null;
+        if (target !== c.stage) requestMove(id, target);
+        else announce('Move cancelled.');
+      }
+      return;
+    }
+    if (state.liftedId === id && (e.key === 'ArrowRight' || e.key === 'ArrowLeft')) {
+      e.preventDefault();
+      const order = stageOrderIds();
+      let idx = order.indexOf(state.liftedTarget);
+      idx = e.key === 'ArrowRight' ? Math.min(order.length - 1, idx + 1) : Math.max(0, idx - 1);
+      state.liftedTarget = order[idx];
+      clearColumnHighlight();
+      highlightColumn(state.liftedTarget);
+      announce(`${stageLabel(state.liftedTarget)}.`);
+      return;
+    }
+    if (state.liftedId === id && e.key === 'Escape') {
+      e.preventDefault();
+      card.classList.remove('card-lifted');
+      clearColumnHighlight();
+      state.liftedId = null;
+      announce('Move cancelled.');
+      return;
+    }
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      openDetailPanel(id);
+    }
+  }
+
+  function highlightColumn(stageId) {
+    const section = document.querySelector(`section[data-stage="${stageId}"]`);
+    if (section) section.classList.add('col-target');
+  }
+  function clearColumnHighlight() {
+    document.querySelectorAll('section.col-target').forEach(s => s.classList.remove('col-target'));
+  }
+
+  /* ============================================================
+     MOVE / TRANSITIONS
+  ============================================================ */
+  function requestMove(candidateId, targetStage) {
+    const c = findCandidate(candidateId);
+    if (!c || c.stage === targetStage) return;
+    if (targetStage === 'offer') return openOfferDialog(c);
+    if (targetStage === 'rejected') return openRejectDialog(c);
+    if (targetStage === 'hired') return openHireDialog(c);
+    commitMove(c, targetStage, {});
+  }
+
+  function commitMove(candidate, targetStage, extra) {
+    const fromStage = candidate.stage;
+    const snapshot = Object.assign({}, candidate);
+    const today = new Date().toISOString().slice(0,10);
+    Object.assign(candidate, { stage: targetStage, stageEnteredDate: today }, extra);
+    renderMain();
+    announce(`${candidate.id} moved to ${stageLabel(targetStage)}.`);
+    showToast(`${candidate.name} moved to ${stageLabel(targetStage)}`, {
+      onUndo: () => {
+        Object.assign(candidate, snapshot);
+        renderMain();
+        announce(`${candidate.id} moved back to ${stageLabel(fromStage)}.`);
+      }
+    });
+  }
+
+  function closeDialog(id) { const d = document.getElementById(id); if (d.open) d.close(); }
+  function openDialog(id) { const d = document.getElementById(id); if (!d.open) d.showModal(); }
+
+  document.querySelectorAll('[data-close-dialog]').forEach(btn => {
+    btn.addEventListener('click', () => closeDialog(btn.dataset.closeDialog));
+  });
+
+  let dialogCandidateId = null;
+
+  function openOfferDialog(c) {
+    dialogCandidateId = c.id;
+    document.getElementById('offerDialogSubtitle').textContent = `Send an offer to ${c.name} for ${JOB_OPENINGS.find(j=>j.id===state.jobId).title}.`;
+    const amountEl = document.getElementById('offerAmount');
+    const expiryEl = document.getElementById('offerExpiry');
+    amountEl.value = '';
+    const def = new Date(); def.setDate(def.getDate() + 7);
+    expiryEl.value = def.toISOString().slice(0,10);
+    expiryEl.min = new Date().toISOString().slice(0,10);
+    document.getElementById('offerAmountError').classList.add('hidden');
+    document.getElementById('offerExpiryError').classList.add('hidden');
+    openDialog('dialogOffer');
+    setTimeout(() => amountEl.focus(), 0);
+  }
+
+  document.getElementById('offerForm').addEventListener('submit', (e) => {
+    e.preventDefault();
+    const c = findCandidate(dialogCandidateId);
+    const amountEl = document.getElementById('offerAmount');
+    const expiryEl = document.getElementById('offerExpiry');
+    let valid = true;
+    if (!amountEl.value || Number(amountEl.value) <= 0) { document.getElementById('offerAmountError').classList.remove('hidden'); valid = false; } else { document.getElementById('offerAmountError').classList.add('hidden'); }
+    if (!expiryEl.value) { document.getElementById('offerExpiryError').classList.remove('hidden'); valid = false; } else { document.getElementById('offerExpiryError').classList.add('hidden'); }
+    if (!valid) { (!amountEl.value ? amountEl : expiryEl).focus(); return; }
+    closeDialog('dialogOffer');
+    commitMove(c, 'offer', { expectedSalary: Number(amountEl.value), offerExpiry: expiryEl.value });
+  });
+
+  function openRejectDialog(c) {
+    dialogCandidateId = c.id;
+    document.getElementById('rejectDialogSubtitle').textContent = `Reject ${c.name}? This moves them out of the active pipeline for this opening.`;
+    document.getElementById('rejectReason').value = '';
+    document.getElementById('rejectNote').value = '';
+    document.getElementById('rejectReasonError').classList.add('hidden');
+    openDialog('dialogReject');
+    setTimeout(() => document.getElementById('rejectCancelBtn').focus(), 0);
+  }
+
+  document.getElementById('rejectForm').addEventListener('submit', (e) => {
+    e.preventDefault();
+    const c = findCandidate(dialogCandidateId);
+    const reasonEl = document.getElementById('rejectReason');
+    const noteEl = document.getElementById('rejectNote');
+    if (!reasonEl.value) { document.getElementById('rejectReasonError').classList.remove('hidden'); reasonEl.focus(); return; }
+    document.getElementById('rejectReasonError').classList.add('hidden');
+    closeDialog('dialogReject');
+    const reason = reasonEl.value + (noteEl.value ? ' — ' + noteEl.value : '');
+    commitMove(c, 'rejected', { rejectionReason: reason });
+  });
+
+  function openHireDialog(c) {
+    dialogCandidateId = c.id;
+    document.getElementById('hireDialogSubtitle').textContent = `Confirm the start date for ${c.name}.`;
+    const startEl = document.getElementById('hireStartDate');
+    const def = new Date(); def.setDate(def.getDate() + 14);
+    startEl.value = def.toISOString().slice(0,10);
+    startEl.min = new Date().toISOString().slice(0,10);
+    document.getElementById('hireStartDateError').classList.add('hidden');
+    openDialog('dialogHire');
+    setTimeout(() => startEl.focus(), 0);
+  }
+
+  document.getElementById('hireForm').addEventListener('submit', (e) => {
+    e.preventDefault();
+    const c = findCandidate(dialogCandidateId);
+    const startEl = document.getElementById('hireStartDate');
+    if (!startEl.value) { document.getElementById('hireStartDateError').classList.remove('hidden'); startEl.focus(); return; }
+    document.getElementById('hireStartDateError').classList.add('hidden');
+    closeDialog('dialogHire');
+    commitMove(c, 'hired', { startDate: startEl.value });
+  });
+
+  /* ============================================================
+     ADD CANDIDATE
+  ============================================================ */
+  function openAddCandidateDialog() {
+    document.getElementById('addCandidateSubtitle').textContent = `Add a new candidate to ${JOB_OPENINGS.find(j=>j.id===state.jobId).title}.`;
+    document.getElementById('newName').value = '';
+    document.getElementById('newEmail').value = '';
+    const srcSel = document.getElementById('newSource');
+    srcSel.innerHTML = SOURCES.map(s => `<option value="${s}">${s}</option>`).join('');
+    const recSel = document.getElementById('newRecruiter');
+    recSel.innerHTML = RECRUITERS.map(r => `<option value="${r.id}">${r.name}</option>`).join('');
+    document.getElementById('newNameError').classList.add('hidden');
+    document.getElementById('newEmailError').classList.add('hidden');
+    openDialog('dialogAddCandidate');
+    setTimeout(() => document.getElementById('newName').focus(), 0);
+  }
+
+  document.getElementById('addCandidateBtn').addEventListener('click', openAddCandidateDialog);
+
+  let nextIdSeq = 9000;
+  document.getElementById('addCandidateForm').addEventListener('submit', (e) => {
+    e.preventDefault();
+    const nameEl = document.getElementById('newName');
+    const emailEl = document.getElementById('newEmail');
+    let valid = true;
+    if (!nameEl.value.trim()) { document.getElementById('newNameError').classList.remove('hidden'); valid = false; } else { document.getElementById('newNameError').classList.add('hidden'); }
+    const emailOk = /.+@.+\..+/.test(emailEl.value);
+    if (!emailOk) { document.getElementById('newEmailError').classList.remove('hidden'); valid = false; } else { document.getElementById('newEmailError').classList.add('hidden'); }
+    if (!valid) { (!nameEl.value.trim() ? nameEl : emailEl).focus(); return; }
+
+    const today = new Date().toISOString().slice(0,10);
+    nextIdSeq += 1;
+    const newC = cand({
+      id: 'CAND-' + nextIdSeq,
+      name: nameEl.value.trim(),
+      source: document.getElementById('newSource').value,
+      recruiter: document.getElementById('newRecruiter').value,
+      stage: 'applied',
+      appliedDate: today,
+      stageEnteredDate: today,
+    });
+    newC.email = emailEl.value.trim();
+    DATA[state.jobId].push(newC);
+    closeDialog('dialogAddCandidate');
+    renderMain();
+    showToast(`Candidate ${newC.name} added`);
+    announce(`${newC.name} added to Applied.`);
+  });
+
+  /* ============================================================
+     DETAIL PANEL
+  ============================================================ */
+  let lastFocusedBeforePanel = null;
+  const BACKGROUND_REGION_IDS = ['pageHeader', 'toolbarRegion', 'mainRegion'];
+
+  function setBackgroundInert(isInert) {
+    BACKGROUND_REGION_IDS.forEach(id => {
+      const el = document.getElementById(id);
+      if (isInert) el.setAttribute('inert', ''); else el.removeAttribute('inert');
+    });
+  }
+
+  function openDetailPanel(candidateId) {
+    const c = findCandidate(candidateId);
+    if (!c) return;
+    lastFocusedBeforePanel = document.activeElement;
+    state.openCandidateId = candidateId;
+    writeUrl();
+    renderDetailPanel(c);
+    document.getElementById('detailBackdrop').hidden = false;
+    document.getElementById('detailPanel').hidden = false;
+    setBackgroundInert(true);
+    document.getElementById('detailPanel').querySelector('[data-close-panel]').focus();
+  }
+
+  function closeDetailPanel() {
+    document.getElementById('detailBackdrop').hidden = true;
+    document.getElementById('detailPanel').hidden = true;
+    setBackgroundInert(false);
+    state.openCandidateId = null;
+    writeUrl();
+    if (lastFocusedBeforePanel && document.body.contains(lastFocusedBeforePanel)) lastFocusedBeforePanel.focus();
+  }
+
+  document.getElementById('detailBackdrop').addEventListener('click', closeDetailPanel);
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && !document.getElementById('detailPanel').hidden) {
+      const anyDialogOpen = Array.from(document.querySelectorAll('dialog')).some(d => d.open);
+      if (!anyDialogOpen) closeDetailPanel();
+    }
+  });
+
+  function renderDetailPanel(c) {
+    const panel = document.getElementById('detailPanel');
+    const rec = recruiter(c.recruiter);
+    const stage = stageInfo(c.stage);
+    const activity = buildActivity(c);
+    const otherStages = STAGES.filter(s => s.id !== c.stage);
+
+    panel.innerHTML = `
+      <div class="flex items-start justify-between gap-3 px-5 py-4 border-b border-slate-200">
+        <div class="flex items-start gap-3 min-w-0">
+          <span class="inline-flex items-center justify-center size-10 rounded-full bg-slate-200 text-slate-700 text-sm font-semibold shrink-0">${c.initials}</span>
+          <div class="min-w-0">
+            <h2 id="detailPanelTitle" class="text-base font-semibold text-slate-900 truncate">${escapeHtml(c.name)}</h2>
+            <p class="text-xs text-slate-500">${c.id}</p>
+          </div>
+        </div>
+        <button type="button" data-close-panel aria-label="Close candidate details" class="rounded p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-700 shrink-0">
+          <svg class="size-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="M6 6l12 12"/></svg>
+        </button>
+      </div>
+
+      <div class="px-5 py-3 border-b border-slate-200 flex items-center justify-between gap-2 flex-wrap">
+        <span class="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${badgeTone(stage.tone)}">${stage.label}</span>
+        <div class="relative">
+          <button type="button" id="panelMoveBtn" class="h-8 px-3 rounded bg-blue-700 text-sm font-medium text-white hover:bg-blue-800 inline-flex items-center gap-1">
+            Move to…
+            <svg class="size-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>
+          </button>
+        </div>
+      </div>
+
+      <div class="flex-1 overflow-y-auto scroll-thin">
+        <div class="px-5 py-4 grid grid-cols-2 gap-3 border-b border-slate-200">
+          <div><p class="text-xs text-slate-500">Source</p><p class="text-sm text-slate-900">${c.source}</p></div>
+          <div><p class="text-xs text-slate-500">Recruiter</p><p class="text-sm text-slate-900">${rec.name}</p></div>
+          <div><p class="text-xs text-slate-500">Applied</p><p class="text-sm text-slate-900">${fmtDate(c.appliedDate)}</p></div>
+          <div><p class="text-xs text-slate-500">Experience</p><p class="text-sm text-slate-900">${c.experienceYears} years</p></div>
+        </div>
+
+        ${c.flag ? `<div class="px-5 py-3 border-b border-slate-200"><span class="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${badgeTone(flagTone(c.flag))}">${c.flag}</span></div>` : ''}
+
+        <div class="px-5 py-4 border-b border-slate-200 space-y-2">
+          <h3 class="text-sm font-medium text-slate-900 mb-1">Contact</h3>
+          <p class="text-sm"><a class="text-blue-700 hover:underline" href="mailto:${encodeURIComponent(c.email)}">${escapeHtml(c.email)}</a></p>
+          <p class="text-sm"><a class="text-blue-700 hover:underline" href="tel:${c.phone.replace(/[^+\d]/g,'')}">${c.phone}</a></p>
+          <p class="text-sm text-slate-700">${escapeHtml(c.location)}</p>
+        </div>
+
+        <div class="px-5 py-4 border-b border-slate-200 space-y-1">
+          <h3 class="text-sm font-medium text-slate-900 mb-1">Resume</h3>
+          <div class="flex items-center justify-between rounded border border-slate-200 px-3 py-2">
+            <div class="min-w-0">
+              <p class="text-sm text-slate-900 truncate">${escapeHtml(c.resumeFile)}</p>
+              <p class="text-xs text-slate-500">PDF · ${c.resumeSize}</p>
+            </div>
+            <div class="flex items-center gap-1 shrink-0">
+              <button type="button" data-resume-action class="h-7 px-2 rounded border border-slate-300 text-xs font-medium text-slate-700 hover:bg-slate-50">Preview</button>
+              <button type="button" data-resume-action class="h-7 px-2 rounded border border-slate-300 text-xs font-medium text-slate-700 hover:bg-slate-50">Download</button>
+            </div>
+          </div>
+        </div>
+
+        ${(c.expectedSalary || c.offerExpiry || c.startDate || c.rating || c.rejectionReason) ? `
+        <div class="px-5 py-4 border-b border-slate-200 space-y-2">
+          <h3 class="text-sm font-medium text-slate-900 mb-1">Pipeline details</h3>
+          ${c.rating ? `<p class="text-sm text-slate-700">Rating: <span class="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${badgeTone(ratingTone(c.rating))}">${c.rating}</span></p>` : ''}
+          ${c.expectedSalary ? `<p class="text-sm text-slate-700">Offer amount: <span class="tabular-nums font-medium">${fmtMoney(c.expectedSalary)}</span></p>` : ''}
+          ${c.offerExpiry ? `<p class="text-sm text-slate-700">Offer expires: ${fmtDate(c.offerExpiry)} · ${agoLabel(c.offerExpiry)}</p>` : ''}
+          ${c.startDate ? `<p class="text-sm text-slate-700">Start date: ${fmtDate(c.startDate)} · ${agoLabel(c.startDate)}</p>` : ''}
+          ${c.rejectionReason ? `<p class="text-sm text-slate-700">Rejection reason: ${escapeHtml(c.rejectionReason)}</p>` : ''}
+        </div>` : ''}
+
+        <div class="px-5 py-4 border-b border-slate-200">
+          <h3 class="text-sm font-medium text-slate-900 mb-1">Recruiter notes</h3>
+          <p class="text-sm text-slate-700">${c.notes ? escapeHtml(c.notes) : 'No notes yet.'}</p>
+        </div>
+
+        <div class="px-5 py-4">
+          <h3 class="text-sm font-medium text-slate-900 mb-2">Activity</h3>
+          <ol class="space-y-3">
+            ${activity.map(a => `
+              <li class="flex gap-2.5">
+                <span class="inline-flex items-center justify-center size-6 rounded-full bg-slate-200 text-slate-700 text-[10px] font-semibold shrink-0 mt-0.5">${a.who === 'System' ? '•' : initialsOf(a.who)}</span>
+                <div class="min-w-0">
+                  <p class="text-sm text-slate-800">${escapeHtml(a.who)} — ${escapeHtml(a.what)}</p>
+                  <p class="text-xs text-slate-500">${fmtDate(a.when)}</p>
+                </div>
+              </li>`).join('')}
+          </ol>
+        </div>
+      </div>
+    `;
+
+    panel.querySelector('[data-close-panel]').addEventListener('click', closeDetailPanel);
+    panel.querySelectorAll('[data-resume-action]').forEach(btn => {
+      btn.addEventListener('click', () => showToast('This is a demo — no file is attached to this candidate.'));
+    });
+    const moveBtn = panel.querySelector('#panelMoveBtn');
+    moveBtn.addEventListener('click', () => openPanelMoveMenu(moveBtn, c, otherStages));
+  }
+
+  function openPanelMoveMenu(btn, c, otherStages) {
+    const html = otherStages.map(s => `<button type="button" role="menuitem" data-move-to="${s.id}" class="block w-full text-left px-3 py-1.5 text-sm text-slate-700 hover:bg-slate-50">${s.label}</button>`).join('');
+    const menu = createAnchoredMenu(btn, html);
+    menu.classList.replace('w-56', 'w-48');
+    menu.querySelectorAll('[data-move-to]').forEach(item => {
+      item.addEventListener('click', () => {
+        closeOpenMenu();
+        requestMove(c.id, item.dataset.moveTo);
+        closeDetailPanel();
+      });
+    });
+    menu.querySelector('button').focus();
+  }
+
+  document.addEventListener('click', (e) => {
+    if (openMenuEl && !openMenuEl.contains(e.target) && e.target !== openMenuTriggerBtn && !(openMenuTriggerBtn && openMenuTriggerBtn.contains(e.target))) {
+      closeOpenMenu();
+    }
+  });
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && openMenuEl) closeOpenMenu();
+  });
+  window.addEventListener('scroll', () => { if (openMenuEl) closeOpenMenu(); }, true);
+
+  /* ============================================================
+     LIST VIEW
+  ============================================================ */
+  function sortedForList(list) {
+    const order = stageOrderIds();
+    return list.slice().sort((a,b) => {
+      const so = order.indexOf(a.stage) - order.indexOf(b.stage);
+      if (so !== 0) return so;
+      const diff = parseDate(b.appliedDate) - parseDate(a.appliedDate);
+      return state.sortDir === 'desc' ? diff : -diff;
+    });
+  }
+
+  function renderList(filtered, isFirstUse, isNoResults) {
+    const container = document.getElementById('listView');
+    container.removeAttribute('aria-busy');
+
+    if (isFirstUse || isNoResults) {
+      container.innerHTML = `<div class="flex-1 overflow-y-auto">${emptyStateHtml(isFirstUse)}</div>`;
+      wireEmptyStateButtons(container);
+      return;
+    }
+
+    const sorted = sortedForList(filtered);
+    const totalPages = Math.max(1, Math.ceil(sorted.length / state.size));
+    state.page = Math.min(state.page, totalPages);
+    const startIdx = (state.page - 1) * state.size;
+    const pageRows = sorted.slice(startIdx, startIdx + state.size);
+
+    const pageIds = pageRows.map(r => r.id);
+    const selectedOnPage = pageIds.filter(id => state.selected.has(id)).length;
+    const allOnPageSelected = pageIds.length > 0 && selectedOnPage === pageIds.length;
+    const someOnPageSelected = selectedOnPage > 0 && !allOnPageSelected;
+
+    container.innerHTML = `
+      ${state.selected.size > 0 ? `
+      <div class="bg-blue-50 border-b border-blue-200 px-4 py-2 flex items-center gap-3 flex-wrap text-sm">
+        <span class="font-medium text-blue-900">${state.selected.size} selected</span>
+        <button type="button" id="bulkMoveBtn" class="h-7 px-2 rounded border border-blue-300 bg-white text-xs font-medium text-blue-800 hover:bg-blue-50">Move to…</button>
+        <button type="button" id="bulkRejectBtn" class="h-7 px-2 rounded border border-red-300 bg-white text-xs font-medium text-red-700 hover:bg-red-50">Reject</button>
+        <button type="button" id="bulkClearBtn" class="h-7 px-2 text-xs font-medium text-blue-800 hover:underline ml-auto">Clear selection</button>
+        ${allOnPageSelected && sorted.length > pageIds.length ? `<button type="button" id="selectAllMatchingBtn" class="h-7 px-2 text-xs font-medium text-blue-800 hover:underline">Select all ${sorted.length} matching</button>` : ''}
+      </div>` : ''}
+      <div class="flex-1 overflow-auto scroll-thin">
+        <table class="w-full text-sm border-collapse">
+          <thead class="sticky top-0 bg-slate-50 z-10">
+            <tr class="border-b border-slate-200">
+              <th class="w-10 px-3 py-2"><input type="checkbox" id="selectAllHeader" aria-label="Select all candidates on this page" class="size-4" ${allOnPageSelected ? 'checked' : ''} ${someOnPageSelected ? 'data-indeterminate="1"' : ''} /></th>
+              <th class="text-left px-3 py-2 font-medium text-slate-700">ID</th>
+              <th class="text-left px-3 py-2 font-medium text-slate-700">Candidate</th>
+              <th class="text-left px-3 py-2 font-medium text-slate-700">Stage</th>
+              <th class="text-left px-3 py-2 font-medium text-slate-700">Source</th>
+              <th class="text-left px-3 py-2 font-medium text-slate-700">Recruiter</th>
+              <th class="text-left px-3 py-2 font-medium text-slate-700">
+                <button type="button" id="sortAppliedBtn" aria-sort="${state.sortDir === 'desc' ? 'descending' : 'ascending'}" class="inline-flex items-center gap-1 hover:text-slate-900">
+                  Applied
+                  <svg class="size-3.5 ${state.sortDir === 'desc' ? '' : 'rotate-180'}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>
+                </button>
+              </th>
+              <th class="text-left px-3 py-2 font-medium text-slate-700">Rating</th>
+              <th class="w-10 px-3 py-2"><span class="sr-only">Actions</span></th>
+            </tr>
+          </thead>
+          <tbody>
+            ${pageRows.map(c => listRowHtml(c)).join('')}
+          </tbody>
+        </table>
+      </div>
+      <div class="border-t border-slate-200 bg-white px-4 py-2 flex items-center justify-between gap-3 flex-wrap shrink-0">
+        <div class="flex items-center gap-2 text-xs text-slate-600">
+          <span>Rows per page</span>
+          <select id="pageSizeSelect" class="h-7 rounded border border-slate-300 px-1 text-xs bg-white">
+            ${[10,25,50].map(n => `<option value="${n}" ${state.size===n?'selected':''}>${n}</option>`).join('')}
+          </select>
+        </div>
+        <div class="text-xs text-slate-600 tabular-nums">Showing ${sorted.length === 0 ? 0 : startIdx+1}–${Math.min(startIdx+state.size, sorted.length)} of ${sorted.length}</div>
+        <div class="flex items-center gap-1">
+          <button type="button" id="prevPageBtn" class="h-7 px-2 rounded border border-slate-300 text-xs font-medium text-slate-700 disabled:opacity-40" ${state.page<=1?'disabled':''}>Previous</button>
+          <button type="button" id="nextPageBtn" class="h-7 px-2 rounded border border-slate-300 text-xs font-medium text-slate-700 disabled:opacity-40" ${state.page>=totalPages?'disabled':''}>Next</button>
+        </div>
+      </div>
+    `;
+
+    wireListInteractions(container, sorted, pageIds);
+  }
+
+  function listRowHtml(c) {
+    const rec = recruiter(c.recruiter);
+    const stage = stageInfo(c.stage);
+    const checked = state.selected.has(c.id);
+    return `
+      <tr class="border-b border-slate-100 hover:bg-slate-50 h-10 ${checked ? 'bg-blue-50/50' : ''}">
+        <td class="px-3 py-2"><input type="checkbox" data-row-select="${c.id}" aria-label="Select ${escapeHtml(c.name)}" class="size-4" ${checked?'checked':''} /></td>
+        <td class="px-3 py-2 text-slate-500 tabular-nums">${c.id}</td>
+        <td class="px-3 py-2">
+          <button type="button" data-open-detail-row="${c.id}" class="text-left hover:underline">
+            <span class="inline-flex items-center gap-1.5">
+              <span class="inline-flex items-center justify-center size-5 rounded-full bg-slate-200 text-slate-700 text-[10px] font-semibold">${c.initials}</span>
+              <span class="font-medium text-slate-900">${escapeHtml(c.name)}</span>
+              ${c.flag ? `<span class="inline-flex items-center rounded-full px-1.5 py-0.5 text-[10px] font-medium ${badgeTone(flagTone(c.flag))}">${c.flag}</span>` : ''}
+            </span>
+          </button>
+        </td>
+        <td class="px-3 py-2"><span class="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${badgeTone(stage.tone)}">${stage.label}</span></td>
+        <td class="px-3 py-2 text-slate-700">${c.source}</td>
+        <td class="px-3 py-2 text-slate-700">${rec.name}</td>
+        <td class="px-3 py-2 text-slate-700">${fmtDate(c.appliedDate)} <span class="text-slate-400">· ${agoLabel(c.appliedDate)}</span></td>
+        <td class="px-3 py-2">${c.rating ? `<span class="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${badgeTone(ratingTone(c.rating))}">${c.rating}</span>` : '<span class="text-slate-400">—</span>'}</td>
+        <td class="px-3 py-2">
+          <div class="relative">
+            <button type="button" data-row-kebab="${c.id}" aria-haspopup="true" aria-expanded="false" aria-label="Actions for candidate ${c.id} ${escapeHtml(c.name)}" class="rounded p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-700">
+              <svg class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></svg>
+            </button>
+          </div>
+        </td>
+      </tr>`;
+  }
+
+  function wireListInteractions(container, sorted, pageIds) {
+    const headerCb = container.querySelector('#selectAllHeader');
+    if (headerCb) {
+      if (headerCb.dataset.indeterminate) headerCb.indeterminate = true;
+      headerCb.addEventListener('change', () => {
+        if (headerCb.checked) pageIds.forEach(id => state.selected.add(id));
+        else pageIds.forEach(id => state.selected.delete(id));
+        renderMain();
+      });
+    }
+    container.querySelectorAll('[data-row-select]').forEach(cb => {
+      cb.addEventListener('change', () => {
+        if (cb.checked) state.selected.add(cb.dataset.rowSelect);
+        else state.selected.delete(cb.dataset.rowSelect);
+        renderMain();
+      });
+    });
+    container.querySelectorAll('[data-open-detail-row]').forEach(btn => {
+      btn.addEventListener('click', () => openDetailPanel(btn.dataset.openDetailRow));
+    });
+    container.querySelectorAll('[data-row-kebab]').forEach(btn => {
+      btn.addEventListener('click', (e) => { e.stopPropagation(); openKebabMenu(btn, btn.dataset.rowKebab); });
+    });
+
+    const selectAllMatchingBtn = container.querySelector('#selectAllMatchingBtn');
+    if (selectAllMatchingBtn) selectAllMatchingBtn.addEventListener('click', () => {
+      sorted.forEach(c => state.selected.add(c.id));
+      renderMain();
+      announce(`${sorted.length} candidates selected.`);
+    });
+
+    const bulkClearBtn = container.querySelector('#bulkClearBtn');
+    if (bulkClearBtn) bulkClearBtn.addEventListener('click', () => { state.selected.clear(); renderMain(); });
+
+    const bulkMoveBtn = container.querySelector('#bulkMoveBtn');
+    if (bulkMoveBtn) bulkMoveBtn.addEventListener('click', () => openBulkMoveMenu(bulkMoveBtn));
+
+    const bulkRejectBtn = container.querySelector('#bulkRejectBtn');
+    if (bulkRejectBtn) bulkRejectBtn.addEventListener('click', () => {
+      const ids = Array.from(state.selected);
+      let rejected = 0;
+      ids.forEach(id => {
+        const c = findCandidate(id);
+        if (c && c.stage !== 'rejected') { c.stage = 'rejected'; c.rejectionReason = 'Position filled'; c.stageEnteredDate = new Date().toISOString().slice(0,10); rejected++; }
+      });
+      state.selected.clear();
+      renderMain();
+      showToast(`${rejected} candidate${rejected===1?'':'s'} rejected`);
+      announce(`${rejected} candidates rejected.`);
+    });
+
+    const pageSizeSelect = container.querySelector('#pageSizeSelect');
+    if (pageSizeSelect) pageSizeSelect.addEventListener('change', () => {
+      state.size = Number(pageSizeSelect.value);
+      state.page = 1;
+      writeUrl();
+      renderMain();
+    });
+
+    const prevBtn = container.querySelector('#prevPageBtn');
+    if (prevBtn) prevBtn.addEventListener('click', () => { state.page = Math.max(1, state.page - 1); writeUrl(); renderMain(); });
+    const nextBtn = container.querySelector('#nextPageBtn');
+    if (nextBtn) nextBtn.addEventListener('click', () => { state.page = state.page + 1; writeUrl(); renderMain(); });
+
+    const sortBtn = container.querySelector('#sortAppliedBtn');
+    if (sortBtn) sortBtn.addEventListener('click', () => {
+      state.sortDir = state.sortDir === 'desc' ? 'asc' : 'desc';
+      renderMain();
+    });
+  }
+
+  function openBulkMoveMenu(btn) {
+    // Offer, Hired and Rejected each need per-candidate input (amount, start date, reason),
+    // so bulk move only covers stages that transition without a dialog.
+    const bulkTargets = STAGES.filter(s => !['offer', 'hired', 'rejected'].includes(s.id));
+    const html = bulkTargets.map(s => `<button type="button" role="menuitem" data-bulk-move-to="${s.id}" class="block w-full text-left px-3 py-1.5 text-sm text-slate-700 hover:bg-slate-50">${s.label}</button>`).join('');
+    const menu = createAnchoredMenu(btn, html);
+    menu.classList.replace('w-56', 'w-48');
+    menu.querySelectorAll('[data-bulk-move-to]').forEach(item => {
+      item.addEventListener('click', () => {
+        closeOpenMenu();
+        const target = item.dataset.bulkMoveTo;
+        const ids = Array.from(state.selected);
+        let moved = 0;
+        const today = new Date().toISOString().slice(0,10);
+        ids.forEach(id => {
+          const c = findCandidate(id);
+          if (c && c.stage !== target) { c.stage = target; c.stageEnteredDate = today; moved++; }
+        });
+        state.selected.clear();
+        renderMain();
+        showToast(`${moved} candidate${moved===1?'':'s'} moved to ${stageLabel(target)}`);
+        announce(`${moved} candidates moved to ${stageLabel(target)}.`);
+      });
+    });
+    menu.querySelector('button').focus();
+  }
+
+  /* ============================================================
+     EXPORT (CSV of the currently filtered set)
+  ============================================================ */
+  function exportCsv() {
+    const rows = filteredCandidates();
+    const headers = ['ID','Name','Email','Stage','Source','Recruiter','Applied date','Rating'];
+    const lines = [headers.join(',')];
+    rows.forEach(c => {
+      const vals = [c.id, c.name, c.email, stageLabel(c.stage), c.source, recruiter(c.recruiter).name, c.appliedDate, c.rating || ''];
+      lines.push(vals.map(v => `"${String(v).replace(/"/g,'""')}"`).join(','));
+    });
+    const blob = new Blob([lines.join('\n')], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `candidates-${state.jobId}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+    showToast(`Exported ${rows.length} candidate${rows.length===1?'':'s'} to CSV`);
+  }
+
+  /* ============================================================
+     TOP-LEVEL EVENT WIRING
+  ============================================================ */
+  document.getElementById('jobSelect').addEventListener('change', (e) => {
+    state.jobId = e.target.value;
+    state.selected.clear();
+    state.page = 1;
+    state.rejectedCollapsed = true;
+    writeUrl({ push: true });
+    renderJobSelect();
+    renderMain();
+  });
+
+  document.getElementById('viewBoardBtn').addEventListener('click', () => setView('board'));
+  document.getElementById('viewListBtn').addEventListener('click', () => setView('list'));
+  function setView(v) {
+    state.view = v;
+    writeUrl({ push: true });
+    updateViewButtons();
+    renderMain();
+  }
+  function updateViewButtons() {
+    const boardBtn = document.getElementById('viewBoardBtn');
+    const listBtn = document.getElementById('viewListBtn');
+    const active = 'bg-blue-50 text-blue-700';
+    const inactive = 'text-slate-600 bg-white';
+    boardBtn.className = 'px-3 h-8 text-sm font-medium ' + (state.view==='board' ? active : inactive);
+    listBtn.className = 'px-3 h-8 text-sm font-medium border-l border-slate-300 ' + (state.view==='list' ? active : inactive);
+    boardBtn.setAttribute('aria-pressed', String(state.view==='board'));
+    listBtn.setAttribute('aria-pressed', String(state.view==='list'));
+  }
+
+  document.getElementById('exportBtn').addEventListener('click', exportCsv);
+
+  let searchDebounce;
+  document.getElementById('searchInput').addEventListener('input', (e) => {
+    clearTimeout(searchDebounce);
+    const val = e.target.value;
+    searchDebounce = setTimeout(() => { state.q = val; afterFilterChange(); }, 300);
+  });
+  document.getElementById('searchInput').addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') { clearTimeout(searchDebounce); state.q = e.target.value; afterFilterChange(); }
+  });
+
+  document.getElementById('sourceFilter').addEventListener('change', (e) => { state.source = e.target.value; afterFilterChange(); });
+  document.getElementById('recruiterFilter').addEventListener('change', (e) => { state.recruiterId = e.target.value; afterFilterChange(); });
+
+  const mineBtn = document.getElementById('mineToggle');
+  mineBtn.addEventListener('click', () => {
+    state.mine = !state.mine;
+    mineBtn.setAttribute('aria-pressed', String(state.mine));
+    mineBtn.classList.toggle('bg-blue-50', state.mine);
+    mineBtn.classList.toggle('border-blue-300', state.mine);
+    mineBtn.classList.toggle('text-blue-700', state.mine);
+    afterFilterChange();
+  });
+
+  const moreFiltersBtn = document.getElementById('moreFiltersBtn');
+  const moreFiltersPanel = document.getElementById('moreFiltersPanel');
+  moreFiltersBtn.addEventListener('click', () => {
+    const willOpen = moreFiltersPanel.hidden;
+    moreFiltersPanel.hidden = !willOpen;
+    moreFiltersBtn.setAttribute('aria-expanded', String(willOpen));
+    if (willOpen) {
+      document.getElementById('ratingFilterDraft').value = state.rating;
+      document.getElementById('flagFilterDraft').value = state.flag;
+    }
+  });
+  document.addEventListener('click', (e) => {
+    if (!moreFiltersPanel.hidden && !moreFiltersPanel.contains(e.target) && e.target !== moreFiltersBtn && !moreFiltersBtn.contains(e.target)) {
+      moreFiltersPanel.hidden = true;
+      moreFiltersBtn.setAttribute('aria-expanded', 'false');
+    }
+  });
+  document.getElementById('moreFiltersApply').addEventListener('click', () => {
+    state.rating = document.getElementById('ratingFilterDraft').value;
+    state.flag = document.getElementById('flagFilterDraft').value;
+    moreFiltersPanel.hidden = true;
+    moreFiltersBtn.setAttribute('aria-expanded', 'false');
+    updateMoreFiltersLabel();
+    afterFilterChange();
+    moreFiltersBtn.focus();
+  });
+  document.getElementById('moreFiltersReset').addEventListener('click', () => {
+    document.getElementById('ratingFilterDraft').value = '';
+    document.getElementById('flagFilterDraft').value = '';
+    state.rating = '';
+    state.flag = '';
+    moreFiltersPanel.hidden = true;
+    moreFiltersBtn.setAttribute('aria-expanded', 'false');
+    updateMoreFiltersLabel();
+    afterFilterChange();
+    moreFiltersBtn.focus();
+  });
+  function updateMoreFiltersLabel() {
+    const n = (state.rating ? 1 : 0) + (state.flag ? 1 : 0);
+    document.getElementById('moreFiltersLabel').textContent = n > 0 ? `More filters (${n})` : 'More filters';
+  }
+
+  /* ============================================================
+     INIT
+  ============================================================ */
+  function applyFilterInputsFromState() {
+    document.getElementById('searchInput').value = state.q;
+    document.getElementById('sourceFilter').value = state.source;
+    document.getElementById('recruiterFilter').value = state.recruiterId;
+    mineBtn.setAttribute('aria-pressed', String(state.mine));
+    mineBtn.classList.toggle('bg-blue-50', state.mine);
+    mineBtn.classList.toggle('border-blue-300', state.mine);
+    mineBtn.classList.toggle('text-blue-700', state.mine);
+    updateMoreFiltersLabel();
+  }
+
+  function init() {
+    readUrl();
+    renderJobSelect();
+    renderFilterOptions();
+    applyFilterInputsFromState();
+    updateViewButtons();
+    renderChips();
+
+    if (state.simState === 'empty' || state.simState === 'error') {
+      renderMain();
+      if (state.openCandidateId && findCandidate(state.openCandidateId)) openDetailPanel(state.openCandidateId);
+      return;
+    }
+    if (state.simState === 'loading') {
+      renderLoading();
+      return;
+    }
+
+    // default: brief skeleton on first load, then resolve
+    renderLoading();
+    setTimeout(() => {
+      renderMain();
+      if (state.openCandidateId && findCandidate(state.openCandidateId)) openDetailPanel(state.openCandidateId);
+    }, 480);
+  }
+
+  init();
+})();
+</script>
+</body>
+</html>

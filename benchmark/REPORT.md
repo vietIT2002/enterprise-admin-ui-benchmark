@@ -14,6 +14,7 @@ Detailed reports:
 - [BLIND](runs/2026-11-05-blind-heldout2/BLIND.md) (blind re-review of the held-out 2 pages)
 - [COST](runs/2026-11-05-cost-claude-green/COST.md) (tokens and cost per page, with and without the skill)
 - [NEWTYPES](runs/2026-11-06-newtypes-after-claude-green/NEWTYPES.md) (reports, printable documents, calendars, boards and trees)
+- [HELDOUT3](runs/2026-11-06-heldout3-claude-green/HELDOUT3.md) (six briefs written without reading the skill, reviewed blind)
 
 ![Orders list before and after](../docs/img/before-after-01-orders-list.png)
 
@@ -158,6 +159,20 @@ Two findings from the Next.js run:
 ## New screen types
 
 Five briefs cover screens the recipes did not: a revenue report, a printable invoice, a leave calendar, a service desk board and a chart of accounts. Without the skill the pages passed 33% of the checklist, and with 0.5.7 they passed 50%. Four new references (`reports-print.md`, `calendars.md`, `boards.md`, `trees.md`) brought it to 91%. The references were written from the failures on these same briefs, so 91% is not a held-out number. See [NEWTYPES](runs/2026-11-06-newtypes-after-claude-green/NEWTYPES.md).
+
+## Independent briefs, blind review
+
+The earlier held-out briefs were written by the skill's author, who knew its rules. For HELDOUT3, a separate agent wrote six briefs without reading the skill: an aging report, a payslip, a room booking calendar, a recruitment board, an organisation tree and an audit log. The briefs were committed before the run, and every page was reviewed blind.
+
+| | Without the skill | With v0.5.8 |
+|---|---|---|
+| Checklist, all 54 items | 22% | **48%** |
+| UI behaviour items (31) | 16% | **58%** |
+| Domain items the prompts did not state (23) | 30% | 35% |
+| Median audit score | 71 | 90 |
+| Template tells | 18 on 5 pages | 3 on 2 pages |
+
+This is the fairest estimate so far. The skill more than doubles the pass rate on UI behaviour, and it cannot supply business rules the prompt leaves out. Most of the UI items it still missed are rules the skill already states, so the next gain is in getting agents to apply them. See [HELDOUT3](runs/2026-11-06-heldout3-claude-green/HELDOUT3.md).
 
 ## Limitations
 

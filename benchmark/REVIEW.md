@@ -24,7 +24,11 @@ Write JSON to {{REVIEW_PATH}} in exactly this shape, then reply with only that p
 
 ## Blind review
 
-The open review above shows the run folder in every path, so the reviewer can see which condition built the page. To review blind:
+The open review above shows the run folder in every path, so the reviewer can see which condition built the page.
+
+`npm run bench -- … --blind [--seed N]` reviews blind in one command. It codes the pages, gives each reviewer one code folder in a temp directory whose name says nothing about the condition, and copies the verdicts back. A page with only a blind review gets it as `run-N.review.json`, marked `"blind": true`. The key goes to `benchmark/runs/<name>-<agent>-blind/key.json`.
+
+To review blind by hand:
 
 1. `node benchmark/tools/blind.mjs make <out> <red-folder> <green-folder> --seed <n>` copies every page into `<out>/<code>/` with neutral names: `page.html` (or `src/`), `first.png`, `full.png`, `audit.json` without `url` or `env`. The mapping goes to `<out>/key.json`. Give reviewers only `manifest.json` and the code folders.
 2. Use the reviewer prompt above with the code folder's files as inputs. The output is `<out>/<code>/review.json`, and `brief` and `run` can be left as given in the manifest.

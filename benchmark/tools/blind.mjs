@@ -82,6 +82,24 @@ export function unblind(outDir) {
   return n;
 }
 
+// When a page has only a blind review, it becomes the page review (marked "blind": true), so aggregate, compare and
+// the gallery read it like any other. A page that also has an open review keeps both, for agreement().
+export function promoteBlind(folders) {
+  let n = 0;
+  for (const folder of folders) {
+    for (const p of pagesIn(folder)) {
+      const open = path.join(p.dir, `run-${p.run}.review.json`);
+      const blind = path.join(p.dir, `run-${p.run}.review.blind.json`);
+      if (!fs.existsSync(blind) || fs.existsSync(open)) continue;
+      const review = JSON.parse(fs.readFileSync(blind, 'utf8'));
+      fs.writeFileSync(open, JSON.stringify({ ...review, blind: true }, null, 2) + '\n');
+      fs.rmSync(blind);
+      n++;
+    }
+  }
+  return n;
+}
+
 export function agreement(folders) {
   let items = 0;
   let agree = 0;

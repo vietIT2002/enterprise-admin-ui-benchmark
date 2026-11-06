@@ -1,0 +1,859 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Organisation structure · Aiteam HR</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+  [hidden] { display: none !important; }
+  html, body { height: 100%; }
+  mark { background: #fef08a; color: inherit; border-radius: 2px; padding: 0 1px; }
+  .tree-row:focus-visible { outline: 2px solid #1d4ed8; outline-offset: -2px; }
+  .icon-btn:focus-visible, .btn:focus-visible, input:focus-visible, select:focus-visible, button:focus-visible, [tabindex]:focus-visible {
+    outline: 2px solid #1d4ed8; outline-offset: 1px;
+  }
+  @media (max-width: 1023.98px) {
+    body[data-mobile-view="tree"] #detail-panel { display: none; }
+    body[data-mobile-view="detail"] #tree-panel { display: none; }
+    body[data-mobile-view="detail"] #resizer { display: none; }
+    body[data-mobile-view="tree"] #resizer { display: none; }
+    #tree-panel { width: 100% !important; border-right: none !important; }
+  }
+  .spinner { animation: spin 0.7s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+</style>
+</head>
+<body class="h-full bg-slate-50 text-slate-900 text-sm" data-mobile-view="tree">
+
+<div class="h-screen flex flex-col">
+
+  <!-- Page header -->
+  <header class="shrink-0 border-b border-slate-200 bg-white px-6 py-4 flex items-center justify-between gap-4">
+    <div>
+      <h1 class="text-xl font-semibold text-slate-900">Organisation structure</h1>
+      <p class="text-sm text-slate-600 mt-0.5">Department hierarchy, managers and headcount</p>
+    </div>
+    <button id="btn-add-root" type="button"
+      class="inline-flex items-center gap-1.5 h-8 px-3 rounded bg-blue-700 text-white text-sm font-medium hover:bg-blue-800 focus-visible:outline-none">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+      Add department
+    </button>
+  </header>
+
+  <!-- Toolbar -->
+  <div class="shrink-0 border-b border-slate-200 bg-white px-6 py-3 flex flex-wrap items-center gap-3">
+    <div class="relative">
+      <svg class="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
+      <input id="search-input" type="text" placeholder="Search departments or managers"
+        class="h-8 w-72 rounded border border-slate-300 bg-white pl-8 pr-8 text-sm text-slate-900 placeholder:text-slate-400 focus-visible:outline-none focus-visible:border-blue-700" />
+      <button id="btn-clear-search" type="button" hidden aria-label="Clear search"
+        class="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg>
+      </button>
+    </div>
+    <div class="flex items-center gap-2">
+      <button id="btn-expand-all" type="button" class="h-8 px-3 rounded border border-slate-300 bg-white text-sm font-medium text-slate-700 hover:bg-slate-50">Expand all</button>
+      <button id="btn-collapse-all" type="button" class="h-8 px-3 rounded border border-slate-300 bg-white text-sm font-medium text-slate-700 hover:bg-slate-50">Collapse all</button>
+    </div>
+    <div id="summary-line" class="ml-auto text-sm text-slate-600"></div>
+  </div>
+
+  <!-- Split view -->
+  <div class="flex-1 min-h-0 flex overflow-hidden">
+
+    <!-- Tree panel -->
+    <section id="tree-panel" style="width:380px" class="shrink-0 border-r border-slate-200 bg-white flex flex-col min-h-0">
+      <div id="tree-grid" role="treegrid" aria-label="Department hierarchy" aria-colcount="3" class="flex-1 min-h-0 flex flex-col overflow-hidden">
+        <div role="rowgroup" class="shrink-0 border-b border-slate-200 bg-white sticky top-0 z-10">
+          <div role="row" class="grid grid-cols-[1fr_140px_80px] items-center gap-2 px-3 py-2">
+            <span role="columnheader" class="text-xs font-medium text-slate-600">Name</span>
+            <span role="columnheader" class="text-xs font-medium text-slate-600">Manager</span>
+            <span role="columnheader" class="text-xs font-medium text-slate-600 text-right">Headcount</span>
+          </div>
+        </div>
+        <div id="tree-body" role="rowgroup" class="flex-1 min-h-0 overflow-y-auto"></div>
+      </div>
+    </section>
+
+    <!-- Resizer -->
+    <div id="resizer" role="separator" aria-orientation="vertical" aria-valuenow="380" aria-valuemin="280" aria-valuemax="480"
+      tabindex="0" aria-label="Resize department tree panel"
+      class="w-1 shrink-0 cursor-col-resize bg-slate-200 hover:bg-blue-300 focus-visible:bg-blue-700"></div>
+
+    <!-- Detail panel -->
+    <section id="detail-panel" class="flex-1 min-h-0 overflow-y-auto bg-slate-50"></section>
+
+  </div>
+</div>
+
+<!-- Toast -->
+<div id="toast" role="status" aria-live="polite"
+  class="fixed bottom-4 right-4 z-50 hidden items-center gap-2 rounded-md border border-slate-200 bg-white px-4 py-2.5 text-sm text-slate-900 shadow-lg">
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="text-green-700"><path d="M20 6 9 17l-5-5"/></svg>
+  <span id="toast-text"></span>
+</div>
+
+<!-- Modal root -->
+<div id="modal-overlay" hidden class="fixed inset-0 z-50 bg-slate-900/40 flex items-center justify-center p-4">
+  <div id="modal-card" class="w-full max-w-md rounded-lg bg-white border border-slate-200 shadow-xl"></div>
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  // ---------- Data ----------
+  function node(id, name, managerName, managerTitle, email, phone, own, openOwn, status, costCenter, description, lastChangedBy, lastChangedOn, children) {
+    return { id, name, manager: { name: managerName, title: managerTitle, email, phone }, own, openOwn, status, costCenter, description, lastChangedBy, lastChangedOn, children: children || [] };
+  }
+
+  const ROOT = node('root', 'Aiteam Holdings', 'Nguyễn Văn An', 'Chief Executive Officer', 'an.nguyen@aiteam.com', '+84 90 123 4567', 2, 0, 'active', 'CC-100',
+    'Parent entity overseeing all operating departments across the Vietnam offices.', 'Lê Thị Hương', '2026-09-12', [
+    node('exec', 'Executive Office', 'Lê Thị Hương', 'Chief of Staff', 'huong.le@aiteam.com', '+84 90 234 5678', 4, 0, 'active', 'CC-110',
+      'Provides executive support, governance and board coordination for the CEO.', 'Lê Thị Hương', '2026-08-03', []),
+    node('eng', 'Engineering', 'Trần Minh Quân', 'VP Engineering', 'quan.tran@aiteam.com', '+84 90 345 6789', 8, 1, 'active', 'CC-200',
+      'Builds and operates all product and platform software across the company.', 'Trần Minh Quân', '2026-10-21', [
+      node('eng-platform', 'Platform Engineering', 'Phạm Đức Anh', 'Engineering Manager', 'anh.pham@aiteam.com', '+84 90 456 7890', 32, 2, 'active', 'CC-210',
+        'Owns core infrastructure, APIs and developer tooling shared by every product team.', 'Trịnh Thị Thu', '2026-10-02', []),
+      node('eng-product', 'Product Engineering', 'Ngô Thị Lan', 'Engineering Manager', 'lan.ngo@aiteam.com', '+84 90 567 8901', 38, 1, 'active', 'CC-220',
+        'Delivers customer-facing product features across web and mobile.', 'Trịnh Thị Thu', '2026-09-18', []),
+      node('eng-qa', 'QA & Release', 'Hoàng Văn Tùng', 'QA Manager', 'tung.hoang@aiteam.com', '+84 90 678 9012', 18, 0, 'restructuring', 'CC-230',
+        'Owns test automation, release management and quality gates for all shipped software.', 'Trần Minh Quân', '2026-10-29', []),
+    ]),
+    node('sales-mkt', 'Sales & Marketing', 'Đặng Thị Mai', 'VP Sales & Marketing', 'mai.dang@aiteam.com', '+84 90 789 0123', 6, 0, 'active', 'CC-300',
+      'Drives revenue growth through direct sales and demand generation.', 'Đặng Thị Mai', '2026-09-30', [
+      node('sales', 'Sales', 'Vũ Quốc Bảo', 'Sales Director', 'bao.vu@aiteam.com', '+84 90 890 1234', 34, 2, 'active', 'CC-310',
+        'Manages the direct and channel sales pipeline for enterprise and SMB accounts.', 'Trịnh Thị Thu', '2026-07-15', []),
+      node('marketing', 'Marketing', 'Bùi Thị Ngọc', 'Marketing Director', 'ngoc.bui@aiteam.com', '+84 90 901 2345', 18, 1, 'active', 'CC-320',
+        'Runs brand, content and demand-generation campaigns.', 'Trịnh Thị Thu', '2026-08-22', []),
+    ]),
+    node('people-ops', 'People & Operations', 'Lý Thành Nam', 'VP People & Operations', 'nam.ly@aiteam.com', '+84 90 012 3456', 6, 0, 'active', 'CC-400',
+      'Covers people operations, finance and workplace services for the company.', 'Lý Thành Nam', '2026-06-10', [
+      node('hr', 'Human Resources', 'Trịnh Thị Thu', 'HR Manager', 'thu.trinh@aiteam.com', '+84 91 123 4567', 14, 1, 'active', 'CC-410',
+        'Handles recruiting, onboarding, benefits and employee relations.', 'Trịnh Thị Thu', '2026-10-05', []),
+      node('finance', 'Finance', 'Đỗ Văn Hải', 'Finance Manager', 'hai.do@aiteam.com', '+84 91 234 5678', 22, 0, 'active', 'CC-420',
+        'Manages accounting, payroll and financial planning.', 'Trịnh Thị Thu', '2026-09-01', []),
+      node('it-facilities', 'IT & Facilities', 'Phan Văn Khoa', 'IT Manager', 'khoa.phan@aiteam.com', '+84 91 345 6789', 10, 1, 'active', 'CC-430',
+        'Operates internal IT systems, security and office facilities.', 'Trịnh Thị Thu', '2026-05-19', []),
+    ]),
+    node('cust-success', 'Customer Success', 'Mai Thị Thanh', 'Director of Customer Success', 'thanh.mai@aiteam.com', '+84 91 456 7890', 4, 0, 'active', 'CC-500',
+      'Owns post-sale support, onboarding and customer retention.', 'Mai Thị Thanh', '2026-10-14', [
+      node('support', 'Support', 'Lưu Văn Đạt', 'Support Manager', 'dat.luu@aiteam.com', '+84 91 567 8901', 20, 3, 'active', 'CC-510',
+        'Provides tier 1–3 technical support to all customers.', 'Trịnh Thị Thu', '2026-09-27', []),
+      node('onboarding', 'Onboarding', 'Dương Thị Hà', 'Onboarding Lead', 'ha.duong@aiteam.com', '+84 91 678 9012', 10, 0, 'active', 'CC-520',
+        'Guides new customers through setup and first-value milestones.', 'Trịnh Thị Thu', '2026-08-11', []),
+    ]),
+  ]);
+
+  // ---------- Index build ----------
+  const byId = new Map();
+  function buildIndex(n, parent, level) {
+    n._parent = parent || null;
+    n._level = level;
+    byId.set(n.id, n);
+    n.children.forEach((c, i) => {
+      c._posinset = i + 1;
+      c._setsize = n.children.length;
+      buildIndex(c, n, level + 1);
+    });
+    if (!parent) { n._posinset = 1; n._setsize = 1; }
+  }
+  buildIndex(ROOT, null, 1);
+
+  function totalNodeCount() { let c = 0; (function w(n){ c++; n.children.forEach(w); })(ROOT); return c; }
+
+  function getTotals(n) {
+    let headcount = n.own, open = n.openOwn;
+    n.children.forEach(c => { const t = getTotals(c); headcount += t.headcount; open += t.open; });
+    return { headcount, open };
+  }
+
+  function initials(name) {
+    const parts = name.split(' ').filter(Boolean);
+    const last2 = parts.slice(-2);
+    return last2.map(w => w[0]).join('').toUpperCase();
+  }
+
+  function fmtDate(iso) {
+    const [y, m, d] = iso.split('-');
+    return `${d}/${m}/${y}`;
+  }
+
+  // ---------- State ----------
+  const EXPANDED_KEY = 'org-structure-expanded';
+  function loadExpanded() {
+    try {
+      const raw = JSON.parse(localStorage.getItem(EXPANDED_KEY) || 'null');
+      if (raw) return new Set(raw);
+    } catch (e) {}
+    return new Set(['root', 'eng', 'sales-mkt', 'people-ops', 'cust-success']);
+  }
+  function persistExpanded() {
+    try { localStorage.setItem(EXPANDED_KEY, JSON.stringify([...state.expanded])); } catch (e) {}
+  }
+
+  function initialSelectedId() {
+    const m = /unit=([^&]+)/.exec(location.hash);
+    if (m) { const id = decodeURIComponent(m[1]); if (byId.has(id)) return id; }
+    return 'root';
+  }
+
+  const state = {
+    expanded: loadExpanded(),
+    selectedId: initialSelectedId(),
+    focusedId: initialSelectedId(),
+    search: '',
+    preSearchExpanded: null,
+    mobileView: 'tree',
+  };
+  ensureAncestorsExpanded(state.selectedId);
+
+  function ensureAncestorsExpanded(id) {
+    let n = byId.get(id);
+    if (!n) return;
+    n = n._parent;
+    while (n) { state.expanded.add(n.id); n = n._parent; }
+  }
+
+  function updateHash() {
+    history.replaceState(null, '', '#unit=' + encodeURIComponent(state.selectedId));
+  }
+
+  function selectUnit(id, opts) {
+    opts = opts || {};
+    state.selectedId = id;
+    state.focusedId = id;
+    ensureAncestorsExpanded(id);
+    if (opts.fromTree) state.mobileView = 'detail';
+    updateHash();
+    render();
+    const rowEl = document.querySelector('[data-row-id="' + id + '"]');
+    if (rowEl) rowEl.scrollIntoView({ block: 'nearest' });
+  }
+
+  // ---------- Visible rows ----------
+  function getVisibleRows() {
+    const q = state.search.trim().toLowerCase();
+    const isSearching = q.length > 0;
+    let visibleIds = null;
+    if (isSearching) {
+      visibleIds = new Set();
+      (function mark(n) {
+        const hay = (n.name + ' ' + n.manager.name).toLowerCase();
+        if (hay.includes(q)) {
+          let cur = n;
+          while (cur) { visibleIds.add(cur.id); cur = cur._parent; }
+        }
+        n.children.forEach(mark);
+      })(ROOT);
+    }
+    const rows = [];
+    (function walk(n) {
+      if (isSearching && !visibleIds.has(n.id)) return;
+      rows.push(n);
+      const expanded = isSearching ? true : state.expanded.has(n.id);
+      if (n.children.length && expanded) n.children.forEach(walk);
+    })(ROOT);
+    return { rows, isSearching, hasMatches: !isSearching || rows.length > 0 };
+  }
+
+  // ---------- Rendering ----------
+  const treeBody = document.getElementById('tree-body');
+  const detailPanel = document.getElementById('detail-panel');
+  const summaryLine = document.getElementById('summary-line');
+
+  function statusBadge(status) {
+    if (status === 'restructuring') {
+      return '<span class="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium bg-amber-50 text-amber-700">Restructuring</span>';
+    }
+    return '<span class="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium bg-green-50 text-green-700">Active</span>';
+  }
+
+  function highlight(text, q) {
+    if (!q) return escapeHtml(text);
+    const idx = text.toLowerCase().indexOf(q.toLowerCase());
+    if (idx === -1) return escapeHtml(text);
+    return escapeHtml(text.slice(0, idx)) + '<mark>' + escapeHtml(text.slice(idx, idx + q.length)) + '</mark>' + escapeHtml(text.slice(idx + q.length));
+  }
+
+  function escapeHtml(s) {
+    return String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  }
+
+  function renderTree() {
+    const { rows, isSearching, hasMatches } = getVisibleRows();
+    const q = state.search.trim();
+
+    if (isSearching && rows.length === 0) {
+      treeBody.innerHTML = `
+        <div class="p-6 text-center">
+          <p class="text-sm text-slate-600">No department matches "${escapeHtml(q)}"</p>
+          <button id="btn-clear-search-2" type="button" class="mt-2 text-sm font-medium text-blue-700 hover:underline">Clear search</button>
+        </div>`;
+      document.getElementById('btn-clear-search-2').addEventListener('click', clearSearch);
+      return;
+    }
+
+    let html = '';
+    rows.forEach(n => {
+      const hasChildren = n.children.length > 0;
+      const expanded = isSearching ? true : state.expanded.has(n.id);
+      const selected = n.id === state.selectedId;
+      const focusable = n.id === state.focusedId;
+      const totals = getTotals(n);
+      const indent = 8 + (n._level - 1) * 20;
+      const chevron = hasChildren
+        ? `<button type="button" data-chevron="${n.id}" tabindex="-1" aria-label="${expanded ? 'Collapse' : 'Expand'} ${escapeHtml(n.name)}"
+             class="icon-btn shrink-0 w-5 h-5 flex items-center justify-center text-slate-500 hover:text-slate-800">
+             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"
+               style="transition: transform .12s; transform: rotate(${expanded ? 90 : 0}deg)"><path d="m9 6 6 6-6 6"/></svg>
+           </button>`
+        : `<span class="shrink-0 w-5 h-5"></span>`;
+      const badge = n.status !== 'active' ? ' ' + statusBadge(n.status) : '';
+      html += `
+        <div role="row" data-row-id="${n.id}" tabindex="${focusable ? 0 : -1}"
+          aria-level="${n._level}" aria-posinset="${n._posinset}" aria-setsize="${n._setsize}"
+          ${hasChildren ? `aria-expanded="${expanded}"` : ''} aria-selected="${selected}"
+          title="${escapeHtml(n.name)}"
+          class="tree-row grid grid-cols-[1fr_140px_80px] items-center gap-2 px-3 py-2 cursor-pointer border-b border-slate-100 outline-none ${selected ? 'bg-blue-50' : 'hover:bg-slate-50'}"
+          style="${selected ? 'box-shadow: inset 2px 0 0 0 #1d4ed8;' : ''}">
+          <span role="gridcell" class="flex items-center gap-1 min-w-0" style="padding-left:${indent}px">
+            ${chevron}
+            <span class="truncate text-sm ${selected ? 'font-medium text-blue-900' : 'text-slate-900'}">${highlight(n.name, isSearching ? q : '')}</span>
+            ${badge}
+          </span>
+          <span role="gridcell" class="flex items-center gap-1.5 min-w-0 text-slate-600">
+            <span class="shrink-0 w-5 h-5 rounded-full bg-slate-200 text-slate-700 text-[10px] font-medium flex items-center justify-center">${initials(n.manager.name)}</span>
+            <span class="truncate text-sm">${highlight(n.manager.name, isSearching ? q : '')}</span>
+          </span>
+          <span role="gridcell" class="text-right text-sm font-medium text-slate-900 tabular-nums">${totals.headcount}</span>
+        </div>`;
+    });
+    treeBody.innerHTML = html;
+  }
+
+  function breadcrumb(n) {
+    const path = [];
+    let cur = n;
+    while (cur) { path.unshift(cur); cur = cur._parent; }
+    return path.map((p, i) => {
+      const isLast = i === path.length - 1;
+      if (isLast) return `<span class="text-slate-900 font-medium">${escapeHtml(p.name)}</span>`;
+      return `<button type="button" data-goto="${p.id}" class="text-slate-500 hover:text-blue-700 hover:underline">${escapeHtml(p.name)}</button>`;
+    }).join('<span class="text-slate-400 px-1">/</span>');
+  }
+
+  function renderDetail() {
+    const n = byId.get(state.selectedId);
+    if (!n) {
+      detailPanel.innerHTML = `
+        <div class="h-full flex items-center justify-center p-8 text-center">
+          <div>
+            <p class="text-sm text-slate-600">Select a department to see its details</p>
+            <button id="btn-add-empty" type="button" class="mt-3 inline-flex items-center gap-1.5 h-8 px-3 rounded bg-blue-700 text-white text-sm font-medium hover:bg-blue-800">Add department</button>
+          </div>
+        </div>`;
+      document.getElementById('btn-add-empty').addEventListener('click', () => openFormModal('add', ROOT, false));
+      return;
+    }
+    const totals = getTotals(n);
+    const subRows = n.children.map(c => {
+      const ct = getTotals(c);
+      return `
+        <tr data-goto-row="${c.id}" class="cursor-pointer hover:bg-slate-50 border-b border-slate-100 last:border-0">
+          <td class="py-2 px-3 text-sm text-slate-900">${escapeHtml(c.name)}</td>
+          <td class="py-2 px-3 text-sm text-slate-600">${escapeHtml(c.manager.name)}</td>
+          <td class="py-2 px-3 text-sm text-right tabular-nums text-slate-900">${ct.headcount}</td>
+          <td class="py-2 px-3">${statusBadge(c.status)}</td>
+        </tr>`;
+    }).join('');
+
+    const subSection = n.children.length ? `
+      <div class="rounded-md border border-slate-200 bg-white">
+        <div class="flex items-center justify-between px-4 py-3 border-b border-slate-200">
+          <h3 class="text-sm font-semibold text-slate-900">Sub-departments</h3>
+        </div>
+        <div class="overflow-x-auto">
+          <table class="w-full">
+            <thead>
+              <tr class="border-b border-slate-200">
+                <th class="py-2 px-3 text-left text-xs font-medium text-slate-600">Unit</th>
+                <th class="py-2 px-3 text-left text-xs font-medium text-slate-600">Manager</th>
+                <th class="py-2 px-3 text-right text-xs font-medium text-slate-600">Headcount</th>
+                <th class="py-2 px-3 text-left text-xs font-medium text-slate-600">Status</th>
+              </tr>
+            </thead>
+            <tbody>${subRows}</tbody>
+          </table>
+        </div>
+      </div>` : `
+      <div class="rounded-md border border-dashed border-slate-300 bg-white p-6 text-center">
+        <p class="text-sm text-slate-600">No sub-departments yet</p>
+        <button id="btn-add-child-empty" type="button" class="mt-2 text-sm font-medium text-blue-700 hover:underline">Add sub-department</button>
+      </div>`;
+
+    detailPanel.innerHTML = `
+      <div class="p-6 max-w-3xl mx-auto space-y-4">
+        <nav aria-label="Breadcrumb" class="text-sm flex items-center flex-wrap">${breadcrumb(n)}</nav>
+        <div class="flex items-start justify-between gap-3">
+          <div class="flex items-center gap-2 flex-wrap">
+            <h2 class="text-xl font-semibold text-slate-900">${escapeHtml(n.name)}</h2>
+            ${statusBadge(n.status)}
+          </div>
+          <div class="flex items-center gap-2 shrink-0">
+            <button id="btn-edit" type="button" class="h-8 px-3 rounded border border-slate-300 bg-white text-sm font-medium text-slate-700 hover:bg-slate-50">Edit department</button>
+            <div class="relative">
+              <button id="btn-overflow" type="button" aria-haspopup="menu" aria-expanded="false" aria-label="Actions for ${escapeHtml(n.name)}"
+                class="icon-btn w-8 h-8 flex items-center justify-center rounded border border-slate-300 bg-white text-slate-600 hover:bg-slate-50">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5" r="1.8"/><circle cx="12" cy="12" r="1.8"/><circle cx="12" cy="19" r="1.8"/></svg>
+              </button>
+              <div id="overflow-menu" hidden role="menu" class="absolute right-0 mt-1 w-56 rounded-md border border-slate-200 bg-white shadow-lg py-1 z-20">
+                <button role="menuitem" id="btn-add-child" type="button" class="w-full text-left px-3 py-2 text-sm text-slate-700 hover:bg-slate-50">Add sub-department</button>
+                <button role="menuitem" id="btn-deactivate" type="button" class="w-full text-left px-3 py-2 text-sm text-red-700 hover:bg-red-50">Deactivate department</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          <div class="rounded-md border border-slate-200 bg-white p-3">
+            <p class="text-xs text-slate-600">Total headcount</p>
+            <p class="text-lg font-semibold text-slate-900 tabular-nums mt-0.5">${totals.headcount}</p>
+          </div>
+          <div class="rounded-md border border-slate-200 bg-white p-3">
+            <p class="text-xs text-slate-600">Direct headcount</p>
+            <p class="text-lg font-semibold text-slate-900 tabular-nums mt-0.5">${n.own}</p>
+          </div>
+          <div class="rounded-md border border-slate-200 bg-white p-3">
+            <p class="text-xs text-slate-600">Open positions</p>
+            <p class="text-lg font-semibold text-slate-900 tabular-nums mt-0.5">${totals.open}</p>
+          </div>
+          <div class="rounded-md border border-slate-200 bg-white p-3">
+            <p class="text-xs text-slate-600">Cost centre</p>
+            <p class="text-lg font-semibold text-slate-900 mt-0.5">${escapeHtml(n.costCenter)}</p>
+          </div>
+        </div>
+
+        <div class="rounded-md border border-slate-200 bg-white p-4">
+          <h3 class="text-sm font-semibold text-slate-900 mb-3">Manager</h3>
+          <div class="flex items-center gap-3">
+            <span class="shrink-0 w-10 h-10 rounded-full bg-slate-200 text-slate-700 text-sm font-medium flex items-center justify-center">${initials(n.manager.name)}</span>
+            <div class="min-w-0">
+              <p class="text-sm font-medium text-slate-900">${escapeHtml(n.manager.name)}</p>
+              <p class="text-sm text-slate-600">${escapeHtml(n.manager.title)}</p>
+              <div class="flex items-center gap-3 mt-1">
+                <a href="mailto:${escapeHtml(n.manager.email)}" class="text-sm text-blue-700 hover:underline">${escapeHtml(n.manager.email)}</a>
+                <a href="tel:${escapeHtml(n.manager.phone)}" class="text-sm text-blue-700 hover:underline">${escapeHtml(n.manager.phone)}</a>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="rounded-md border border-slate-200 bg-white p-4">
+          <h3 class="text-sm font-semibold text-slate-900 mb-2">About</h3>
+          <p class="text-sm text-slate-600">${escapeHtml(n.description)}</p>
+        </div>
+
+        ${subSection}
+
+        <p class="text-xs text-slate-500">Last changed by ${escapeHtml(n.lastChangedBy)} on ${fmtDate(n.lastChangedOn)}</p>
+      </div>
+    `;
+
+    // Mobile back link (prepended)
+    const backWrap = document.createElement('div');
+    backWrap.className = 'px-6 pt-4';
+    backWrap.innerHTML = `<button id="btn-back-tree" type="button" class="inline-flex items-center gap-1.5 text-sm font-medium text-blue-700 hover:underline">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>
+        Back to departments
+      </button>`;
+    detailPanel.insertBefore(backWrap, detailPanel.firstChild);
+
+    // Wire events
+    document.getElementById('btn-back-tree').addEventListener('click', () => { state.mobileView = 'tree'; render(); });
+    document.getElementById('btn-edit').addEventListener('click', () => openFormModal('edit', n, true));
+    const overflowBtn = document.getElementById('btn-overflow');
+    const overflowMenu = document.getElementById('overflow-menu');
+    overflowBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const open = overflowMenu.hasAttribute('hidden');
+      if (open) { overflowMenu.removeAttribute('hidden'); overflowBtn.setAttribute('aria-expanded', 'true'); }
+      else { overflowMenu.setAttribute('hidden', ''); overflowBtn.setAttribute('aria-expanded', 'false'); }
+    });
+    document.getElementById('btn-add-child').addEventListener('click', () => { overflowMenu.setAttribute('hidden', ''); openFormModal('add', n, true); });
+    document.getElementById('btn-deactivate').addEventListener('click', () => { overflowMenu.setAttribute('hidden', ''); openBlockedModal(n); });
+    const addChildEmpty = document.getElementById('btn-add-child-empty');
+    if (addChildEmpty) addChildEmpty.addEventListener('click', () => openFormModal('add', n, true));
+
+    detailPanel.querySelectorAll('[data-goto]').forEach(el => el.addEventListener('click', () => selectUnit(el.getAttribute('data-goto'))));
+    detailPanel.querySelectorAll('[data-goto-row]').forEach(el => el.addEventListener('click', () => selectUnit(el.getAttribute('data-goto-row'))));
+  }
+
+  function renderSummary() {
+    const t = getTotals(ROOT);
+    const units = totalNodeCount();
+    let text = `${units} units · ${t.headcount} employees`;
+    if (t.open > 0) text += ` · ${t.open} open position${t.open === 1 ? '' : 's'}`;
+    summaryLine.textContent = text;
+  }
+
+  function render() {
+    const hadFocusInTree = document.getElementById('tree-grid').contains(document.activeElement);
+    renderTree();
+    renderDetail();
+    renderSummary();
+    persistExpanded();
+    document.body.setAttribute('data-mobile-view', state.mobileView);
+    if (hadFocusInTree) {
+      const el = document.querySelector('[data-row-id="' + state.focusedId + '"]');
+      if (el) el.focus();
+    }
+  }
+
+  // ---------- Tree interaction ----------
+  treeBody.addEventListener('click', (e) => {
+    const chevron = e.target.closest('[data-chevron]');
+    if (chevron) {
+      e.stopPropagation();
+      const id = chevron.getAttribute('data-chevron');
+      if (state.expanded.has(id)) state.expanded.delete(id); else state.expanded.add(id);
+      state.focusedId = id;
+      render();
+      return;
+    }
+    const row = e.target.closest('[role="row"][data-row-id]');
+    if (row) selectUnit(row.getAttribute('data-row-id'), { fromTree: true });
+  });
+
+  document.getElementById('tree-grid').addEventListener('keydown', (e) => {
+    const rowEl = e.target.closest('[role="row"][data-row-id]');
+    if (!rowEl) return;
+    const id = rowEl.getAttribute('data-row-id');
+    const { rows, isSearching } = getVisibleRows();
+    const idx = rows.findIndex(r => r.id === id);
+    if (idx === -1) return;
+    const n = rows[idx];
+    const focus = (targetId) => { state.focusedId = targetId; render(); };
+
+    switch (e.key) {
+      case 'ArrowDown':
+        e.preventDefault();
+        if (rows[idx + 1]) focus(rows[idx + 1].id);
+        break;
+      case 'ArrowUp':
+        e.preventDefault();
+        if (rows[idx - 1]) focus(rows[idx - 1].id);
+        break;
+      case 'Home':
+        e.preventDefault();
+        focus(rows[0].id);
+        break;
+      case 'End':
+        e.preventDefault();
+        focus(rows[rows.length - 1].id);
+        break;
+      case 'ArrowRight':
+        e.preventDefault();
+        if (n.children.length && !isSearching && !state.expanded.has(n.id)) { state.expanded.add(n.id); render(); }
+        else if (n.children.length && rows[idx + 1] && rows[idx + 1]._parent === n) focus(rows[idx + 1].id);
+        break;
+      case 'ArrowLeft':
+        e.preventDefault();
+        if (n.children.length && !isSearching && state.expanded.has(n.id)) { state.expanded.delete(n.id); render(); }
+        else if (n._parent) focus(n._parent.id);
+        break;
+      case 'Enter':
+      case ' ':
+        e.preventDefault();
+        selectUnit(n.id, { fromTree: true });
+        break;
+      case '*':
+        e.preventDefault();
+        if (!isSearching) {
+          const siblings = n._parent ? n._parent.children : [ROOT];
+          siblings.forEach(s => { if (s.children.length) state.expanded.add(s.id); });
+          render();
+        }
+        break;
+      default:
+        if (e.key.length === 1 && /\S/.test(e.key)) {
+          const lower = e.key.toLowerCase();
+          const ordered = [...rows.slice(idx + 1), ...rows.slice(0, idx)];
+          const next = ordered.find(r => r.name.toLowerCase().startsWith(lower));
+          if (next) focus(next.id);
+        }
+    }
+  });
+
+  // ---------- Search ----------
+  const searchInput = document.getElementById('search-input');
+  const clearBtn = document.getElementById('btn-clear-search');
+  searchInput.addEventListener('input', () => {
+    const wasSearching = state.search.trim().length > 0;
+    const nowSearching = searchInput.value.trim().length > 0;
+    if (!wasSearching && nowSearching) state.preSearchExpanded = new Set(state.expanded);
+    state.search = searchInput.value;
+    clearBtn.toggleAttribute('hidden', !nowSearching);
+    renderTree();
+  });
+  function clearSearch() {
+    searchInput.value = '';
+    state.search = '';
+    if (state.preSearchExpanded) { state.expanded = state.preSearchExpanded; state.preSearchExpanded = null; }
+    clearBtn.setAttribute('hidden', '');
+    render();
+    searchInput.focus();
+  }
+  clearBtn.addEventListener('click', clearSearch);
+
+  // ---------- Expand/collapse all ----------
+  document.getElementById('btn-expand-all').addEventListener('click', () => {
+    (function w(n) { if (n.children.length) { state.expanded.add(n.id); n.children.forEach(w); } })(ROOT);
+    render();
+  });
+  document.getElementById('btn-collapse-all').addEventListener('click', () => {
+    state.expanded.clear();
+    render();
+  });
+
+  // ---------- Resizer ----------
+  (function initResizer() {
+    const resizer = document.getElementById('resizer');
+    const treePanel = document.getElementById('tree-panel');
+    let startX = 0, startWidth = 0, dragging = false;
+
+    function clamp(w) { return Math.max(280, Math.min(480, w)); }
+
+    resizer.addEventListener('mousedown', (e) => {
+      dragging = true;
+      startX = e.clientX;
+      startWidth = treePanel.offsetWidth;
+      document.body.style.cursor = 'col-resize';
+      e.preventDefault();
+    });
+    window.addEventListener('mousemove', (e) => {
+      if (!dragging) return;
+      const w = clamp(startWidth + (e.clientX - startX));
+      treePanel.style.width = w + 'px';
+      resizer.setAttribute('aria-valuenow', String(w));
+    });
+    window.addEventListener('mouseup', () => {
+      if (dragging) { dragging = false; document.body.style.cursor = ''; }
+    });
+    resizer.addEventListener('keydown', (e) => {
+      const current = treePanel.offsetWidth;
+      if (e.key === 'ArrowLeft') { e.preventDefault(); const w = clamp(current - 16); treePanel.style.width = w + 'px'; resizer.setAttribute('aria-valuenow', String(w)); }
+      if (e.key === 'ArrowRight') { e.preventDefault(); const w = clamp(current + 16); treePanel.style.width = w + 'px'; resizer.setAttribute('aria-valuenow', String(w)); }
+    });
+  })();
+
+  // ---------- Close overflow menu on outside click / Escape ----------
+  document.addEventListener('click', () => {
+    const menu = document.getElementById('overflow-menu');
+    if (menu && !menu.hasAttribute('hidden')) {
+      menu.setAttribute('hidden', '');
+      const btn = document.getElementById('btn-overflow');
+      if (btn) btn.setAttribute('aria-expanded', 'false');
+    }
+  });
+
+  // ---------- Toast ----------
+  let toastTimer = null;
+  function showToast(msg) {
+    const toast = document.getElementById('toast');
+    document.getElementById('toast-text').textContent = msg;
+    toast.classList.remove('hidden');
+    toast.classList.add('flex');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => { toast.classList.add('hidden'); toast.classList.remove('flex'); }, 3000);
+  }
+
+  // ---------- Modals ----------
+  const overlay = document.getElementById('modal-overlay');
+  const modalCard = document.getElementById('modal-card');
+  let modalDirty = false;
+
+  function closeModal(force) {
+    if (!force && modalDirty) {
+      if (!confirm('Discard unsaved changes?')) return;
+    }
+    overlay.setAttribute('hidden', '');
+    modalCard.innerHTML = '';
+    modalDirty = false;
+  }
+
+  overlay.addEventListener('mousedown', (e) => { if (e.target === overlay) closeModal(false); });
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && !overlay.hasAttribute('hidden')) closeModal(false); });
+
+  function openBlockedModal(n) {
+    const totals = getTotals(n);
+    const childCount = n.children.length;
+    modalDirty = false;
+    modalCard.innerHTML = `
+      <div class="p-5">
+        <h2 class="text-base font-semibold text-slate-900">Cannot deactivate ${escapeHtml(n.name)}</h2>
+        <p class="text-sm text-slate-600 mt-2">
+          ${totals.headcount} employee${totals.headcount === 1 ? '' : 's'}${childCount ? ' and ' + childCount + ' sub-department' + (childCount === 1 ? '' : 's') : ''}
+          depend on this unit. Reassign them before deactivating.
+        </p>
+        <div class="mt-5 flex justify-end">
+          <button id="btn-modal-close" type="button" class="h-8 px-3 rounded border border-slate-300 bg-white text-sm font-medium text-slate-700 hover:bg-slate-50">Close</button>
+        </div>
+      </div>`;
+    overlay.removeAttribute('hidden');
+    const closeBtn = document.getElementById('btn-modal-close');
+    closeBtn.addEventListener('click', () => closeModal(true));
+    closeBtn.focus();
+  }
+
+  function allUnitsFlat() {
+    const out = [];
+    (function w(n, depth) { out.push({ n, depth }); n.children.forEach(c => w(c, depth + 1)); })(ROOT, 0);
+    return out;
+  }
+
+  function openFormModal(mode, parentOrNode, lockParent) {
+    const isEdit = mode === 'edit';
+    const editing = isEdit ? parentOrNode : null;
+    const defaultParent = isEdit ? editing._parent : parentOrNode;
+    modalDirty = false;
+
+    const parentField = lockParent || isEdit
+      ? `<p class="text-sm text-slate-900 border border-slate-200 bg-slate-50 rounded px-3 py-1.5">${escapeHtml(isEdit ? (editing._parent ? editing._parent.name : '—') : defaultParent.name)}</p>`
+      : `<select id="f-parent" class="h-8 w-full rounded border border-slate-300 px-2 text-sm">
+           ${allUnitsFlat().map(({ n, depth }) => `<option value="${n.id}" ${n.id === defaultParent.id ? 'selected' : ''}>${'  '.repeat(depth)}${escapeHtml(n.name)}</option>`).join('')}
+         </select>`;
+
+    modalCard.innerHTML = `
+      <form id="unit-form" novalidate>
+        <div class="p-5 max-h-[80vh] overflow-y-auto">
+          <h2 class="text-base font-semibold text-slate-900">${isEdit ? 'Edit department' : 'Add department'}</h2>
+          <div id="error-summary" hidden role="alert" class="mt-3 rounded border border-red-200 bg-red-50 p-3"></div>
+          <div class="mt-4 space-y-4">
+            <div>
+              <label class="block text-sm font-medium text-slate-900 mb-1">Parent unit</label>
+              ${parentField}
+            </div>
+            <div>
+              <label for="f-name" class="block text-sm font-medium text-slate-900 mb-1">Department name <span class="text-red-700">*</span></label>
+              <input id="f-name" type="text" value="${isEdit ? escapeHtml(editing.name) : ''}" class="h-8 w-full rounded border border-slate-300 px-2 text-sm" />
+              <p id="err-name" hidden class="text-xs text-red-700 mt-1"></p>
+            </div>
+            <div>
+              <label for="f-mgr-name" class="block text-sm font-medium text-slate-900 mb-1">Manager name <span class="text-red-700">*</span></label>
+              <input id="f-mgr-name" type="text" value="${isEdit ? escapeHtml(editing.manager.name) : ''}" class="h-8 w-full rounded border border-slate-300 px-2 text-sm" />
+              <p id="err-mgr-name" hidden class="text-xs text-red-700 mt-1"></p>
+            </div>
+            <div>
+              <label for="f-mgr-title" class="block text-sm font-medium text-slate-900 mb-1">Manager title <span class="text-red-700">*</span></label>
+              <input id="f-mgr-title" type="text" value="${isEdit ? escapeHtml(editing.manager.title) : ''}" class="h-8 w-full rounded border border-slate-300 px-2 text-sm" />
+              <p id="err-mgr-title" hidden class="text-xs text-red-700 mt-1"></p>
+            </div>
+            <div>
+              <label for="f-headcount" class="block text-sm font-medium text-slate-900 mb-1">Direct headcount <span class="text-red-700">*</span></label>
+              <input id="f-headcount" type="number" min="0" step="1" value="${isEdit ? editing.own : ''}" class="h-8 w-full rounded border border-slate-300 px-2 text-sm" />
+              <p id="err-headcount" hidden class="text-xs text-red-700 mt-1"></p>
+            </div>
+            <div>
+              <label for="f-status" class="block text-sm font-medium text-slate-900 mb-1">Status</label>
+              <select id="f-status" class="h-8 w-full rounded border border-slate-300 px-2 text-sm">
+                <option value="active" ${(!isEdit || editing.status === 'active') ? 'selected' : ''}>Active</option>
+                <option value="restructuring" ${isEdit && editing.status === 'restructuring' ? 'selected' : ''}>Restructuring</option>
+              </select>
+            </div>
+          </div>
+        </div>
+        <div class="flex justify-end gap-2 border-t border-slate-200 px-5 py-3">
+          <button id="btn-cancel" type="button" class="h-8 px-3 rounded border border-slate-300 bg-white text-sm font-medium text-slate-700 hover:bg-slate-50">Cancel</button>
+          <button id="btn-save" type="submit" class="inline-flex items-center gap-1.5 h-8 px-3 rounded bg-blue-700 text-white text-sm font-medium hover:bg-blue-800">Save</button>
+        </div>
+      </form>`;
+
+    overlay.removeAttribute('hidden');
+    const form = document.getElementById('unit-form');
+    const nameInput = document.getElementById('f-name');
+    nameInput.focus();
+    form.addEventListener('input', () => { modalDirty = true; });
+    document.getElementById('btn-cancel').addEventListener('click', () => closeModal(false));
+
+    form.addEventListener('submit', (e) => {
+      e.preventDefault();
+      const errors = [];
+      const name = nameInput.value.trim();
+      const mgrName = document.getElementById('f-mgr-name').value.trim();
+      const mgrTitle = document.getElementById('f-mgr-title').value.trim();
+      const headcountRaw = document.getElementById('f-headcount').value;
+      const headcount = Number(headcountRaw);
+
+      ['name', 'mgr-name', 'mgr-title', 'headcount'].forEach(f => { document.getElementById('err-' + f).setAttribute('hidden', ''); });
+
+      if (!name) errors.push({ field: 'f-name', err: 'err-name', msg: 'Department name is required' });
+      if (!mgrName) errors.push({ field: 'f-mgr-name', err: 'err-mgr-name', msg: 'Manager name is required' });
+      if (!mgrTitle) errors.push({ field: 'f-mgr-title', err: 'err-mgr-title', msg: 'Manager title is required' });
+      if (headcountRaw === '' || isNaN(headcount) || headcount < 0 || Math.floor(headcount) !== headcount) {
+        errors.push({ field: 'f-headcount', err: 'err-headcount', msg: 'Enter a whole number of 0 or more' });
+      }
+
+      const summary = document.getElementById('error-summary');
+      if (errors.length) {
+        errors.forEach(er => { const p = document.getElementById(er.err); p.textContent = er.msg; p.removeAttribute('hidden'); });
+        summary.innerHTML = `<p class="text-sm font-medium text-red-700 mb-1">Fix ${errors.length} ${errors.length === 1 ? 'error' : 'errors'} to continue:</p>
+          <ul class="list-disc list-inside text-sm text-red-700">
+            ${errors.map(er => `<li><button type="button" data-focus="${er.field}" class="hover:underline text-left">${er.msg}</button></li>`).join('')}
+          </ul>`;
+        summary.removeAttribute('hidden');
+        summary.querySelectorAll('[data-focus]').forEach(b => b.addEventListener('click', () => document.getElementById(b.getAttribute('data-focus')).focus()));
+        document.getElementById(errors[0].field).focus();
+        return;
+      }
+      summary.setAttribute('hidden', '');
+
+      const saveBtn = document.getElementById('btn-save');
+      saveBtn.disabled = true;
+      saveBtn.innerHTML = `<svg class="spinner" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><circle cx="12" cy="12" r="9" stroke-opacity=".3"/><path d="M21 12a9 9 0 0 0-9-9"/></svg> Saving…`;
+
+      setTimeout(() => {
+        const status = document.getElementById('f-status').value;
+        const today = new Date();
+        const iso = today.toISOString().slice(0, 10);
+
+        if (isEdit) {
+          editing.name = name;
+          editing.manager.name = mgrName;
+          editing.manager.title = mgrTitle;
+          editing.own = headcount;
+          editing.status = status;
+          editing.lastChangedBy = 'You';
+          editing.lastChangedOn = iso;
+          modalDirty = false;
+          closeModal(true);
+          showToast(`Department ${name} saved`);
+          render();
+        } else {
+          const parentId = lockParent ? defaultParent.id : document.getElementById('f-parent').value;
+          const parent = byId.get(parentId);
+          const id = 'dept-' + name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') + '-' + Math.floor(Math.random() * 9000 + 1000);
+          const newNode = { id, name, manager: { name: mgrName, title: mgrTitle, email: '', phone: '' }, own: headcount, openOwn: 0, status, costCenter: '—', description: '', lastChangedBy: 'You', lastChangedOn: iso, children: [] };
+          parent.children.push(newNode);
+          buildIndex(parent, parent._parent, parent._level);
+          byId.set(newNode.id, newNode);
+          state.expanded.add(parent.id);
+          modalDirty = false;
+          closeModal(true);
+          showToast(`Department ${name} added`);
+          selectUnit(newNode.id, { fromTree: true });
+        }
+      }, 500);
+    });
+  }
+
+  function openFormModalWrapper() { openFormModal('add', ROOT, false); }
+  document.getElementById('btn-add-root').addEventListener('click', openFormModalWrapper);
+
+  // ---------- Init ----------
+  render();
+})();
+</script>
+</body>
+</html>

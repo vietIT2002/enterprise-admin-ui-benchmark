@@ -1,0 +1,551 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Meridian Rooms &mdash; Meeting Room Booking</title>
+<script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-slate-50 text-slate-800 antialiased min-h-screen">
+
+<header class="bg-white border-b border-slate-200 sticky top-0 z-30 shadow-sm">
+  <div class="max-w-7xl mx-auto px-4 py-3 flex items-center justify-between gap-4 flex-wrap">
+    <div class="flex items-center gap-2.5">
+      <div class="w-9 h-9 rounded-lg bg-blue-600 flex items-center justify-center shrink-0">
+        <svg class="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M8 7V3M16 7V3M3 11h18M5 7h14a2 2 0 012 2v10a2 2 0 01-2 2H5a2 2 0 01-2-2V9a2 2 0 012-2z"/>
+        </svg>
+      </div>
+      <div>
+        <h1 class="text-base font-bold text-slate-800 leading-tight">Meridian Rooms</h1>
+        <p class="text-xs text-slate-500 leading-tight">Office Meeting Room Booking</p>
+      </div>
+    </div>
+
+    <div class="flex items-center gap-2">
+      <button id="prevBtn" class="p-1.5 border border-slate-300 rounded-md hover:bg-slate-50 text-slate-600" aria-label="Previous">
+        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/></svg>
+      </button>
+      <button id="todayBtn" class="px-3 py-1.5 text-sm font-medium border border-slate-300 rounded-md hover:bg-slate-50">Today</button>
+      <button id="nextBtn" class="p-1.5 border border-slate-300 rounded-md hover:bg-slate-50 text-slate-600" aria-label="Next">
+        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
+      </button>
+      <span id="dateLabel" class="text-sm font-semibold text-slate-700 min-w-[190px] text-center"></span>
+    </div>
+
+    <div class="flex items-center gap-2">
+      <div class="flex border border-slate-300 rounded-md overflow-hidden">
+        <button id="dayBtn" class="view-btn px-3 py-1.5 text-sm font-medium">Day</button>
+        <button id="weekBtn" class="view-btn px-3 py-1.5 text-sm font-medium">Week</button>
+      </div>
+      <button id="newBookingBtn" class="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-md">
+        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/></svg>
+        New Booking
+      </button>
+    </div>
+  </div>
+</header>
+
+<div class="bg-white border-b border-slate-100">
+  <div class="max-w-7xl mx-auto px-4 py-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-slate-500" id="legendBar"></div>
+</div>
+
+<main class="max-w-7xl mx-auto px-4 py-6">
+  <p class="text-sm text-slate-500 mb-4">Click an open time slot to reserve a room. Click an existing booking to view details or cancel it.</p>
+  <div id="dayView"></div>
+  <div id="weekView" class="hidden"></div>
+</main>
+
+<div id="toast" class="fixed bottom-6 right-6 bg-slate-800 text-white text-sm px-4 py-2.5 rounded-lg shadow-lg opacity-0 pointer-events-none transition-opacity duration-300 z-50"></div>
+
+<div id="modalRoot"></div>
+
+<script>
+const ROOMS = [
+  { id:'r1', name:'Boardroom', floor:'3rd Floor', capacity:12, equipment:['Video Conference','Whiteboard','4K Display'],
+    color:{bg:'bg-indigo-50',border:'border-indigo-300',text:'text-indigo-800',dot:'bg-indigo-500'} },
+  { id:'r2', name:'Sunstone', floor:'2nd Floor', capacity:6, equipment:['TV Screen'],
+    color:{bg:'bg-amber-50',border:'border-amber-300',text:'text-amber-800',dot:'bg-amber-500'} },
+  { id:'r3', name:'Harbor View', floor:'2nd Floor', capacity:8, equipment:['Video Conference'],
+    color:{bg:'bg-sky-50',border:'border-sky-300',text:'text-sky-800',dot:'bg-sky-500'} },
+  { id:'r4', name:'Huddle Pod 1', floor:'1st Floor', capacity:4, equipment:[],
+    color:{bg:'bg-emerald-50',border:'border-emerald-300',text:'text-emerald-800',dot:'bg-emerald-500'} },
+  { id:'r5', name:'Huddle Pod 2', floor:'1st Floor', capacity:4, equipment:[],
+    color:{bg:'bg-rose-50',border:'border-rose-300',text:'text-rose-800',dot:'bg-rose-500'} },
+  { id:'r6', name:'Innovation Lab', floor:'3rd Floor', capacity:10, equipment:['Whiteboard','Video Conference','Standing Desks'],
+    color:{bg:'bg-violet-50',border:'border-violet-300',text:'text-violet-800',dot:'bg-violet-500'} }
+];
+
+const DAY_START = 480, DAY_END = 1080, SLOT = 30, ROW_H = 48;
+const SLOT_COUNT = (DAY_END - DAY_START) / SLOT;
+const DURATIONS = [
+  { value:30, label:'30 minutes' },
+  { value:60, label:'1 hour' },
+  { value:90, label:'1 hour 30 min' },
+  { value:120, label:'2 hours' }
+];
+
+const BOOKING_TEMPLATES = [
+  { day:0, room:'r1', start:'09:00', end:'10:00', title:'Weekly Leadership Sync', organizer:'Dana Whitfield', attendees:10 },
+  { day:0, room:'r3', start:'10:30', end:'11:00', title:'Client Discovery Call - Acme Corp', organizer:'Raj Patel', attendees:4 },
+  { day:0, room:'r4', start:'11:00', end:'11:30', title:'1:1 - Priya & Jordan', organizer:'Priya Nair', attendees:2 },
+  { day:0, room:'r2', start:'13:00', end:'14:00', title:'Marketing Content Review', organizer:'Lena Ortiz', attendees:5 },
+  { day:0, room:'r6', start:'14:30', end:'16:00', title:'Product Roadmap Workshop', organizer:'Tom Becker', attendees:8 },
+  { day:0, room:'r5', start:'16:00', end:'16:30', title:'Standup - Platform Team', organizer:'Mia Chen', attendees:4 },
+
+  { day:1, room:'r1', start:'08:30', end:'09:30', title:'Board Prep Session', organizer:'Dana Whitfield', attendees:6 },
+  { day:1, room:'r3', start:'09:30', end:'10:30', title:'Vendor Demo - Nimbus Cloud', organizer:'Carlos Mendes', attendees:5 },
+  { day:1, room:'r2', start:'11:00', end:'12:00', title:'Design Review - Checkout Flow', organizer:'Sofia Reyes', attendees:5 },
+  { day:1, room:'r4', start:'12:30', end:'13:00', title:'Candidate Interview - Backend Engineer', organizer:'Jordan Lee', attendees:3 },
+  { day:1, room:'r6', start:'13:30', end:'15:00', title:'Engineering All Hands', organizer:'Tom Becker', attendees:9 },
+  { day:1, room:'r5', start:'15:30', end:'16:00', title:'Budget Review', organizer:'Helen Suarez', attendees:3 },
+
+  { day:2, room:'r1', start:'10:00', end:'11:00', title:'Quarterly Business Review', organizer:'Dana Whitfield', attendees:11 },
+  { day:2, room:'r3', start:'11:00', end:'11:45', title:'Client Renewal Call - Fenwick Ltd', organizer:'Raj Patel', attendees:4 },
+  { day:2, room:'r2', start:'09:00', end:'09:30', title:'Daily Standup - Growth Team', organizer:'Mia Chen', attendees:6 },
+  { day:2, room:'r4', start:'14:00', end:'14:30', title:'1:1 - Sofia & Manager', organizer:'Sofia Reyes', attendees:2 },
+  { day:2, room:'r6', start:'15:00', end:'16:30', title:'Hiring Panel - Senior PM', organizer:'Jordan Lee', attendees:4 },
+  { day:2, room:'r5', start:'16:30', end:'17:00', title:'Vendor Contract Review', organizer:'Helen Suarez', attendees:3 },
+
+  { day:3, room:'r1', start:'09:00', end:'09:30', title:'Exec Staff Meeting', organizer:'Dana Whitfield', attendees:9 },
+  { day:3, room:'r2', start:'10:00', end:'11:00', title:'Brand Workshop', organizer:'Lena Ortiz', attendees:6 },
+  { day:3, room:'r3', start:'13:00', end:'13:30', title:'Customer Success Check-in', organizer:'Carlos Mendes', attendees:3 },
+  { day:3, room:'r4', start:'13:30', end:'14:00', title:'1:1 - Mia & Jordan', organizer:'Mia Chen', attendees:2 },
+  { day:3, room:'r6', start:'09:30', end:'11:00', title:'Sprint Planning - Platform', organizer:'Tom Becker', attendees:8 },
+  { day:3, room:'r5', start:'15:00', end:'15:30', title:'Retro - Growth Team', organizer:'Mia Chen', attendees:5 },
+
+  { day:4, room:'r1', start:'11:00', end:'12:00', title:'Town Hall Rehearsal', organizer:'Dana Whitfield', attendees:7 },
+  { day:4, room:'r2', start:'09:00', end:'09:30', title:'Social Media Planning', organizer:'Lena Ortiz', attendees:4 },
+  { day:4, room:'r3', start:'14:00', end:'14:30', title:'Partner Sync - Nimbus Cloud', organizer:'Carlos Mendes', attendees:3 },
+  { day:4, room:'r4', start:'10:00', end:'10:30', title:'Candidate Interview - Designer', organizer:'Sofia Reyes', attendees:3 },
+  { day:4, room:'r6', start:'15:30', end:'16:30', title:'Monthly Retrospective', organizer:'Tom Becker', attendees:9 },
+  { day:4, room:'r5', start:'12:00', end:'12:30', title:'1:1 - Helen & CFO', organizer:'Helen Suarez', attendees:2 }
+];
+
+let viewMode = 'day';
+let currentDate = new Date();
+let bookings = [];
+let idCounter = 1000;
+
+function pad(n){ return n < 10 ? '0'+n : String(n); }
+function startOfWeek(d){ const date=new Date(d); date.setHours(0,0,0,0); const day=date.getDay(); const diff=(day===0?-6:1-day); date.setDate(date.getDate()+diff); return date; }
+function addDays(date,n){ const d=new Date(date); d.setDate(d.getDate()+n); return d; }
+function isoDate(d){ return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate()); }
+function isSameDate(a,b){ return a.getFullYear()===b.getFullYear() && a.getMonth()===b.getMonth() && a.getDate()===b.getDate(); }
+function minutesFromTimeStr(s){ const parts=s.split(':'); return Number(parts[0])*60+Number(parts[1]); }
+function fmtTime(min){ const h=Math.floor(min/60), m=min%60; const period=h>=12?'PM':'AM'; const h12=(h%12===0)?12:h%12; return h12+':'+pad(m)+' '+period; }
+function fmtRange(s,e){ return fmtTime(s)+' – '+fmtTime(e); }
+function escapeHtml(str){
+  return String(str).replace(/[&<>"']/g, function(c){
+    return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;','\'':'&#39;'})[c];
+  });
+}
+function todayMidnight(){ const t=new Date(); t.setHours(0,0,0,0); return t; }
+function newId(){ idCounter += 1; return 'bk-'+idCounter; }
+
+function seedBookings(){
+  const weekStart = startOfWeek(new Date());
+  bookings = BOOKING_TEMPLATES.map(function(t, i){
+    return {
+      id: 'seed-'+i,
+      roomId: t.room,
+      date: isoDate(addDays(weekStart, t.day)),
+      startMin: minutesFromTimeStr(t.start),
+      endMin: minutesFromTimeStr(t.end),
+      title: t.title,
+      organizer: t.organizer,
+      attendees: t.attendees
+    };
+  });
+}
+
+function buildLegend(){
+  document.getElementById('legendBar').innerHTML = ROOMS.map(function(r){
+    return '<span class="inline-flex items-center gap-1.5"><span class="w-2 h-2 rounded-full '+r.color.dot+'"></span>'+r.name+'</span>';
+  }).join('');
+}
+
+function viewBtnClass(active, extra){
+  return 'view-btn px-3 py-1.5 text-sm font-medium '+(active ? 'bg-blue-600 text-white' : 'bg-white text-slate-600 hover:bg-slate-50')+' '+extra;
+}
+
+function setView(mode){
+  viewMode = mode;
+  document.getElementById('dayBtn').className = viewBtnClass(mode==='day', '');
+  document.getElementById('weekBtn').className = viewBtnClass(mode==='week', 'border-l border-slate-300');
+  renderAll();
+}
+
+function updateHeaderLabel(){
+  const label = document.getElementById('dateLabel');
+  if(viewMode === 'day'){
+    label.textContent = currentDate.toLocaleDateString('en-US', {weekday:'long', month:'long', day:'numeric', year:'numeric'});
+  } else {
+    const ws = startOfWeek(currentDate);
+    const we = addDays(ws, 4);
+    const sameMonth = ws.getMonth() === we.getMonth();
+    let text;
+    if(sameMonth){
+      text = ws.toLocaleDateString('en-US', {month:'long', day:'numeric'}) + ' – ' + we.toLocaleDateString('en-US', {day:'numeric', year:'numeric'});
+    } else {
+      text = ws.toLocaleDateString('en-US', {month:'short', day:'numeric'}) + ' – ' + we.toLocaleDateString('en-US', {month:'short', day:'numeric', year:'numeric'});
+    }
+    label.textContent = text;
+  }
+}
+
+function renderAll(){
+  updateHeaderLabel();
+  if(viewMode === 'day'){
+    document.getElementById('dayView').classList.remove('hidden');
+    document.getElementById('weekView').classList.add('hidden');
+    renderDayView();
+  } else {
+    document.getElementById('weekView').classList.remove('hidden');
+    document.getElementById('dayView').classList.add('hidden');
+    renderWeekView();
+  }
+}
+
+function updateNowLinePosition(){
+  const el = document.getElementById('nowLine');
+  if(!el) return;
+  if(viewMode !== 'day' || !isSameDate(currentDate, new Date())){ el.classList.add('hidden'); return; }
+  const now = new Date();
+  const mins = now.getHours()*60 + now.getMinutes();
+  if(mins < DAY_START || mins > DAY_END){ el.classList.add('hidden'); return; }
+  el.classList.remove('hidden');
+  el.style.top = (((mins - DAY_START)/30)*ROW_H)+'px';
+}
+
+function renderDayView(){
+  const dateStr = isoDate(currentDate);
+  const dayBookings = bookings.filter(function(b){ return b.date === dateStr; });
+
+  let roomHeaders = '';
+  ROOMS.forEach(function(room){
+    const equipHtml = room.equipment.length
+      ? '<div class="flex flex-wrap gap-1 mt-1">'+room.equipment.map(function(e){ return '<span class="text-[10px] px-1.5 py-0.5 rounded bg-slate-100 text-slate-600">'+e+'</span>'; }).join('')+'</div>'
+      : '';
+    roomHeaders += '<div class="flex-1 min-w-[150px] border-r border-slate-200 last:border-r-0 p-2">'
+      + '<div class="flex items-center gap-1.5"><span class="w-2 h-2 rounded-full '+room.color.dot+'"></span><span class="font-semibold text-sm text-slate-800">'+room.name+'</span></div>'
+      + '<div class="text-[11px] text-slate-500 mt-0.5">'+room.floor+' &middot; Seats '+room.capacity+'</div>'
+      + equipHtml
+      + '</div>';
+  });
+
+  let hourLabels = '';
+  for(let h = 8; h <= 18; h++){
+    const top = ((h*60 - DAY_START)/30)*ROW_H;
+    hourLabels += '<div class="absolute right-2 -translate-y-1/2 text-[11px] text-slate-500" style="top:'+top+'px">'+fmtTime(h*60)+'</div>';
+  }
+
+  let roomColumns = '';
+  ROOMS.forEach(function(room){
+    let slots = '';
+    for(let i = 0; i < SLOT_COUNT; i++){
+      const slotStart = DAY_START + i*SLOT;
+      const isHour = slotStart % 60 === 0;
+      slots += '<div class="slot-cell absolute left-0 right-0 '+(isHour ? 'border-t border-slate-200' : 'border-t border-slate-100')+' hover:bg-blue-50/70 cursor-pointer transition-colors" style="top:'+(i*ROW_H)+'px;height:'+ROW_H+'px" data-room="'+room.id+'" data-date="'+dateStr+'" data-start="'+slotStart+'" title="Book '+room.name+' at '+fmtTime(slotStart)+'"></div>';
+    }
+    let blocks = '';
+    dayBookings.filter(function(b){ return b.roomId === room.id; }).forEach(function(b){
+      const top = ((b.startMin - DAY_START)/30)*ROW_H + 2;
+      const height = ((b.endMin - b.startMin)/30)*ROW_H - 4;
+      blocks += '<div class="booking-block absolute left-1 right-1 rounded-md border '+room.color.border+' '+room.color.bg+' '+room.color.text+' px-2 py-1 text-xs shadow-sm overflow-hidden cursor-pointer hover:shadow-md z-10" style="top:'+top+'px;height:'+height+'px" data-id="'+b.id+'">'
+        + '<p class="font-semibold truncate leading-tight">'+escapeHtml(b.title)+'</p>'
+        + '<p class="truncate opacity-80 leading-tight">'+fmtRange(b.startMin, b.endMin)+'</p>'
+        + '<p class="truncate opacity-70 leading-tight">'+escapeHtml(b.organizer)+'</p>'
+        + '</div>';
+    });
+    roomColumns += '<div class="flex-1 min-w-[150px] border-r border-slate-200 last:border-r-0 relative">'+slots+blocks+'</div>';
+  });
+
+  const html = ''
+    + '<div class="border border-slate-200 rounded-lg overflow-hidden bg-white">'
+    + '<div class="overflow-x-auto">'
+    + '<div style="min-width:1000px">'
+    + '<div class="flex border-b border-slate-200 bg-slate-50">'
+    + '<div class="w-16 shrink-0"></div>'
+    + roomHeaders
+    + '</div>'
+    + '<div class="flex relative" style="height:'+(SLOT_COUNT*ROW_H)+'px">'
+    + '<div class="w-16 shrink-0 border-r border-slate-200 relative">'+hourLabels+'</div>'
+    + '<div class="flex-1 flex relative">'
+    + roomColumns
+    + '<div id="nowLine" class="absolute left-0 right-0 border-t-2 border-red-500 z-20 hidden" style="top:0px"><span class="absolute -left-1 -top-[5px] w-2.5 h-2.5 rounded-full bg-red-500"></span></div>'
+    + '</div>'
+    + '</div>'
+    + '</div>'
+    + '</div>'
+    + '</div>';
+
+  document.getElementById('dayView').innerHTML = html;
+  updateNowLinePosition();
+}
+
+function renderWeekView(){
+  const weekStart = startOfWeek(currentDate);
+  const days = [0,1,2,3,4].map(function(i){ return addDays(weekStart, i); });
+  const todayD = new Date();
+
+  let html = '<div class="border border-slate-200 rounded-lg overflow-hidden bg-white overflow-x-auto">'
+    + '<div class="grid" style="grid-template-columns:200px repeat(5,minmax(160px,1fr));min-width:1000px">';
+
+  html += '<div class="p-3 border-b border-r border-slate-200 bg-slate-50 font-semibold text-sm text-slate-600 flex items-center">Rooms</div>';
+
+  days.forEach(function(d){
+    const isToday = isSameDate(d, todayD);
+    html += '<div class="week-day-header p-3 border-b border-r border-slate-200 bg-slate-50 last:border-r-0 cursor-pointer hover:bg-slate-100 text-center" data-date="'+isoDate(d)+'">'
+      + '<div class="text-xs font-medium '+(isToday ? 'text-blue-600' : 'text-slate-500')+'">'+d.toLocaleDateString('en-US', {weekday:'short'})+'</div>'
+      + '<div class="text-sm font-semibold '+(isToday ? 'text-blue-600' : 'text-slate-800')+'">'+d.toLocaleDateString('en-US', {month:'short', day:'numeric'})+'</div>'
+      + '</div>';
+  });
+
+  ROOMS.forEach(function(room){
+    html += '<div class="p-3 border-b border-r border-slate-200">'
+      + '<div class="flex items-center gap-1.5"><span class="w-2 h-2 rounded-full '+room.color.dot+'"></span><span class="font-semibold text-sm text-slate-800">'+room.name+'</span></div>'
+      + '<div class="text-[11px] text-slate-500 mt-0.5">'+room.floor+' &middot; Seats '+room.capacity+'</div>'
+      + '</div>';
+    days.forEach(function(d){
+      const dateStr = isoDate(d);
+      const cellBookings = bookings.filter(function(b){ return b.roomId === room.id && b.date === dateStr; }).sort(function(a,b){ return a.startMin - b.startMin; });
+      html += '<div class="week-cell p-2 border-b border-r border-slate-100 last:border-r-0 min-h-[100px] hover:bg-slate-50 cursor-pointer space-y-1" data-room="'+room.id+'" data-date="'+dateStr+'">';
+      if(cellBookings.length === 0){
+        html += '<span class="text-[11px] text-slate-400">Available</span>';
+      } else {
+        cellBookings.forEach(function(b){
+          html += '<div class="booking-chip rounded border '+room.color.border+' '+room.color.bg+' '+room.color.text+' px-1.5 py-1 text-[11px] leading-tight cursor-pointer hover:shadow-sm" data-id="'+b.id+'">'
+            + '<p class="font-semibold">'+fmtRange(b.startMin, b.endMin)+'</p>'
+            + '<p class="truncate">'+escapeHtml(b.title)+'</p>'
+            + '</div>';
+        });
+      }
+      html += '</div>';
+    });
+  });
+
+  html += '</div></div>';
+  document.getElementById('weekView').innerHTML = html;
+}
+
+function buildTimeOptions(selected){
+  let opts = '';
+  for(let m = DAY_START; m <= DAY_END - 15; m += 15){
+    opts += '<option value="'+m+'"'+(m===selected ? ' selected' : '')+'>'+fmtTime(m)+'</option>';
+  }
+  return opts;
+}
+
+function showModal(html){
+  const root = document.getElementById('modalRoot');
+  root.innerHTML = '<div id="modalOverlay" class="fixed inset-0 bg-slate-900/50 flex items-center justify-center z-50 p-4">'+html+'</div>';
+  const overlay = document.getElementById('modalOverlay');
+  overlay.addEventListener('click', function(e){ if(e.target === overlay) closeModal(); });
+  root.querySelectorAll('.modal-close').forEach(function(btn){ btn.addEventListener('click', closeModal); });
+}
+function closeModal(){ document.getElementById('modalRoot').innerHTML = ''; }
+
+function openBookingModal(prefill){
+  prefill = prefill || {};
+  const roomId = prefill.roomId || ROOMS[0].id;
+  const date = prefill.date || isoDate(viewMode === 'day' ? currentDate : startOfWeek(currentDate));
+  const startMin = (prefill.startMin !== undefined) ? prefill.startMin : 540;
+  const roomOptions = ROOMS.map(function(r){
+    return '<option value="'+r.id+'"'+(r.id===roomId ? ' selected' : '')+'>'+r.name+' (seats '+r.capacity+')</option>';
+  }).join('');
+  const timeOptions = buildTimeOptions(startMin);
+  const durationOptions = DURATIONS.map(function(d){
+    return '<option value="'+d.value+'">'+d.label+'</option>';
+  }).join('');
+
+  const html = `
+    <div class="bg-white rounded-xl shadow-xl w-full max-w-md mx-4 p-6">
+      <div class="flex items-center justify-between mb-4">
+        <h3 class="text-lg font-semibold text-slate-800">New Booking</h3>
+        <button type="button" class="modal-close text-slate-400 hover:text-slate-600">
+          <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+        </button>
+      </div>
+      <form id="bookingForm" class="space-y-4">
+        <div>
+          <label class="block text-xs font-medium text-slate-600 mb-1">Room</label>
+          <select id="f-room" class="w-full border border-slate-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">${roomOptions}</select>
+        </div>
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-xs font-medium text-slate-600 mb-1">Date</label>
+            <input id="f-date" type="date" value="${date}" class="w-full border border-slate-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+          </div>
+          <div>
+            <label class="block text-xs font-medium text-slate-600 mb-1">Start Time</label>
+            <select id="f-start" class="w-full border border-slate-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">${timeOptions}</select>
+          </div>
+        </div>
+        <div>
+          <label class="block text-xs font-medium text-slate-600 mb-1">Duration</label>
+          <select id="f-duration" class="w-full border border-slate-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">${durationOptions}</select>
+        </div>
+        <div>
+          <label class="block text-xs font-medium text-slate-600 mb-1">Meeting Title</label>
+          <input id="f-title" type="text" required placeholder="e.g. Weekly Sync" class="w-full border border-slate-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+        </div>
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-xs font-medium text-slate-600 mb-1">Organizer</label>
+            <input id="f-organizer" type="text" required placeholder="Your name" class="w-full border border-slate-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+          </div>
+          <div>
+            <label class="block text-xs font-medium text-slate-600 mb-1">Attendees</label>
+            <input id="f-attendees" type="number" min="1" value="2" class="w-full border border-slate-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+          </div>
+        </div>
+        <p id="f-error" class="text-xs text-red-600 hidden"></p>
+        <div class="flex justify-end gap-2 pt-2">
+          <button type="button" class="modal-close px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-100 rounded-md">Cancel</button>
+          <button type="submit" class="px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-md">Book Room</button>
+        </div>
+      </form>
+    </div>
+  `;
+  showModal(html);
+  document.getElementById('bookingForm').addEventListener('submit', handleBookingSubmit);
+}
+
+function handleBookingSubmit(e){
+  e.preventDefault();
+  document.getElementById('f-error').classList.add('hidden');
+  const roomId = document.getElementById('f-room').value;
+  const dateVal = document.getElementById('f-date').value;
+  const startMin = Number(document.getElementById('f-start').value);
+  const duration = Number(document.getElementById('f-duration').value);
+  const title = document.getElementById('f-title').value.trim();
+  const organizer = document.getElementById('f-organizer').value.trim();
+  const attendees = Number(document.getElementById('f-attendees').value) || 1;
+  const endMin = startMin + duration;
+
+  if(!dateVal){ showFormError('Please choose a date.'); return; }
+  const dateObj = new Date(dateVal+'T00:00:00');
+  const weekday = dateObj.getDay();
+  if(weekday === 0 || weekday === 6){ showFormError('Rooms can be booked Monday through Friday only.'); return; }
+  if(!title){ showFormError('Please enter a meeting title.'); return; }
+  if(!organizer){ showFormError('Please enter an organizer name.'); return; }
+  if(endMin > DAY_END){ showFormError('Bookings must end by 6:00 PM.'); return; }
+
+  const conflict = bookings.find(function(b){
+    return b.roomId === roomId && b.date === dateVal && startMin < b.endMin && endMin > b.startMin;
+  });
+  if(conflict){
+    showFormError('This room is already booked from '+fmtRange(conflict.startMin, conflict.endMin)+' ('+conflict.title+'). Please choose another time or room.');
+    return;
+  }
+
+  const room = ROOMS.find(function(r){ return r.id === roomId; });
+  bookings.push({ id:newId(), roomId:roomId, date:dateVal, startMin:startMin, endMin:endMin, title:title, organizer:organizer, attendees:attendees });
+  closeModal();
+  currentDate = dateObj;
+  renderAll();
+  let msg = 'Booked "'+title+'" in '+room.name+' on '+dateObj.toLocaleDateString('en-US', {month:'short', day:'numeric'})+'.';
+  if(attendees > room.capacity){ msg += ' Note: exceeds room capacity ('+room.capacity+' seats).'; }
+  showToast(msg);
+}
+
+function showFormError(msg){
+  const el = document.getElementById('f-error');
+  el.textContent = msg;
+  el.classList.remove('hidden');
+}
+
+function openDetailModal(id){
+  const b = bookings.find(function(x){ return x.id === id; });
+  if(!b) return;
+  const room = ROOMS.find(function(r){ return r.id === b.roomId; });
+  const dateLabel = new Date(b.date+'T00:00:00').toLocaleDateString('en-US', {weekday:'long', month:'long', day:'numeric', year:'numeric'});
+  const html = `
+    <div class="bg-white rounded-xl shadow-xl w-full max-w-md mx-4 p-6">
+      <div class="flex items-center justify-between mb-4">
+        <span class="inline-flex items-center gap-1.5 text-xs font-medium px-2 py-1 rounded-full ${room.color.bg} ${room.color.text} border ${room.color.border}">
+          <span class="w-1.5 h-1.5 rounded-full ${room.color.dot}"></span>${room.name}
+        </span>
+        <button type="button" class="modal-close text-slate-400 hover:text-slate-600">
+          <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+        </button>
+      </div>
+      <h3 class="text-lg font-semibold text-slate-800 mb-1">${escapeHtml(b.title)}</h3>
+      <p class="text-sm text-slate-500 mb-4">${dateLabel} &middot; ${fmtRange(b.startMin, b.endMin)}</p>
+      <dl class="space-y-2 text-sm mb-6">
+        <div class="flex justify-between"><dt class="text-slate-500">Organizer</dt><dd class="text-slate-800 font-medium">${escapeHtml(b.organizer)}</dd></div>
+        <div class="flex justify-between"><dt class="text-slate-500">Attendees</dt><dd class="text-slate-800 font-medium">${b.attendees || '-'}</dd></div>
+        <div class="flex justify-between"><dt class="text-slate-500">Room Capacity</dt><dd class="text-slate-800 font-medium">${room.capacity} seats</dd></div>
+        <div class="flex justify-between"><dt class="text-slate-500">Location</dt><dd class="text-slate-800 font-medium">${room.floor}</dd></div>
+      </dl>
+      <div id="cancelArea">
+        <button id="cancelBookingBtn" class="w-full px-4 py-2 text-sm font-medium text-red-600 border border-red-200 hover:bg-red-50 rounded-md">Cancel Booking</button>
+      </div>
+    </div>
+  `;
+  showModal(html);
+  document.getElementById('cancelBookingBtn').addEventListener('click', function(){
+    document.getElementById('cancelArea').innerHTML = `
+      <p class="text-sm text-slate-600 mb-3">Are you sure you want to cancel this booking?</p>
+      <div class="flex gap-2">
+        <button id="confirmCancel" class="flex-1 px-4 py-2 text-sm font-medium text-white bg-red-600 hover:bg-red-700 rounded-md">Yes, Cancel</button>
+        <button id="denyCancel" class="flex-1 px-4 py-2 text-sm font-medium text-slate-600 border border-slate-200 hover:bg-slate-50 rounded-md">Keep Booking</button>
+      </div>
+    `;
+    document.getElementById('confirmCancel').addEventListener('click', function(){
+      bookings = bookings.filter(function(x){ return x.id !== id; });
+      closeModal();
+      renderAll();
+      showToast('Booking cancelled.');
+    });
+    document.getElementById('denyCancel').addEventListener('click', function(){ openDetailModal(id); });
+  });
+}
+
+function showToast(msg){
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.remove('opacity-0');
+  t.classList.add('opacity-100');
+  clearTimeout(window.__toastTimer);
+  window.__toastTimer = setTimeout(function(){
+    t.classList.remove('opacity-100');
+    t.classList.add('opacity-0');
+  }, 3500);
+}
+
+seedBookings();
+buildLegend();
+
+document.getElementById('prevBtn').addEventListener('click', function(){ currentDate = addDays(currentDate, viewMode === 'day' ? -1 : -7); renderAll(); });
+document.getElementById('nextBtn').addEventListener('click', function(){ currentDate = addDays(currentDate, viewMode === 'day' ? 1 : 7); renderAll(); });
+document.getElementById('todayBtn').addEventListener('click', function(){ currentDate = todayMidnight(); renderAll(); });
+document.getElementById('dayBtn').addEventListener('click', function(){ setView('day'); });
+document.getElementById('weekBtn').addEventListener('click', function(){ setView('week'); });
+document.getElementById('newBookingBtn').addEventListener('click', function(){ openBookingModal({}); });
+
+document.getElementById('dayView').addEventListener('click', function(e){
+  const block = e.target.closest('.booking-block');
+  if(block){ openDetailModal(block.dataset.id); return; }
+  const slot = e.target.closest('.slot-cell');
+  if(slot){ openBookingModal({ roomId: slot.dataset.room, date: slot.dataset.date, startMin: Number(slot.dataset.start) }); }
+});
+
+document.getElementById('weekView').addEventListener('click', function(e){
+  const chip = e.target.closest('.booking-chip');
+  if(chip){ openDetailModal(chip.dataset.id); return; }
+  const header = e.target.closest('.week-day-header');
+  if(header){ currentDate = new Date(header.dataset.date+'T00:00:00'); setView('day'); return; }
+  const cell = e.target.closest('.week-cell');
+  if(cell){ openBookingModal({ roomId: cell.dataset.room, date: cell.dataset.date }); }
+});
+
+document.addEventListener('keydown', function(e){ if(e.key === 'Escape') closeModal(); });
+
+currentDate = todayMidnight();
+setView('day');
+setInterval(updateNowLinePosition, 30000);
+</script>
+</body>
+</html>

@@ -1,0 +1,56 @@
+{
+  "brief": "21-payslip-print",
+  "run": 1,
+  "items": [
+    {
+      "item": "The slip identifies the employer (company name and tax code or address), the employee (full name, employee ID, department, job title) and the pay period together with its payment date",
+      "pass": true,
+      "evidence": "Employer block: \"Nimbus Technologies Inc.\", \"455 Market Street, Suite 1600\", \"Employer tax ID (EIN): 84-3291005\". Employee dl: Full name \"Sarah Mitchell\", Employee ID \"EMP-00482\", Position \"Senior Product Designer\", Department \"Product & Design\". Header dl: Pay period \"01–31 Oct 2026\", Payment date \"05 Nov 2026\"."
+    },
+    {
+      "item": "Earnings are itemised — basic salary with its proration (such as \"21 / 22 working days\"), each allowance, and overtime as hours × rate — and Gross pay equals the sum of the earnings lines",
+      "pass": false,
+      "evidence": "Earnings table lists \"Basic salary\" as a flat 6,500.00 with no proration text anywhere (no working-days fraction). Allowances (Housing, Transport, Meal) and \"Overtime (8.0 hrs × $45.63/hr)\" are itemised and Gross pay 7,615.00 = 6500+500+150+100+365, but the required basic-salary proration is absent, so the item fails as specified."
+    },
+    {
+      "item": "Deductions show the employee's social, health and unemployment insurance (each with its rate and contribution base) and personal income tax (with the taxable income it was computed on) apart from other deductions such as salary advances, and Total deductions equals their sum",
+      "pass": false,
+      "evidence": "Deductions table shows \"Social security (6.20%)\" and \"Medicare (1.45%)\" with rate but no contribution base, \"Health insurance premium\" with no rate/base, and \"Federal income tax\"/\"State income tax (CA)\" with no taxable-income base shown. There is no unemployment insurance line at all. Total deductions −2,671.30 does equal the sum of the six lines, but the required insurance/PIT bases and unemployment insurance are missing."
+    },
+    {
+      "item": "Net pay equals Gross pay minus Total deductions to the last unit and is the most prominent figure on the slip",
+      "pass": true,
+      "evidence": "net-pay-box: Gross pay $7,615.00 − Total deductions $2,671.30 = Net pay $4,943.70 (7615.00-2671.30=4943.70, exact). Rendered as `<span class=\"text-xl font-semibold text-blue-700 tabular-nums\">$4,943.70</span>`, the largest/boldest colored figure on the page."
+    },
+    {
+      "item": "Amounts line up on the right with fixed-width digits and thousand separators, the currency is named, and decimals suit the currency (none for VND, two for USD) throughout",
+      "pass": true,
+      "evidence": "All amount cells use `class=\"...text-right tabular-nums\"` with thousand separators (e.g. \"6,500.00\", \"76,150.00\"); table headers read \"Current (USD)\" / \"Year to date (USD)\" and net-pay box uses \"$\" prefix; two decimals used consistently for the USD currency. audit.json numericCells.misaligned=0, nonTabular=0."
+    },
+    {
+      "item": "Earnings and deductions are marked up as tables with header cells or as dt/dd label–value pairs, so a screen reader announces each amount together with its label",
+      "pass": false,
+      "evidence": "Earnings/Deductions tables only mark the column headers as `<th scope=\"col\">` (Description/Current/Year to date); each line item's label is a plain `<td class=\"py-2\">Basic salary</td>` with no `scope=\"row\"` or id/headers association — only the tfoot totals row uses `<th scope=\"row\">Gross pay</th>`. So for ordinary earnings/deduction lines, a screen reader navigating by cell has no programmatic link between an amount and its row label."
+    },
+    {
+      "item": "A Print button is present, and the print stylesheet hides the app's sidebar, top bar and buttons, sets an A4 page with @page and keeps the earnings and deductions blocks from splitting across pages",
+      "pass": true,
+      "evidence": "`<button onclick=\"window.print()\">Print</button>` (and a second Download PDF button) inside `<header class=\"no-print ...\">`; CSS has `.no-print, [role=\"status\"] { display:none !important }` hiding the header/buttons, `@page { size: A4; margin: 14mm 12mm 16mm; }`, and `tr, .totals, .parties, .net-pay-box { break-inside: avoid; }` with `thead{display:table-header-group}` to keep earnings/deductions rows intact across page breaks. (Page has no app sidebar to hide — this is a standalone document view.)"
+    },
+    {
+      "item": "The bank account number is masked except for its last four digits, and the slip carries a \"Confidential\" marking that also appears when printed",
+      "pass": false,
+      "evidence": "Account number is masked: `<dd>**** **** **** 4821</dd>`. However no \"Confidential\" text/marking exists anywhere in the markup (searched full page.html, none found), so it cannot appear on print either."
+    },
+    {
+      "item": "A period selector switches between months and the heading names the month shown; a month without a payslip shows a message saying so rather than zeros, and loading and error-with-retry states are built in",
+      "pass": false,
+      "evidence": "Breadcrumb \"My payslips / October 2026\" and header \"Payslip · October 2026\" are static text with no `<select>`, month-switcher buttons, or any script beyond two `onclick=\"window.print()\"` handlers. There is no empty-month message, loading indicator, or error/retry UI in the markup."
+    }
+  ],
+  "tells": [
+    "card-in-card"
+  ],
+  "notes": "This is a standalone, static payslip document page (no app shell/sidebar, no JS state beyond window.print()). Automated audit.json score is 100/100 with no violations, but several checklist-specific requirements fail: missing basic-salary proration, missing insurance/PIT bases and unemployment insurance line, missing row-level <th scope=\"row\"> association on earnings/deductions line items, no 'Confidential' marking, and no period selector / loading / error-retry states. card-in-card: the net-pay-box (bordered, bg-slate-50) is nested inside the bordered main.sheet 'paper' card.",
+  "blind": true
+}

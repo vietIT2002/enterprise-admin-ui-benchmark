@@ -1,0 +1,54 @@
+{
+  "brief": "24-org-structure",
+  "run": 1,
+  "items": [
+    {
+      "item": "The hierarchy is an indented tree in which every unit with sub-units expands and collapses, exposed as role=\"tree\"/\"treeitem\" with aria-expanded (or nested lists whose toggles are buttons with aria-expanded) and operable from the keyboard",
+      "pass": true,
+      "evidence": "role=\"treegrid\" container (#tree-grid) with role=\"row\" rows carrying aria-expanded, aria-level, aria-posinset, aria-setsize (page.html:67,315-317); per-level indent via style=\"padding-left:${indent}px\" (line 305/321); chevron buttons toggle state.expanded (lines 306-312, 515-527); full keyboard support in the tree-grid keydown handler — ArrowUp/Down, Home/End, ArrowRight/Left expand-collapse-or-move, Enter/Space select, typeahead (lines 529-587). Uses treegrid/row rather than literal tree/treeitem, but the same aria-expanded + keyboard-operable contract is met."
+    },
+    {
+      "item": "Each unit shows its total headcount including sub-units alongside its direct staff (such as \"42 · 8 direct\"), and every parent's total equals its direct staff plus its children's totals",
+      "pass": false,
+      "evidence": "getTotals() correctly sums own + children recursively (lines 166-170), so the math invariant holds, but it is never displayed per unit. Tree rows render only a single 'Headcount' number (totals.headcount, line 330) with no direct figure next to it; the sub-departments table in the detail panel likewise shows only one headcount column per child (line 367). Only the single currently-selected unit gets both numbers, as two separate stat tiles 'Total headcount' / 'Direct headcount' (lines 420-427) rather than a combined 'X · Y direct' figure — every other unit in the tree never shows its direct count."
+    },
+    {
+      "item": "Each unit names its manager, and a unit without one shows \"Vacant\" rather than a blank",
+      "pass": false,
+      "evidence": "No 'Vacant' string or conditional fallback exists anywhere in the script; every seed node is constructed with a non-empty manager.name (node(...) calls, lines 111-146) and the renderer unconditionally prints n.manager.name (lines 328, 443) with no empty/undefined handling."
+    },
+    {
+      "item": "The selected unit is marked in the tree (aria-selected or aria-current), and the details panel shows its name, code, path from the top (such as \"Company › Finance › Accounts Payable\"), manager and cost centre or location",
+      "pass": false,
+      "evidence": "Selection is marked via aria-selected=\"${selected}\" on the row (line 317) plus a blue highlight/box-shadow (lines 319-320). The panel shows name (h2, line 401), breadcrumb path (breadcrumb(n), lines 336-345, rendered as 'Aiteam Holdings / Engineering / ...'), manager (lines 439-450) and a 'Cost centre' tile (lines 433-435, 824) — but there is no distinct unit 'code' anywhere in the data model or markup (only an internal id like 'eng-platform' used in the URL hash, never shown to the user)."
+    },
+    {
+      "item": "The details panel compares approved positions with filled ones and gives vacancies as approved minus filled",
+      "pass": false,
+      "evidence": "The data model only has own (direct headcount) and openOwn (open positions), rendered as a single 'Open positions' stat tile (lines 428-431, 430). There is no 'approved' vs 'filled' distinction anywhere in node() (lines 107-109) or the detail panel markup."
+    },
+    {
+      "item": "The details panel lists the unit's direct employees with name and job title, and their number equals the unit's direct headcount",
+      "pass": false,
+      "evidence": "No employee-level data exists at all in the model (node() only stores an aggregate own count and a single manager, lines 107-146); the detail panel only renders a 'Sub-departments' table of child units (lines 361-394), never a roster of individual employees."
+    },
+    {
+      "item": "Searching by unit or manager name expands the ancestors of each match and highlights it, and a search with no match says so",
+      "pass": true,
+      "evidence": "getVisibleRows() matches against name+manager.name and walks ancestors into visibleIds, forcing isSearching rows to render expanded (lines 236-259); highlight() wraps the matched substring in <mark> (lines 273-278, 323, 328); no-match state renders 'No department matches \"{q}\"' with a Clear search button (lines 288-296)."
+    },
+    {
+      "item": "Deactivating or moving a unit asks for confirmation in a dialog that names the unit and the number of employees and sub-units affected",
+      "pass": false,
+      "evidence": "openBlockedModal() (lines 689-708) names the unit and reports totals.headcount employees and childCount sub-departments, but it is always a dead-end block ('Cannot deactivate ... Reassign them before deactivating') with only a Close button — there is no way to confirm/proceed with deactivation. There is also no 'move unit' feature anywhere in the UI (overflow menu only has Add sub-department / Deactivate, lines 412-413)."
+    },
+    {
+      "item": "A unit with no direct employees shows an explicit empty message in the details panel, and loading and error-with-retry states exist for both the tree and the panel",
+      "pass": false,
+      "evidence": "There is no employee roster at all, so no empty-employees message exists (only an unrelated 'No sub-departments yet' empty state for childless units, lines 390-394). All data is synchronous/static (ROOT is a literal built at load, line 111) — no loading spinners or error/retry UI exist for the tree or the detail panel; the only spinner is the fake 500ms save delay inside the add/edit form modal (lines 812-814, 816-847)."
+    }
+  ],
+  "tells": [],
+  "notes": "No template tells observed: flat slate/blue palette, no gradients/glass/emoji, SVG icons throughout, avatars are legitimate initials for named human managers, status badges limited to two sober colors (active/restructuring), radii and hovers are subdued per audit.json (score 100, no violations). Main gaps are feature-completeness against the checklist rather than visual-template smells: no employee roster, no approved/filled/vacancy math, no 'Vacant' manager fallback, no unit code field, no real confirm-to-deactivate or move flow, and no loading/error states anywhere.",
+  "blind": true
+}

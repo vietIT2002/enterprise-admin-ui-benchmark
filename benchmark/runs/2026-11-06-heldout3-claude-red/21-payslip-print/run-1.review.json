@@ -1,0 +1,58 @@
+{
+  "brief": "21-payslip-print",
+  "run": 1,
+  "items": [
+    {
+      "item": "The slip identifies the employer (company name and tax code or address), the employee (full name, employee ID, department, job title) and the pay period together with its payment date",
+      "pass": true,
+      "evidence": "Header shows 'Northgate Haulage & Logistics Pvt. Ltd.' with address '221 Riverside Industrial Estate, Pune, Maharashtra 411014' (no tax code, but address satisfies the alternative); employee block lists 'Ananya Deshmukh', 'NH-EMP-00482', Designation 'Senior Logistics Analyst', Department 'Supply Chain Operations'; 'Pay Period: 01 Nov 2026 – 30 Nov 2026' and 'Pay Date: 30 Nov 2026'."
+    },
+    {
+      "item": "Earnings are itemised — basic salary with its proration (such as \"21 / 22 working days\"), each allowance, and overtime as hours × rate — and Gross pay equals the sum of the earnings lines",
+      "pass": false,
+      "evidence": "Earnings table lists Basic Salary ₹48,000.00, HRA, Conveyance, Special Allowance and Performance Bonus (lines 103-107) and Gross Earnings ₹83,900.00 correctly sums them, but no proration like 'X / Y working days' is attached to Basic Salary (the 'Days Paid 30/30' field is a separate, unrelated summary row) and there is no overtime line expressed as hours × rate anywhere on the slip."
+    },
+    {
+      "item": "Deductions show the employee's social, health and unemployment insurance (each with its rate and contribution base) and personal income tax (with the taxable income it was computed on) apart from other deductions such as salary advances, and Total deductions equals their sum",
+      "pass": false,
+      "evidence": "Deductions table (lines 120-124) shows 'Provident Fund (PF) ₹5,760.00', 'Health Insurance Premium ₹1,100.00' and 'Income Tax (TDS) ₹6,450.00' as flat amounts only — no rate, no contribution base, and no taxable-income figure the tax was computed on is shown anywhere; Total Deductions ₹16,010.00 does correctly sum the five rows."
+    },
+    {
+      "item": "Net pay equals Gross pay minus Total deductions to the last unit and is the most prominent figure on the slip",
+      "pass": true,
+      "evidence": "id=\"netPay\" shows ₹67,890.00 = 83,900.00 − 16,010.00 exactly (computed in script via `grossEarnings - totalDeductions`), rendered in a text-2xl font-bold white-on-indigo-600 banner, the largest text on the page."
+    },
+    {
+      "item": "Amounts line up on the right with fixed-width digits and thousand separators, the currency is named, and decimals suit the currency (none for VND, two for USD) throughout",
+      "pass": true,
+      "evidence": "All monetary td's use `text-right` classes; `formatINR()` applies `toLocaleString('en-IN', {minimumFractionDigits:2, maximumFractionDigits:2})` producing comma-grouped values like '₹ 19,200.00' with 2 decimals consistently, and the currency is spelled out in words via id=\"netPayWords\" ('Rupees Sixty-Seven Thousand Eight Hundred Ninety Only')."
+    },
+    {
+      "item": "Earnings and deductions are marked up as tables with header cells or as dt/dd label–value pairs, so a screen reader announces each amount together with its label",
+      "pass": false,
+      "evidence": "Earnings/Deductions are `<table><tbody><tr><td>Label</td><td>Value</td></tr>...</table>` (lines 101-126) — both cells are plain `<td>`, there is no `<thead>`/`<th>`/`scope` and no dt/dd alternative is used, so no row label is programmatically associated with its value for a screen reader."
+    },
+    {
+      "item": "A Print button is present, and the print stylesheet hides the app's sidebar, top bar and buttons, sets an A4 page with @page and keeps the earnings and deductions blocks from splitting across pages",
+      "pass": false,
+      "evidence": "`<button id=\"printBtn\">Print Payslip</button>` calls `window.print()` and `.no-print{display:none}` hides the toolbar on print, but the only `@page` rule is `@page { margin: 12mm; }` — no `size: A4` is declared, and there is no `break-inside: avoid` (or equivalent) protecting the Earnings/Deductions tables from splitting across a page boundary."
+    },
+    {
+      "item": "The bank account number is masked except for its last four digits, and the slip carries a \"Confidential\" marking that also appears when printed",
+      "pass": false,
+      "evidence": "Bank Account field reads 'HDFC •••• 7731' (masked, last 4 digits visible) — but the string 'Confidential' does not appear anywhere in the page markup, footer, or print CSS."
+    },
+    {
+      "item": "A period selector switches between months and the heading names the month shown; a month without a payslip shows a message saying so rather than zeros, and loading and error-with-retry states are built in",
+      "pass": false,
+      "evidence": "The heading names the month ('Payslip For / November 2026'), but there is no month/period selector control anywhere in the DOM, no empty-period messaging, and no loading or error/retry UI — the page is fully static with hardcoded `earnings`/`deductions` objects and no fetch logic (lines 153-210)."
+    }
+  ],
+  "tells": [
+    "initials-avatar-non-person",
+    "tracked-uppercase-labels",
+    "oversized-radius"
+  ],
+  "notes": "Static, single-state payslip page with no dynamic period switching, loading, or error handling. 'NH' avatar (lines 37) is an initials tile standing in for the company logo, not a person. Uppercase tracking-wider labels appear at 'Payslip For' and 'Net Pay for November 2026' (also flagged by audit.json uppercase-text rule). Audit flags main card radius at 12px vs the ≤8px scale (radius-scale violation), matching oversized-radius. Audit also flags two text-contrast failures (avatar tile 4.47:1, netPayWords 4.22:1) and a surface-shadow warning (drop shadows on card and net-pay banner instead of borders) not covered by the checklist above.",
+  "blind": true
+}

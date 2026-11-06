@@ -1,0 +1,57 @@
+{
+  "brief": "25-audit-log",
+  "run": 1,
+  "items": [
+    {
+      "item": "Each entry shows when, who (the person's name and account, or \"System\" or the integration's name for automated changes), the action, the affected record (type plus ID or name) and the outcome (such as Success, Failed or Denied) in text",
+      "pass": false,
+      "evidence": "rowHtml() (page.html:852-878) shows when, actor name+role (actorCell, e.g. 'Sarah Chen · Administrator' — role only, no account/username/email identifier), an action badge (toneBadge), and a record link (entityType + entityLabel). But there is no explicit outcome field in text for most rows — e.g. 'Created the order', 'Status changed from Draft to Sent', 'Updated 1 field' never state Success/Failed/Denied; outcome is only implied for sign-in events via the action label itself ('Sign-in failed') and otherwise conveyed solely by badge color (TONE_CLASSES), not text."
+    },
+    {
+      "item": "Timestamps give the date and the time to the second with the time zone stated (such as \"05/11/2026 14:32:07 UTC+7\"), and entries are listed newest first",
+      "pass": false,
+      "evidence": "fmtDateTime() (page.html:302-304) returns 'DD/MM/YYYY HH:MM' with no seconds and no time zone, e.g. screenshot shows '06/11/2026 10:43'. The expanded detail row's 'Full timestamp' (detailRowHtml, page.html:845) uses the same fmtDateTime and also omits seconds/time zone. Newest-first sort is implemented (events.sort by ts desc, state.sortDir default 'desc', aria-sort=\"descending\")."
+    },
+    {
+      "item": "An update entry shows each changed field with its old and new value side by side under \"Before\" and \"After\" labels, so the change reads correctly without relying on colour",
+      "pass": false,
+      "evidence": "diffTableHtml() (page.html:824-835) renders a table with columns for field, old value, an arrow ('→'), and new value, but has no header row and no 'Before'/'After' labels anywhere — the from/to columns are distinguished only by position and an arrow glyph, not labeled text."
+    },
+    {
+      "item": "Passwords, tokens and other secret fields never appear in clear text; their changes are shown masked (such as \"•••••• changed\")",
+      "pass": false,
+      "evidence": "No masking logic exists anywhere in the script, and no diff pool contains a secret/password/token field (e.g. Settings diffs are limited to Default currency, Session timeout, Time zone — see SETTING_TARGETS pool at page.html:508-517). Feature is not implemented."
+    },
+    {
+      "item": "Filters cover a date range with presets, the actor, the action type and the record type, a search box finds a record by its ID, and the number of matching entries is shown",
+      "pass": true,
+      "evidence": "Date presets (DATE_PRESETS: Today/Last 7/30/90 days) plus custom dateFrom/dateTo inputs (page.html:1156-1202); Actor filter panel (#actorPanel/#actorList); Action type filter panel (#actionPanel/#actionList); Module filter under 'More filters' (#moduleList, serves as record-type grouping) plus a dedicated Record ID input (#recordIdInput) that matches matchesFilters() against entityLabel; result count shown via #resultText ('88 events')."
+    },
+    {
+      "item": "Entries are read-only: no edit or delete control appears on any entry, and the page states that the log cannot be altered",
+      "pass": true,
+      "evidence": "Row overflow menu only contains 'Copy event ID' (page.html:876), no edit/delete controls anywhere. Footer text: \"History is kept for 7 years and cannot be edited or deleted from this screen.\" (page.html:274)."
+    },
+    {
+      "item": "Export to CSV or Excel covers exactly the entries matching the current filters, and the export control states how many entries it will include",
+      "pass": false,
+      "evidence": "exportCsv() (page.html:1031-1053) calls getFiltered() so the export does match current filters, but the 'Export CSV' button (#exportBtn, page.html:109-112) shows no count beforehand — the entry count only appears afterward in a toast ('Exported N events...'), not stated on the control itself."
+    },
+    {
+      "item": "The log is a table with column header cells, and each entry's details open from a keyboard-operable control (a button with aria-expanded or a link) rather than only from a click on the row",
+      "pass": true,
+      "evidence": "<table aria-label=\"Audit log events\"> with <thead><tr><th scope=\"col\">...</th></tr></thead> (page.html:236-253). Row expansion uses <button class=\"expand-btn\" data-expand=\"...\" aria-expanded=\"true/false\" aria-label=\"View details for...\"> (page.html:862)."
+    },
+    {
+      "item": "Filters that match nothing show a message with a clear-filters action, and a loading state and an error state with retry are built in",
+      "pass": true,
+      "evidence": "emptyStateRow('no-results') shows \"No events match these filters\" plus a '#noResultsClearBtn' 'Clear filters' button (page.html:809-814, bound to clearAllFilters at page.html:929-930). Loading: skeletonRows() with aria-busy=\"true\" shown both on initial load (500ms timeout, page.html:1352-1357) and via demoState==='loading'. Error: errorStateRow() with '#retryBtn' 'Retry' button (page.html:816-822, 931-937), reachable via demoState==='error'."
+    }
+  ],
+  "tells": [
+    "tracked-uppercase-labels",
+    "initials-avatar-non-person"
+  ],
+  "notes": "tracked-uppercase-labels: sidebar 'MONITORING' section label (class 'uppercase tracking-wide' + inline letter-spacing:0.02em, page.html:51) and the 'Field changes' label inside the expanded row detail (page.html:839) both use the same uppercase+tracking treatment; audit.json also flags 'Monitoring' under its uppercase-text violation. initials-avatar-non-person: system actors ('System', 'Import job #218', 'Backup service') are rendered with the same two-letter initials avatar used for human actors (avatarHtml(), page.html:778-781, e.g. 'SY'/'IJ'/'BS'), applying a person-style avatar to non-person/automated actors.",
+  "blind": true
+}

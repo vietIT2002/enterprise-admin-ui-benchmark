@@ -1,0 +1,54 @@
+{
+  "brief": "22-room-booking-calendar",
+  "run": 1,
+  "items": [
+    {
+      "item": "The day view lists rooms as rows, each labelled with its capacity (and its floor or equipment), against a time axis that covers working hours and is labelled at least every hour",
+      "pass": false,
+      "evidence": "renderDayView() puts rooms across the header row as columns ('<div class=\"px-3 py-2 ...\">' + room.name + roomMetaLine(room) for each room, laid out with grid-template-columns) and the time axis runs vertically as grid rows (slot loop sets style=\"grid-row:'+(slot+1)+'/'...; grid-column:1\"). Rooms are columns, not rows — the inverse of what's required. Capacity/floor/equipment text ('Floor 2 · 8 seats · Projector, Video conferencing') and hourly time labels (DAY_START=480/DAY_END=1080, onHour labels '08:00'...'18:00') are otherwise present."
+    },
+    {
+      "item": "A Day / Week switch marks the active view (aria-pressed, aria-selected or aria-current), Previous / Today / Next controls move the range, and a heading states the date or date range on screen (such as \"Mon 2 – Sun 8 Nov 2026\")",
+      "pass": true,
+      "evidence": "#viewDayBtn/#viewWeekBtn toggle aria-pressed=\"true\"/\"false\" in renderToolbar(); #todayBtn/#prevBtn/#nextBtn (data-action nav-today/nav-prev/nav-next) shift viewState.date; #rangeHeading shows 'Friday, 6 November 2026' in day view (visible in screenshot) and formatWeekRange() produces e.g. '2–8 November 2026' in week view."
+    },
+    {
+      "item": "Each booking shows its title or organiser and its start–end time as text, and its block covers exactly that stretch of the time axis (a 09:30–11:00 booking spans one and a half hours)",
+      "pass": true,
+      "evidence": "Booking button text: '<span ...>' + b.start+'–'+b.end+' · '+b.title + '</span>' plus organiser span (e.g. '10:00–11:30 · Q4 budget review' / 'Sarah Lee' visible in screenshot). Block position uses style=\"grid-row:'+(s+1)+'/'+(e+1)\" with s/e computed via slotFromTime() at 30-min granularity and SLOT_H=40px, so a 1.5h booking spans exactly 3 slot-rows."
+    },
+    {
+      "item": "Filters for minimum capacity and for equipment (such as projector or video conferencing) narrow the rooms listed, and the number of matching rooms is shown",
+      "pass": false,
+      "evidence": "#capacitySelect (Any size/1–4/5–8/9+) and #equipmentSelect (Projector, Video conferencing, etc.) feed roomMatches()/filteredRooms() and do narrow the room columns shown, but no element anywhere in render() displays a count of matching rooms (no '<N> rooms' text found in the page)."
+    },
+    {
+      "item": "Choosing a free slot opens a booking form already filled in with that room, date and start time",
+      "pass": true,
+      "evidence": "Free-slot buttons carry data-room/data-date/data-start/data-end; 'book-slot' action calls openBookingModal(room,date,start,end), which sets f_room via populateRoomSelect(room), f_date.value=date, f_start.value=start."
+    },
+    {
+      "item": "Saving is blocked with an inline message when the time overlaps another booking of the same room (the message names that booking's time and organiser) or when the end is not after the start",
+      "pass": true,
+      "evidence": "validateAndSave() finds overlapping bookings and sets #formConflict text to \"ROOM is already booked START–END by ORGANIZER (TITLE).\"; also pushes 'End time must be after start time' into e_end when toMinutes(end)<=toMinutes(start), blocking the save in both cases."
+    },
+    {
+      "item": "Cancelling a booking asks for confirmation in a dialog that names the room, date and time and offers a way to keep the booking",
+      "pass": true,
+      "evidence": "#confirmDialog (role=\"alertdialog\") sets confirmBody to 'Cancel “TITLE”? This will free ROOM from START–END on DATE.' and includes #keepBookingBtn ('Keep booking', data-action=\"dismiss-confirm\")."
+    },
+    {
+      "item": "Free slots and bookings are focusable buttons or links whose accessible names give the room, date, time and status (such as \"Lotus room, Thu 5 Nov, 09:00–09:30, free\"), not click handlers on bare divs",
+      "pass": false,
+      "evidence": "All slots/bookings are real <button> elements (good), but accessible names are incomplete: free slots use aria-label=\"Book \"+room.name+\", \"+st+\"–\"+et+\", free\" — no date; booking buttons use aria-label=title+\", \"+start+\"–\"+end+\", \"+organizer+\", confirmed/pending approval\" — no room name and no date. Neither matches the required room+date+time+status pattern."
+    },
+    {
+      "item": "When no rooms match the filters, a message with a clear-filters action takes the place of the grid, and loading and error-with-retry states are built in",
+      "pass": true,
+      "evidence": "renderNoRoomsEmpty() replaces #calendarRoot with 'No rooms match these filters' plus a 'Clear filters' button when filteredRooms().length===0; renderSkeleton() shows an animate-pulse placeholder during initialLoad(); renderError() shows 'Couldn’t load the room schedule' with a #retryBtn wired to initialLoad, reachable via ?state=loading/?state=error debug params."
+    }
+  ],
+  "tells": [],
+  "notes": "No listed template tells were observed: no greeting header (title is plain 'Meeting rooms'), no KPI tiles, no delta pills, no avatars, no gradients/glass, no uppercase tracked labels, no emoji icons (audit confirms 0 emoji-icon violations despite 128 applicable elements — icons are inline SVG), no rainbow status (consistent blue for booked/pending), no sidebar, no decorative chart, no hover-lift, radii stay small (2/4/6px per audit, no oversized rounding). Main functional gaps: room layout is columns-not-rows (inverts the day-view spec), no visible 'N rooms' match count, and accessible names on slot/booking buttons omit the date (and booking buttons also omit the room name).",
+  "blind": true
+}

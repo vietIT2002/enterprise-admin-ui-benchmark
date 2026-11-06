@@ -1,0 +1,58 @@
+{
+  "brief": "25-audit-log",
+  "run": 1,
+  "items": [
+    {
+      "item": "Each entry shows when, who (the person's name and account, or \"System\" or the integration's name for automated changes), the action, the affected record (type plus ID or name) and the outcome (such as Success, Failed or Denied) in text",
+      "pass": true,
+      "evidence": "Row markup: `<div class=\"text-slate-800 font-medium\">${e.actor.name}</div><div class=\"text-xs text-slate-400\">${e.actor.role}</div>` with actors including {name:\"System\"} and {name:\"Automation Bot\"}; action `${e.action.label}`; target `${e.targetName}` / `${e.action.target}`; status text via statusBadge() rendering 'Success'/'Failed'. Drawer (openDrawer) additionally shows `${e.actor.email}` as the account identifier."
+    },
+    {
+      "item": "Timestamps give the date and the time to the second with the time zone stated (such as \"05/11/2026 14:32:07 UTC+7\"), and entries are listed newest first",
+      "pass": false,
+      "evidence": "fmtTimestamp() produces 'Fri 2026-11-06 15:42:00' (visible in first.png row 1) — seconds are included but no time zone / UTC offset is ever rendered anywhere in the row or drawer. Sort defaults to state.sort='desc' and `<option value=\"desc\" selected>` effectively, giving newest-first ordering, but the missing time zone fails the requirement."
+    },
+    {
+      "item": "An update entry shows each changed field with its old and new value side by side under \"Before\" and \"After\" labels, so the change reads correctly without relying on colour",
+      "pass": false,
+      "evidence": "Drawer diff block only prints the field name (`<p class=\"text-xs text-slate-400 mono\">${d.field}</p>`) followed by `<span class=\"diff-removed\">${d.from}</span>` → arrow → `<span class=\"diff-added\">${d.to}</span>`. No 'Before'/'After' text labels appear anywhere; differentiation relies on the .diff-removed (red+strikethrough) / .diff-added (green) CSS classes, not labelled columns."
+    },
+    {
+      "item": "Passwords, tokens and other secret fields never appear in clear text; their changes are shown masked (such as \"•••••• changed\")",
+      "pass": false,
+      "evidence": "buildDiff() has no case for password/token/secret fields and no masking helper exists anywhere in the script; e.g. \"user.password_reset\" (Forced password reset) returns `null` from buildDiff (falls to default), so no masked-change UI is ever rendered — the feature is simply not implemented."
+    },
+    {
+      "item": "Filters cover a date range with presets, the actor, the action type and the record type, a search box finds a record by its ID, and the number of matching entries is shown",
+      "pass": true,
+      "evidence": "`#rangeSelect` has options 24h/7d/30d/all; `#filterActor`, `#filterAction`, `#filterTarget` dropdowns populated from data; `#searchInput` hay string includes `e.id` ('Search by actor, action, target, IP, or event ID…'); `#resultCount` shows '135 events found' in getFiltered()/render()."
+    },
+    {
+      "item": "Entries are read-only: no edit or delete control appears on any entry, and the page states that the log cannot be altered",
+      "pass": true,
+      "evidence": "Row actions are limited to a 'View' trigger; no edit/delete buttons exist in the row template or drawer. Footer text: \"Audit records are retained for 7 years and cannot be edited or deleted. Export access is itself logged.\""
+    },
+    {
+      "item": "Export to CSV or Excel covers exactly the entries matching the current filters, and the export control states how many entries it will include",
+      "pass": false,
+      "evidence": "`#exportBtn` handler calls `getFiltered()` and builds the CSV from that result, so content correctly matches active filters, but the button's static label is just 'Export CSV' (`<button id=\"exportBtn\">...Export CSV</button>`) — it never states the entry count it will include."
+    },
+    {
+      "item": "The log is a table with column header cells, and each entry's details open from a keyboard-operable control (a button with aria-expanded or a link) rather than only from a click on the row",
+      "pass": false,
+      "evidence": "`<table class=\"w-full text-sm\"><thead>...<th>` provides proper header cells, but the only per-row trigger is `<span class=\"text-indigo-600 text-xs font-medium hover:underline\">View</span>` — a plain span with no href, no button semantics, no tabindex and no click handler of its own; detail opening is wired only via `tr.addEventListener(\"click\", () => openDrawer(e))` on the row."
+    },
+    {
+      "item": "Filters that match nothing show a message with a clear-filters action, and a loading state and an error state with retry are built in",
+      "pass": false,
+      "evidence": "`#emptyState` shows only static text ('No events match your filters' / 'Try widening the date range or clearing filters') with no button or link to clear filters. There is no loading-state UI for data fetches (render() runs synchronously; the refresh button only spins its icon for 450ms via `svg.classList.add(\"animate-spin\")`) and no error state or retry control exists anywhere in the script."
+    }
+  ],
+  "tells": [
+    "initials-avatar-non-person",
+    "tracked-uppercase-labels",
+    "navy-sidebar-indigo-accent"
+  ],
+  "notes": "initials-avatar-non-person: avatarColor()/initials() render a colored initials circle even for non-person actors, e.g. 'System' → 'S' avatar and 'Automation Bot' → 'AB' avatar (seen in first.png row 1 and full.png). tracked-uppercase-labels: thead uses `class=\"bg-slate-50 text-slate-500 text-xs uppercase tracking-wide\"` (flagged by audit.json uppercase-text rule on Timestamp/Actor/Action/Target/IP address headers). navy-sidebar-indigo-accent: sidebar `bg-slate-900 text-slate-300` with indigo-500 logo tile and indigo-600 filter-count badge/active-chip accents. Automated audit score 78/100 with text-contrast failures (e.g. role/relative-time subtext at 2.56:1) and unlinked emails (contact-link rule) corroborate manual findings.",
+  "blind": true
+}

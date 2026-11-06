@@ -4,7 +4,7 @@
 //
 //   node benchmark/tools/bench.mjs --name 2026-11-06-smoke --agent claude|codex
 //        [--briefs 12-contract-detail,13-employee-onboarding] [--runs 1,2] [--conds red,green]
-//        [--no-review] [--model sonnet] [--concurrency 3] [--yes]
+//        [--no-review] [--blind [--seed N]] [--model sonnet] [--concurrency 3] [--yes]
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -12,6 +12,7 @@ import { spawn, execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { RED, GREEN, briefPrompt, runCodex } from './codex-run.mjs';
 import { redact, redactList } from '../../scripts/export-benchmark.mjs';
+import { makeBlind, unblind, promoteBlind } from './blind.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const RUNS = path.join(ROOT, 'benchmark', 'runs');
@@ -55,19 +56,23 @@ function reviewTemplate() {
   return md.slice(start, end < 0 ? undefined : end).trim();
 }
 
-// base: the page path without extension, e.g. <runs>/<folder>/<brief>/run-1
-export function reviewPrompt({ brief, run, base }) {
-  const fill = {
+// base: the page path without extension, e.g. <runs>/<folder>/<brief>/run-1. files overrides the input and output paths.
+export function reviewPrompt({ brief, run, base, files = null }) {
+  const paths = files || {
     HTML_PATH: base + '.html',
     PNG_PATH: base + '.png',
     FULL_PNG_PATH: base + '.full.png',
     AUDIT_PATH: base + '.audit.json',
     REVIEW_PATH: base + '.review.json',
-    CHECKLIST: checklistOf(brief).map((i) => '- ' + i).join('\n'),
-    BRIEF_ID: brief,
-    RUN: String(run),
   };
+  const fill = { ...paths, CHECKLIST: checklistOf(brief).map((i) => '- ' + i).join('\n'), BRIEF_ID: brief, RUN: String(run) };
   return reviewTemplate().replace(/\{\{([A-Z_]+)\}\}/g, (m, k) => (k in fill ? fill[k] : m));
+}
+
+// The same review for a blind code folder from blind.mjs: neutral file names, nothing that names the condition.
+export function blindReviewPrompt({ brief, run, dir }) {
+  const f = (name) => `${dir}/${name}`;
+  return reviewPrompt({ brief, run, files: { HTML_PATH: f('page.html'), PNG_PATH: f('first.png'), FULL_PNG_PATH: f('full.png'), AUDIT_PATH: f('audit.json'), REVIEW_PATH: f('review.json') } });
 }
 
 export function claudeArgs(prompt, { model = 'sonnet', addDirs = [], effort = null } = {}) {
@@ -128,12 +133,13 @@ async function main() {
   const runs = get('--runs', '1').split(',').map(Number);
   const conds = get('--conds', 'red,green').split(',');
   const review = !a.includes('--no-review');
+  const blind = a.includes('--blind');
   const model = get('--model', 'sonnet');
   const concurrency = Number(get('--concurrency', '3'));
   const pages = planPages({ conds, briefs, runs });
   const est = estimate(pages, { agent, review });
   const k = (n) => (n / 1e6).toFixed(2) + 'M';
-  console.log(`Plan: ${pages.length} pages (${conds.join('/')} × ${briefs.length} briefs × runs ${runs.join(',')}), agent ${agent}, review ${review ? 'on' : 'off'}`);
+  console.log(`Plan: ${pages.length} pages (${conds.join('/')} × ${briefs.length} briefs × runs ${runs.join(',')}), agent ${agent}, review ${review ? (blind ? 'blind' : 'on') : 'off'}`);
   console.log(`Estimate: Claude tokens ~${k(est.total)} (generation ${k(est.generation)}, review ${k(est.review)})${est.codexRuns ? `, plus ${est.codexRuns} Codex runs on the ChatGPT plan` : ''}`);
   console.log(`Each claude -p call also loads ~90k tokens of system prompt and tool definitions, mostly from cache. The measured cost of every call is written to bench-usage.json.`);
   console.log(`Folders: ${conds.map((c) => runFolder(name, agent, c)).join(', ')}`);
@@ -168,8 +174,33 @@ async function main() {
   });
   // 2. Audit
   for (const c of conds) execFileSync('node', [path.join(ROOT, 'benchmark/tools/audit-page.mjs'), '--run', path.join(RUNS, runFolder(name, agent, c))], { stdio: 'inherit' });
-  // 3. Review
-  if (review) {
+  // 3. Review. With --blind, reviewers see only randomly coded copies (page.html, first.png, full.png, audit.json) in
+  // neutral folders, and the key that maps them back is kept next to the runs as <name>-<agent>-blind/key.json.
+  if (review && blind) {
+    // A temp folder of its own: the generation folders in work are named after the condition.
+    const neutral = fs.mkdtempSync(path.join(os.tmpdir(), 'review-'));
+    const blindDir = path.join(neutral, 'pages');
+    const folders = conds.map((c) => path.join(RUNS, runFolder(name, agent, c)));
+    const seed = Number(get('--seed', String(Date.now() % 1e9)));
+    const { pages: coded } = makeBlind(folders, blindDir, { seed });
+    const key = JSON.parse(fs.readFileSync(path.join(blindDir, 'key.json'), 'utf8'));
+    await pool(coded, concurrency, async (b) => {
+      const dir = path.join(blindDir, b.code);
+      const k = key[b.code];
+      const r = await runClaude(blindReviewPrompt({ brief: b.brief, run: k.run, dir: dir.split(path.sep).join('/') }), path.join(neutral, `cwd-${b.code}`), [dir], model);
+      const written = fs.existsSync(path.join(dir, 'review.json'));
+      const cond = conds.find((c) => path.basename(k.folder) === runFolder(name, agent, c));
+      usage.pages.push({ cond, brief: b.brief, run: k.run, code: b.code, phase: 'review', blind: true, written, ...r });
+      console.log(`blind review ${b.code}: ${written ? 'ok' : 'MISSING'} ${r.seconds}s`);
+    });
+    unblind(blindDir);
+    promoteBlind(folders);
+    const keep = path.join(RUNS, `${name}-${agent}-blind`);
+    fs.mkdirSync(keep, { recursive: true });
+    const shortKey = Object.fromEntries(Object.entries(key).map(([c, k]) => [c, { ...k, folder: path.basename(k.folder) }]));
+    fs.writeFileSync(path.join(keep, 'key.json'), JSON.stringify(shortKey, null, 2) + '\n');
+    fs.copyFileSync(path.join(blindDir, 'manifest.json'), path.join(keep, 'manifest.json'));
+  } else if (review) {
     await pool(pages, concurrency, async (p) => {
       const dir = path.join(RUNS, runFolder(name, agent, p.cond), p.brief);
       if (!fs.existsSync(path.join(dir, `run-${p.run}.audit.json`))) return;
