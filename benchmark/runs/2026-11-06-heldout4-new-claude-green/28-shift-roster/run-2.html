@@ -1,0 +1,895 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Lịch phân ca tuần · Quản lý cửa hàng</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+  [hidden] { display: none !important; }
+  html, body { font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
+  .skeleton { background: linear-gradient(90deg, #e2e8f0 25%, #edf1f5 37%, #e2e8f0 63%); background-size: 400% 100%; animation: shimmer 1.4s ease infinite; }
+  @media (prefers-reduced-motion: reduce) { .skeleton { animation: none; } }
+  @keyframes shimmer { 0% { background-position: 100% 50%; } 100% { background-position: 0 50%; } }
+  @media print {
+    .no-print { display: none !important; }
+    body { background: #fff; }
+    #scheduleTable { font-size: 11px; }
+  }
+</style>
+</head>
+<body class="min-h-screen bg-slate-50 text-slate-900 text-sm">
+
+<!-- Live region for assistive tech announcements -->
+<div id="liveRegion" class="sr-only" role="status" aria-live="polite"></div>
+
+<!-- Toast -->
+<div id="toastContainer" class="no-print fixed top-4 right-4 z-[60] flex flex-col gap-2 w-80"></div>
+
+<div class="mx-auto max-w-[1400px] px-4 py-6 sm:px-6 lg:px-8 pb-28">
+
+  <!-- Page header -->
+  <header class="no-print mb-5 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+    <div>
+      <div class="flex flex-wrap items-center gap-2">
+        <h1 class="text-2xl font-semibold text-slate-900">Lịch phân ca tuần</h1>
+        <span id="scheduleStatusBadge" class="inline-flex h-6 items-center whitespace-nowrap rounded-full bg-neutral-100 px-2 text-xs font-medium leading-5 text-slate-700">Nháp</span>
+      </div>
+      <div class="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-slate-500">
+        <label class="flex items-center gap-1.5">
+          <span class="sr-only">Chọn cửa hàng</span>
+          <select id="storeSelect" class="h-7 rounded-md border border-slate-300 bg-white px-1.5 text-xs text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-600">
+            <option value="s1">Cửa hàng Nguyễn Trãi, Q.1</option>
+            <option value="s2">Cửa hàng Lê Văn Sỹ, Q.3</option>
+          </select>
+        </label>
+        <span>·</span>
+        <span id="lastUpdatedText">Cập nhật lần cuối bởi —</span>
+      </div>
+    </div>
+    <div class="flex items-center gap-2">
+      <button type="button" id="exportCsvBtn" class="inline-flex h-8 items-center rounded-md border border-slate-300 bg-white px-3 text-sm font-medium text-slate-700 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-blue-600">Xuất lịch (CSV)</button>
+      <div class="relative">
+        <button type="button" id="overflowBtn" aria-haspopup="true" aria-expanded="false" aria-label="Thêm hành động" class="inline-flex h-8 w-8 items-center justify-center rounded-md border border-slate-300 bg-white text-slate-600 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-blue-600">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="5" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="12" cy="19" r="1.5"/></svg>
+        </button>
+        <div id="overflowMenu" hidden class="absolute right-0 z-20 mt-1 w-56 rounded-md border border-slate-200 bg-white py-1 shadow-lg">
+          <button type="button" id="copyPrevWeekBtn" class="block w-full px-3 py-2 text-left text-sm text-slate-700 hover:bg-slate-50">Sao chép từ tuần trước</button>
+          <button type="button" id="printBtn" class="block w-full px-3 py-2 text-left text-sm text-slate-700 hover:bg-slate-50">In lịch</button>
+        </div>
+      </div>
+      <button type="button" id="publishBtn" class="inline-flex h-8 items-center rounded-md bg-blue-700 px-3 text-sm font-medium text-white hover:bg-blue-800 focus:outline-none focus:ring-2 focus:ring-blue-600 focus:ring-offset-1">Công bố lịch</button>
+    </div>
+  </header>
+
+  <!-- Toolbar -->
+  <div class="no-print mb-3 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+    <div class="flex items-center gap-2">
+      <button type="button" id="todayBtn" class="inline-flex h-8 items-center rounded-md border border-slate-300 bg-white px-3 text-sm font-medium text-slate-700 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-blue-600">Hôm nay</button>
+      <button type="button" id="prevWeekBtn" aria-label="Tuần trước" class="inline-flex h-8 w-8 items-center justify-center rounded-md border border-slate-300 bg-white text-slate-600 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-blue-600">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M15 18l-6-6 6-6"/></svg>
+      </button>
+      <button type="button" id="nextWeekBtn" aria-label="Tuần sau" class="inline-flex h-8 w-8 items-center justify-center rounded-md border border-slate-300 bg-white text-slate-600 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-blue-600">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M9 18l6-6-6-6"/></svg>
+      </button>
+      <h2 id="rangeHeading" class="ml-1 text-base font-semibold text-slate-900 tabular-nums">—</h2>
+    </div>
+    <div class="flex flex-wrap items-center gap-2">
+      <div class="relative">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4-4"/></svg>
+        <label for="searchInput" class="sr-only">Tìm nhân viên</label>
+        <input id="searchInput" type="text" placeholder="Tìm nhân viên…" class="h-8 w-56 rounded-md border border-slate-300 bg-white pl-8 pr-3 text-sm placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-600">
+      </div>
+      <label class="sr-only" for="roleFilter">Lọc theo vị trí</label>
+      <select id="roleFilter" class="h-8 rounded-md border border-slate-300 bg-white px-2 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-600">
+        <option value="all">Tất cả vị trí</option>
+        <option value="Quản lý ca">Quản lý ca</option>
+        <option value="Thu ngân">Thu ngân</option>
+        <option value="Nhân viên bán hàng">Nhân viên bán hàng</option>
+        <option value="Nhân viên kho">Nhân viên kho</option>
+        <option value="Bảo vệ">Bảo vệ</option>
+      </select>
+    </div>
+  </div>
+
+  <!-- Filter chips -->
+  <div id="filterChips" hidden class="no-print mb-3 flex flex-wrap items-center gap-2 text-xs"></div>
+
+  <!-- Summary line -->
+  <p id="summaryLine" class="no-print mb-2 text-sm text-slate-600">—</p>
+  <p class="no-print mb-3 text-xs text-slate-500">Giờ công theo giờ Việt Nam (GMT+7) · Tối đa 48 giờ/tuần theo Luật Lao động Việt Nam · Cần tối thiểu 3 nhân viên mỗi ngày</p>
+
+  <!-- Table -->
+  <div class="rounded-md border border-slate-200 bg-white">
+    <div id="tableScroll" class="max-h-[70vh] overflow-auto rounded-md">
+      <table id="scheduleTable" class="w-full border-collapse text-sm" aria-label="Lịch phân ca tuần theo nhân viên">
+        <caption class="sr-only">Lịch phân ca tuần: mỗi hàng là một nhân viên, mỗi cột là một ngày trong tuần</caption>
+        <thead>
+          <tr id="headerRow" class="border-b border-slate-200"></tr>
+        </thead>
+        <tbody id="tableBody"></tbody>
+        <tfoot id="tableFoot"></tfoot>
+      </table>
+    </div>
+  </div>
+
+  <!-- Legend -->
+  <div class="no-print mt-3 flex flex-wrap items-center gap-x-5 gap-y-2 text-xs text-slate-600">
+    <span class="font-medium text-slate-700">Chú giải:</span>
+    <span class="flex items-center gap-1.5"><span class="h-2.5 w-2.5 rounded-full bg-blue-500"></span>Ca sáng (06:00–14:00)</span>
+    <span class="flex items-center gap-1.5"><span class="h-2.5 w-2.5 rounded-full bg-amber-500"></span>Ca chiều (14:00–22:00)</span>
+    <span class="flex items-center gap-1.5"><span class="h-2.5 w-2.5 rounded-full bg-violet-500"></span>Ca tối (16:00–23:30)</span>
+    <span class="flex items-center gap-1.5"><span class="h-2.5 w-2.5 rounded-full border border-slate-400 bg-white"></span>Nghỉ</span>
+    <span class="flex items-center gap-1.5"><span class="h-2.5 w-2.5 rounded-full bg-slate-400"></span>Nghỉ phép (đã duyệt)</span>
+    <span class="flex items-center gap-1.5"><span class="inline-flex h-4 w-4 items-center justify-center rounded-full bg-blue-600 text-[9px] font-bold text-white">•</span>Hôm nay</span>
+  </div>
+
+</div>
+
+<!-- Sticky unsaved-changes bar -->
+<div id="unsavedBar" hidden class="no-print fixed inset-x-0 bottom-0 z-40 border-t border-slate-200 bg-white px-4 py-3 shadow-[0_-1px_0_rgba(0,0,0,0.04)] sm:px-6 lg:px-8">
+  <div class="mx-auto flex max-w-[1400px] flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+    <span class="flex items-center gap-2 text-sm font-medium text-amber-700">
+      <span class="h-2 w-2 rounded-full bg-amber-500" aria-hidden="true"></span>
+      Có thay đổi chưa lưu
+    </span>
+    <div class="flex items-center justify-end gap-2">
+      <button type="button" id="discardBtn" class="inline-flex h-8 items-center rounded-md px-3 text-sm font-medium text-slate-600 hover:bg-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-600">Hủy thay đổi</button>
+      <button type="button" id="saveDraftBtn" class="inline-flex h-8 items-center rounded-md border border-slate-300 bg-white px-3 text-sm font-medium text-slate-700 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-blue-600">Lưu nháp</button>
+      <button type="button" id="publishBtn2" class="inline-flex h-8 items-center rounded-md bg-blue-700 px-3 text-sm font-medium text-white hover:bg-blue-800 focus:outline-none focus:ring-2 focus:ring-blue-600 focus:ring-offset-1">Công bố lịch</button>
+    </div>
+  </div>
+</div>
+
+<!-- Side panel backdrop -->
+<div id="panelBackdrop" hidden class="no-print fixed inset-0 z-50 bg-slate-900/30"></div>
+
+<!-- Side panel: edit shift -->
+<aside id="sidePanel" hidden aria-hidden="true" role="dialog" aria-modal="true" aria-labelledby="panelTitle"
+  class="no-print fixed right-0 top-0 z-50 flex h-full w-full max-w-md translate-x-full flex-col bg-white shadow-xl transition-transform duration-200">
+  <div class="flex items-center justify-between border-b border-slate-200 px-5 py-4">
+    <h2 id="panelTitle" class="text-base font-semibold text-slate-900">Phân ca làm việc</h2>
+    <button type="button" id="panelCloseBtn" aria-label="Đóng" class="inline-flex h-8 w-8 items-center justify-center rounded-md text-slate-500 hover:bg-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-600">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M18 6L6 18M6 6l12 12"/></svg>
+    </button>
+  </div>
+  <div class="flex-1 overflow-y-auto px-5 py-4">
+    <div class="mb-4 flex items-center gap-3 rounded-md bg-slate-50 p-3">
+      <span id="panelAvatar" class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-blue-100 text-xs font-semibold text-blue-800">--</span>
+      <div>
+        <p id="panelEmployeeName" class="text-sm font-medium text-slate-900">—</p>
+        <p id="panelEmployeeRole" class="text-xs text-slate-500">—</p>
+      </div>
+    </div>
+    <p class="mb-4 text-sm text-slate-700">Ngày <span id="panelDate" class="font-medium text-slate-900">—</span></p>
+
+    <fieldset class="mb-4">
+      <legend class="mb-1.5 block text-sm font-medium text-slate-700">Loại ca <span class="text-red-600">*</span></legend>
+      <div id="shiftTypeGroup" class="grid grid-cols-2 gap-2"></div>
+    </fieldset>
+
+    <div id="timeFields" class="mb-4 flex items-end gap-3">
+      <div class="flex-1">
+        <label for="startTimeInput" class="block text-sm font-medium text-slate-700">Giờ bắt đầu</label>
+        <input type="time" id="startTimeInput" class="mt-1 h-9 w-full rounded-md border border-slate-300 px-2 text-sm tabular-nums focus:outline-none focus:ring-2 focus:ring-blue-600">
+      </div>
+      <div class="flex-1">
+        <label for="endTimeInput" class="block text-sm font-medium text-slate-700">Giờ kết thúc</label>
+        <input type="time" id="endTimeInput" class="mt-1 h-9 w-full rounded-md border border-slate-300 px-2 text-sm tabular-nums focus:outline-none focus:ring-2 focus:ring-blue-600">
+      </div>
+    </div>
+
+    <div class="mb-2">
+      <label for="noteInput" class="block text-sm font-medium text-slate-700">Ghi chú</label>
+      <textarea id="noteInput" rows="2" placeholder="Ví dụ: hỗ trợ ca cao điểm cuối tuần" class="mt-1 w-full rounded-md border border-slate-300 px-2 py-1.5 text-sm placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-600"></textarea>
+    </div>
+    <p id="panelError" hidden role="alert" class="text-sm text-red-700">Vui lòng chọn loại ca.</p>
+  </div>
+  <div class="flex items-center justify-between gap-2 border-t border-slate-200 px-5 py-4">
+    <button type="button" id="panelDeleteBtn" hidden class="text-sm font-medium text-red-700 hover:text-red-800 focus:outline-none">Xóa ca</button>
+    <div class="ml-auto flex items-center gap-2">
+      <button type="button" id="panelCancelBtn" class="inline-flex h-9 items-center rounded-md px-3 text-sm font-medium text-slate-600 hover:bg-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-600">Hủy</button>
+      <button type="button" id="panelSaveBtn" class="inline-flex h-9 items-center rounded-md bg-blue-700 px-3 text-sm font-medium text-white hover:bg-blue-800 focus:outline-none focus:ring-2 focus:ring-blue-600 focus:ring-offset-1">Lưu</button>
+    </div>
+  </div>
+</aside>
+
+<!-- Confirm delete dialog -->
+<div id="confirmBackdrop" hidden class="no-print fixed inset-0 z-[55] flex items-center justify-center bg-slate-900/40 p-4">
+  <div id="confirmDialog" role="alertdialog" aria-modal="true" aria-labelledby="confirmTitle" aria-describedby="confirmBody" class="w-full max-w-sm rounded-lg bg-white p-5 shadow-xl">
+    <h2 id="confirmTitle" class="text-base font-semibold text-slate-900">Xóa ca làm?</h2>
+    <p id="confirmBody" class="mt-2 text-sm text-slate-600">—</p>
+    <div class="mt-5 flex justify-end gap-2">
+      <button type="button" id="confirmCancelBtn" class="inline-flex h-9 items-center rounded-md border border-slate-300 bg-white px-3 text-sm font-medium text-slate-700 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-blue-600">Giữ ca</button>
+      <button type="button" id="confirmDeleteBtn" class="inline-flex h-9 items-center rounded-md bg-red-600 px-3 text-sm font-medium text-white hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-600 focus:ring-offset-1">Xóa ca</button>
+    </div>
+  </div>
+</div>
+
+<script>
+(function () {
+  'use strict';
+
+  // ---------- Constants ----------
+  var WEEKDAY_SHORT = ['T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'CN'];
+  var WEEKDAY_LONG = ['Thứ Hai', 'Thứ Ba', 'Thứ Tư', 'Thứ Năm', 'Thứ Sáu', 'Thứ Bảy', 'Chủ Nhật'];
+  var WEEKEND_IDX = [5, 6];
+  var MAX_WEEKLY_HOURS = 48;
+  var MIN_STAFF_PER_DAY = 3;
+
+  var SHIFT_TYPES = {
+    morning: { key: 'morning', label: 'Ca sáng', start: '06:00', end: '14:00', hours: 8, dot: 'bg-blue-500', chip: 'border-blue-200 bg-blue-50 text-blue-800' },
+    afternoon: { key: 'afternoon', label: 'Ca chiều', start: '14:00', end: '22:00', hours: 8, dot: 'bg-amber-500', chip: 'border-amber-200 bg-amber-50 text-amber-800' },
+    evening: { key: 'evening', label: 'Ca tối', start: '16:00', end: '23:30', hours: 7.5, dot: 'bg-violet-500', chip: 'border-violet-200 bg-violet-50 text-violet-800' },
+    off: { key: 'off', label: 'Nghỉ', start: '', end: '', hours: 0, dot: 'bg-white border border-slate-400', chip: 'border-slate-200 bg-white text-slate-500' }
+  };
+
+  var EMPLOYEES = [
+    { id: 'e1', name: 'Nguyễn Thị Lan', role: 'Quản lý ca', initials: 'NL' },
+    { id: 'e2', name: 'Trần Văn Hùng', role: 'Thu ngân', initials: 'TH' },
+    { id: 'e3', name: 'Phạm Thị Mai', role: 'Thu ngân', initials: 'PM' },
+    { id: 'e4', name: 'Lê Minh Quân', role: 'Nhân viên bán hàng', initials: 'LQ' },
+    { id: 'e5', name: 'Đỗ Thị Hương', role: 'Nhân viên bán hàng', initials: 'ĐH' },
+    { id: 'e6', name: 'Vũ Đức Anh', role: 'Nhân viên kho', initials: 'VA' },
+    { id: 'e7', name: 'Hoàng Thị Thu', role: 'Nhân viên bán hàng', initials: 'HT' },
+    { id: 'e8', name: 'Bùi Văn Nam', role: 'Bảo vệ', initials: 'BN' }
+  ];
+
+  // schedule[employeeId] = array[7] of null | {type:'morning'|'afternoon'|'evening'|'off', start, end, note} | {type:'leave'}
+  var INITIAL_SCHEDULE = {
+    e1: [m('morning'), m('morning'), m('off'), m('afternoon'), m('morning'), m('morning'), m('off')],
+    e2: [m('afternoon'), m('afternoon'), m('morning'), m('morning'), m('off'), m('afternoon'), m('afternoon')],
+    e3: [m('morning'), m('off'), m('afternoon'), m('afternoon'), m('morning'), m('off'), m('morning')],
+    e4: [m('evening'), m('evening'), m('evening'), m('off'), m('evening'), m('evening'), m('off')],
+    e5: [m('off'), m('morning'), m('morning'), m('evening'), m('evening'), m('morning'), m('morning')],
+    e6: [m('morning'), m('morning'), m('morning'), m('morning'), m('morning'), m('morning'), m('off')],
+    e7: [m('afternoon'), { type: 'leave' }, { type: 'leave' }, m('afternoon'), m('afternoon'), m('evening'), m('evening')],
+    e8: [m('evening'), m('evening'), m('evening'), m('evening'), m('evening'), m('evening'), m('evening')]
+  };
+
+  function m(type) {
+    var t = SHIFT_TYPES[type];
+    return { type: type, start: t.start, end: t.end, note: '' };
+  }
+
+  // ---------- State ----------
+  var schedule = clone(INITIAL_SCHEDULE);
+  var savedSnapshot = clone(INITIAL_SCHEDULE);
+  var weekOffset = 0;
+  var dirty = false;
+  var scheduleStatus = 'draft'; // 'draft' | 'published'
+  var lastUpdatedBy = 'Nguyễn Thị Lan';
+  var lastUpdatedAt = new Date(Date.now() - 1000 * 60 * 60 * 28);
+  var searchQuery = '';
+  var roleFilter = 'all';
+  var activeCell = null; // { employeeId, dayIndex }
+  var pendingDelete = null; // { employeeId, dayIndex }
+  var lastFocusedEl = null;
+  var pageState = new URLSearchParams(location.search).get('state') || '';
+
+  function clone(obj) { return JSON.parse(JSON.stringify(obj)); }
+
+  // ---------- Date helpers ----------
+  function startOfWeek(d) {
+    var date = new Date(d);
+    date.setHours(0, 0, 0, 0);
+    var day = date.getDay(); // 0 = Sun
+    var diff = day === 0 ? -6 : 1 - day;
+    date.setDate(date.getDate() + diff);
+    return date;
+  }
+  function getWeekDates() {
+    var base = startOfWeek(new Date());
+    base.setDate(base.getDate() + weekOffset * 7);
+    var days = [];
+    for (var i = 0; i < 7; i++) {
+      var d = new Date(base);
+      d.setDate(d.getDate() + i);
+      days.push(d);
+    }
+    return days;
+  }
+  function isSameDay(a, b) {
+    return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
+  }
+  function pad2(n) { return String(n).padStart(2, '0'); }
+  function fmtDate(d) { return pad2(d.getDate()) + '/' + pad2(d.getMonth() + 1) + '/' + d.getFullYear(); }
+  function fmtDateTime(d) {
+    return fmtDate(d) + ' ' + pad2(d.getHours()) + ':' + pad2(d.getMinutes());
+  }
+  function fmtNumber(n) { return n.toLocaleString('vi-VN'); }
+  function fmtHours(n) {
+    var r = Math.round(n * 10) / 10;
+    return (r % 1 === 0 ? String(r) : r.toFixed(1).replace('.', ',')) + ' giờ';
+  }
+  function foldVi(s) {
+    return s.normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/đ/g, 'd').replace(/Đ/g, 'D').toLowerCase();
+  }
+
+  // ---------- Derived data ----------
+  function getEntry(empId, dayIndex) { return schedule[empId][dayIndex]; }
+  function hoursOf(entry) {
+    if (!entry || entry.type === 'off' || entry.type === 'leave') return 0;
+    var t = SHIFT_TYPES[entry.type];
+    if (!t) return 0;
+    return timeDiffHours(entry.start, entry.end);
+  }
+  function timeDiffHours(start, end) {
+    if (!start || !end) return 0;
+    var s = toMinutes(start), e = toMinutes(end);
+    if (e <= s) e += 24 * 60;
+    return (e - s) / 60;
+  }
+  function toMinutes(hhmm) {
+    var p = hhmm.split(':');
+    return parseInt(p[0], 10) * 60 + parseInt(p[1], 10);
+  }
+  function weeklyHours(empId) {
+    return schedule[empId].reduce(function (sum, entry) { return sum + hoursOf(entry); }, 0);
+  }
+  function isWorkingEntry(entry) { return entry && entry.type !== 'off' && entry.type !== 'leave'; }
+
+  function getFilteredEmployees() {
+    return EMPLOYEES.filter(function (e) {
+      var roleOk = roleFilter === 'all' || e.role === roleFilter;
+      var searchOk = searchQuery.trim() === '' || foldVi(e.name).includes(foldVi(searchQuery.trim()));
+      return roleOk && searchOk;
+    });
+  }
+
+  // ---------- Toast & announce ----------
+  function announce(msg) {
+    var live = document.getElementById('liveRegion');
+    live.textContent = '';
+    window.setTimeout(function () { live.textContent = msg; }, 50);
+  }
+  function showToast(message) {
+    var container = document.getElementById('toastContainer');
+    var toast = document.createElement('div');
+    toast.setAttribute('role', 'status');
+    toast.className = 'flex items-start gap-2 rounded-md border border-slate-200 bg-white px-3 py-2.5 shadow-lg';
+    toast.innerHTML =
+      '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="mt-0.5 shrink-0 text-emerald-600" aria-hidden="true"><path d="M20 6L9 17l-5-5"/></svg>' +
+      '<span class="text-sm text-slate-800">' + message + '</span>';
+    container.appendChild(toast);
+    var timer = window.setTimeout(remove, 5000);
+    toast.addEventListener('mouseenter', function () { window.clearTimeout(timer); });
+    toast.addEventListener('mouseleave', function () { timer = window.setTimeout(remove, 2000); });
+    function remove() { if (toast.parentNode) toast.parentNode.removeChild(toast); }
+  }
+
+  // ---------- Dirty state ----------
+  function markDirty() {
+    dirty = true;
+    document.getElementById('unsavedBar').hidden = false;
+  }
+  function clearDirty() {
+    dirty = false;
+    document.getElementById('unsavedBar').hidden = true;
+  }
+  window.addEventListener('beforeunload', function (e) {
+    if (dirty) { e.preventDefault(); e.returnValue = ''; }
+  });
+
+  // ---------- Header / toolbar rendering ----------
+  function renderHeader() {
+    var dates = getWeekDates();
+    var first = dates[0], last = dates[6];
+    var sameMonth = first.getMonth() === last.getMonth();
+    var rangeText = sameMonth
+      ? pad2(first.getDate()) + ' – ' + pad2(last.getDate()) + ' Tháng ' + (first.getMonth() + 1) + ', ' + first.getFullYear()
+      : fmtDate(first) + ' – ' + fmtDate(last);
+    document.getElementById('rangeHeading').textContent = rangeText;
+
+    var badge = document.getElementById('scheduleStatusBadge');
+    if (scheduleStatus === 'published') {
+      badge.textContent = 'Đã công bố';
+      badge.className = 'inline-flex h-6 items-center whitespace-nowrap rounded-full bg-emerald-50 px-2 text-xs font-medium leading-5 text-emerald-800';
+    } else {
+      badge.textContent = 'Nháp';
+      badge.className = 'inline-flex h-6 items-center whitespace-nowrap rounded-full bg-slate-100 px-2 text-xs font-medium leading-5 text-slate-700';
+    }
+
+    document.getElementById('lastUpdatedText').textContent = 'Cập nhật lần cuối bởi ' + lastUpdatedBy + ' · ' + fmtDateTime(lastUpdatedAt);
+
+    var publishLabel = scheduleStatus === 'published' ? 'Công bố lại' : 'Công bố lịch';
+    document.getElementById('publishBtn').textContent = publishLabel;
+    document.getElementById('publishBtn2').textContent = publishLabel;
+
+    renderFilterChips();
+  }
+
+  function renderFilterChips() {
+    var wrap = document.getElementById('filterChips');
+    var chips = [];
+    if (searchQuery.trim() !== '') {
+      chips.push({ label: 'Tìm: "' + searchQuery.trim() + '"', clear: function () { document.getElementById('searchInput').value = ''; searchQuery = ''; } });
+    }
+    if (roleFilter !== 'all') {
+      chips.push({ label: 'Vị trí: ' + roleFilter, clear: function () { document.getElementById('roleFilter').value = 'all'; roleFilter = 'all'; } });
+    }
+    if (chips.length === 0) { wrap.hidden = true; wrap.innerHTML = ''; return; }
+    wrap.hidden = false;
+    wrap.innerHTML = '';
+    chips.forEach(function (c, i) {
+      var chip = document.createElement('span');
+      chip.className = 'inline-flex items-center gap-1 rounded-full border border-slate-300 bg-white px-2 py-1 text-slate-700';
+      chip.innerHTML = '<span>' + c.label + '</span>';
+      var btn = document.createElement('button');
+      btn.type = 'button';
+      btn.setAttribute('aria-label', 'Xóa lọc ' + c.label);
+      btn.className = 'ml-0.5 text-slate-400 hover:text-slate-700';
+      btn.innerHTML = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><path d="M18 6L6 18M6 6l12 12"/></svg>';
+      btn.addEventListener('click', function () { c.clear(); applyFilters(); });
+      chip.appendChild(btn);
+      wrap.appendChild(chip);
+    });
+    var clearAll = document.createElement('button');
+    clearAll.type = 'button';
+    clearAll.className = 'text-blue-700 hover:underline';
+    clearAll.textContent = 'Xóa tất cả';
+    clearAll.addEventListener('click', clearFilters);
+    wrap.appendChild(clearAll);
+  }
+
+  function clearFilters() {
+    searchQuery = '';
+    roleFilter = 'all';
+    document.getElementById('searchInput').value = '';
+    document.getElementById('roleFilter').value = 'all';
+    applyFilters();
+  }
+
+  function applyFilters() {
+    renderFilterChips();
+    renderTable();
+  }
+
+  // ---------- Table rendering ----------
+  function renderSkeleton() {
+    var dates = getWeekDates();
+    renderHeadRow(dates, true);
+    var tbody = document.getElementById('tableBody');
+    tbody.setAttribute('aria-busy', 'true');
+    var rows = '';
+    for (var r = 0; r < 8; r++) {
+      rows += '<tr class="h-16 border-b border-slate-100">';
+      rows += '<td class="sticky left-0 z-10 bg-white px-3 py-2"><div class="h-4 w-32 skeleton rounded"></div><div class="mt-1 h-3 w-20 skeleton rounded"></div></td>';
+      for (var c = 0; c < 7; c++) rows += '<td class="px-2 py-2"><div class="h-10 w-full skeleton rounded-md"></div></td>';
+      rows += '<td class="px-3 py-2"><div class="ml-auto h-4 w-12 skeleton rounded"></div></td>';
+      rows += '</tr>';
+    }
+    tbody.innerHTML = rows;
+    document.getElementById('tableFoot').innerHTML = '';
+    document.getElementById('summaryLine').textContent = 'Đang tải lịch phân ca…';
+  }
+
+  function renderHeadRow(dates, isSkeleton) {
+    var headerRow = document.getElementById('headerRow');
+    var today = new Date();
+    var html = '<th scope="col" class="sticky left-0 top-0 z-20 min-w-[200px] bg-white px-3 py-2 text-left text-xs font-medium text-slate-600">Nhân viên</th>';
+    dates.forEach(function (d, i) {
+      var isToday = isSameDay(d, today);
+      var isWeekend = WEEKEND_IDX.indexOf(i) !== -1;
+      html += '<th scope="col" ' + (isToday ? 'aria-current="date"' : '') + ' class="sticky top-0 z-10 min-w-[128px] px-2 py-2 text-center text-xs font-medium text-slate-600 ' + (isWeekend ? 'bg-slate-50' : 'bg-white') + '">' +
+        '<div class="flex flex-col items-center gap-0.5">' +
+        '<span>' + WEEKDAY_SHORT[i] + (isWeekend ? ' · nghỉ cuối tuần' : '') + '</span>' +
+        '<span class="text-sm font-semibold tabular-nums ' + (isToday ? 'text-blue-700' : 'text-slate-900') + '">' + pad2(d.getDate()) + '/' + pad2(d.getMonth() + 1) + '</span>' +
+        (isToday ? '<span class="mt-0.5 inline-flex items-center rounded-full bg-blue-600 px-1.5 py-0.5 text-[10px] font-medium leading-none text-white">Hôm nay</span>' : '') +
+        '</div></th>';
+    });
+    html += '<th scope="col" class="sticky top-0 z-10 min-w-[96px] bg-white px-3 py-2 text-right text-xs font-medium text-slate-600">Tổng giờ</th>';
+    headerRow.innerHTML = html;
+  }
+
+  function renderTable() {
+    var dates = getWeekDates();
+    renderHeadRow(dates, false);
+    var tbody = document.getElementById('tableBody');
+    var tfoot = document.getElementById('tableFoot');
+    tbody.removeAttribute('aria-busy');
+
+    if (pageState === 'error') {
+      tbody.innerHTML = '<tr><td colspan="9" class="px-6 py-14 text-center">' +
+        '<p class="text-sm font-medium text-slate-900">Không thể tải lịch phân ca</p>' +
+        '<p class="mt-1 text-sm text-slate-500">Kiểm tra kết nối và thử lại.</p>' +
+        '<button type="button" id="retryBtn" class="mt-4 inline-flex h-8 items-center rounded-md border border-slate-300 bg-white px-3 text-sm font-medium text-slate-700 hover:bg-slate-50">Thử lại</button>' +
+        '</td></tr>';
+      tfoot.innerHTML = '';
+      document.getElementById('summaryLine').textContent = '—';
+      document.getElementById('retryBtn').addEventListener('click', function () {
+        pageState = '';
+        history.replaceState(null, '', location.pathname);
+        renderSkeleton();
+        window.setTimeout(renderTable, 500);
+      });
+      return;
+    }
+
+    if (pageState === 'empty') {
+      tbody.innerHTML = '<tr><td colspan="9" class="px-6 py-14 text-center">' +
+        '<p class="text-sm font-medium text-slate-900">Chưa có nhân viên nào trong lịch này</p>' +
+        '<p class="mx-auto mt-1 max-w-sm text-sm text-slate-500">Thêm nhân viên vào cửa hàng để bắt đầu phân ca làm việc theo tuần.</p>' +
+        '<button type="button" id="addEmployeeBtn" class="mt-4 inline-flex h-8 items-center rounded-md bg-blue-700 px-3 text-sm font-medium text-white hover:bg-blue-800">Thêm nhân viên</button>' +
+        '</td></tr>';
+      tfoot.innerHTML = '';
+      document.getElementById('summaryLine').textContent = '0 nhân viên · chưa có ca nào';
+      document.getElementById('addEmployeeBtn').addEventListener('click', function () {
+        showToast('Mở màn hình thêm nhân viên (minh họa).');
+      });
+      return;
+    }
+
+    var filtered = getFilteredEmployees();
+
+    if (filtered.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="9" class="px-6 py-14 text-center">' +
+        '<p class="text-sm font-medium text-slate-900">Không tìm thấy nhân viên nào phù hợp</p>' +
+        '<p class="mt-1 text-sm text-slate-500">Thử thay đổi từ khóa tìm kiếm hoặc bộ lọc vị trí.</p>' +
+        '<button type="button" id="clearFiltersBtn2" class="mt-4 inline-flex h-8 items-center rounded-md border border-slate-300 bg-white px-3 text-sm font-medium text-slate-700 hover:bg-slate-50">Xóa lọc</button>' +
+        '</td></tr>';
+      tfoot.innerHTML = '';
+      document.getElementById('summaryLine').textContent = '0 trên ' + EMPLOYEES.length + ' nhân viên phù hợp';
+      document.getElementById('clearFiltersBtn2').addEventListener('click', clearFilters);
+      return;
+    }
+
+    var rowsHtml = '';
+    filtered.forEach(function (emp) {
+      var hours = weeklyHours(emp.id);
+      var overtime = hours > MAX_WEEKLY_HOURS;
+      rowsHtml += '<tr class="h-16 border-b border-slate-100 hover:bg-slate-50">';
+      rowsHtml += '<td class="sticky left-0 z-10 bg-white px-3 py-2 align-middle group-hover:bg-slate-50">' +
+        '<div class="flex items-center gap-2.5">' +
+        '<span class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-blue-100 text-xs font-semibold text-blue-800">' + emp.initials + '</span>' +
+        '<div class="min-w-0"><p class="truncate text-sm font-medium text-slate-900">' + emp.name + '</p><p class="truncate text-xs text-slate-500">' + emp.role + '</p></div>' +
+        '</div></td>';
+
+      for (var day = 0; day < 7; day++) {
+        rowsHtml += '<td class="px-1.5 py-1.5 align-middle">' + cellHtml(emp, day, dates[day]) + '</td>';
+      }
+
+      rowsHtml += '<td class="px-3 py-2 text-right align-middle">' +
+        '<span class="tabular-nums font-medium ' + (overtime ? 'text-red-700' : 'text-slate-900') + '">' + fmtHours(hours) + '</span>' +
+        (overtime ? '<span class="ml-1.5 inline-flex h-5 items-center whitespace-nowrap rounded-full bg-red-50 px-1.5 text-[11px] font-medium leading-5 text-red-800" title="Vượt quy định ' + MAX_WEEKLY_HOURS + ' giờ/tuần">Quá giờ</span>' : '') +
+        '</td>';
+      rowsHtml += '</tr>';
+    });
+    tbody.innerHTML = rowsHtml;
+
+    bindCellHandlers();
+
+    // Footer: daily headcount + totals
+    var footHtml = '<tr class="border-t border-slate-200 bg-slate-50 font-medium">';
+    footHtml += '<td class="sticky left-0 bottom-0 z-10 bg-slate-50 px-3 py-2 text-xs text-slate-700">Tổng cộng (' + filtered.length + ' NV)</td>';
+    var totalHoursAll = 0;
+    for (var d2 = 0; d2 < 7; d2++) {
+      var working = filtered.filter(function (e) { return isWorkingEntry(getEntry(e.id, d2)); }).length;
+      var understaffed = working < MIN_STAFF_PER_DAY;
+      footHtml += '<td class="px-2 py-2 text-center text-xs">' +
+        '<div class="tabular-nums ' + (understaffed ? 'text-amber-800' : 'text-slate-700') + '">' + working + '/' + filtered.length + ' làm</div>' +
+        (understaffed ? '<div class="mt-0.5 inline-flex items-center rounded-full bg-amber-50 px-1.5 py-0.5 text-[10px] font-medium leading-none text-amber-800">Thiếu nhân sự</div>' : '') +
+        '</td>';
+    }
+    filtered.forEach(function (e) { totalHoursAll += weeklyHours(e.id); });
+    footHtml += '<td class="px-3 py-2 text-right text-xs tabular-nums text-slate-700">' + fmtHours(totalHoursAll) + '</td>';
+    footHtml += '</tr>';
+    tfoot.innerHTML = footHtml;
+
+    var totalShifts = 0;
+    filtered.forEach(function (e) { schedule[e.id].forEach(function (entry) { if (isWorkingEntry(entry)) totalShifts++; }); });
+    document.getElementById('summaryLine').textContent = filtered.length + ' trên ' + EMPLOYEES.length + ' nhân viên · ' + totalShifts + ' ca đã phân · ' + fmtHours(totalHoursAll) + ' đã xếp';
+  }
+
+  function cellHtml(emp, day, date) {
+    var entry = getEntry(emp.id, day);
+    var dateStr = pad2(date.getDate()) + '/' + pad2(date.getMonth() + 1);
+    if (entry && entry.type === 'leave') {
+      return '<button type="button" data-leave="1" data-emp="' + emp.id + '" data-day="' + day + '" ' +
+        'aria-label="' + emp.name + ', ' + WEEKDAY_LONG[day] + ' ' + dateStr + ', đã nghỉ phép. Không thể phân ca." ' +
+        'class="flex h-12 w-full flex-col items-center justify-center gap-0.5 rounded-md border border-slate-200 bg-slate-100 text-xs font-medium text-slate-500">' +
+        '<span class="flex items-center gap-1"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="5" y="11" width="14" height="9" rx="1.5"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>Nghỉ phép</span>' +
+        '</button>';
+    }
+    if (!entry || entry.type === 'off') {
+      if (!entry) {
+        return '<button type="button" data-emp="' + emp.id + '" data-day="' + day + '" ' +
+          'aria-label="Thêm ca cho ' + emp.name + ', ' + WEEKDAY_LONG[day] + ' ' + dateStr + '" ' +
+          'class="flex h-12 w-full items-center justify-center rounded-md border border-dashed border-slate-300 text-xs font-medium text-slate-400 hover:border-blue-400 hover:text-blue-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-600">+ Thêm ca</button>';
+      }
+      return '<button type="button" data-emp="' + emp.id + '" data-day="' + day + '" ' +
+        'aria-label="' + emp.name + ', ' + WEEKDAY_LONG[day] + ' ' + dateStr + ', nghỉ. Nhấn để sửa." ' +
+        'class="flex h-12 w-full items-center justify-center rounded-md border border-slate-200 bg-white text-xs font-medium text-slate-500 hover:border-blue-300 hover:text-blue-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-600">Nghỉ</button>';
+    }
+    var t = SHIFT_TYPES[entry.type];
+    return '<button type="button" data-emp="' + emp.id + '" data-day="' + day + '" ' +
+      'aria-label="' + emp.name + ', ' + WEEKDAY_LONG[day] + ' ' + dateStr + ', ' + t.label + ' ' + entry.start + '–' + entry.end + '. Nhấn để sửa." ' +
+      'class="flex h-12 w-full flex-col items-start justify-center gap-0 rounded-md border px-2 py-1 text-left text-xs font-medium ' + t.chip + ' hover:brightness-95 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-600">' +
+      '<span class="truncate">' + t.label + '</span>' +
+      '<span class="text-[11px] font-normal tabular-nums opacity-80">' + entry.start + '–' + entry.end + '</span>' +
+      '</button>';
+  }
+
+  function bindCellHandlers() {
+    var tbody = document.getElementById('tableBody');
+    tbody.querySelectorAll('button[data-emp]').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        if (btn.dataset.leave) {
+          var empL = EMPLOYEES.find(function (e) { return e.id === btn.dataset.emp; });
+          showToast('Không thể phân ca: ' + empL.name + ' đã được duyệt nghỉ phép ngày này.');
+          return;
+        }
+        openPanel(btn.dataset.emp, parseInt(btn.dataset.day, 10), btn);
+      });
+    });
+  }
+
+  // ---------- Side panel ----------
+  function renderShiftTypeGroup(selected) {
+    var group = document.getElementById('shiftTypeGroup');
+    group.innerHTML = '';
+    ['morning', 'afternoon', 'evening', 'off'].forEach(function (key) {
+      var t = SHIFT_TYPES[key];
+      var isSel = selected === key;
+      var btn = document.createElement('button');
+      btn.type = 'button';
+      btn.dataset.type = key;
+      btn.setAttribute('aria-pressed', isSel ? 'true' : 'false');
+      btn.className = 'flex items-center gap-2 rounded-md border px-2.5 py-2 text-left text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 ' +
+        (isSel ? 'border-blue-600 bg-blue-50 text-blue-800' : 'border-slate-300 bg-white text-slate-700 hover:bg-slate-50');
+      btn.innerHTML = '<span class="h-2.5 w-2.5 shrink-0 rounded-full ' + (key === 'off' ? 'border border-slate-400 bg-white' : t.dot) + '"></span>' +
+        '<span>' + t.label + (key !== 'off' ? ' <span class="text-xs text-slate-500">(' + t.start + '–' + t.end + ')</span>' : '') + '</span>';
+      btn.addEventListener('click', function () { selectShiftType(key); });
+      group.appendChild(btn);
+    });
+  }
+
+  function selectShiftType(key) {
+    renderShiftTypeGroup(key);
+    var timeFields = document.getElementById('timeFields');
+    document.getElementById('panelError').hidden = true;
+    if (key === 'off') {
+      timeFields.hidden = true;
+    } else {
+      timeFields.hidden = false;
+      var t = SHIFT_TYPES[key];
+      document.getElementById('startTimeInput').value = t.start;
+      document.getElementById('endTimeInput').value = t.end;
+    }
+    document.getElementById('shiftTypeGroup').dataset.selected = key;
+  }
+
+  function openPanel(empId, dayIndex, triggerEl) {
+    activeCell = { employeeId: empId, dayIndex: dayIndex };
+    lastFocusedEl = triggerEl || document.activeElement;
+    var emp = EMPLOYEES.find(function (e) { return e.id === empId; });
+    var dates = getWeekDates();
+    var date = dates[dayIndex];
+    var entry = getEntry(empId, dayIndex);
+
+    document.getElementById('panelAvatar').textContent = emp.initials;
+    document.getElementById('panelEmployeeName').textContent = emp.name;
+    document.getElementById('panelEmployeeRole').textContent = emp.role;
+    document.getElementById('panelDate').textContent = WEEKDAY_LONG[dayIndex] + ', ' + fmtDate(date);
+    document.getElementById('noteInput').value = entry && entry.note ? entry.note : '';
+    document.getElementById('panelError').hidden = true;
+    document.getElementById('panelDeleteBtn').hidden = !entry;
+
+    var initial = entry ? entry.type : null;
+    renderShiftTypeGroup(initial);
+    if (initial === 'off' || !initial) {
+      document.getElementById('timeFields').hidden = true;
+    } else {
+      document.getElementById('timeFields').hidden = false;
+    }
+    if (entry && entry.type !== 'off') {
+      document.getElementById('startTimeInput').value = entry.start;
+      document.getElementById('endTimeInput').value = entry.end;
+    }
+
+    var panel = document.getElementById('sidePanel');
+    var backdrop = document.getElementById('panelBackdrop');
+    backdrop.hidden = false;
+    panel.hidden = false;
+    panel.setAttribute('aria-hidden', 'false');
+    window.requestAnimationFrame(function () { panel.classList.remove('translate-x-full'); });
+    document.getElementById('panelCloseBtn').focus();
+    document.addEventListener('keydown', onPanelKeydown);
+    backdrop.addEventListener('click', closePanel);
+  }
+
+  function closePanel() {
+    var panel = document.getElementById('sidePanel');
+    panel.classList.add('translate-x-full');
+    panel.setAttribute('aria-hidden', 'true');
+    document.getElementById('panelBackdrop').hidden = true;
+    window.setTimeout(function () { panel.hidden = true; }, 200);
+    document.removeEventListener('keydown', onPanelKeydown);
+    if (lastFocusedEl && document.body.contains(lastFocusedEl)) lastFocusedEl.focus();
+    activeCell = null;
+  }
+
+  function onPanelKeydown(e) { if (e.key === 'Escape') closePanel(); }
+
+  document.getElementById('panelCloseBtn').addEventListener('click', closePanel);
+  document.getElementById('panelCancelBtn').addEventListener('click', closePanel);
+
+  document.getElementById('panelSaveBtn').addEventListener('click', function () {
+    var selected = document.getElementById('shiftTypeGroup').dataset.selected;
+    if (!selected) {
+      document.getElementById('panelError').hidden = false;
+      return;
+    }
+    var cell = activeCell;
+    var note = document.getElementById('noteInput').value.trim();
+    var entry;
+    if (selected === 'off') {
+      entry = { type: 'off', start: '', end: '', note: note };
+    } else {
+      var start = document.getElementById('startTimeInput').value || SHIFT_TYPES[selected].start;
+      var end = document.getElementById('endTimeInput').value || SHIFT_TYPES[selected].end;
+      entry = { type: selected, start: start, end: end, note: note };
+    }
+    schedule[cell.employeeId][cell.dayIndex] = entry;
+    markDirty();
+    var emp = EMPLOYEES.find(function (e) { return e.id === cell.employeeId; });
+    var dates = getWeekDates();
+    announce('Đã cập nhật ca cho ' + emp.name + ' ngày ' + fmtDate(dates[cell.dayIndex]));
+    closePanel();
+    renderTable();
+  });
+
+  document.getElementById('panelDeleteBtn').addEventListener('click', function () {
+    var cell = activeCell;
+    var emp = EMPLOYEES.find(function (e) { return e.id === cell.employeeId; });
+    var dates = getWeekDates();
+    var entry = getEntry(cell.employeeId, cell.dayIndex);
+    var t = entry && SHIFT_TYPES[entry.type];
+    openConfirmDelete(cell, emp.name + ', ' + WEEKDAY_LONG[cell.dayIndex] + ' ' + fmtDate(dates[cell.dayIndex]),
+      t ? (t.label + ' ' + entry.start + '–' + entry.end) : 'Nghỉ');
+  });
+
+  // ---------- Confirm delete dialog ----------
+  function openConfirmDelete(cell, personDateText, shiftText) {
+    pendingDelete = cell;
+    document.getElementById('confirmTitle').textContent = 'Xóa ca làm của ' + personDateText + '?';
+    document.getElementById('confirmBody').textContent = 'Ca ' + shiftText + ' sẽ bị xóa khỏi lịch. Ô này sẽ trống và cần phân ca lại.';
+    document.getElementById('confirmBackdrop').hidden = false;
+    document.addEventListener('keydown', onConfirmKeydown);
+    document.getElementById('confirmCancelBtn').focus();
+  }
+  function closeConfirmDelete() {
+    document.getElementById('confirmBackdrop').hidden = true;
+    document.removeEventListener('keydown', onConfirmKeydown);
+    pendingDelete = null;
+  }
+  function onConfirmKeydown(e) { if (e.key === 'Escape') closeConfirmDelete(); }
+  document.getElementById('confirmCancelBtn').addEventListener('click', closeConfirmDelete);
+  document.getElementById('confirmDeleteBtn').addEventListener('click', function () {
+    if (!pendingDelete) return;
+    schedule[pendingDelete.employeeId][pendingDelete.dayIndex] = null;
+    markDirty();
+    var emp = EMPLOYEES.find(function (e) { return e.id === pendingDelete.employeeId; });
+    announce('Đã xóa ca của ' + emp.name);
+    showToast('Đã xóa ca của ' + emp.name + '.');
+    closeConfirmDelete();
+    closePanel();
+    renderTable();
+  });
+
+  // ---------- Header actions ----------
+  document.getElementById('todayBtn').addEventListener('click', function () { weekOffset = 0; renderHeader(); renderTable(); });
+  document.getElementById('prevWeekBtn').addEventListener('click', function () { weekOffset -= 1; renderHeader(); renderTable(); });
+  document.getElementById('nextWeekBtn').addEventListener('click', function () { weekOffset += 1; renderHeader(); renderTable(); });
+
+  document.getElementById('searchInput').addEventListener('input', function (e) { searchQuery = e.target.value; applyFilters(); });
+  document.getElementById('roleFilter').addEventListener('change', function (e) { roleFilter = e.target.value; applyFilters(); });
+
+  document.getElementById('storeSelect').addEventListener('change', function (e) {
+    showToast('Đã chuyển sang ' + e.target.selectedOptions[0].textContent + '.');
+  });
+
+  var overflowBtn = document.getElementById('overflowBtn');
+  var overflowMenu = document.getElementById('overflowMenu');
+  overflowBtn.addEventListener('click', function () {
+    var open = overflowMenu.hidden;
+    overflowMenu.hidden = !open;
+    overflowBtn.setAttribute('aria-expanded', String(open));
+  });
+  document.addEventListener('click', function (e) {
+    if (!overflowBtn.contains(e.target) && !overflowMenu.contains(e.target)) {
+      overflowMenu.hidden = true;
+      overflowBtn.setAttribute('aria-expanded', 'false');
+    }
+  });
+  document.getElementById('printBtn').addEventListener('click', function () { overflowMenu.hidden = true; window.print(); });
+  document.getElementById('copyPrevWeekBtn').addEventListener('click', function () {
+    overflowMenu.hidden = true;
+    schedule = clone(INITIAL_SCHEDULE);
+    markDirty();
+    renderTable();
+    showToast('Đã sao chép lịch từ tuần trước. Kiểm tra lại trước khi công bố.');
+  });
+
+  document.getElementById('exportCsvBtn').addEventListener('click', exportCsv);
+  function exportCsv() {
+    var dates = getWeekDates();
+    var filtered = getFilteredEmployees();
+    var rows = [['Nhân viên', 'Vai trò'].concat(dates.map(function (d, i) { return WEEKDAY_SHORT[i] + ' ' + pad2(d.getDate()) + '/' + pad2(d.getMonth() + 1); })).concat(['Tổng giờ'])];
+    filtered.forEach(function (emp) {
+      var row = [emp.name, emp.role];
+      for (var d = 0; d < 7; d++) {
+        var entry = getEntry(emp.id, d);
+        if (!entry) row.push('Trống');
+        else if (entry.type === 'leave') row.push('Nghỉ phép');
+        else if (entry.type === 'off') row.push('Nghỉ');
+        else row.push(SHIFT_TYPES[entry.type].label + ' ' + entry.start + '-' + entry.end);
+      }
+      row.push(fmtHours(weeklyHours(emp.id)));
+      rows.push(row);
+    });
+    var csv = '﻿' + rows.map(function (r) { return r.map(function (v) { return '"' + String(v).replace(/"/g, '""') + '"'; }).join(','); }).join('\r\n');
+    var blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement('a');
+    var first = dates[0];
+    a.href = url;
+    a.download = 'lich-phan-ca_' + first.getFullYear() + '-' + pad2(first.getMonth() + 1) + '-' + pad2(first.getDate()) + '.csv';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    showToast('Đã xuất file CSV cho ' + filtered.length + ' nhân viên.');
+  }
+
+  // ---------- Save / Publish / Discard ----------
+  function finalizeSave(newStatus, successMessage) {
+    savedSnapshot = clone(schedule);
+    scheduleStatus = newStatus;
+    lastUpdatedBy = 'Nguyễn Thị Lan';
+    lastUpdatedAt = new Date();
+    clearDirty();
+    renderHeader();
+    showToast(successMessage);
+    announce(successMessage);
+  }
+  function handleSaveDraft() {
+    var dates = getWeekDates();
+    finalizeSave('draft', 'Đã lưu nháp lịch tuần ' + fmtDate(dates[0]) + ' – ' + fmtDate(dates[6]) + '.');
+  }
+  function handlePublish() {
+    var dates = getWeekDates();
+    finalizeSave('published', 'Đã công bố lịch tuần ' + fmtDate(dates[0]) + ' – ' + fmtDate(dates[6]) + ' cho ' + EMPLOYEES.length + ' nhân viên.');
+  }
+  function handleDiscard() {
+    schedule = clone(savedSnapshot);
+    clearDirty();
+    renderTable();
+    showToast('Đã hủy các thay đổi chưa lưu.');
+  }
+  document.getElementById('saveDraftBtn').addEventListener('click', handleSaveDraft);
+  document.getElementById('publishBtn').addEventListener('click', handlePublish);
+  document.getElementById('publishBtn2').addEventListener('click', handlePublish);
+  document.getElementById('discardBtn').addEventListener('click', handleDiscard);
+
+  // ---------- Init ----------
+  function init() {
+    renderHeader();
+    if (pageState === 'loading') {
+      renderSkeleton();
+      return;
+    }
+    if (pageState === 'error' || pageState === 'empty') {
+      renderTable();
+      return;
+    }
+    renderSkeleton();
+    window.setTimeout(function () { renderTable(); }, 500);
+  }
+
+  init();
+})();
+</script>
+
+</body>
+</html>

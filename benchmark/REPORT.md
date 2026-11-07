@@ -15,6 +15,7 @@ Detailed reports:
 - [COST](runs/2026-11-05-cost-claude-green/COST.md) (tokens and cost per page, with and without the skill)
 - [NEWTYPES](runs/2026-11-06-newtypes-after-claude-green/NEWTYPES.md) (reports, printable documents, calendars, boards and trees)
 - [HELDOUT3](runs/2026-11-06-heldout3-claude-green/HELDOUT3.md) (six briefs written without reading the skill, reviewed blind)
+- [HELDOUT4](runs/2026-11-06-heldout4-new-claude-green/HELDOUT4.md) (six more independent briefs; v0.5.8 against a check-before-finish candidate, reviewed blind)
 
 ![Orders list before and after](../docs/img/before-after-01-orders-list.png)
 
@@ -173,6 +174,21 @@ The earlier held-out briefs were written by the skill's author, who knew its rul
 | Template tells | 18 on 5 pages | 3 on 2 pages |
 
 This is the fairest estimate so far. The skill more than doubles the pass rate on UI behaviour, and it cannot supply business rules the prompt leaves out. Most of the UI items it still missed are rules the skill already states, so the next gain is in getting agents to apply them. See [HELDOUT3](runs/2026-11-06-heldout3-claude-green/HELDOUT3.md).
+
+HELDOUT4 repeated this on six more independent briefs, with v0.5.8 at 15% → 39%. Over the 12 screens of both suites, v0.5.8 passes 20/108 items (19%) without the skill and 47/108 (44%) with it. In the same pool, a candidate with a check-before-finish pass reached 43%:
+- UI behaviour went from 44% to 53%, and domain items from 30% to 25%.
+- That is +2 items overall, below the +5 set before the run.
+
+A second run from the Vietnamese prompts settled it:
+
+| | v0.5.8 | Candidate |
+|---|---|---|
+| Checklist, both runs | 38% | 40% |
+| UI behaviour | 47% | 47% |
+| Cost a page | — | 1.41× |
+| Pages written to the wrong folder | 3/12 | 12/12 |
+
+The candidate was reverted (16cbb10). See [HELDOUT4](runs/2026-11-06-heldout4-new-claude-green/HELDOUT4.md).
 
 ## Limitations
 

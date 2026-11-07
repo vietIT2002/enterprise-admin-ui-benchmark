@@ -1,0 +1,54 @@
+{
+  "brief": "26-sales-pipeline-report",
+  "run": 1,
+  "items": [
+    {
+      "item": "The stage breakdown lists stages in pipeline order (not alphabetical), each with its win probability, and each stage's weighted value equals its open value × that probability, with the weighted total equal to the sum of the stages",
+      "pass": false,
+      "evidence": "groupBy defaults to 'salesperson' (state.groupBy='salesperson'); switching the 'Group by' select to Stage uses STAGES order internally but the table is then re-sorted by state.sortGroup which defaults to {key:'pipeline', dir:'desc'} (line ~588 groups=sortRows(groups,state.sortGroup)), so stages render in pipeline-value order, not pipeline-stage order, and clicking the 'Group' header sorts alphabetically via localeCompare, never pipeline order. The group/stage table's columns are Group, Open deals, Pipeline value, Weighted forecast, 'Win rate (QTD)', Share — there is no per-stage win-probability column; the only probability values (STAGE_PROB, e.g. Qualification 0.15) appear per individual deal row, never on the aggregated stage row, and the displayed 'Win rate (QTD)' is a different, hardcoded WIN_RATE_BY_STAGE number (e.g. Qualification 0.12) that doesn't match STAGE_PROB."
+    },
+    {
+      "item": "Win rate is computed over closed deals only, won ÷ (won + lost), with the counts shown beside it (such as \"38% · 19 of 50 closed\"), and a salesperson with no closed deals shows \"—\" instead of 0% or NaN",
+      "pass": false,
+      "evidence": "WIN_RATE_BY_SALESPERSON and WIN_RATE_BY_STAGE (lines 343-344) are static hardcoded percentages, e.g. { 'Dana Whitfield': 0.42, ... } — not derived from any won/lost deal counts (the mock DEALS array contains only open deals, no won/lost status at all). The 'Win rate (QTD)' column only ever renders a bare percentage like '42%' with no 'X of Y closed' count anywhere on the page, and there is no '—' fallback tied to a zero-closed-deals case (the only '—' fallback is totalWinrate when totalPipeline is 0)."
+    },
+    {
+      "item": "The by-salesperson table ends in a totals row whose deal count, pipeline value and weighted value equal the sum of its rows and match the overall totals of the stage breakdown",
+      "pass": true,
+      "evidence": "tfoot row (#totalDeals/#totalPipeline/#totalWeighted, lines 238-247) sums 11+11+9+8+4+5=48, $1,352,500+...+$440,000=$5,490,000, and $670,650+...+$155,950=$2,495,950, all matching the visible 'Total' row in the screenshot. totalPipeline/totalWeighted are computed directly from the filtered deal list independent of groupBy (lines 576-577), so switching Group by to Stage recomputes the same table with identical totals — there's only one toggled table, not two separate breakdowns, but their totals are guaranteed equal by construction."
+    },
+    {
+      "item": "The period can be set to this quarter, next quarter or a custom range, the page says which date it applies to (expected close date), and the results can also be narrowed to one salesperson or team",
+      "pass": false,
+      "evidence": "Period buttons are 'This month', 'This quarter', 'This year', 'Custom' (lines 86-89) — there is no 'Next quarter' option. The code comment at line 692 states 'Period presets (visual only — mock data is fixed to Q4 2026)' and the click handler (lines 693-704) only toggles button styling, it never changes state or re-filters data. Nothing on the page states the period applies to 'expected close date' (header only says 'Amounts in USD, open deals only'). Narrowing to one salesperson exists (#salespersonFilter), but there is no 'team' filter — only a Region filter (West/East/Central/International) under More filters, which is not a team construct."
+    },
+    {
+      "item": "Every money value shows its currency (one currency for the whole report) with thousands separators and lines up by digit within its column, and any abbreviated headline figure (such as \"1.2M\") has the full amount available in the table or a title attribute",
+      "pass": true,
+      "evidence": "fmtMoney = Intl.NumberFormat('en-US', {style:'currency', currency:'USD', maximumFractionDigits:0}) is used for every money cell, consistently USD ($) throughout; audit.json reports numericCells.misaligned=0 and tabular-nums applied to all 174 numeric cells. No abbreviated figures (e.g. '1.2M') appear anywhere — summary line and totals always show full amounts like '$5,490,000', so the full-amount sub-requirement is trivially satisfied."
+    },
+    {
+      "item": "Open deals whose expected close date has already passed are flagged with words (such as \"Close date passed\"), not colour alone, and the number of such deals is shown per salesperson",
+      "pass": false,
+      "evidence": "No overdue-flagging logic exists anywhere in the script. Deals with close dates before the stated 'Updated' date of 07/11/2026 (e.g. 'Kestrel Expansion' 04/11/2026, 'Juniper New platform' 23/10/2026, 'Northbridge Upgrade' 16/10/2026, 'Orchard New platform' 01/10/2026, visible in full.png) render with plain <time> text and no badge, word, icon, or per-salesperson overdue count."
+    },
+    {
+      "item": "Each stage and salesperson figure drills down to the deals behind it (deal, account, owner, value, stage, close date) through a link or button that is keyboard-focusable and has a descriptive accessible name",
+      "pass": false,
+      "evidence": "Group/stage/salesperson rows in #groupTableBody are plain <tr> elements built from template strings (lines 593-603) with no <a>/<button>, onclick, or tabindex — only hover:bg-slate-50 styling. Only the separate deal-detail table has drill-down-like links, on the deal name itself (line 621, '<a href=\"#\">'+d.name+'</a>'), not on any aggregate stage/salesperson figure."
+    },
+    {
+      "item": "When the filters match no deals, the page says so, names the active filters and offers to clear them; a loading indicator and a failed-load message with a retry action are also present",
+      "pass": true,
+      "evidence": "#noResultsState shows 'No deals match these filters.' (or 'No deals match \"query\".') plus a 'Clear filters' button (#clearFiltersBtn, line 199); renderChips() runs unconditionally before the state branches, so the active-filter chips (e.g. 'Salesperson: Carlos Ibarra', with per-chip remove and 'Clear all') remain visible above the no-results message, naming the active filters. #loadingState is a skeleton with aria-busy='true' (lines 171-180, 533), and #errorState shows 'Could not load the pipeline report.' with a '#retryBtn' Retry button (lines 183-186) that re-triggers loading then recovery (lines 728-732)."
+    },
+    {
+      "item": "Export (CSV or Excel) produces the deal-level rows for the current filters, and its label or confirmation states the scope (such as \"Export 42 deals · Q4 2026\")",
+      "pass": true,
+      "evidence": "toCSV(sortedDeals) is built from sortDealsList(applyFilters(), ...) (lines 783-784), i.e. exactly the currently filtered deal-level rows with Deal/Account/Salesperson/Stage/Expected close/Value/Probability/Weighted columns. The Export button label shows a live count, 'Export (48)' (#exportScopeLabel, line 69, 583), and on click the live region announces 'Exported 48 deals to sales-pipeline-q4-2026.csv' (line 794), stating both the deal count and the period via the filename. Minor defect: choosing 'Export as Excel' still downloads a '.csv' file (var ext = type==='xlsx' ? 'csv' : 'csv', line 786), so the Excel option is mislabeled, but the core scope/content requirement is met."
+    }
+  ],
+  "tells": [],
+  "notes": "This is an unusually clean, low-chrome admin report mock — no greeting header, KPI icon tiles, avatars, gradients/glass, uppercase tracked labels, emoji icons, sidebar promo card, decorative charts, card-in-card nesting, hover-lift, oversized radii, or navy/indigo sidebar styling were observed, so no template tells are listed. Stage badges (neutral/info/warning/success per STAGE_TONE) are a semantically ordered progression rather than an arbitrary rainbow and were not flagged. The report's main gaps are analytical/functional rather than cosmetic: period presets are non-functional (visual only, data fixed to Q4 2026), no real won/lost win-rate computation, no stage win-probability column, no drill-down from aggregate rows, and no overdue-close-date flagging.",
+  "blind": true
+}

@@ -12,7 +12,6 @@ import { spawn, execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { RED, GREEN, briefPrompt, runCodex } from './codex-run.mjs';
 import { redact, redactList } from '../../scripts/export-benchmark.mjs';
-import { makeBlind, unblind, promoteBlind } from './blind.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const RUNS = path.join(ROOT, 'benchmark', 'runs');
@@ -75,6 +74,24 @@ export function blindReviewPrompt({ brief, run, dir }) {
   return reviewPrompt({ brief, run, files: { HTML_PATH: f('page.html'), PNG_PATH: f('first.png'), FULL_PNG_PATH: f('full.png'), AUDIT_PATH: f('audit.json'), REVIEW_PATH: f('review.json') } });
 }
 
+// A later session in the same run folders (run 2 after run 1) adds its pages to the usage file instead of replacing it.
+export function mergeUsage(old, usage) {
+  if (!old) return usage;
+  const session = (u) => ({ started: u.started, finished: u.finished, skillDir: u.skillDir, effort: u.effort });
+  return { ...old, sessions: [...(old.sessions || [session(old)]), session(usage)], pages: [...old.pages, ...usage.pages] };
+}
+
+// Since 2026-11-07 the agent sometimes writes the page to a sibling of the work folder, joining the two folder names
+// with a hyphen (<work>-<cond>-<brief>-run-N) instead of a path separator; the cause is unknown. Returns that path
+// when the page is there.
+export function findMisplaced(work, cwd, file) {
+  for (const dir of [work + '-' + path.basename(cwd), work + path.basename(cwd)]) {
+    const p = path.join(dir, file);
+    if (fs.existsSync(p)) return p;
+  }
+  return null;
+}
+
 export function claudeArgs(prompt, { model = 'sonnet', addDirs = [], effort = null } = {}) {
   return [
     '-p', prompt,
@@ -98,7 +115,7 @@ export function parseClaudeJson(stdout) {
   }
 }
 
-function runClaude(prompt, cwd, addDirs, model, effort = null) {
+export function runClaude(prompt, cwd, addDirs, model, effort = null) {
   return new Promise((resolve) => {
     fs.mkdirSync(cwd, { recursive: true });
     const started = Date.now();
@@ -111,7 +128,7 @@ function runClaude(prompt, cwd, addDirs, model, effort = null) {
   });
 }
 
-async function pool(items, n, fn) {
+export async function pool(items, n, fn) {
   const results = [];
   let next = 0;
   await Promise.all(Array.from({ length: Math.min(n, items.length) }, async () => {
@@ -164,7 +181,12 @@ async function main() {
       const prompt = p.cond === 'green' ? GREEN(briefPrompt(p.brief, p.lang), out, skillDir) : RED(briefPrompt(p.brief, p.lang), out);
       r = await runClaude(prompt, cwd, p.cond === 'green' ? [skillDir] : [], model, get('--effort', null));
       // claude -p sees the account's email and may put it in mock data: redact private strings before audit and screenshots.
-      if (fs.existsSync(out)) fs.writeFileSync(dest, redact(fs.readFileSync(out, 'utf8'), redactList()));
+      const found = fs.existsSync(out) ? out : findMisplaced(work, cwd, path.basename(out));
+      if (found && found !== out) {
+        r.recovered = 'written to ' + path.basename(path.dirname(found)) + ', a sibling of the work folder';
+        console.log(`generate ${p.cond} ${p.brief} run-${p.run}: page found in a sibling folder, recovered`);
+      }
+      if (found) fs.writeFileSync(dest, redact(fs.readFileSync(found, 'utf8'), redactList()));
     } else {
       r = await runCodex({ ...p, work: cwd }, { out: RUNS, model: get('--codex-model', 'gpt-6.1-sol'), effort: get('--effort', 'medium'), winSandbox: 'unelevated', folder: (c) => runFolder(name, agent, c) });
     }
@@ -177,29 +199,10 @@ async function main() {
   // 3. Review. With --blind, reviewers see only randomly coded copies (page.html, first.png, full.png, audit.json) in
   // neutral folders, and the key that maps them back is kept next to the runs as <name>-<agent>-blind/key.json.
   if (review && blind) {
-    // A temp folder of its own: the generation folders in work are named after the condition.
-    const neutral = fs.mkdtempSync(path.join(os.tmpdir(), 'review-'));
-    const blindDir = path.join(neutral, 'pages');
+    const { reviewFoldersBlind } = await import('./blind-review.mjs');
     const folders = conds.map((c) => path.join(RUNS, runFolder(name, agent, c)));
-    const seed = Number(get('--seed', String(Date.now() % 1e9)));
-    const { pages: coded } = makeBlind(folders, blindDir, { seed });
-    const key = JSON.parse(fs.readFileSync(path.join(blindDir, 'key.json'), 'utf8'));
-    await pool(coded, concurrency, async (b) => {
-      const dir = path.join(blindDir, b.code);
-      const k = key[b.code];
-      const r = await runClaude(blindReviewPrompt({ brief: b.brief, run: k.run, dir: dir.split(path.sep).join('/') }), path.join(neutral, `cwd-${b.code}`), [dir], model);
-      const written = fs.existsSync(path.join(dir, 'review.json'));
-      const cond = conds.find((c) => path.basename(k.folder) === runFolder(name, agent, c));
-      usage.pages.push({ cond, brief: b.brief, run: k.run, code: b.code, phase: 'review', blind: true, written, ...r });
-      console.log(`blind review ${b.code}: ${written ? 'ok' : 'MISSING'} ${r.seconds}s`);
-    });
-    unblind(blindDir);
-    promoteBlind(folders);
-    const keep = path.join(RUNS, `${name}-${agent}-blind`);
-    fs.mkdirSync(keep, { recursive: true });
-    const shortKey = Object.fromEntries(Object.entries(key).map(([c, k]) => [c, { ...k, folder: path.basename(k.folder) }]));
-    fs.writeFileSync(path.join(keep, 'key.json'), JSON.stringify(shortKey, null, 2) + '\n');
-    fs.copyFileSync(path.join(blindDir, 'manifest.json'), path.join(keep, 'manifest.json'));
+    const r = await reviewFoldersBlind(folders, { seed: Number(get('--seed', String(Date.now() % 1e9))), concurrency, model, keepDir: path.join(RUNS, `${name}-${agent}-blind`) });
+    for (const u of r.usage) usage.pages.push({ ...u, cond: conds.find((c) => u.folder === runFolder(name, agent, c)) });
   } else if (review) {
     await pool(pages, concurrency, async (p) => {
       const dir = path.join(RUNS, runFolder(name, agent, p.cond), p.brief);
@@ -217,7 +220,8 @@ async function main() {
   }
   usage.finished = new Date().toISOString();
   const target = path.join(RUNS, runFolder(name, agent, conds.includes('green') ? 'green' : conds[0]), 'bench-usage.json');
-  fs.writeFileSync(target, JSON.stringify(usage, (key, v) => (key === 'stderr' || key === 'work' ? undefined : v), 2) + '\n');
+  const merged = mergeUsage(fs.existsSync(target) ? JSON.parse(fs.readFileSync(target, 'utf8')) : null, usage);
+  fs.writeFileSync(target, JSON.stringify(merged, (key, v) => (key === 'stderr' || key === 'work' ? undefined : v), 2) + '\n');
   console.log(`\nUsage per page: ${target}`);
 }
 

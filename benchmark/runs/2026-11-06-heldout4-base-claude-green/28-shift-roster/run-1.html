@@ -1,0 +1,651 @@
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+  [hidden] { display: none !important; }
+  body { font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
+  .tabular-nums { font-variant-numeric: tabular-nums; }
+</style>
+<title>Weekly shift roster</title>
+
+<div class="min-h-screen bg-slate-50 text-slate-900 pb-16">
+  <div class="max-w-7xl mx-auto p-6 space-y-4">
+
+    <!-- Page header -->
+    <div class="flex flex-wrap items-start justify-between gap-4">
+      <div>
+        <h1 class="text-xl font-semibold text-slate-900">Weekly shift roster</h1>
+        <p class="text-sm text-slate-600 mt-0.5">Northfield Store &middot; Main floor</p>
+      </div>
+      <div class="flex items-center gap-3">
+        <span id="status-badge" class="inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium bg-slate-100 text-slate-700">Draft</span>
+        <button id="publish-btn" type="button"
+          class="inline-flex items-center rounded-md bg-blue-700 px-3 py-2 text-sm font-medium text-white hover:bg-blue-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-700">
+          Publish week
+        </button>
+      </div>
+    </div>
+
+    <p id="summary-line" class="text-sm text-slate-600"></p>
+
+    <!-- Toolbar -->
+    <div class="flex flex-wrap items-center justify-between gap-3 bg-white border border-slate-200 rounded-md px-4 py-3">
+      <div class="flex items-center gap-2">
+        <button id="today-btn" type="button" class="rounded-md border border-slate-300 px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-blue-700">Today</button>
+        <button id="prev-btn" type="button" aria-label="Previous week" class="rounded-md border border-slate-300 p-1.5 text-slate-700 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-blue-700">
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M10 12 6 8l4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </button>
+        <button id="next-btn" type="button" aria-label="Next week" class="rounded-md border border-slate-300 p-1.5 text-slate-700 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-blue-700">
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M6 4l4 4-4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </button>
+        <h2 id="range-heading" class="text-sm font-semibold text-slate-900 ml-1"></h2>
+      </div>
+      <div class="flex items-center gap-2">
+        <label for="search-input" class="sr-only">Search staff</label>
+        <input id="search-input" type="search" placeholder="Search staff"
+          class="w-48 rounded-md border border-slate-300 px-3 py-1.5 text-sm placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-700" />
+        <label for="role-filter" class="sr-only">Filter by role</label>
+        <select id="role-filter" class="rounded-md border border-slate-300 px-3 py-1.5 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-700">
+          <option value="">All roles</option>
+        </select>
+      </div>
+    </div>
+
+    <!-- Applied filter chips -->
+    <div id="filter-chips" class="flex items-center gap-2 text-sm" hidden>
+      <div id="chips-container" class="flex items-center gap-2 flex-wrap"></div>
+      <button id="clear-filters" type="button" class="text-blue-700 font-medium hover:underline">Clear all</button>
+    </div>
+
+    <!-- Roster table -->
+    <div class="bg-white border border-slate-200 rounded-md overflow-x-auto">
+      <table class="w-full border-collapse text-sm">
+        <thead id="table-head"></thead>
+        <tbody id="table-body"></tbody>
+        <tfoot id="table-foot"></tfoot>
+      </table>
+    </div>
+
+    <!-- Legend -->
+    <div class="flex flex-wrap items-center gap-x-5 gap-y-2 text-xs text-slate-600">
+      <span class="font-medium text-slate-700">Legend:</span>
+      <span class="inline-flex items-center gap-1.5"><span class="inline-block h-3 w-3 rounded-sm bg-blue-50 border border-blue-300"></span>Confirmed shift</span>
+      <span class="inline-flex items-center gap-1.5"><span class="inline-block h-3 w-3 rounded-sm bg-white border border-blue-300 border-dashed"></span>Pending confirmation</span>
+      <span class="inline-flex items-center gap-1.5"><span class="inline-block h-3 w-3 rounded-sm bg-amber-50 border border-amber-300"></span>Annual leave</span>
+      <span class="inline-flex items-center gap-1.5"><span class="inline-block h-3 w-3 rounded-sm bg-slate-100 border border-slate-300"></span>Day off</span>
+      <span class="inline-flex items-center gap-1.5"><span class="inline-block h-3 w-3 rounded-full bg-blue-700"></span>Today</span>
+      <span class="inline-flex items-center gap-1.5"><span class="inline-block h-3 w-3 rounded-sm bg-slate-50 border border-slate-200"></span>Weekend</span>
+      <span class="inline-flex items-center gap-1.5"><span class="inline-block h-3 w-3 rounded-sm bg-amber-100 border border-amber-400"></span>Needs attention</span>
+    </div>
+
+  </div>
+</div>
+
+<!-- Shift detail / edit drawer -->
+<div id="drawer-overlay" class="fixed inset-0 bg-slate-900/30 z-40" hidden></div>
+<aside id="drawer" role="dialog" aria-modal="true" aria-labelledby="drawer-title"
+  class="fixed top-0 right-0 h-full w-full max-w-sm bg-white border-l border-slate-200 shadow-lg z-50 flex flex-col" hidden>
+  <div class="flex items-start justify-between px-5 py-4 border-b border-slate-200">
+    <h2 id="drawer-title" class="text-base font-semibold text-slate-900">Shift details</h2>
+    <button id="drawer-close" type="button" aria-label="Close panel" class="text-slate-500 hover:text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-700 rounded">
+      <svg width="18" height="18" viewBox="0 0 18 18" fill="none"><path d="M4 4l10 10M14 4 4 14" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+    </button>
+  </div>
+  <div id="drawer-body" class="px-5 py-4 space-y-4 overflow-y-auto flex-1"></div>
+  <div id="drawer-actions" class="px-5 py-4 border-t border-slate-200 flex items-center justify-end gap-2"></div>
+</aside>
+
+<!-- Confirm dialog -->
+<div id="dialog-overlay" class="fixed inset-0 bg-slate-900/40 z-50 flex items-center justify-center p-4" hidden>
+  <div id="dialog-box" role="alertdialog" aria-modal="true" aria-labelledby="dialog-title" aria-describedby="dialog-message"
+    class="bg-white rounded-lg shadow-lg max-w-sm w-full p-5 space-y-3">
+    <h2 id="dialog-title" class="text-base font-semibold text-slate-900"></h2>
+    <p id="dialog-message" class="text-sm text-slate-600"></p>
+    <div class="flex items-center justify-end gap-2 pt-2">
+      <button id="dialog-cancel" type="button" class="rounded-md border border-slate-300 px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-blue-700">Cancel</button>
+      <button id="dialog-confirm" type="button" class="rounded-md px-3 py-1.5 text-sm font-medium text-white focus:outline-none focus:ring-2 focus:ring-offset-2">Confirm</button>
+    </div>
+  </div>
+</div>
+
+<!-- Toast region -->
+<div id="toast-region" role="status" aria-live="polite" class="fixed bottom-4 right-4 z-50 flex flex-col gap-2"></div>
+
+<script>
+(function () {
+  "use strict";
+
+  // ---------- Mock data ----------
+  var STAFF = [
+    { id: "an", name: "Alex Nguyen", role: "Store Manager", initials: "AN" },
+    { id: "ps", name: "Priya Shah", role: "Assistant Manager", initials: "PS" },
+    { id: "ml", name: "Marcus Lee", role: "Shift Lead", initials: "ML" },
+    { id: "sr", name: "Sofia Rossi", role: "Sales Associate", initials: "SR" },
+    { id: "dk", name: "Daniel Kim", role: "Sales Associate", initials: "DK" },
+    { id: "go", name: "Grace Okafor", role: "Cashier", initials: "GO" },
+    { id: "ew", name: "Ethan Walsh", role: "Stockroom Associate", initials: "EW" }
+  ];
+
+  function SH(start, end, status) { return { kind: "shift", start: start, end: end, status: status || "confirmed" }; }
+  var OFF = { kind: "off" };
+  function LEAVE(label) { return { kind: "leave", label: label }; }
+
+  // Mon .. Sun pattern per staff member
+  var PATTERN = {
+    an: [[SH("09:00", "17:00")], [SH("09:00", "17:00")], [OFF], [SH("09:00", "17:00")], [SH("09:00", "17:00")], [SH("10:00", "18:00")], [OFF]],
+    ps: [[OFF], [SH("12:00", "20:00")], [SH("09:00", "17:00")], [SH("09:00", "17:00")], [OFF], [SH("09:00", "17:00", "pending")], [SH("11:00", "19:00")]],
+    ml: [[SH("14:00", "22:00")], [SH("14:00", "22:00")], [SH("14:00", "22:00")], [OFF], [SH("14:00", "22:00")], [SH("14:00", "22:00")], [SH("12:00", "20:00", "pending")]],
+    sr: [[SH("09:00", "14:00")], [OFF], [SH("09:00", "14:00")], [SH("09:00", "14:00")], [SH("09:00", "14:00")], [LEAVE("Annual leave")], [LEAVE("Annual leave")]],
+    dk: [[SH("14:00", "20:00")], [SH("14:00", "20:00")], [OFF], [SH("14:00", "20:00", "pending")], [SH("14:00", "20:00")], [SH("10:00", "18:00")], [SH("10:00", "16:00")]],
+    go: [[SH("09:00", "13:00"), SH("17:00", "20:00")], [SH("09:00", "17:00")], [SH("09:00", "17:00")], [OFF], [SH("09:00", "17:00")], [OFF], [SH("09:00", "15:00")]],
+    ew: [[SH("06:00", "14:00")], [SH("06:00", "14:00")], [SH("06:00", "14:00")], [SH("06:00", "14:00")], [OFF], [OFF], [OFF]]
+  };
+
+  var DEFAULT_ATTRIBUTION = "Alex Nguyen (Store Manager) · 05/11/2026 09:14";
+  var MIN_STAFF = 5;
+
+  // ---------- Date helpers ----------
+  var TODAY = new Date(2026, 10, 7); // mock "today": Sat 07/11/2026
+  var WEEKDAY_SHORT = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+  var WEEKDAY_LONG = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
+  var MONTH_NAMES = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+  var MONTH_SHORT = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
+  function pad(n) { return n < 10 ? "0" + n : "" + n; }
+  function addDays(date, n) { var d = new Date(date); d.setDate(d.getDate() + n); return d; }
+  function sameDate(a, b) { return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate(); }
+  function formatDMY(d) { return pad(d.getDate()) + "/" + pad(d.getMonth() + 1) + "/" + d.getFullYear(); }
+  function toISO(d) { return d.getFullYear() + "-" + pad(d.getMonth() + 1) + "-" + pad(d.getDate()); }
+  function mondayOf(date) {
+    var d = new Date(date);
+    var dow = d.getDay(); // 0 Sun .. 6 Sat
+    var diff = dow === 0 ? -6 : 1 - dow;
+    return addDays(d, diff);
+  }
+
+  function rangeText(start) {
+    var end = addDays(start, 6);
+    if (start.getFullYear() === end.getFullYear()) {
+      if (start.getMonth() === end.getMonth()) {
+        return start.getDate() + "–" + end.getDate() + " " + MONTH_NAMES[end.getMonth()] + " " + end.getFullYear();
+      }
+      return start.getDate() + " " + MONTH_SHORT[start.getMonth()] + " – " + end.getDate() + " " + MONTH_SHORT[end.getMonth()] + " " + end.getFullYear();
+    }
+    return start.getDate() + " " + MONTH_SHORT[start.getMonth()] + " " + start.getFullYear() + " – " + end.getDate() + " " + MONTH_SHORT[end.getMonth()] + " " + end.getFullYear();
+  }
+
+  function timeToMinutes(t) { var p = t.split(":"); return parseInt(p[0], 10) * 60 + parseInt(p[1], 10); }
+  function durationHours(entry) { return (timeToMinutes(entry.end) - timeToMinutes(entry.start)) / 60; }
+  function formatHours(h) { return (Math.round(h * 10) / 10 === Math.round(h) ? Math.round(h) : (Math.round(h * 10) / 10)) + "h"; }
+
+  // ---------- State ----------
+  var currentWeekStart = mondayOf(TODAY);
+  var weekStatus = {}; // isoMonday -> { published: bool, by, date }
+  var searchText = "";
+  var roleFilter = "";
+  var lastFocusedEl = null;
+
+  // ---------- DOM refs ----------
+  var rangeHeading = document.getElementById("range-heading");
+  var statusBadge = document.getElementById("status-badge");
+  var publishBtn = document.getElementById("publish-btn");
+  var summaryLine = document.getElementById("summary-line");
+  var tableHead = document.getElementById("table-head");
+  var tableBody = document.getElementById("table-body");
+  var tableFoot = document.getElementById("table-foot");
+  var searchInput = document.getElementById("search-input");
+  var roleFilterSelect = document.getElementById("role-filter");
+  var filterChipsWrap = document.getElementById("filter-chips");
+  var chipsContainer = document.getElementById("chips-container");
+  var clearFiltersBtn = document.getElementById("clear-filters");
+  var drawer = document.getElementById("drawer");
+  var drawerOverlay = document.getElementById("drawer-overlay");
+  var drawerBody = document.getElementById("drawer-body");
+  var drawerActions = document.getElementById("drawer-actions");
+  var drawerTitle = document.getElementById("drawer-title");
+  var drawerClose = document.getElementById("drawer-close");
+  var dialogOverlay = document.getElementById("dialog-overlay");
+  var dialogTitle = document.getElementById("dialog-title");
+  var dialogMessage = document.getElementById("dialog-message");
+  var dialogCancel = document.getElementById("dialog-cancel");
+  var dialogConfirm = document.getElementById("dialog-confirm");
+  var toastRegion = document.getElementById("toast-region");
+
+  // Populate role filter
+  var roles = [];
+  STAFF.forEach(function (s) { if (roles.indexOf(s.role) === -1) roles.push(s.role); });
+  roles.forEach(function (r) {
+    var opt = document.createElement("option");
+    opt.value = r; opt.textContent = r;
+    roleFilterSelect.appendChild(opt);
+  });
+
+  // ---------- Toast ----------
+  function showToast(message) {
+    var el = document.createElement("div");
+    el.className = "bg-slate-900 text-white text-sm rounded-md px-4 py-2.5 shadow-lg max-w-xs";
+    el.textContent = message;
+    toastRegion.appendChild(el);
+    setTimeout(function () {
+      el.style.transition = "opacity 200ms";
+      el.style.opacity = "0";
+      setTimeout(function () { toastRegion.removeChild(el); }, 200);
+    }, 3200);
+  }
+
+  // ---------- Dialog ----------
+  function openDialog(opts) {
+    lastFocusedEl = document.activeElement;
+    dialogTitle.textContent = opts.title;
+    dialogMessage.textContent = opts.message;
+    dialogConfirm.textContent = opts.confirmLabel || "Confirm";
+    dialogConfirm.className = "rounded-md px-3 py-1.5 text-sm font-medium text-white focus:outline-none focus:ring-2 focus:ring-offset-2 " +
+      (opts.danger ? "bg-red-600 hover:bg-red-700 focus:ring-red-600" : "bg-blue-700 hover:bg-blue-800 focus:ring-blue-700");
+    dialogOverlay.hidden = false;
+    dialogConfirm.onclick = function () { closeDialog(); opts.onConfirm(); };
+    dialogCancel.onclick = closeDialog;
+    if (opts.danger) { dialogCancel.focus(); } else { dialogConfirm.focus(); }
+  }
+  function closeDialog() {
+    dialogOverlay.hidden = true;
+    if (lastFocusedEl) lastFocusedEl.focus();
+  }
+  dialogOverlay.addEventListener("click", function (e) { if (e.target === dialogOverlay) closeDialog(); });
+
+  // ---------- Drawer ----------
+  function openDrawer(titleText, bodyHtml, actionsHtml, triggerEl) {
+    lastFocusedEl = triggerEl || document.activeElement;
+    drawerTitle.textContent = titleText;
+    drawerBody.innerHTML = bodyHtml;
+    drawerActions.innerHTML = actionsHtml;
+    drawer.hidden = false;
+    drawerOverlay.hidden = false;
+    drawerClose.focus();
+  }
+  function closeDrawer() {
+    drawer.hidden = true;
+    drawerOverlay.hidden = true;
+    if (lastFocusedEl) lastFocusedEl.focus();
+  }
+  drawerClose.addEventListener("click", closeDrawer);
+  drawerOverlay.addEventListener("click", closeDrawer);
+  document.addEventListener("keydown", function (e) {
+    if (e.key === "Escape") {
+      if (!drawer.hidden) closeDrawer();
+      if (!dialogOverlay.hidden) closeDialog();
+    }
+  });
+
+  // ---------- Shift detail / edit interactions ----------
+  function shiftStatusLabel(entry) {
+    if (entry.kind === "off") return "Day off";
+    if (entry.kind === "leave") return entry.label;
+    return entry.status === "pending" ? "Pending confirmation" : "Confirmed";
+  }
+
+  function openShiftDetail(staff, dayIndex, entryIndex, date, triggerEl) {
+    var entry = PATTERN[staff.id][dayIndex][entryIndex];
+    var dayLabel = WEEKDAY_LONG[dayIndex] + " " + formatDMY(date);
+    var statusHtml;
+    if (entry.status === "pending") {
+      statusHtml = '<span class="inline-flex items-center rounded-full border border-dashed border-blue-400 bg-white px-2.5 py-1 text-xs font-medium text-blue-800">Pending confirmation</span>';
+    } else {
+      statusHtml = '<span class="inline-flex items-center rounded-full bg-green-50 px-2.5 py-1 text-xs font-medium text-green-700">Confirmed</span>';
+    }
+    var body =
+      '<div class="space-y-1">' +
+        '<p class="text-sm font-semibold text-slate-900">' + staff.name + '</p>' +
+        '<p class="text-xs text-slate-600">' + staff.role + '</p>' +
+      '</div>' +
+      '<div class="space-y-1 text-sm">' +
+        '<p class="text-slate-900">' + dayLabel + '</p>' +
+        '<p class="text-slate-900 font-medium">' + entry.start + '–' + entry.end + ' &middot; ' + formatHours(durationHours(entry)) + '</p>' +
+      '</div>' +
+      '<div>' + statusHtml + '</div>' +
+      '<div class="pt-2 border-t border-slate-200">' +
+        '<p class="text-xs text-slate-600">Last changed by ' + (entry.attribution || DEFAULT_ATTRIBUTION) + '</p>' +
+      '</div>';
+
+    var actions = "";
+    if (entry.status === "pending") {
+      actions += '<button id="act-confirm" type="button" class="rounded-md bg-blue-700 px-3 py-1.5 text-sm font-medium text-white hover:bg-blue-800 focus:outline-none focus:ring-2 focus:ring-blue-700">Confirm shift</button>';
+    }
+    actions += '<button id="act-edit" type="button" class="rounded-md border border-slate-300 px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-blue-700">Edit shift</button>';
+    actions += '<button id="act-remove" type="button" class="rounded-md border border-red-300 px-3 py-1.5 text-sm font-medium text-red-700 hover:bg-red-50 focus:outline-none focus:ring-2 focus:ring-red-600">Remove shift</button>';
+
+    openDrawer("Shift details", body, actions, triggerEl);
+
+    var confirmBtn = document.getElementById("act-confirm");
+    if (confirmBtn) {
+      confirmBtn.addEventListener("click", function () {
+        entry.status = "confirmed";
+        entry.attribution = "You · just now";
+        closeDrawer();
+        render();
+        showToast("Shift confirmed for " + staff.name + ", " + WEEKDAY_SHORT[dayIndex] + " " + formatDMY(date));
+      });
+    }
+    document.getElementById("act-edit").addEventListener("click", function () {
+      openShiftEdit(staff, dayIndex, entryIndex, date, triggerEl);
+    });
+    document.getElementById("act-remove").addEventListener("click", function () {
+      openDialog({
+        title: "Remove this shift?",
+        message: "Remove " + staff.name + "'s " + entry.start + "–" + entry.end + " shift on " + dayLabel + "? This can't be undone.",
+        confirmLabel: "Remove shift",
+        danger: true,
+        onConfirm: function () {
+          PATTERN[staff.id][dayIndex].splice(entryIndex, 1);
+          if (PATTERN[staff.id][dayIndex].length === 0) PATTERN[staff.id][dayIndex].push(OFF_COPY());
+          closeDrawer();
+          render();
+          showToast("Shift removed for " + staff.name + ", " + WEEKDAY_SHORT[dayIndex] + " " + formatDMY(date));
+        }
+      });
+    });
+  }
+
+  function OFF_COPY() { return { kind: "off" }; }
+
+  function openShiftEdit(staff, dayIndex, entryIndex, date, triggerEl) {
+    var isNew = entryIndex === -1;
+    var entry = isNew ? { kind: "shift", start: "09:00", end: "17:00", status: "confirmed" } : PATTERN[staff.id][dayIndex][entryIndex];
+    var dayLabel = WEEKDAY_LONG[dayIndex] + " " + formatDMY(date);
+
+    var body =
+      '<div class="space-y-1">' +
+        '<p class="text-sm font-semibold text-slate-900">' + staff.name + '</p>' +
+        '<p class="text-xs text-slate-600">' + staff.role + ' &middot; ' + dayLabel + '</p>' +
+      '</div>' +
+      '<form id="shift-form" class="space-y-4" novalidate>' +
+        '<div>' +
+          '<label for="start-time" class="block text-sm font-medium text-slate-700 mb-1">Start time</label>' +
+          '<input id="start-time" type="time" value="' + entry.start + '" class="w-full rounded-md border border-slate-300 px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-700" />' +
+        '</div>' +
+        '<div>' +
+          '<label for="end-time" class="block text-sm font-medium text-slate-700 mb-1">End time</label>' +
+          '<input id="end-time" type="time" value="' + entry.end + '" class="w-full rounded-md border border-slate-300 px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-700" />' +
+        '</div>' +
+        '<p id="form-error" class="text-sm text-red-700" hidden>End time must be after start time.</p>' +
+      '</form>';
+
+    var actions =
+      '<button id="act-cancel-edit" type="button" class="rounded-md border border-slate-300 px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-blue-700">Cancel</button>' +
+      '<button id="act-save-edit" type="button" class="rounded-md bg-blue-700 px-3 py-1.5 text-sm font-medium text-white hover:bg-blue-800 focus:outline-none focus:ring-2 focus:ring-blue-700">' + (isNew ? "Add shift" : "Save shift") + '</button>';
+
+    openDrawer(isNew ? "Add shift" : "Edit shift", body, actions, triggerEl);
+
+    document.getElementById("act-cancel-edit").addEventListener("click", closeDrawer);
+    document.getElementById("act-save-edit").addEventListener("click", function () {
+      var start = document.getElementById("start-time").value;
+      var end = document.getElementById("end-time").value;
+      var errorEl = document.getElementById("form-error");
+      if (!start || !end || timeToMinutes(end) <= timeToMinutes(start)) {
+        errorEl.hidden = false;
+        document.getElementById("end-time").focus();
+        return;
+      }
+      if (isNew) {
+        var dayCell = PATTERN[staff.id][dayIndex];
+        if (dayCell.length === 1 && (dayCell[0].kind === "off")) dayCell.length = 0;
+        dayCell.push({ kind: "shift", start: start, end: end, status: "confirmed", attribution: "You · just now" });
+      } else {
+        entry.start = start;
+        entry.end = end;
+        entry.attribution = "You · just now";
+      }
+      closeDrawer();
+      render();
+      showToast((isNew ? "Shift added for " : "Shift updated for ") + staff.name + ", " + WEEKDAY_SHORT[dayIndex] + " " + formatDMY(date));
+    });
+  }
+
+  function openAddFromOff(staff, dayIndex, date, triggerEl) {
+    openShiftEdit(staff, dayIndex, -1, date, triggerEl);
+  }
+
+  // ---------- Publish ----------
+  publishBtn.addEventListener("click", function () {
+    var key = toISO(currentWeekStart);
+    var status = weekStatus[key];
+    var isPublished = status && status.published;
+    if (isPublished) {
+      openDialog({
+        title: "Revert to draft?",
+        message: "Staff will no longer see this week's roster as final until you publish again.",
+        confirmLabel: "Revert to draft",
+        danger: false,
+        onConfirm: function () {
+          weekStatus[key] = { published: false };
+          render();
+          showToast("Week of " + rangeText(currentWeekStart) + " reverted to draft");
+        }
+      });
+    } else {
+      openDialog({
+        title: "Publish this week's roster?",
+        message: "Staff will be notified of their shifts for " + rangeText(currentWeekStart) + ".",
+        confirmLabel: "Publish week",
+        danger: false,
+        onConfirm: function () {
+          weekStatus[key] = { published: true, by: "You", date: formatDMY(TODAY) };
+          render();
+          showToast("Week of " + rangeText(currentWeekStart) + " published");
+        }
+      });
+    }
+  });
+
+  // ---------- Navigation ----------
+  document.getElementById("today-btn").addEventListener("click", function () { currentWeekStart = mondayOf(TODAY); render(); });
+  document.getElementById("prev-btn").addEventListener("click", function () { currentWeekStart = addDays(currentWeekStart, -7); render(); });
+  document.getElementById("next-btn").addEventListener("click", function () { currentWeekStart = addDays(currentWeekStart, 7); render(); });
+
+  // ---------- Filters ----------
+  searchInput.addEventListener("input", function () { searchText = searchInput.value.trim().toLowerCase(); render(); });
+  roleFilterSelect.addEventListener("change", function () { roleFilter = roleFilterSelect.value; render(); });
+  clearFiltersBtn.addEventListener("click", function () {
+    searchText = ""; roleFilter = "";
+    searchInput.value = ""; roleFilterSelect.value = "";
+    render();
+  });
+
+  // ---------- Render ----------
+  function render() {
+    var dates = [];
+    for (var i = 0; i < 7; i++) dates.push(addDays(currentWeekStart, i));
+
+    rangeHeading.textContent = rangeText(currentWeekStart);
+
+    var key = toISO(currentWeekStart);
+    var status = weekStatus[key];
+    var isPublished = !!(status && status.published);
+    statusBadge.textContent = isPublished ? "Published" : "Draft";
+    statusBadge.className = "inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium " +
+      (isPublished ? "bg-green-50 text-green-700" : "bg-slate-100 text-slate-700");
+    publishBtn.textContent = isPublished ? "Revert to draft" : "Publish week";
+    publishBtn.className = isPublished
+      ? "inline-flex items-center rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-700"
+      : "inline-flex items-center rounded-md bg-blue-700 px-3 py-2 text-sm font-medium text-white hover:bg-blue-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-700";
+
+    // Summary line (whole roster, independent of filters)
+    var totalShifts = 0, totalHours = 0;
+    STAFF.forEach(function (s) {
+      PATTERN[s.id].forEach(function (cell) {
+        cell.forEach(function (e) { if (e.kind === "shift") { totalShifts++; totalHours += durationHours(e); } });
+      });
+    });
+    summaryLine.textContent = STAFF.length + " staff · " + totalShifts + " shifts scheduled · " + formatHours(totalHours) + " this week · Updated " + formatDMY(TODAY) + " 16:40";
+
+    // Filtered staff
+    var visibleStaff = STAFF.filter(function (s) {
+      var matchesSearch = !searchText || s.name.toLowerCase().indexOf(searchText) !== -1;
+      var matchesRole = !roleFilter || s.role === roleFilter;
+      return matchesSearch && matchesRole;
+    });
+
+    // Filter chips
+    var chips = [];
+    if (searchText) chips.push({ label: 'Search: "' + searchInput.value.trim() + '"', clear: function () { searchText = ""; searchInput.value = ""; render(); } });
+    if (roleFilter) chips.push({ label: "Role: " + roleFilter, clear: function () { roleFilter = ""; roleFilterSelect.value = ""; render(); } });
+    filterChipsWrap.hidden = chips.length === 0;
+    chipsContainer.innerHTML = "";
+    chips.forEach(function (chip) {
+      var el = document.createElement("span");
+      el.className = "inline-flex items-center gap-1 rounded-full bg-slate-100 pl-2.5 pr-1.5 py-1 text-xs font-medium text-slate-700";
+      el.innerHTML = chip.label + ' <button type="button" aria-label="Remove filter ' + chip.label + '" class="rounded-full hover:bg-slate-200 p-0.5">&times;</button>';
+      el.querySelector("button").addEventListener("click", chip.clear);
+      chipsContainer.appendChild(el);
+    });
+
+    // ---- Head ----
+    var headRow = document.createElement("tr");
+    var thStaff = document.createElement("th");
+    thStaff.scope = "col";
+    thStaff.className = "sticky left-0 z-10 bg-white text-left text-xs font-medium text-slate-600 px-3 py-2.5 border-b border-slate-200 min-w-[180px]";
+    thStaff.textContent = "Staff";
+    headRow.appendChild(thStaff);
+
+    dates.forEach(function (date, idx) {
+      var isToday = sameDate(date, TODAY);
+      var isWeekend = idx === 5 || idx === 6;
+      var th = document.createElement("th");
+      th.scope = "col";
+      th.className = "text-left text-xs font-medium px-3 py-2.5 border-b border-slate-200 min-w-[140px] " +
+        (isWeekend ? "bg-slate-50 " : "") + (isToday ? "text-blue-800" : "text-slate-600");
+      if (isToday) th.setAttribute("aria-current", "date");
+      var dot = isToday ? '<span class="inline-block h-1.5 w-1.5 rounded-full bg-blue-700 mr-1 align-middle"></span>' : "";
+      th.innerHTML = '<div>' + dot + WEEKDAY_SHORT[idx] + " " + pad(date.getDate()) + "/" + pad(date.getMonth() + 1) + '</div>' +
+        (isToday ? '<div class="text-[11px] font-normal text-blue-700 mt-0.5">Today</div>' : "");
+      headRow.appendChild(th);
+    });
+
+    var thHours = document.createElement("th");
+    thHours.scope = "col";
+    thHours.className = "text-right text-xs font-medium text-slate-600 px-3 py-2.5 border-b border-slate-200 min-w-[90px]";
+    thHours.textContent = "Hours";
+    headRow.appendChild(thHours);
+    tableHead.innerHTML = "";
+    tableHead.appendChild(headRow);
+
+    // ---- Body ----
+    tableBody.innerHTML = "";
+    if (visibleStaff.length === 0) {
+      var trEmpty = document.createElement("tr");
+      var tdEmpty = document.createElement("td");
+      tdEmpty.colSpan = 9;
+      tdEmpty.className = "px-4 py-10 text-center text-sm text-slate-600";
+      tdEmpty.innerHTML = 'No staff match these filters.<br/><button id="empty-clear" type="button" class="mt-2 text-blue-700 font-medium hover:underline">Clear filters</button>';
+      trEmpty.appendChild(tdEmpty);
+      tableBody.appendChild(trEmpty);
+      document.getElementById("empty-clear").addEventListener("click", function () { clearFiltersBtn.click(); });
+    } else {
+      visibleStaff.forEach(function (staff) {
+        var tr = document.createElement("tr");
+        tr.className = "border-b border-slate-100 last:border-b-0";
+
+        var tdStaff = document.createElement("td");
+        tdStaff.className = "sticky left-0 z-10 bg-white px-3 py-2 align-top";
+        tdStaff.innerHTML =
+          '<div class="flex items-center gap-2">' +
+            '<span class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-blue-50 text-xs font-semibold text-blue-800">' + staff.initials + '</span>' +
+            '<div>' +
+              '<p class="text-sm font-medium text-slate-900 leading-tight">' + staff.name + '</p>' +
+              '<p class="text-xs text-slate-600 leading-tight">' + staff.role + '</p>' +
+            '</div>' +
+          '</div>';
+        tr.appendChild(tdStaff);
+
+        var weekHours = 0;
+        dates.forEach(function (date, dayIndex) {
+          var isWeekend = dayIndex === 5 || dayIndex === 6;
+          var td = document.createElement("td");
+          td.className = "align-top px-3 py-2 " + (isWeekend ? "bg-slate-50" : "");
+          var cell = PATTERN[staff.id][dayIndex];
+          var wrap = document.createElement("div");
+          wrap.className = "flex flex-col gap-1";
+
+          cell.forEach(function (entry, entryIndex) {
+            if (entry.kind === "shift") {
+              weekHours += durationHours(entry);
+              var btn = document.createElement("button");
+              btn.type = "button";
+              var pending = entry.status === "pending";
+              btn.className = "w-full text-left rounded-md border px-2 py-1 text-xs leading-tight focus:outline-none focus:ring-2 focus:ring-blue-700 " +
+                (pending ? "border-dashed border-blue-300 bg-white text-blue-800 hover:bg-blue-50" : "border-blue-200 bg-blue-50 text-blue-900 hover:bg-blue-100");
+              btn.innerHTML = '<span class="font-medium">' + entry.start + '–' + entry.end + '</span>' + (pending ? '<span class="block text-[11px]">Pending</span>' : "");
+              btn.setAttribute("aria-label", staff.name + ", " + WEEKDAY_LONG[dayIndex] + " " + formatDMY(date) + ", " + entry.start + " to " + entry.end + ", " + shiftStatusLabel(entry));
+              (function (dIdx, eIdx, d) {
+                btn.addEventListener("click", function () { openShiftDetail(staff, dIdx, eIdx, d, btn); });
+              })(dayIndex, entryIndex, date);
+              wrap.appendChild(btn);
+            } else if (entry.kind === "leave") {
+              var leaveEl = document.createElement("div");
+              leaveEl.className = "rounded-md border border-amber-200 bg-amber-50 px-2 py-1 text-xs text-amber-800";
+              leaveEl.textContent = entry.label;
+              wrap.appendChild(leaveEl);
+            } else {
+              var offBtn = document.createElement("button");
+              offBtn.type = "button";
+              offBtn.className = "w-full text-left rounded-md border border-dashed border-slate-200 px-2 py-1 text-xs text-slate-500 hover:border-slate-300 hover:bg-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-700";
+              offBtn.textContent = "Off · Add shift";
+              offBtn.setAttribute("aria-label", "Add shift for " + staff.name + " on " + WEEKDAY_LONG[dayIndex] + " " + formatDMY(date));
+              (function (dIdx, d) {
+                offBtn.addEventListener("click", function () { openAddFromOff(staff, dIdx, d, offBtn); });
+              })(dayIndex, date);
+              wrap.appendChild(offBtn);
+            }
+          });
+
+          td.appendChild(wrap);
+          tr.appendChild(td);
+        });
+
+        var tdHours = document.createElement("td");
+        tdHours.className = "px-3 py-2 text-right text-sm font-medium text-slate-900 tabular-nums align-top";
+        tdHours.textContent = formatHours(weekHours);
+        tr.appendChild(tdHours);
+
+        tableBody.appendChild(tr);
+      });
+    }
+
+    // ---- Foot: coverage ----
+    tableFoot.innerHTML = "";
+    var footRow = document.createElement("tr");
+    footRow.className = "border-t border-slate-200 bg-slate-50";
+    var tdLabel = document.createElement("td");
+    tdLabel.className = "sticky left-0 z-10 bg-slate-50 px-3 py-2 text-xs font-medium text-slate-700";
+    tdLabel.textContent = "Scheduled";
+    footRow.appendChild(tdLabel);
+
+    var grandTotal = 0;
+    dates.forEach(function (date, dayIndex) {
+      var scheduledCount = STAFF.filter(function (s) {
+        return PATTERN[s.id][dayIndex].some(function (e) { return e.kind === "shift"; });
+      }).length;
+      var td = document.createElement("td");
+      var underStaffed = scheduledCount < MIN_STAFF;
+      td.className = "px-3 py-2 text-xs";
+      if (underStaffed) {
+        td.innerHTML = '<span class="inline-flex items-center rounded-full bg-amber-100 px-2 py-0.5 font-medium text-amber-800">' + scheduledCount + " of " + STAFF.length + " · Needs attention</span>";
+      } else {
+        td.innerHTML = '<span class="text-slate-600">' + scheduledCount + " of " + STAFF.length + "</span>";
+      }
+      footRow.appendChild(td);
+    });
+
+    STAFF.forEach(function (s) {
+      PATTERN[s.id].forEach(function (cell) {
+        cell.forEach(function (e) { if (e.kind === "shift") grandTotal += durationHours(e); });
+      });
+    });
+    var tdGrand = document.createElement("td");
+    tdGrand.className = "px-3 py-2 text-right text-xs font-semibold text-slate-900 tabular-nums";
+    tdGrand.textContent = formatHours(grandTotal);
+    footRow.appendChild(tdGrand);
+
+    tableFoot.appendChild(footRow);
+  }
+
+  render();
+})();
+</script>

@@ -1,0 +1,54 @@
+{
+  "brief": "29-support-ticket-board",
+  "run": 2,
+  "items": [
+    {
+      "item": "Every status column heading shows the status name and its ticket count, and the count equals the cards shown or the column states how many are not shown (such as \"Showing 20 of 134\")",
+      "pass": true,
+      "evidence": "renderBoardView builds headerRight as '<span ...>' + countLabel + '</span>' where countLabel = items.length (or 'items.length / limit') and the <ol> renders items.map(renderCard) for the same unsliced `items` array, e.g. header 'Đang xử lý 9 / 8 · Vượt giới hạn' with all 9 cards rendered (scrollable), and collapsed 'Đã đóng' shows a count badge of 6."
+    },
+    {
+      "item": "Each card shows the ticket number (such as #4821), subject, customer, priority as a word or code (such as \"P1 · Urgent\") and the assignee, or an explicit \"Unassigned\"",
+      "pass": true,
+      "evidence": "renderCard: '<span class=\"text-xs font-medium text-slate-500\">' + t.id (e.g. HD-1052) + priority badge pr.label ('Khẩn cấp'/'Cao'/...) + title + customer line, and assigneeHtml either shows the assignee name or '<span class=\"text-xs text-slate-500\">Chưa phân công</span>' (explicit 'Unassigned')."
+    },
+    {
+      "item": "Open tickets show the time left to the next SLA target and which target it is (such as \"Resolution due in 2h 15m\"), and breached tickets show how long they are overdue (such as \"Breached 40m ago\") in text or with an icon, not by colour alone",
+      "pass": false,
+      "evidence": "For non-overdue cards renderCard only prints a bare due date: 'Hạn ' + pad(d.getDate())+'/'+pad(d.getMonth()+1) (e.g. 'Hạn 07/11') — no countdown ('còn Xh') and no named SLA target is shown on the card. The full countdown text (sla.text, 'Hạn <datetime> · còn X giờ') exists only in slaInfo() and is rendered in the side panel/list view, not on board cards. Breached tickets do get an icon+text badge ('⚠ Quá hạn 10 giờ SLA'), but the open-ticket half of the requirement fails."
+    },
+    {
+      "item": "Tickets in a waiting status (such as \"Waiting on customer\") show their SLA timer as paused instead of counting down",
+      "pass": false,
+      "evidence": "slaInfo(t): `var active = t.status !== \"resolved\" && t.status !== \"closed\";` — 'waiting' tickets are treated as active and keep counting/overdue exactly like other open statuses (e.g. card HD-1022 in 'Chờ phản hồi' shows normal 'Quá hạn 5 giờ SLA' badge). No paused state or copy exists for the waiting status."
+    },
+    {
+      "item": "Within each column the cards are ordered by SLA due time or by priority, and the board states which ordering is used",
+      "pass": false,
+      "evidence": "sortForColumn() sorts by PRIORITY[...].order then by dueAt, so ordering is implemented, but no column heading or board UI text states the ordering rule anywhere in renderBoardView()/renderHeader()/renderToolbar()."
+    },
+    {
+      "item": "Search finds tickets by number, subject or customer, and filters cover assignee (including \"Me\" and \"Unassigned\"), priority and SLA state (such as breached or due within 1 hour)",
+      "pass": false,
+      "evidence": "matchesFilters() checks `(t.id + \" \" + t.title + \" \" + t.customer)` for search, and filters include assignee ('Giao cho tôi' checkbox = Me, plus 'unassigned' option in the assignee <select>) and priority. There is no SLA-state filter (no breached / due-within-1h option anywhere in renderToolbar())."
+    },
+    {
+      "item": "Each card has keyboard-reachable actions to assign the ticket (including \"Assign to me\") and to change its status without dragging, with accessible names that include the ticket number",
+      "pass": false,
+      "evidence": "Each card's kebab button (`aria-label=\"Hành động cho \" + t.id`) opens renderMoveMenu(), which only lists status-change menuitems (STATUSES filtered by current status) via data-action=\"move-ticket\" — there is no assign or 'assign to me' action in that menu or anywhere else on the card; assignment is only reachable via the 'panel-assignee' <select> after opening the full detail panel."
+    },
+    {
+      "item": "An empty column shows a short message instead of blank space, a search or filter with no matches offers to clear it, and loading and failed-load (with retry) states exist",
+      "pass": true,
+      "evidence": "Per-column empty: '<div class=\"flex-1 px-3 py-6 text-center text-xs text-slate-500\">Không có ticket nào ở trạng thái \"...\".</div>'. Board/list no-match: 'Không có ticket khớp với bộ lọc hiện tại' plus a 'Xóa bộ lọc' clear button. renderLoading() renders skeleton columns with aria-busy=\"true\"; renderError() shows 'Không thể tải danh sách ticket.' with a data-action=\"retry\" button."
+    },
+    {
+      "item": "Every relative time (such as \"Updated 3h ago\") also exposes the exact date, time and timezone, in a <time datetime> element or a title attribute",
+      "pass": false,
+      "evidence": "Grep for '<time', 'datetime', and 'title=\"' across the file finds only title attributes holding the ticket title text (e.g. `title=\"' + esc(t.title) + '\"`) — no <time datetime> element and no title attribute carrying a full timestamp anywhere. Relative strings like 'Quá hạn 10 giờ SLA' and header 'Cập nhật 09:27' are plain text with no machine-readable/tooltip exact timestamp, and no timezone is ever shown."
+    }
+  ],
+  "tells": [],
+  "notes": "No sidebar exists in this board layout, so sidebar-promo-card and navy-sidebar-indigo-accent don't apply. Icons are inline lucide-style SVGs (not emoji), radii are consistently 4-6px (rounded-md, not oversized), there is no gradient/backdrop-blur usage, and card hover is a plain border-color change (no lift/shadow). Avatars are two-letter initials computed from real assignee names (ASSIGNEES map), representing actual people, so this is not an initials-avatar-non-person tell.",
+  "blind": true
+}

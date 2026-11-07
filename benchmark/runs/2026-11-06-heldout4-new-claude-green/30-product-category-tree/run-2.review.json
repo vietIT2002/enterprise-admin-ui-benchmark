@@ -1,0 +1,54 @@
+{
+  "brief": "30-product-category-tree",
+  "run": 2,
+  "items": [
+    {
+      "item": "Each category in the tree shows a product count, the page states whether counts include subcategories, and in the sample data every parent's total equals its own products plus the totals of its children",
+      "pass": false,
+      "evidence": "Tree column 'Số sản phẩm' renders formatNumber(totalProducts(n)) which recursively sums own+children (page.html:610,618), so math is always internally consistent (e.g. DM-011 'Thời trang nam' shows 177 = 86+54+37 from its three children, visible in screenshot). However nowhere does the UI state whether the count includes subcategories — the column header is just 'Số sản phẩm' and the detail panel label is 'Tổng số sản phẩm' ('Tổng'=total gives a weak hint but is not an explicit statement about subcategory inclusion)."
+    },
+    {
+      "item": "The tree exposes its structure to screen readers (role=\"tree\" and \"treeitem\", or nested lists) with aria-expanded on parent nodes and the selected node marked, and nodes can be expanded, collapsed and selected from the keyboard",
+      "pass": false,
+      "evidence": "The tree is marked up as <table role=\"treegrid\"> with <tr role=\"row\"> / <td role=\"gridcell\"> (page.html:148,611), not role=\"tree\"/\"treeitem\" and not a nested list. aria-expanded and aria-selected are present on rows, and full keyboard support exists (onTreeKeyDown handles ArrowUp/Down/Left/Right, Home, End, Enter/Space, type-ahead at page.html:755-810), but the required tree/treeitem or nested-list exposure pattern is not used."
+    },
+    {
+      "item": "Searching by name keeps the ancestors of each matching category visible and expanded so its place in the hierarchy is clear, and a search with no matches says so",
+      "pass": true,
+      "evidence": "computeMatches() walks matches and adds every ancestor id to a 'visible' set (page.html:562-579); buildVisibleRows() forces expanded=true for any node with children while searching (page.html:589) and filters out non-visible rows. No-match state renders 'Không có danh mục nào khớp \"<query>\"' with a clear-search button (page.html:630-636)."
+    },
+    {
+      "item": "The detail panel shows the selected category's full path (such as \"Home › Kitchen › Cookware\"), name, URL slug, parent, visibility status, product count with a link to those products, and the last modified date and user",
+      "pass": false,
+      "evidence": "Breadcrumb path, name (h1), status badge, product-count box and a 'Xem tất cả N sản phẩm' link, and 'Thay đổi lần cuối bởi … · <time>' are all present (page.html:838-930). But there is no URL-slug field shown anywhere — only an internal 'Mã danh mục' (category code like DM-111) is displayed, and there is no explicit 'Parent: X' field (only the implicit breadcrumb)."
+    },
+    {
+      "item": "Hidden or inactive categories are marked in the tree with a text label or icon (such as \"Hidden\"), not only by greying out",
+      "pass": true,
+      "evidence": "Inactive rows get both a grey name color and an explicit text suffix: `n.status === 'inactive' ? ' <span class=\"text-xs text-slate-400\">(Ngừng hoạt động)</span>' : ''` (page.html:608)."
+    },
+    {
+      "item": "Deleting a category that still has products or subcategories is blocked or requires choosing where to move them, and the confirmation names the category and the counts affected",
+      "pass": false,
+      "evidence": "No delete action exists anywhere in the app. The overflow menu only offers 'Thêm danh mục con' (add child) and a status toggle ('Ngừng hoạt động'/'Kích hoạt') (page.html:918-919); there is no delete button, confirmation dialog, or move-contents flow."
+    },
+    {
+      "item": "A category can be given a new parent without drag-and-drop (a parent picker or \"Move to…\" action), and the picker excludes the category itself and its own descendants",
+      "pass": false,
+      "evidence": "The edit-category modal has a parent <select> (#f-parent) and flattenForSelect() correctly excludes the category's own subtree via isSameOrDescendant() (page.html:997-1013), but in edit mode the field is explicitly disabled: `catModal.parent.disabled = true;` (page.html:1086). So an existing category's parent can never actually be changed through this UI — the picker only sets the parent at creation time."
+    },
+    {
+      "item": "Selecting another category while the detail form has unsaved edits asks to save or discard first",
+      "pass": true,
+      "evidence": "Editing happens in a modal dialog with a full-screen backdrop (#cat-modal-backdrop, page.html:184-185) that intercepts all clicks on the tree/detail behind it. markDirty() tracks changes (page.html:1102-1105), and any attempt to leave (backdrop click, close button, Escape) while dirty triggers closeCategoryModal(false), which shows '#cat-discard-confirm' asking 'Bạn có thay đổi chưa lưu. Đóng và hủy thay đổi?' before discarding (page.html:1107-1115, 228-234)."
+    },
+    {
+      "item": "With nothing selected the detail panel shows a prompt instead of blank fields, a catalogue with no categories offers to create the first one, and the tree has loading and load-error-with-retry states",
+      "pass": true,
+      "evidence": "renderDetailState('empty') shows 'Chọn một danh mục để xem thông tin chi tiết' plus a 'Thêm danh mục' button, reused for the no-categories case (page.html:818-825). Tree loading state is a skeleton (renderTreeSkeleton, page.html:654-661) and the error state shows 'Không thể tải danh mục sản phẩm' with a 'Thử lại' retry button wired to retryLoad() (page.html:674-693)."
+    }
+  ],
+  "tells": [],
+  "notes": "Overall this is an unusually restrained, non-template-feeling admin screen: no greeting header, KPI tiles, gradients, glass, emoji icons, uppercase tracked labels, sidebar promo, or decorative charts were found (grepped for gradient/backdrop-blur/uppercase — zero matches). Main gaps are functional rather than cosmetic: delete is entirely unimplemented, the parent-reassignment picker is disabled in edit mode, no URL slug is surfaced, and the tree uses the treegrid ARIA pattern rather than the tree/treeitem or nested-list pattern the checklist asks for (though it is a legitimate, fully keyboard-accessible pattern in its own right). The automated audit (score 80/100) separately flags 26 text-contrast violations (e.g. slate-300/slate-400 text on white, 1.48:1–2.56:1) and 7 icon-only tree-expand buttons with no accessible name.",
+  "blind": true
+}

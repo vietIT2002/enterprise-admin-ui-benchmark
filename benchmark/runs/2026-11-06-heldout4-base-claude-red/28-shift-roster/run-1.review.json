@@ -1,0 +1,56 @@
+{
+  "brief": "28-shift-roster",
+  "run": 1,
+  "items": [
+    {
+      "item": "The grid header names the week with its date range (such as \"Week 45 · 2–8 Nov 2026\"), every day column shows the weekday and date, and controls move to the previous, next and current week",
+      "pass": false,
+      "evidence": "Header text is '#weekRangeLabel: Northgate Store · Week of Nov 10 – Nov 16, 2026' (no week number) and day columns do show weekday+date via `th.innerHTML = `${d.label}<div ...>${d.date}</div>``, but there are no prev/next/current-week controls anywhere in the markup or script — only Publish/Print buttons exist in the header."
+    },
+    {
+      "item": "Each shift shows its start and end time in one consistent 24-hour format and the role or station (such as \"07:00–15:00 · Cashier\"), and a shift that ends after midnight is marked as ending the next day",
+      "pass": false,
+      "evidence": "shiftCellHTML() renders only `${shift.start} – ${shift.end}` plus an optional note like 'Opening'/'Closing' (e.g. '08:00 – 16:00 / Opening'); role/station (e.g. 'Cashier') is shown only once in a separate 'Role' column, never inside the shift cell. No shift in the sample data crosses midnight and there is no code path that marks next-day end (shiftHours() simply subtracts minutes, which would go negative for an overnight shift, confirming it isn't handled)."
+    },
+    {
+      "item": "Each staff row shows the week's scheduled hours against contracted hours (such as \"36 / 40 h\"), the scheduled figure equals that person's shifts less unpaid breaks, and anyone over or under contract is flagged in words",
+      "pass": false,
+      "evidence": "Row total cell renders `${totalHours}h` only (e.g. 'Total Hrs' column shows a bare number like '38h'); there is no contracted-hours value anywhere in the `staff` data, no '36 / 40 h' pairing, and no over/under-contract word flag."
+    },
+    {
+      "item": "A footer row shows, for each day, the staff count or hours scheduled against the required cover, and days below the requirement are marked in text (such as \"Short 1\")",
+      "pass": false,
+      "evidence": "The table has no `<tfoot>` or summary row at all — `<tbody id=\"rosterBody\">` is followed directly by `</table>`; the only non-grid area after the table is the unrelated 'Manager Notes' list."
+    },
+    {
+      "item": "The sample data contains at least one rule conflict, such as overlapping shifts for one person or less than 11 hours' rest between a closing and the next opening shift, shown on the affected cell with a written reason",
+      "pass": false,
+      "evidence": "Checked the mock `staff` array for overlaps and close→open turnarounds (e.g. Jordan Pierce Sat 14:00–22:00 close → Sun day off; Tobias Reyes Mon 16:00–22:00 close → Tue 16:00–22:00, 18h rest); no case breaches 11h rest and no person has two shifts the same day. There is also no styling/badge/tooltip in shiftCellHTML() for flagging conflicts — the feature isn't implemented."
+    },
+    {
+      "item": "Approved leave, days off and public holidays appear as labelled cells (such as \"Annual leave\", \"Day off\") that look different from an empty, unscheduled cell",
+      "pass": true,
+      "evidence": "shiftCellHTML() renders `type: \"off\"` as a greyed 'Day Off' pill (`shiftStyles.off`) and `type: \"leave\"` as a rose 'PTO' pill (`shiftStyles.leave`), visually distinct from the blue/violet/indigo worked-shift pills (visible in first.png, e.g. Sofia Marchetti Wed/Thu 'PTO'). No public holiday case is present in the sample data."
+    },
+    {
+      "item": "The week's status (Draft or Published) is shown, and publishing goes through a confirmation that names the week and the number of unresolved conflicts or warnings",
+      "pass": false,
+      "evidence": "`#statusBadge` shows 'Draft'/'Published' and `#publishBtn` toggles it, but the click handler (`publishBtn.addEventListener('click', ...)`) flips `published` and restyles the badge immediately with no confirm dialog, no week name, and no conflict/warning count — since no conflicts are ever computed, there's nothing to report anyway."
+    },
+    {
+      "item": "The grid is a <table> with staff names as row headers and days as column headers, and each shift or empty cell is keyboard-reachable with an accessible name that includes the person and the date (such as \"Add shift, Lan Pham, Tue 3 Nov\")",
+      "pass": false,
+      "evidence": "It is a real `<table>` with day/role `<th>` headers in `<thead>`, but staff names are rendered as plain `<td class=\"px-4 py-3 font-medium ...\">${member.name}</td>`, not `<th scope=\"row\">`. Shift cells are static `<div>`s inside `<td>` with no `tabindex`, `role=\"button\"`, or `aria-label` — nothing in the grid is focusable or has an accessible name combining person and date."
+    },
+    {
+      "item": "A week with no shifts yet shows a message with a way to start (such as \"Copy last week\"), and a loading state and a load error with a retry button exist",
+      "pass": false,
+      "evidence": "The page hardcodes a populated `staff` array and renders it synchronously on load; there is no empty-state branch, no loading indicator, no fetch/error handling, and no retry control anywhere in the script or markup."
+    }
+  ],
+  "tells": [
+    "oversized-radius"
+  ],
+  "notes": "Only one checklist item (labelled leave/day-off cells) passes; the page is a static mock (hardcoded `staff` array, no fetch/loading/error/empty states) covering roster display only — no week navigation, no contracted-hours comparison, no footer coverage row, no conflict detection, no publish confirmation, and no accessible/keyboard-reachable grid semantics. Audit.json independently flags oversized-radius (header/cards use rounded-xl=12px vs an 8px max, 4 distinct radii in use), plus text-contrast, table-row-height and surface-shadow issues not covered by the checklist. No other listed template tells (greeting-header, kpi-icon-tiles, delta-pill-without-period, initials-avatar-non-person, gradient, glass, tracked-uppercase-labels, emoji-icon, rainbow-status, sidebar-promo-card, decorative-chart, card-in-card, hover-lift, navy-sidebar-indigo-accent) are present in the markup.",
+  "blind": true
+}

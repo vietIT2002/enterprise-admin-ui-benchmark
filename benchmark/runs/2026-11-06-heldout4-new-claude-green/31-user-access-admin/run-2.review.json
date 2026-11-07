@@ -1,0 +1,54 @@
+{
+  "brief": "31-user-access-admin",
+  "run": 2,
+  "items": [
+    {
+      "item": "Each row shows the user's name and email, role, status in words (such as Active, Invited, Deactivated, Locked) and whether two-factor sign-in is enabled",
+      "pass": false,
+      "evidence": "renderRow() emits name, email, role and statusBadge(u.status) ('Hoạt động'/'Đã mời'/'Vô hiệu hóa' — words), but no cell or icon anywhere represents two-factor/2FA status; no '2FA'/'hai yếu tố' string exists in the page or data model (users only have id/name/email/role/status/lastLogin/createdAt)."
+    },
+    {
+      "item": "Last sign-in uses one date-time format with the timezone stated, relative times also expose the exact time, and an account that has never signed in shows \"Never\" rather than a blank or a 1970 date",
+      "pass": false,
+      "evidence": "formatDateTime() renders 'dd/mm/yyyy HH:MM' consistently and lastLoginCellHtml() pairs it with the relative string for recent logins ('07/11/2026 15:00 · 10 giờ trước'), satisfying the 'exact time alongside relative' part — but the timezone (Asia/Ho_Chi_Minh is used internally, TIME_ZONE var) is never stated in the visible text. Never-signed-in rows render '<span class=\"text-slate-400\">—</span>' with only an sr-only 'Chưa đăng nhập' label — visually a bare dash, not the word 'Never'/'Chưa từng đăng nhập'."
+    },
+    {
+      "item": "Users can be found by searching name or email and filtered by role, status and inactivity (such as no sign-in for 90+ days), with the number of matching users shown",
+      "pass": true,
+      "evidence": "searchInput + matchesNonStatus() matches against foldVi(u.name + ' ' + u.email); roleFilterOptions checkboxes filter state.roles; statusTabs filter state.statusTab; lastLoginSelect option value=\"90plus\" ('Không hoạt động trên 90 ngày') filters inactivity; resultCount textContent shows '<n> người dùng phù hợp'."
+    },
+    {
+      "item": "The invite form requires an email and a role, labels both fields, and shows an inline error for a malformed address or one that already has an account",
+      "pass": true,
+      "evidence": "<label for=\"inviteEmail\">Email *</label> and <label for=\"inviteRole\">Vai trò *</label>; submit handler validates required, validEmail() regex ('Nhập email hợp lệ, ví dụ ten@novawork.vn'), and duplicate check against ALL_USERS ('Email này đã có trong hệ thống') writing into #inviteEmailError."
+    },
+    {
+      "item": "Deactivation asks for confirmation that names the user and states the effect (active sessions ended, sign-in blocked, data kept), and a deactivated user is offered Reactivate instead",
+      "pass": false,
+      "evidence": "openConfirm title 'Vô hiệu hóa tài khoản ' + user.name + '?' names the user, and disabled users get a menu item {action:'enable', label:'Kích hoạt tài khoản'} (Reactivate) — but the body text is only 'Họ sẽ ngay lập tức mất quyền truy cập vào hệ thống. Bạn có thể kích hoạt lại tài khoản sau.' (lose access / can reactivate later), with no mention of active sessions being ended or data being kept."
+    },
+    {
+      "item": "The signed-in administrator's own row is marked (such as \"You\") and cannot be deactivated or lose the admin role, and the last remaining administrator cannot be deactivated, with the disabled action explaining why",
+      "pass": false,
+      "evidence": "No current-user concept exists anywhere in the script (no 'currentUser'/'self'/'You' string, no row marking); renderRow()'s menu always offers 'disable'/'remove' regardless of role or admin count, and there is no logic guarding the last 'Quản trị viên' from deactivation."
+    },
+    {
+      "item": "Password reset sends a reset link to the user's email address, which the confirmation names, and the administrator never sees, sets or types the new password",
+      "pass": true,
+      "evidence": "handleRowAction('reset') calls toast('Đã gửi email đặt lại mật khẩu cho ' + user.email) — names the recipient email, no password input field exists anywhere for the admin to view/set/type."
+    },
+    {
+      "item": "Row actions are buttons or a keyboard-operable menu whose accessible names include the user (such as \"Actions for Mai Nguyen\"), and the outcome of an action is announced in an aria-live or role=\"status\" region",
+      "pass": true,
+      "evidence": "Trigger button aria-label=\"Hành động cho \" + u.name (e.g. 'Hành động cho Nguyễn Thu Hà'), role=\"menu\"/role=\"menuitem\" built from real <button> elements (focusable/operable); toast() appends messages into #toastRegion which has role=\"status\" aria-live=\"polite\"."
+    },
+    {
+      "item": "A search with no matching users shows a message with a way to clear it, and loading and failed-load states with a retry exist",
+      "pass": true,
+      "evidence": "emptyStateRow('no-results') shows 'Không có người dùng khớp \"...\"' plus #emptyClearBtn 'Xóa bộ lọc' that resets all filters; skeletonRows() renders an aria-busy loading table; errorStateRow() shows 'Không thể tải danh sách người dùng' with #retryBtn 'Thử lại' (triggered via ?state=error/empty)."
+    }
+  ],
+  "tells": [],
+  "notes": "Overall a clean, non-templatey admin list screen (audit score 90/100, only a text-contrast violation on the inactive status-tab counts e.g. div#statusTabs span.text-slate-400 at 2.56:1). No dashboard-style decorative elements (no KPI tiles, gradients, glass, emoji icons, oversized radii, navy/indigo sidebar) were found, so the 'template tell' list is empty. The three failing checklist items are substantive gaps: no 2FA indicator/column, no stated timezone for last-sign-in timestamps (and 'Never' is a bare '—' rather than visible text), no admin-self/last-admin protection or 'You' row marking, and the deactivation confirmation under-states its effects.",
+  "blind": true
+}

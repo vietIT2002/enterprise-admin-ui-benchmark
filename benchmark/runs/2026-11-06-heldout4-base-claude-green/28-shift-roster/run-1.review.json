@@ -1,0 +1,54 @@
+{
+  "brief": "28-shift-roster",
+  "run": 1,
+  "items": [
+    {
+      "item": "The grid header names the week with its date range (such as \"Week 45 · 2–8 Nov 2026\"), every day column shows the weekday and date, and controls move to the previous, next and current week",
+      "pass": true,
+      "evidence": "#range-heading renders rangeText(currentWeekStart) → \"2–8 November 2026\"; each <th> shows WEEKDAY_SHORT[idx] + date e.g. \"Mon 02/11\"; #prev-btn/#next-btn/#today-btn call addDays(±7)/mondayOf(TODAY) then render()."
+    },
+    {
+      "item": "Each shift shows its start and end time in one consistent 24-hour format and the role or station (such as \"07:00–15:00 · Cashier\"), and a shift that ends after midnight is marked as ending the next day",
+      "pass": false,
+      "evidence": "Shift buttons only render entry.start + '–' + entry.end (e.g. \"09:00–17:00\"); role/station text is never placed inside the shift cell (it only appears once per staff row in the name column). No shift in PATTERN crosses midnight and there is no code path that appends a 'next day' marker (openShiftDetail/shift button markup has no such logic)."
+    },
+    {
+      "item": "Each staff row shows the week's scheduled hours against contracted hours (such as \"36 / 40 h\"), the scheduled figure equals that person's shifts less unpaid breaks, and anyone over or under contract is flagged in words",
+      "pass": false,
+      "evidence": "The \"Hours\" column only outputs formatHours(weekHours) e.g. \"40h\" — a single number, not scheduled-vs-contracted. STAFF objects have no contracted-hours field, durationHours() has no break deduction, and there is no over/under-contract flag text anywhere in render()."
+    },
+    {
+      "item": "A footer row shows, for each day, the staff count or hours scheduled against the required cover, and days below the requirement are marked in text (such as \"Short 1\")",
+      "pass": false,
+      "evidence": "Footer cells render scheduledCount + \" of \" + STAFF.length (e.g. \"6 of 7\"), which is scheduled staff out of total roster size, not against the required cover figure (MIN_STAFF=5 is never displayed). Under-covered days do get a text label \"Needs attention\" (td.innerHTML amber pill when scheduledCount < MIN_STAFF), but it never states the shortfall (e.g. \"Short 1\") or the actual requirement number."
+    },
+    {
+      "item": "The sample data contains at least one rule conflict, such as overlapping shifts for one person or less than 11 hours' rest between a closing and the next opening shift, shown on the affected cell with a written reason",
+      "pass": false,
+      "evidence": "Manually checking PATTERN for all 7 staff: no entries overlap within a day, and every inter-day gap (e.g. Marcus Lee Sat 14:00–22:00 → Sun 12:00–20:00 = 14h rest) is ≥11h. No conflict/warning concept exists in the code (no field, no cell styling, no reason text) — only the unrelated 'Needs attention' understaffing pill."
+    },
+    {
+      "item": "Approved leave, days off and public holidays appear as labelled cells (such as \"Annual leave\", \"Day off\") that look different from an empty, unscheduled cell",
+      "pass": false,
+      "evidence": "LEAVE(\"Annual leave\") renders an amber-bordered div with the label, and OFF renders a dashed \"Off · Add shift\" button — both are visually distinct. However public holidays are not modeled at all: there is no holiday kind/label anywhere in STAFF/PATTERN or the kind switch in render() (only \"shift\", \"off\", \"leave\" kinds exist)."
+    },
+    {
+      "item": "The week's status (Draft or Published) is shown, and publishing goes through a confirmation that names the week and the number of unresolved conflicts or warnings",
+      "pass": false,
+      "evidence": "#status-badge toggles \"Draft\"/\"Published\" correctly. The publish confirm dialog message is \"Staff will be notified of their shifts for \" + rangeText(currentWeekStart) — it names the week but never mentions a count of unresolved conflicts or warnings (and no such count is tracked anywhere in the app)."
+    },
+    {
+      "item": "The grid is a <table> with staff names as row headers and days as column headers, and each shift or empty cell is keyboard-reachable with an accessible name that includes the person and the date (such as \"Add shift, Lan Pham, Tue 3 Nov\")",
+      "pass": false,
+      "evidence": "Markup is a real <table> with day <th scope=\"col\">, but the staff-name cell is created via `var tdStaff = document.createElement(\"td\")` (table-head.js render()), not a <th scope=\"row\">, so staff names are not row headers. Shift/off buttons do get correct accessible names, e.g. offBtn.setAttribute(\"aria-label\", \"Add shift for \" + staff.name + \" on \" + WEEKDAY_LONG[dayIndex] + \" \" + formatDMY(date))."
+    },
+    {
+      "item": "A week with no shifts yet shows a message with a way to start (such as \"Copy last week\"), and a loading state and a load error with a retry button exist",
+      "pass": false,
+      "evidence": "PATTERN is static mock data keyed only by staff id/day-of-week, so every navigated week renders the identical shifts and an empty-week state can never occur; there is no 'copy last week' action anywhere. render() runs synchronously on load with no spinner/skeleton markup, and there is no error state or retry button in the HTML or script."
+    }
+  ],
+  "tells": [],
+  "notes": "Visually this reads as a clean, restrained enterprise table UI (plain header, tabular-nums, limited blue/amber/slate palette, rounded-sm/md radii, no gradients/glass/uppercase-tracking/emoji) — no template tells from the given list were found. The core data model is also static per weekday regardless of which week is navigated to (PATTERN keyed only by day-of-week, not by actual date), which undermines several checklist items (contracted hours, conflicts, empty-week state) since none of that data exists in the mock at all. Automated audit (audit.json) separately flags font-size-base and table-row-height/two-line violations unrelated to this functional checklist.",
+  "blind": true
+}

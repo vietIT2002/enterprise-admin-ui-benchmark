@@ -1,0 +1,57 @@
+{
+  "brief": "27-delivery-note-print",
+  "run": 2,
+  "items": [
+    {
+      "item": "The header shows the delivery note number, issue date, source sales order or transfer number and dispatching warehouse, each with a visible label, and every date on the note uses one unambiguous format (such as 06 Nov 2026)",
+      "pass": false,
+      "evidence": "All four fields are present and labelled ('Số phiếu' PXK-2026-00482, 'Ngày lập' 07/11/2026, 'Theo đơn hàng số' DH-2026-04821, 'Kho xuất' Kho Bình Dương), but dates use ambiguous numeric DD/MM/YYYY form ('Ngày lập 07/11/2026', 'Ngày đặt hàng 05/11/2026') rather than an unambiguous format like '06 Nov 2026'."
+    },
+    {
+      "item": "Sender (company name, address, tax ID), recipient (customer name, delivery address, contact person and phone) and carrier (carrier name, vehicle plate or driver name) appear in three separately labelled blocks",
+      "pass": false,
+      "evidence": "Only two labelled party sections exist ('Bên giao hàng' and 'Khách hàng'); carrier data is not its own block but a single line inside the 'Địa chỉ giao hàng' box: 'Phương tiện giao hàng: Xe tải 1.5 tấn · Biển số 51C-123.45 · Tài xế Lê Văn Hùng · 0987 654 321', mixed with recipient delivery info under one heading."
+    },
+    {
+      "item": "The goods are in a real <table> with column headers in <thead>, giving per line: line number, item code, description, unit of measure, quantity ordered, quantity delivered and lot or serial number, with quantities right-aligned",
+      "pass": false,
+      "evidence": "table#goods-table has a <thead> with STT, Mã hàng, Tên hàng hóa, ĐVT, Số lượng, Ghi chú — only one quantity column (no separate ordered vs delivered) and no lot/serial number column; also the STT numeric column is left-aligned (flagged by audit.json 'numeric-align' violation)."
+    },
+    {
+      "item": "A line delivered short of the ordered quantity states the outstanding amount in words (such as \"Backorder: 4 pcs\")",
+      "pass": false,
+      "evidence": "No ordered-vs-delivered comparison exists anywhere; each row has a single data-qty value (e.g. td data-qty=\"200\">200</td>) with no backorder/shortage text in any row."
+    },
+    {
+      "item": "A footer gives the total quantity delivered, the number of packages and the gross weight with its unit, and the quantity total equals the sum of the lines",
+      "pass": false,
+      "evidence": "tfoot shows '<td id=\"item-count-label\">Tổng cộng · 6 mặt hàng</td>' and '<td id=\"total-qty\">435</td>', and the script sums data-qty correctly (200+15+30+30+60+100=435), but there is no package count or gross weight figure anywhere on the page."
+    },
+    {
+      "item": "Signature boxes are provided for the warehouse keeper (issued by), the driver or carrier and the receiver, each with room for printed name, signature and date, plus a remarks area for the condition of the goods on receipt",
+      "pass": false,
+      "evidence": "The .sign-block grid has four columns ('Người lập phiếu', 'Thủ kho', 'Người giao hàng', 'Khách hàng nhận hàng'), each with '(Ký, ghi rõ họ tên)' and a 'Ngày ..... / ..... / 2026' line, but the only 'Ghi chú' box is pre-filled boilerplate text above the signatures, not a blank remarks field for goods condition at receipt."
+    },
+    {
+      "item": "A Print control that is a real <button> starts printing, and an @media print stylesheet hides the app navigation and on-screen controls, sets page margins and keeps the signature block from splitting across pages",
+      "pass": true,
+      "evidence": "<button type=\"button\" onclick=\"window.print()\" class=\"...bg-blue-700...\">In phiếu</button>; @media print rule hides 'nav, header.app-header, .page-actions, .no-print'; @page { size: A4; margin: 14mm 12mm 16mm; }; '.sign-block { break-inside: avoid }' keeps signatures together."
+    },
+    {
+      "item": "The note's status (such as Draft, Dispatched, Delivered or Cancelled) is shown in words next to its number, and a draft or cancelled note prints with a visible \"DRAFT\" or \"CANCELLED\" mark",
+      "pass": false,
+      "evidence": "Status is shown as a hardcoded pill next to the title: '<span class=\"...bg-green-50...text-green-700\">Đã xuất kho</span>', but there is no conditional logic, alternate status, or watermark/mark element anywhere in the markup or script for a draft/cancelled state."
+    },
+    {
+      "item": "A loading state is present, and a note that fails to load or does not exist shows a message with Retry and a link back to the delivery note list, never an empty template with blank fields",
+      "pass": false,
+      "evidence": "No loading skeleton/spinner and no error/retry/empty-state markup exist anywhere in the page; all content including the goods table is statically hardcoded with no fetch or error-handling script."
+    }
+  ],
+  "tells": [
+    "initials-avatar-non-person",
+    "card-in-card"
+  ],
+  "notes": "The 'VP' square next to the letterhead ('<div class=\"h-12 w-12 ... bg-blue-700 text-white ...\">VP</div>') functions as a company-logo placeholder but is built as an initials-avatar component typically used for a person. The 'Địa chỉ giao hàng' box (rounded-md border bg-slate-50) is nested inside the outer '.sheet' card (border shadow-sm), producing a card-in-card layout. Audit.json also flags real defects worth noting: numeric-align/tabular-nums failures on the STT column, a drop-shadow on the sheet card instead of border-only, and the document title using ALL-CAPS ('PHIẾU GIAO HÀNG (PHIẾU XUẤT KHO)').",
+  "blind": true
+}

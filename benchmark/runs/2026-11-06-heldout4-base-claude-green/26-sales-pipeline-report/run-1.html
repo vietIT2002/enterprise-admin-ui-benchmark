@@ -1,0 +1,902 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Sales pipeline report</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+  [hidden] { display: none !important; }
+  html, body { background: #f8fafc; }
+  ::selection { background: #bfdbfe; }
+
+  @page { size: A4 landscape; margin: 12mm 10mm; }
+  @media print {
+    html, body { background: #fff; }
+    .no-print { display: none !important; }
+    main { max-width: none !important; padding: 0 !important; margin: 0 !important; }
+    .report-card { border: 0 !important; box-shadow: none !important; }
+    table { border-collapse: collapse; width: 100%; }
+    thead { display: table-header-group; }
+    tfoot { display: table-row-group; }
+    tr, .totals { break-inside: avoid; }
+    h1, h2 { break-after: avoid; }
+    a { color: inherit; text-decoration: none; }
+    * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  }
+</style>
+</head>
+<body class="min-h-screen bg-slate-50 text-slate-900 antialiased">
+
+  <header class="no-print border-b border-slate-200 bg-white">
+    <div class="mx-auto flex max-w-[1440px] items-center justify-between px-6 py-2.5">
+      <p class="text-sm text-slate-500">Northwind CRM <span class="mx-1.5 text-slate-300">/</span> Reports <span class="mx-1.5 text-slate-300">/</span> <span class="text-slate-700">Sales pipeline</span></p>
+      <p class="text-xs text-slate-400">Signed in as user@example.com</p>
+    </div>
+  </header>
+
+  <main class="mx-auto max-w-[1440px] space-y-4 px-6 py-6">
+
+    <!-- Report header -->
+    <div class="flex flex-wrap items-start justify-between gap-4">
+      <div>
+        <h1 class="report-title text-2xl font-semibold text-slate-900">Sales pipeline · <span id="periodTitle">Q4 2026</span></h1>
+        <p class="basis-line mt-1 text-sm text-slate-600">
+          Amounts in USD, open deals only · <span id="updatedLine">Updated —</span>
+          <button id="refreshBtn" type="button" class="no-print ml-1 inline text-sm font-medium text-blue-700 underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-700 focus-visible:rounded-sm">Refresh</button>
+        </p>
+      </div>
+      <div class="no-print flex items-center gap-2">
+        <button id="printBtn" type="button" class="inline-flex h-9 items-center justify-center rounded-md border border-slate-300 bg-white px-3.5 text-sm font-medium text-slate-700 hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-700 focus-visible:ring-offset-2">Print</button>
+        <button id="exportBtn" type="button" class="inline-flex h-9 items-center justify-center rounded-md bg-blue-700 px-3.5 text-sm font-medium text-white hover:bg-blue-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-700 focus-visible:ring-offset-2">Export CSV</button>
+      </div>
+    </div>
+
+    <!-- Filter bar -->
+    <div class="no-print rounded-md border border-slate-200 bg-white p-3">
+      <div class="flex flex-wrap items-center gap-2">
+        <select id="periodSelect" aria-label="Period" class="h-9 rounded-md border border-slate-300 bg-white px-2.5 text-sm text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-700">
+          <option value="this_quarter">This quarter</option>
+          <option value="last_quarter">Last quarter</option>
+          <option value="this_year">This year</option>
+          <option value="custom">Custom range</option>
+        </select>
+        <div id="customRangeWrap" hidden class="flex items-center gap-1.5">
+          <input id="customFrom" type="date" aria-label="From date" class="h-9 rounded-md border border-slate-300 bg-white px-2.5 text-sm text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-700" />
+          <span class="text-sm text-slate-500">–</span>
+          <input id="customTo" type="date" aria-label="To date" class="h-9 rounded-md border border-slate-300 bg-white px-2.5 text-sm text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-700" />
+        </div>
+
+        <div class="relative w-72">
+          <svg class="pointer-events-none absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-slate-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
+          <input id="searchInput" type="text" aria-label="Search deals" placeholder="Search deal or account" class="h-9 w-full rounded-md border border-slate-300 bg-white pl-8 pr-8 text-sm text-slate-900 placeholder:text-slate-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-700" />
+          <button id="clearSearchBtn" type="button" hidden aria-label="Clear search" class="absolute right-1.5 top-1/2 inline-flex size-6 -translate-y-1/2 items-center justify-center rounded-full hover:bg-slate-100">
+            <svg class="size-4 text-slate-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18M6 6l12 12"/></svg>
+          </button>
+        </div>
+
+        <div class="relative">
+          <button id="repFilterBtn" type="button" aria-expanded="false" class="inline-flex h-9 items-center gap-1.5 rounded-md border border-slate-300 bg-white px-3 text-sm font-medium text-slate-700 hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-700">
+            <span id="repFilterLabel">All salespeople</span>
+            <svg class="size-4 text-slate-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m6 9 6 6 6-6"/></svg>
+          </button>
+          <div id="repFilterPanel" hidden class="absolute left-0 z-20 mt-1 w-64 rounded-md border border-slate-200 bg-white p-2 shadow-lg">
+            <div id="repCheckboxes" class="max-h-56 space-y-0.5 overflow-auto"></div>
+            <div class="mt-2 flex items-center justify-between border-t border-slate-200 pt-2">
+              <button type="button" data-action="clear-rep" class="text-sm font-medium text-blue-700 hover:underline">Clear</button>
+              <button type="button" data-action="close-rep" class="inline-flex h-8 items-center justify-center rounded-md bg-blue-700 px-3 text-sm font-medium text-white hover:bg-blue-800">Done</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="relative">
+          <button id="stageFilterBtn" type="button" aria-expanded="false" class="inline-flex h-9 items-center gap-1.5 rounded-md border border-slate-300 bg-white px-3 text-sm font-medium text-slate-700 hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-700">
+            <span id="stageFilterLabel">All stages</span>
+            <svg class="size-4 text-slate-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m6 9 6 6 6-6"/></svg>
+          </button>
+          <div id="stageFilterPanel" hidden class="absolute left-0 z-20 mt-1 w-56 rounded-md border border-slate-200 bg-white p-2 shadow-lg">
+            <div id="stageCheckboxes" class="space-y-0.5"></div>
+            <div class="mt-2 flex items-center justify-between border-t border-slate-200 pt-2">
+              <button type="button" data-action="clear-stage" class="text-sm font-medium text-blue-700 hover:underline">Clear</button>
+              <button type="button" data-action="close-stage" class="inline-flex h-8 items-center justify-center rounded-md bg-blue-700 px-3 text-sm font-medium text-white hover:bg-blue-800">Done</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="relative">
+          <button id="moreFiltersBtn" type="button" aria-expanded="false" class="inline-flex h-9 items-center gap-1.5 rounded-md border border-slate-300 bg-white px-3 text-sm font-medium text-slate-700 hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-700">
+            <span id="moreFiltersLabel">More filters</span>
+          </button>
+          <div id="moreFiltersPanel" hidden class="absolute left-0 z-20 mt-1 w-72 rounded-md border border-slate-200 bg-white p-3 shadow-lg">
+            <div class="space-y-3">
+              <div>
+                <label class="block text-sm font-medium text-slate-700" for="minAmountInput">Deal size min (USD)</label>
+                <input id="minAmountInput" type="number" min="0" step="1000" placeholder="No minimum" class="mt-1 h-9 w-full rounded-md border border-slate-300 bg-white px-2.5 text-sm text-slate-900 placeholder:text-slate-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-700" />
+              </div>
+              <div>
+                <label class="block text-sm font-medium text-slate-700" for="maxAmountInput">Deal size max (USD)</label>
+                <input id="maxAmountInput" type="number" min="0" step="1000" placeholder="No maximum" class="mt-1 h-9 w-full rounded-md border border-slate-300 bg-white px-2.5 text-sm text-slate-900 placeholder:text-slate-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-700" />
+              </div>
+              <div>
+                <label class="block text-sm font-medium text-slate-700" for="regionSelect">Region</label>
+                <select id="regionSelect" class="mt-1 h-9 w-full rounded-md border border-slate-300 bg-white px-2.5 text-sm text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-700">
+                  <option value="">All regions</option>
+                </select>
+              </div>
+            </div>
+            <div class="mt-3 flex items-center justify-between border-t border-slate-200 pt-3">
+              <button type="button" data-action="reset-more" class="text-sm font-medium text-blue-700 hover:underline">Reset</button>
+              <button type="button" data-action="apply-more" class="inline-flex h-8 items-center justify-center rounded-md bg-blue-700 px-3 text-sm font-medium text-white hover:bg-blue-800">Apply</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div id="chipsRow" class="mt-2 flex flex-wrap items-center gap-2"></div>
+    </div>
+
+    <!-- Group by + chart -->
+    <div class="no-print rounded-md border border-slate-200 bg-white p-4">
+      <div class="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h2 class="text-base font-semibold text-slate-900">Pipeline value by <span id="chartGroupLabel">salesperson</span></h2>
+          <p id="chartSummary" class="mt-0.5 text-sm text-slate-600"></p>
+        </div>
+        <div role="group" aria-label="Group by" class="inline-flex rounded-md border border-slate-300 bg-slate-50 p-0.5">
+          <button type="button" data-groupby="rep" class="group-by-btn inline-flex h-8 items-center rounded-[5px] px-3 text-sm font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-700">By salesperson</button>
+          <button type="button" data-groupby="stage" class="group-by-btn inline-flex h-8 items-center rounded-[5px] px-3 text-sm font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-700">By stage</button>
+        </div>
+      </div>
+      <div id="chartBody" class="mt-4 space-y-2"></div>
+      <p class="mt-2 text-xs text-slate-500">Pipeline value (USD), open deals in the selected period</p>
+    </div>
+
+    <!-- Summary line -->
+    <p id="summaryLine" class="text-sm font-medium text-slate-700"></p>
+    <p id="resultAnnouncement" role="status" class="sr-only"></p>
+
+    <!-- Table -->
+    <div class="report-card overflow-x-auto rounded-md border border-slate-200 bg-white">
+      <table id="pipelineTable" class="w-full min-w-[960px] text-sm">
+        <thead id="tableHead" class="border-b border-slate-200 bg-white"></thead>
+        <tbody id="tableBody"></tbody>
+        <tfoot id="tableFoot" class="border-t border-slate-200 bg-slate-50"></tfoot>
+      </table>
+    </div>
+  </main>
+
+  <div id="toast" role="status" class="fixed right-4 top-4 z-50 hidden max-w-sm rounded-md border border-slate-200 bg-white px-4 py-3 text-sm text-slate-800 shadow-lg"></div>
+
+<script>
+(function () {
+  "use strict";
+
+  /* ---------- deterministic mock data ---------- */
+
+  function mulberry32(seed) {
+    return function () {
+      seed |= 0; seed = (seed + 0x6D2B79F5) | 0;
+      let t = Math.imul(seed ^ (seed >>> 15), 1 | seed);
+      t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+  }
+  const rand = mulberry32(20261107);
+  const randInt = (min, max) => Math.floor(rand() * (max - min + 1)) + min;
+  const choice = (arr) => arr[Math.floor(rand() * arr.length)];
+  function weightedChoice(items) {
+    const total = items.reduce((s, i) => s + i.w, 0);
+    let r = rand() * total;
+    for (const i of items) { r -= i.w; if (r <= 0) return i.v; }
+    return items[items.length - 1].v;
+  }
+  function shuffle(arr) {
+    for (let i = arr.length - 1; i > 0; i--) {
+      const j = Math.floor(rand() * (i + 1));
+      [arr[i], arr[j]] = [arr[j], arr[i]];
+    }
+    return arr;
+  }
+  function randomDateIn(start, end) {
+    return new Date(start.getTime() + rand() * (end.getTime() - start.getTime()));
+  }
+  function daysBetween(a, b) { return Math.round((b - a) / 86400000); }
+
+  const TODAY = new Date(2026, 10, 7);
+
+  const STAGES = [
+    { key: "qualification", label: "Qualification", probability: 0.10, tone: "neutral", winRateBase: 0.15 },
+    { key: "discovery", label: "Discovery", probability: 0.25, tone: "neutral", winRateBase: 0.30 },
+    { key: "proposal", label: "Proposal", probability: 0.50, tone: "info", winRateBase: 0.45 },
+    { key: "negotiation", label: "Negotiation", probability: 0.75, tone: "warning", winRateBase: 0.65 },
+    { key: "verbal", label: "Verbal commit", probability: 0.90, tone: "success", winRateBase: 0.88 },
+  ];
+  const STAGE_ORDER = STAGES.map((s) => s.key);
+  const STAGE_BY_KEY = Object.fromEntries(STAGES.map((s) => [s.key, s]));
+  const TONE_CLASSES = {
+    neutral: "bg-slate-100 text-slate-700",
+    info: "bg-blue-50 text-blue-700",
+    success: "bg-green-50 text-green-700",
+    warning: "bg-amber-50 text-amber-800",
+    danger: "bg-red-50 text-red-700",
+  };
+
+  const REPS = [
+    { id: "r1", name: "Sarah Chen", region: "West" },
+    { id: "r2", name: "Marcus Johnson", region: "East" },
+    { id: "r3", name: "Priya Patel", region: "Central" },
+    { id: "r4", name: "Daniel Kim", region: "West" },
+    { id: "r5", name: "Olivia Martinez", region: "East" },
+    { id: "r6", name: "Ethan Brooks", region: "Central" },
+    { id: "r7", name: "Nadia Hassan", region: "EMEA" },
+    { id: "r8", name: "Liam O'Connor", region: "EMEA" },
+  ];
+  const REP_BY_ID = Object.fromEntries(REPS.map((r) => [r.id, r]));
+  const REP_SKILL = { r1: 1.15, r2: 0.95, r3: 1.3, r4: 0.85, r5: 1.05, r6: 0.9, r7: 1.2, r8: 1.0 };
+  const REGIONS = ["West", "East", "Central", "EMEA"];
+
+  const ACCOUNT_PREFIXES = ["Brightwave", "Summit", "Northbridge", "Lumen", "Cobalt", "Ironclad", "Silverline", "Meridian", "Vantage", "Crestview", "Horizon", "Keystone", "Pinecrest", "Redwood", "Catalyst", "Anchor", "Beacon", "Clearpoint", "Granite", "Harborview"];
+  const ACCOUNT_SUFFIXES = ["Systems", "Holdings", "Group", "Industries", "Labs", "Technologies", "Partners", "Solutions", "Networks", "Dynamics"];
+  const ACCOUNT_POOL = [];
+  for (const p of ACCOUNT_PREFIXES) for (const s of ACCOUNT_SUFFIXES) ACCOUNT_POOL.push(p + " " + s);
+  const ACCOUNTS = shuffle(ACCOUNT_POOL.slice()).slice(0, 44);
+
+  const DEAL_TYPES = ["Platform upgrade", "Enterprise license", "Renewal expansion", "Implementation services", "Annual contract", "Support add-on", "Multi-year agreement", "Pilot expansion", "Data migration", "Integration package", "New seat expansion", "Analytics module"];
+
+  function quarterRange(year, q) {
+    const startMonth = (q - 1) * 3;
+    return [new Date(year, startMonth, 1), new Date(year, startMonth + 3, 0)];
+  }
+  const Q4_2026 = quarterRange(2026, 4);
+  const Q3_2026 = quarterRange(2026, 3);
+  const Q1_2027 = quarterRange(2027, 1);
+  const YEAR_2026 = [new Date(2026, 0, 1), new Date(2026, 11, 31)];
+
+  const OPEN_STAGE_WEIGHTS = [
+    { v: "qualification", w: 35 }, { v: "discovery", w: 25 }, { v: "proposal", w: 20 },
+    { v: "negotiation", w: 12 }, { v: "verbal", w: 8 },
+  ];
+
+  const OPEN_DEALS = [];
+  for (let i = 0; i < 56; i++) {
+    const rep = choice(REPS);
+    const stageKey = weightedChoice(OPEN_STAGE_WEIGHTS);
+    const stage = STAGE_BY_KEY[stageKey];
+    const probability = Math.round(Math.max(0.05, Math.min(0.95, stage.probability + (rand() - 0.5) * 0.1)) * 100) / 100;
+    const amount = Math.round((8000 + rand() * 220000) / 500) * 500;
+    const account = ACCOUNTS[i % ACCOUNTS.length];
+    const dealType = choice(DEAL_TYPES);
+    const bucket = weightedChoice([{ v: "q4", w: 68 }, { v: "q3", w: 14 }, { v: "q1_2027", w: 18 }]);
+    const range = bucket === "q4" ? Q4_2026 : bucket === "q3" ? Q3_2026 : Q1_2027;
+    const expectedCloseDate = randomDateIn(range[0], range[1]);
+    const createdDate = new Date(TODAY.getTime() - randInt(10, 160) * 86400000);
+    OPEN_DEALS.push({
+      id: "D-" + (1000 + i), name: account + " — " + dealType, account, rep, stage: stageKey,
+      probability, amount, expectedCloseDate, createdDate,
+    });
+  }
+
+  const STAGE_CLOSED_COUNTS = { qualification: 40, discovery: 35, proposal: 30, negotiation: 25, verbal: 20 };
+  const CLOSED_DEALS = [];
+  let cIdx = 0;
+  for (const stage of STAGES) {
+    const n = STAGE_CLOSED_COUNTS[stage.key];
+    for (let i = 0; i < n; i++) {
+      const rep = choice(REPS);
+      const skill = REP_SKILL[rep.id];
+      const winProb = Math.max(0.03, Math.min(0.97, stage.winRateBase * skill));
+      const outcome = rand() < winProb ? "won" : "lost";
+      const closeDate = randomDateIn(YEAR_2026[0], YEAR_2026[1]);
+      const amount = Math.round((8000 + rand() * 220000) / 500) * 500;
+      CLOSED_DEALS.push({ id: "C-" + (2000 + cIdx), rep, stage: stage.key, outcome, closeDate, amount });
+      cIdx++;
+    }
+  }
+
+  /* ---------- formatting ---------- */
+
+  const money = (v) => new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 }).format(v);
+  const numFmt = (v) => new Intl.NumberFormat("en-US").format(v);
+  const pctFmt = (v, d) => v == null ? "—" : new Intl.NumberFormat("en-US", { style: "percent", maximumFractionDigits: d == null ? 1 : d }).format(v);
+  const dateFmt = (d) => new Intl.DateTimeFormat("en-US", { month: "2-digit", day: "2-digit", year: "numeric" }).format(d);
+  const escapeHtml = (s) => String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+
+  function dueText(d) {
+    const diff = daysBetween(TODAY, d);
+    if (diff < 0) return '<span class="font-medium text-red-700">overdue by ' + numFmt(-diff) + ' day' + (-diff === 1 ? "" : "s") + '</span>';
+    if (diff === 0) return '<span class="font-medium text-amber-800">today</span>';
+    if (diff <= 14) return '<span class="font-medium text-amber-800">in ' + numFmt(diff) + ' day' + (diff === 1 ? "" : "s") + '</span>';
+    return '<span class="text-slate-500">in ' + numFmt(diff) + ' days</span>';
+  }
+
+  /* ---------- filter state ---------- */
+
+  const DEFAULT_FILTERS = {
+    period: "this_quarter", from: "", to: "", q: "",
+    reps: [], stages: [], minAmount: null, maxAmount: null, region: "",
+    groupBy: "rep", sortCol: "amount", sortDir: "desc",
+  };
+  let filters = Object.assign({}, DEFAULT_FILTERS);
+
+  function readFiltersFromURL() {
+    const sp = new URLSearchParams(location.search);
+    const f = Object.assign({}, DEFAULT_FILTERS);
+    if (["this_quarter", "last_quarter", "this_year", "custom"].includes(sp.get("period"))) f.period = sp.get("period");
+    if (sp.get("from")) f.from = sp.get("from");
+    if (sp.get("to")) f.to = sp.get("to");
+    if (sp.get("q")) f.q = sp.get("q");
+    f.reps = sp.getAll("rep").filter((id) => REP_BY_ID[id]);
+    f.stages = sp.getAll("stage").filter((k) => STAGE_BY_KEY[k]);
+    const min = Number(sp.get("min")); if (sp.get("min") && !Number.isNaN(min)) f.minAmount = min;
+    const max = Number(sp.get("max")); if (sp.get("max") && !Number.isNaN(max)) f.maxAmount = max;
+    if (REGIONS.includes(sp.get("region"))) f.region = sp.get("region");
+    if (["rep", "stage"].includes(sp.get("groupBy"))) f.groupBy = sp.get("groupBy");
+    const sort = sp.get("sort");
+    if (sort) { f.sortDir = sort.startsWith("-") ? "desc" : "asc"; f.sortCol = sort.replace(/^-/, "") || DEFAULT_FILTERS.sortCol; }
+    filters = f;
+  }
+
+  function writeFiltersToURL() {
+    const sp = new URLSearchParams();
+    if (filters.period !== DEFAULT_FILTERS.period) sp.set("period", filters.period);
+    if (filters.period === "custom") { if (filters.from) sp.set("from", filters.from); if (filters.to) sp.set("to", filters.to); }
+    if (filters.q) sp.set("q", filters.q);
+    filters.reps.forEach((id) => sp.append("rep", id));
+    filters.stages.forEach((k) => sp.append("stage", k));
+    if (filters.minAmount != null) sp.set("min", String(filters.minAmount));
+    if (filters.maxAmount != null) sp.set("max", String(filters.maxAmount));
+    if (filters.region) sp.set("region", filters.region);
+    if (filters.groupBy !== DEFAULT_FILTERS.groupBy) sp.set("groupBy", filters.groupBy);
+    if (!(filters.sortCol === DEFAULT_FILTERS.sortCol && filters.sortDir === DEFAULT_FILTERS.sortDir)) {
+      sp.set("sort", (filters.sortDir === "desc" ? "-" : "") + filters.sortCol);
+    }
+    const existing = new URLSearchParams(location.search);
+    const stateParam = existing.get("state");
+    if (stateParam) sp.set("state", stateParam);
+    const qs = sp.toString();
+    history.replaceState(null, "", qs ? "?" + qs : location.pathname);
+  }
+
+  function periodRange() {
+    if (filters.period === "last_quarter") return Q3_2026;
+    if (filters.period === "this_year") return YEAR_2026;
+    if (filters.period === "custom") {
+      const f = filters.from ? new Date(filters.from + "T00:00:00") : Q4_2026[0];
+      const t = filters.to ? new Date(filters.to + "T23:59:59") : Q4_2026[1];
+      return f <= t ? [f, t] : Q4_2026;
+    }
+    return Q4_2026;
+  }
+  function periodLabel() {
+    if (filters.period === "last_quarter") return "Q3 2026";
+    if (filters.period === "this_year") return "FY 2026";
+    if (filters.period === "custom") return dateFmt(periodRange()[0]) + " – " + dateFmt(periodRange()[1]);
+    return "Q4 2026";
+  }
+  function periodSlug() {
+    if (filters.period === "custom") {
+      const r = periodRange();
+      return r[0].toISOString().slice(0, 10) + "_" + r[1].toISOString().slice(0, 10);
+    }
+    return periodLabel().toLowerCase().replace(/\s+/g, "-");
+  }
+  const inRange = (d, range) => d >= range[0] && d <= range[1];
+
+  function matchesCommon(dealLikeRep, dealLikeStage, dealLikeAmount) {
+    if (filters.reps.length && !filters.reps.includes(dealLikeRep.id)) return false;
+    if (filters.stages.length && !filters.stages.includes(dealLikeStage)) return false;
+    if (filters.minAmount != null && dealLikeAmount < filters.minAmount) return false;
+    if (filters.maxAmount != null && dealLikeAmount > filters.maxAmount) return false;
+    if (filters.region && dealLikeRep.region !== filters.region) return false;
+    return true;
+  }
+
+  function getFilteredOpenDeals(range) {
+    const q = filters.q.trim().toLowerCase();
+    return OPEN_DEALS.filter((d) => {
+      if (!inRange(d.expectedCloseDate, range)) return false;
+      if (!matchesCommon(d.rep, d.stage, d.amount)) return false;
+      if (q && !(d.name.toLowerCase().includes(q) || d.account.toLowerCase().includes(q))) return false;
+      return true;
+    });
+  }
+  function getFilteredClosedDeals(range) {
+    return CLOSED_DEALS.filter((d) => inRange(d.closeDate, range) && matchesCommon(d.rep, d.stage, d.amount));
+  }
+  function winRateOf(closedSubset) {
+    const won = closedSubset.filter((d) => d.outcome === "won").length;
+    const lost = closedSubset.filter((d) => d.outcome === "lost").length;
+    return won + lost === 0 ? null : won / (won + lost);
+  }
+  /* ---------- grouping ---------- */
+
+  const COMPARATORS = {
+    deal: (a, b) => a.name.localeCompare(b.name),
+    account: (a, b) => a.account.localeCompare(b.account),
+    dyn: (a, b) => filters.groupBy === "rep"
+      ? STAGE_ORDER.indexOf(a.stage) - STAGE_ORDER.indexOf(b.stage)
+      : a.rep.name.localeCompare(b.rep.name),
+    amount: (a, b) => a.amount - b.amount,
+    probability: (a, b) => a.probability - b.probability,
+    weighted: (a, b) => a.amount * a.probability - b.amount * b.probability,
+    close: (a, b) => a.expectedCloseDate - b.expectedCloseDate,
+  };
+
+  function buildGroups(openDeals, closedDeals) {
+    const byKey = new Map();
+    for (const d of openDeals) {
+      const key = filters.groupBy === "rep" ? d.rep.id : d.stage;
+      if (!byKey.has(key)) byKey.set(key, []);
+      byKey.get(key).push(d);
+    }
+    const groups = [];
+    for (const [key, deals] of byKey) {
+      const label = filters.groupBy === "rep" ? REP_BY_ID[key].name : STAGE_BY_KEY[key].label;
+      const closedForGroup = closedDeals.filter((d) => (filters.groupBy === "rep" ? d.rep.id : d.stage) === key);
+      const pipelineValue = deals.reduce((s, d) => s + d.amount, 0);
+      const weightedForecast = deals.reduce((s, d) => s + d.amount * d.probability, 0);
+      const sorted = deals.slice().sort((a, b) => COMPARATORS[filters.sortCol](a, b) * (filters.sortDir === "desc" ? -1 : 1));
+      groups.push({ key, label, deals: sorted, count: deals.length, pipelineValue, weightedForecast, winRate: winRateOf(closedForGroup) });
+    }
+    if (filters.groupBy === "stage") {
+      groups.sort((a, b) => STAGE_ORDER.indexOf(a.key) - STAGE_ORDER.indexOf(b.key));
+    } else {
+      groups.sort((a, b) => b.pipelineValue - a.pipelineValue);
+    }
+    return groups;
+  }
+
+  /* ---------- rendering: filter controls ---------- */
+
+  const $ = (id) => document.getElementById(id);
+
+  function populateStaticControls() {
+    $("repCheckboxes").innerHTML = REPS.map((r) =>
+      '<label class="flex h-9 cursor-pointer items-center gap-2 rounded px-2 text-sm text-slate-700 hover:bg-slate-50">' +
+      '<input type="checkbox" value="' + r.id + '" data-rep-checkbox class="size-4 rounded border-slate-300 text-blue-700 focus-visible:ring-2 focus-visible:ring-blue-700" />' +
+      escapeHtml(r.name) + '</label>'
+    ).join("");
+    $("stageCheckboxes").innerHTML = STAGES.map((s) =>
+      '<label class="flex h-9 cursor-pointer items-center gap-2 rounded px-2 text-sm text-slate-700 hover:bg-slate-50">' +
+      '<input type="checkbox" value="' + s.key + '" data-stage-checkbox class="size-4 rounded border-slate-300 text-blue-700 focus-visible:ring-2 focus-visible:ring-blue-700" />' +
+      escapeHtml(s.label) + '</label>'
+    ).join("");
+    const regionSelect = $("regionSelect");
+    REGIONS.forEach((r) => { const opt = document.createElement("option"); opt.value = r; opt.textContent = r; regionSelect.appendChild(opt); });
+  }
+
+  function syncControlsFromFilters() {
+    $("periodSelect").value = filters.period;
+    $("customRangeWrap").hidden = filters.period !== "custom";
+    $("customFrom").value = filters.from || "";
+    $("customTo").value = filters.to || "";
+    $("searchInput").value = filters.q;
+    $("clearSearchBtn").hidden = !filters.q;
+    document.querySelectorAll("[data-rep-checkbox]").forEach((cb) => { cb.checked = filters.reps.includes(cb.value); });
+    document.querySelectorAll("[data-stage-checkbox]").forEach((cb) => { cb.checked = filters.stages.includes(cb.value); });
+    $("minAmountInput").value = filters.minAmount != null ? filters.minAmount : "";
+    $("maxAmountInput").value = filters.maxAmount != null ? filters.maxAmount : "";
+    $("regionSelect").value = filters.region;
+
+    $("repFilterLabel").textContent = filters.reps.length === 0 ? "All salespeople"
+      : filters.reps.length === 1 ? REP_BY_ID[filters.reps[0]].name
+      : "Salesperson: " + filters.reps.length + " selected";
+    $("stageFilterLabel").textContent = filters.stages.length === 0 ? "All stages"
+      : filters.stages.length === 1 ? STAGE_BY_KEY[filters.stages[0]].label
+      : "Stage: " + filters.stages.length + " selected";
+    const moreCount = (filters.minAmount != null || filters.maxAmount != null ? 1 : 0) + (filters.region ? 1 : 0);
+    $("moreFiltersLabel").textContent = moreCount ? "More filters (" + moreCount + ")" : "More filters";
+
+    document.querySelectorAll(".group-by-btn").forEach((btn) => {
+      const active = btn.dataset.groupby === filters.groupBy;
+      btn.className = "group-by-btn inline-flex h-8 items-center rounded-[5px] px-3 text-sm font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-700 " +
+        (active ? "bg-white text-slate-900 shadow-sm" : "text-slate-600 hover:text-slate-900");
+    });
+    $("chartGroupLabel").textContent = filters.groupBy === "rep" ? "salesperson" : "stage";
+  }
+
+  function renderChips() {
+    const chips = [];
+    if (filters.period !== DEFAULT_FILTERS.period) chips.push({ key: "period", label: "Period: " + periodLabel() });
+    if (filters.q) chips.push({ key: "q", label: 'Search: "' + filters.q + '"' });
+    filters.reps.forEach((id) => chips.push({ key: "rep", value: id, label: "Salesperson: " + REP_BY_ID[id].name }));
+    filters.stages.forEach((k) => chips.push({ key: "stage", value: k, label: "Stage: " + STAGE_BY_KEY[k].label }));
+    if (filters.minAmount != null || filters.maxAmount != null) {
+      const lbl = filters.minAmount != null && filters.maxAmount != null
+        ? "Deal size: " + money(filters.minAmount) + " – " + money(filters.maxAmount)
+        : filters.minAmount != null ? "Deal size: ≥ " + money(filters.minAmount)
+        : "Deal size: ≤ " + money(filters.maxAmount);
+      chips.push({ key: "amount", label: lbl });
+    }
+    if (filters.region) chips.push({ key: "region", label: "Region: " + filters.region });
+
+    const row = $("chipsRow");
+    if (chips.length === 0) { row.innerHTML = ""; return; }
+    row.innerHTML = chips.map((c, i) =>
+      '<span class="inline-flex h-6 items-center gap-1 rounded-full border border-slate-200 bg-slate-50 pl-2 pr-1 text-xs font-medium leading-5 text-slate-700">' +
+      escapeHtml(c.label) +
+      '<button type="button" data-chip-remove="' + i + '" aria-label="Remove filter ' + escapeHtml(c.label) + '" class="inline-flex size-6 items-center justify-center rounded-full hover:bg-slate-200">' +
+      '<svg class="size-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M18 6 6 18M6 6l12 12"/></svg></button></span>'
+    ).join("") + '<button type="button" id="clearAllBtn" class="text-sm font-medium text-blue-700 hover:underline">Clear all</button>';
+
+    row.querySelectorAll("[data-chip-remove]").forEach((btn, idx) => {
+      btn.addEventListener("click", () => { removeChip(chips[idx]); renderAll(); });
+    });
+    $("clearAllBtn").addEventListener("click", () => { clearAllFilters(); renderAll(); });
+  }
+
+  function removeChip(chip) {
+    if (chip.key === "period") { filters.period = DEFAULT_FILTERS.period; filters.from = ""; filters.to = ""; }
+    else if (chip.key === "q") filters.q = "";
+    else if (chip.key === "rep") filters.reps = filters.reps.filter((id) => id !== chip.value);
+    else if (chip.key === "stage") filters.stages = filters.stages.filter((k) => k !== chip.value);
+    else if (chip.key === "amount") { filters.minAmount = null; filters.maxAmount = null; }
+    else if (chip.key === "region") filters.region = "";
+    syncControlsFromFilters();
+    writeFiltersToURL();
+  }
+
+  function clearAllFilters() {
+    filters = Object.assign({}, DEFAULT_FILTERS, { groupBy: filters.groupBy, sortCol: filters.sortCol, sortDir: filters.sortDir });
+    syncControlsFromFilters();
+    writeFiltersToURL();
+  }
+
+  /* ---------- rendering: chart ---------- */
+
+  function renderChart(groups) {
+    const body = $("chartBody");
+    if (groups.length === 0) { body.innerHTML = '<p class="py-4 text-sm text-slate-500">No pipeline to chart for this selection.</p>'; $("chartSummary").textContent = ""; return; }
+    const max = Math.max(...groups.map((g) => g.pipelineValue));
+    const top = groups[0];
+    const total = groups.reduce((s, g) => s + g.pipelineValue, 0);
+    $("chartSummary").textContent = total > 0
+      ? top.label + " leads with " + money(top.pipelineValue) + " in open pipeline, " + pctFmt(top.pipelineValue / total, 0) + " of the total shown."
+      : "";
+    body.innerHTML = groups.map((g) => {
+      const width = max > 0 ? Math.max(2, Math.round((g.pipelineValue / max) * 100)) : 0;
+      return '<div class="flex items-center gap-3">' +
+        '<span class="w-36 shrink-0 truncate text-sm text-slate-700" title="' + escapeHtml(g.label) + '">' + escapeHtml(g.label) + '</span>' +
+        '<div class="h-6 flex-1 rounded bg-slate-100"><div class="h-6 rounded bg-blue-700" style="width:' + width + '%"></div></div>' +
+        '<span class="w-28 shrink-0 text-right text-sm font-medium tabular-nums text-slate-800">' + money(g.pipelineValue) + '</span>' +
+        '</div>';
+    }).join("");
+  }
+
+  /* ---------- rendering: summary line ---------- */
+
+  function renderSummaryLine(openDeals, closedDeals) {
+    const count = openDeals.length;
+    const pipelineValue = openDeals.reduce((s, d) => s + d.amount, 0);
+    const weightedForecast = openDeals.reduce((s, d) => s + d.amount * d.probability, 0);
+    const winRate = winRateOf(closedDeals);
+    const text = numFmt(count) + " open deal" + (count === 1 ? "" : "s") + " · Pipeline value " + money(pipelineValue) +
+      " · Weighted forecast " + money(weightedForecast) + " · Win rate (" + periodLabel() + ") " + pctFmt(winRate, 1);
+    $("summaryLine").textContent = text;
+    $("resultAnnouncement").textContent = count === 0 ? "No open deals match" : count + " open deals match";
+  }
+
+  /* ---------- rendering: table ---------- */
+
+  function sortButton(col, label, align) {
+    const active = filters.sortCol === col;
+    const dir = active ? filters.sortDir : null;
+    const ariaSort = active ? (dir === "asc" ? "ascending" : "descending") : null;
+    const chevron = active
+      ? (dir === "asc"
+          ? '<svg class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m18 15-6-6-6 6"/></svg>'
+          : '<svg class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m6 9 6 6 6-6"/></svg>')
+      : '<svg class="size-4 opacity-0 group-hover:opacity-40 group-focus-visible:opacity-40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m6 9 6 6 6-6"/></svg>';
+    const base = align === "right"
+      ? 'inline-flex w-full flex-row-reverse items-center justify-start gap-1 text-right'
+      : 'inline-flex items-center gap-1 text-left';
+    return '<th class="group h-10 px-3 ' + (align === "right" ? "text-right" : "text-left") + ' font-medium text-slate-500"' + (ariaSort ? ' aria-sort="' + ariaSort + '"' : '') + '>' +
+      '<button type="button" data-sort="' + col + '" class="' + base + ' hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-700 focus-visible:rounded-sm">' + escapeHtml(label) + chevron + '</button></th>';
+  }
+
+  function renderTableHead() {
+    const dynLabel = filters.groupBy === "rep" ? "Stage" : "Salesperson";
+    $("tableHead").innerHTML = '<tr>' +
+      sortButton("deal", "Deal", "left") +
+      sortButton("account", "Account", "left") +
+      sortButton("dyn", dynLabel, "left") +
+      sortButton("amount", "Amount (USD)", "right") +
+      sortButton("probability", "Probability", "right") +
+      sortButton("weighted", "Weighted value (USD)", "right") +
+      sortButton("close", "Expected close", "left") +
+      '</tr>';
+    $("tableHead").querySelectorAll("[data-sort]").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const col = btn.dataset.sort;
+        if (filters.sortCol === col) filters.sortDir = filters.sortDir === "asc" ? "desc" : "asc";
+        else { filters.sortCol = col; filters.sortDir = col === "deal" || col === "account" || col === "dyn" ? "asc" : "desc"; }
+        writeFiltersToURL();
+        renderAll();
+      });
+    });
+  }
+
+  function stageBadge(stageKey) {
+    const s = STAGE_BY_KEY[stageKey];
+    return '<span class="inline-flex h-6 items-center whitespace-nowrap rounded-full px-2 text-xs font-medium leading-5 ' + TONE_CLASSES[s.tone] + '">' + escapeHtml(s.label) + '</span>';
+  }
+
+  function dealRow(d, groupKey) {
+    const dyn = filters.groupBy === "rep" ? stageBadge(d.stage) : escapeHtml(d.rep.name);
+    return '<tr class="deal-row h-10 hover:bg-slate-50" data-group="' + groupKey + '">' +
+      '<td class="px-3 py-2.5 text-slate-900">' + escapeHtml(d.name) + '</td>' +
+      '<td class="px-3 py-2.5 text-slate-600">' + escapeHtml(d.account) + '</td>' +
+      '<td class="px-3 py-2.5">' + dyn + '</td>' +
+      '<td class="px-3 py-2.5 text-right tabular-nums text-slate-900">' + money(d.amount) + '</td>' +
+      '<td class="px-3 py-2.5 text-right tabular-nums text-slate-700">' + pctFmt(d.probability, 0) + '</td>' +
+      '<td class="px-3 py-2.5 text-right tabular-nums text-slate-900">' + money(d.amount * d.probability) + '</td>' +
+      '<td class="px-3 py-2.5 text-slate-700">' + dateFmt(d.expectedCloseDate) + ' · ' + dueText(d.expectedCloseDate) + '</td>' +
+      '</tr>';
+  }
+
+  function groupHeaderRow(g) {
+    return '<tr class="h-10 border-t border-slate-200 bg-slate-50">' +
+      '<td colspan="3" class="px-3 py-2.5 font-medium text-slate-900">' +
+      '<button type="button" data-collapse="' + g.key + '" aria-expanded="true" class="inline-flex items-center gap-1.5 hover:text-blue-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-700 focus-visible:rounded-sm">' +
+      '<svg class="chevron size-4 transition-transform" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m6 9 6 6 6-6"/></svg>' +
+      escapeHtml(g.label) + ' <span class="font-normal text-slate-500">· ' + numFmt(g.count) + ' open deal' + (g.count === 1 ? "" : "s") + '</span></button></td>' +
+      '<td colspan="4" class="px-3 py-2.5 text-right font-medium text-slate-700">Win rate (' + periodLabel() + '): ' +
+      (g.winRate == null ? '<span title="No closed deals in this period">—</span>' : pctFmt(g.winRate, 1)) + '</td>' +
+      '</tr>';
+  }
+
+  function subtotalRow(g) {
+    return '<tr class="subtotal-row h-10 border-t border-slate-200 font-medium">' +
+      '<td colspan="3" class="px-3 py-2.5 text-slate-700">Subtotal · ' + numFmt(g.count) + ' deal' + (g.count === 1 ? "" : "s") + '</td>' +
+      '<td class="px-3 py-2.5 text-right tabular-nums text-slate-900">' + money(g.pipelineValue) + '</td>' +
+      '<td class="px-3 py-2.5 text-right tabular-nums text-slate-400">—</td>' +
+      '<td class="px-3 py-2.5 text-right tabular-nums text-slate-900">' + money(g.weightedForecast) + '</td>' +
+      '<td class="px-3 py-2.5 text-slate-400">—</td>' +
+      '</tr>';
+  }
+
+  function renderGroupedRows(groups) {
+    const parts = [];
+    for (const g of groups) {
+      parts.push(groupHeaderRow(g));
+      parts.push(g.deals.map((d) => dealRow(d, g.key)).join(""));
+      parts.push(subtotalRow(g));
+    }
+    return parts.join("");
+  }
+
+  function renderFoot(groups) {
+    const totalCount = groups.reduce((s, g) => s + g.count, 0);
+    const totalPipeline = groups.reduce((s, g) => s + g.pipelineValue, 0);
+    const totalWeighted = groups.reduce((s, g) => s + g.weightedForecast, 0);
+    $("tableFoot").innerHTML = '<tr class="h-10 font-medium">' +
+      '<td colspan="3" class="px-3 py-2.5 text-slate-900">Total · ' + numFmt(totalCount) + ' open deal' + (totalCount === 1 ? "" : "s") + '</td>' +
+      '<td class="px-3 py-2.5 text-right tabular-nums text-slate-900">' + money(totalPipeline) + '</td>' +
+      '<td class="px-3 py-2.5 text-right tabular-nums text-slate-400">—</td>' +
+      '<td class="px-3 py-2.5 text-right tabular-nums text-slate-900">' + money(totalWeighted) + '</td>' +
+      '<td class="px-3 py-2.5 text-slate-400">—</td>' +
+      '</tr>';
+  }
+
+  function bindCollapseHandlers() {
+    document.querySelectorAll("[data-collapse]").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const key = btn.dataset.collapse;
+        const expanded = btn.getAttribute("aria-expanded") === "true";
+        btn.setAttribute("aria-expanded", String(!expanded));
+        btn.querySelector(".chevron").style.transform = expanded ? "rotate(-90deg)" : "rotate(0deg)";
+        document.querySelectorAll('tr.deal-row[data-group="' + key + '"]').forEach((row) => { row.hidden = !expanded; });
+      });
+    });
+  }
+
+  function messageRow(message, actionLabel, actionHandler) {
+    $("tableFoot").innerHTML = "";
+    $("tableBody").innerHTML = '<tr><td colspan="7" class="px-3 py-12 text-center">' +
+      '<p class="text-sm font-medium text-slate-700">' + message + '</p>' +
+      (actionLabel ? '<button type="button" id="tableActionBtn" class="mt-3 inline-flex h-9 items-center justify-center rounded-md border border-slate-300 bg-white px-3.5 text-sm font-medium text-slate-700 hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-700">' + actionLabel + '</button>' : '') +
+      '</td></tr>';
+    if (actionLabel) $("tableActionBtn").addEventListener("click", actionHandler);
+  }
+
+  function showSkeleton() {
+    $("tableHead").innerHTML = "";
+    $("tableFoot").innerHTML = "";
+    const cols = 7;
+    $("pipelineTable").setAttribute("aria-busy", "true");
+    $("tableBody").innerHTML = Array.from({ length: 8 }, () =>
+      '<tr class="h-10">' + Array.from({ length: cols }, () =>
+        '<td class="px-3 py-2.5"><div class="h-4 w-full animate-pulse rounded bg-slate-200 motion-reduce:animate-none"></div></td>'
+      ).join("") + '</tr>'
+    ).join("");
+  }
+
+  function showErrorState() {
+    renderTableHead();
+    $("pipelineTable").setAttribute("aria-busy", "false");
+    messageRow("Couldn't load the pipeline report. Check your connection and try again.", "Retry", () => {
+      const sp = new URLSearchParams(location.search);
+      sp.delete("state");
+      const qs = sp.toString();
+      history.replaceState(null, "", qs ? "?" + qs : location.pathname);
+      loadData();
+    });
+    $("summaryLine").textContent = "";
+    $("chartBody").innerHTML = "";
+    $("chartSummary").textContent = "";
+  }
+
+  /* ---------- top-level render ---------- */
+
+  function renderAll() {
+    writeFiltersToURL();
+    syncControlsFromFilters();
+    renderChips();
+
+    const stateParam = new URLSearchParams(location.search).get("state");
+    const range = periodRange();
+    $("periodTitle").textContent = periodLabel();
+    $("updatedLine").textContent = "Updated " + new Intl.DateTimeFormat("en-US", { month: "2-digit", day: "2-digit", year: "numeric", hour: "numeric", minute: "2-digit" }).format(new Date());
+
+    const forcedEmpty = stateParam === "empty";
+    const openDeals = forcedEmpty ? [] : getFilteredOpenDeals(range);
+    const closedDeals = forcedEmpty ? [] : getFilteredClosedDeals(range);
+
+    renderSummaryLine(openDeals, closedDeals);
+    const groups = buildGroups(openDeals, closedDeals);
+    renderChart(groups);
+
+    renderTableHead();
+    $("pipelineTable").setAttribute("aria-busy", "false");
+
+    if (forcedEmpty) {
+      messageRow("No open deals recorded for " + periodLabel() + ".", "Reset to this quarter", () => {
+        filters.period = DEFAULT_FILTERS.period; filters.from = ""; filters.to = "";
+        const sp = new URLSearchParams(location.search); sp.delete("state");
+        history.replaceState(null, "", "?" + sp.toString());
+        renderAll();
+      });
+      return;
+    }
+    if (openDeals.length === 0) {
+      messageRow("No open deals match these filters.", "Clear filters", () => { clearAllFilters(); renderAll(); });
+      return;
+    }
+
+    $("tableBody").innerHTML = renderGroupedRows(groups);
+    bindCollapseHandlers();
+    renderFoot(groups);
+  }
+
+  /* ---------- export / print ---------- */
+
+  function exportCsv() {
+    const range = periodRange();
+    const deals = getFilteredOpenDeals(range).slice().sort((a, b) => b.amount - a.amount);
+    const headers = ["Deal ID", "Deal", "Account", "Salesperson", "Stage", "Amount (USD)", "Probability", "Weighted value (USD)", "Expected close date"];
+    const rows = deals.map((d) => [
+      d.id, d.name, d.account, d.rep.name, STAGE_BY_KEY[d.stage].label,
+      d.amount, (d.probability * 100).toFixed(0) + "%", Math.round(d.amount * d.probability), d.expectedCloseDate.toISOString().slice(0, 10),
+    ]);
+    const csvEscape = (v) => { const s = String(v); return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s; };
+    const csv = [headers, ...rows].map((r) => r.map(csvEscape).join(",")).join("\r\n");
+    const blob = new Blob(["﻿" + csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    const fileName = "sales-pipeline-" + periodSlug() + ".csv";
+    a.href = url;
+    a.download = fileName;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+    showToast("Exported " + numFmt(deals.length) + " deal" + (deals.length === 1 ? "" : "s") + " · " + fileName);
+  }
+
+  let toastTimer = null;
+  function showToast(message) {
+    const el = $("toast");
+    el.textContent = message;
+    el.classList.remove("hidden");
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => el.classList.add("hidden"), 5000);
+  }
+
+  /* ---------- wiring ---------- */
+
+  function debounce(fn, ms) { let t; return (...args) => { clearTimeout(t); t = setTimeout(() => fn(...args), ms); }; }
+
+  function wireEvents() {
+    $("periodSelect").addEventListener("change", (e) => {
+      filters.period = e.target.value;
+      $("customRangeWrap").hidden = filters.period !== "custom";
+      renderAll();
+    });
+    $("customFrom").addEventListener("change", (e) => { filters.from = e.target.value; renderAll(); });
+    $("customTo").addEventListener("change", (e) => { filters.to = e.target.value; renderAll(); });
+
+    const onSearch = debounce(() => { filters.q = $("searchInput").value; renderAll(); }, 300);
+    $("searchInput").addEventListener("input", () => { $("clearSearchBtn").hidden = !$("searchInput").value; onSearch(); });
+    $("clearSearchBtn").addEventListener("click", () => { $("searchInput").value = ""; $("clearSearchBtn").hidden = true; filters.q = ""; renderAll(); });
+
+    function togglePanel(panelId, btnId) {
+      const panel = $(panelId), btn = $(btnId);
+      const isHidden = panel.hidden;
+      document.querySelectorAll(".filter-panel-open").forEach((p) => { p.hidden = true; });
+      panel.hidden = !isHidden;
+      btn.setAttribute("aria-expanded", String(!isHidden));
+    }
+    $("repFilterBtn").addEventListener("click", () => togglePanel("repFilterPanel", "repFilterBtn"));
+    $("stageFilterBtn").addEventListener("click", () => togglePanel("stageFilterPanel", "stageFilterBtn"));
+    $("moreFiltersBtn").addEventListener("click", () => togglePanel("moreFiltersPanel", "moreFiltersBtn"));
+    [$("repFilterPanel"), $("stageFilterPanel"), $("moreFiltersPanel")].forEach((p) => p.classList.add("filter-panel-open"));
+
+    document.addEventListener("click", (e) => {
+      if (!e.target.closest(".relative")) {
+        [$("repFilterPanel"), $("stageFilterPanel"), $("moreFiltersPanel")].forEach((p) => { p.hidden = true; });
+      }
+    });
+
+    $("repCheckboxes").addEventListener("change", (e) => {
+      const id = e.target.value;
+      filters.reps = e.target.checked ? [...filters.reps, id] : filters.reps.filter((x) => x !== id);
+      renderAll();
+    });
+    $("stageCheckboxes").addEventListener("change", (e) => {
+      const k = e.target.value;
+      filters.stages = e.target.checked ? [...filters.stages, k] : filters.stages.filter((x) => x !== k);
+      renderAll();
+    });
+    document.querySelector('[data-action="clear-rep"]').addEventListener("click", () => { filters.reps = []; renderAll(); });
+    document.querySelector('[data-action="close-rep"]').addEventListener("click", () => { $("repFilterPanel").hidden = true; });
+    document.querySelector('[data-action="clear-stage"]').addEventListener("click", () => { filters.stages = []; renderAll(); });
+    document.querySelector('[data-action="close-stage"]').addEventListener("click", () => { $("stageFilterPanel").hidden = true; });
+
+    document.querySelector('[data-action="apply-more"]').addEventListener("click", () => {
+      const min = $("minAmountInput").value, max = $("maxAmountInput").value;
+      filters.minAmount = min === "" ? null : Number(min);
+      filters.maxAmount = max === "" ? null : Number(max);
+      filters.region = $("regionSelect").value;
+      $("moreFiltersPanel").hidden = true;
+      renderAll();
+    });
+    document.querySelector('[data-action="reset-more"]').addEventListener("click", () => {
+      $("minAmountInput").value = ""; $("maxAmountInput").value = ""; $("regionSelect").value = "";
+      filters.minAmount = null; filters.maxAmount = null; filters.region = "";
+      renderAll();
+    });
+
+    document.querySelectorAll(".group-by-btn").forEach((btn) => {
+      btn.addEventListener("click", () => { filters.groupBy = btn.dataset.groupby; renderAll(); });
+    });
+
+    $("refreshBtn").addEventListener("click", () => {
+      showSkeleton();
+      setTimeout(renderAll, 400);
+    });
+    $("printBtn").addEventListener("click", () => window.print());
+    $("exportBtn").addEventListener("click", exportCsv);
+  }
+
+  function loadData() {
+    const stateParam = new URLSearchParams(location.search).get("state");
+    if (stateParam === "loading") { renderTableHead(); showSkeleton(); return; }
+    if (stateParam === "error") { showSkeleton(); setTimeout(showErrorState, 300); return; }
+
+    showSkeleton();
+    setTimeout(renderAll, 500);
+  }
+
+  function start() {
+    readFiltersFromURL();
+    populateStaticControls();
+    wireEvents();
+    syncControlsFromFilters();
+    loadData();
+  }
+
+  start();
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,56 @@
+{
+  "brief": "28-shift-roster",
+  "run": 2,
+  "items": [
+    {
+      "item": "The grid header names the week with its date range (such as \"Week 45 · 2–8 Nov 2026\"), every day column shows the weekday and date, and controls move to the previous, next and current week",
+      "pass": true,
+      "evidence": "#rangeHeading renders '02 – 08 Tháng 11, 2026' (renderHeader: rangeText from first/last dates); each <th> header shows WEEKDAY_SHORT[i] plus pad2(date)/pad2(month) (renderHeadRow); #prevWeekBtn/#nextWeekBtn adjust weekOffset, #todayBtn resets it to 0. Note: no week number (e.g. 'Tuần 45') is shown, only the date range."
+    },
+    {
+      "item": "Each shift shows its start and end time in one consistent 24-hour format and the role or station (such as \"07:00–15:00 · Cashier\"), and a shift that ends after midnight is marked as ending the next day",
+      "pass": false,
+      "evidence": "cellHtml() renders only '<span>'+t.label+'</span>' (e.g. 'Ca sáng') plus '<span>'+entry.start+'–'+entry.end+'</span>' (e.g. '06:00–14:00') — the employee's role/station is never repeated on the shift cell itself (role only appears once in the row header). No shift in SHIFT_TYPES or INITIAL_SCHEDULE crosses midnight (latest is 'evening' 16:00–23:30) and there is no code path that renders a 'next day' indicator, so the overnight-shift requirement is unimplemented."
+    },
+    {
+      "item": "Each staff row shows the week's scheduled hours against contracted hours (such as \"36 / 40 h\"), the scheduled figure equals that person's shifts less unpaid breaks, and anyone over or under contract is flagged in words",
+      "pass": false,
+      "evidence": "The 'Tổng giờ' column only prints fmtHours(weeklyHours(emp.id)) (e.g. '40 giờ') — EMPLOYEES objects (id/name/role/initials) have no contracted-hours field anywhere, so there is no 'X / Y h' comparison. The only flag is 'Quá giờ' when hours > MAX_WEEKLY_HOURS (a fixed 48h legal cap, not a personal contract), and there is no 'under contract' flag at all."
+    },
+    {
+      "item": "A footer row shows, for each day, the staff count or hours scheduled against the required cover, and days below the requirement are marked in text (such as \"Short 1\")",
+      "pass": true,
+      "evidence": "tfoot row renders, per day, working+'/'+filtered.length+' làm' and, when understaffed = working < MIN_STAFF_PER_DAY, an inline badge 'Thiếu nhân sự' (renderTable footHtml loop). In the current sample week every day has ≥5 working so the badge never actually appears in the screenshots, but the mechanism and text label exist."
+    },
+    {
+      "item": "The sample data contains at least one rule conflict, such as overlapping shifts for one person or less than 11 hours' rest between a closing and the next opening shift, shown on the affected cell with a written reason",
+      "pass": false,
+      "evidence": "There is no overlap/rest-conflict detection code anywhere in the script (no function computing gaps between consecutive shifts, no warning class/icon on a cell). The sample data does contain a violation — Đỗ Thị Hương (e5) closes 'Ca tối' 16:00–23:30 on day 5 then opens 'Ca sáng' 06:00–14:00 on day 6, only 6.5h rest — but cellHtml() renders that cell identically to any normal shift, with no flag or reason text."
+    },
+    {
+      "item": "Approved leave, days off and public holidays appear as labelled cells (such as \"Annual leave\", \"Day off\") that look different from an empty, unscheduled cell",
+      "pass": false,
+      "evidence": "Leave renders as a distinct gray 'Nghỉ phép' button (bg-slate-100) and day-off renders as a white 'Nghỉ' button, both visually different from the dashed empty '+ Thêm ca' button — but there is no public-holiday concept anywhere: SHIFT_TYPES only defines morning/afternoon/evening/off, and the ad-hoc {type:'leave'} entry is the only non-shift state besides 'off'."
+    },
+    {
+      "item": "The week's status (Draft or Published) is shown, and publishing goes through a confirmation that names the week and the number of unresolved conflicts or warnings",
+      "pass": false,
+      "evidence": "#scheduleStatusBadge correctly shows 'Nháp' or 'Đã công bố' (renderHeader). However #publishBtn/#publishBtn2 are wired directly to handlePublish(), which calls finalizeSave('published', ...) immediately with a toast — there is no confirmation dialog at all for publishing (only #confirmBackdrop exists, and that is used solely by panelDeleteBtn for deleting a shift), and nothing counts or names unresolved conflicts/warnings since no conflict detection exists."
+    },
+    {
+      "item": "The grid is a <table> with staff names as row headers and days as column headers, and each shift or empty cell is keyboard-reachable with an accessible name that includes the person and the date (such as \"Add shift, Lan Pham, Tue 3 Nov\")",
+      "pass": false,
+      "evidence": "#scheduleTable is a real <table> and day columns are correctly '<th scope=\"col\">' (renderHeadRow). But the employee-name cell is rendered as a plain '<td class=\"sticky left-0 ...\">' (renderTable rowsHtml), not '<th scope=\"row\">', so staff names are not marked up as row headers. Cell buttons do get good accessible names, e.g. aria-label=\"Thêm ca cho \"+emp.name+\", \"+WEEKDAY_LONG[day]+\" \"+dateStr and are native <button> elements (keyboard reachable)."
+    },
+    {
+      "item": "A week with no shifts yet shows a message with a way to start (such as \"Copy last week\"), and a loading state and a load error with a retry button exist",
+      "pass": false,
+      "evidence": "Loading works: renderSkeleton() shows shimmer rows while pageState==='loading'. Error works: pageState==='error' shows 'Không thể tải lịch phân ca' with a working '#retryBtn'. But the only 'empty' state (pageState==='empty') is for zero employees in the store ('Chưa có nhân viên nào...' + 'Thêm nhân viên' button) — there is no state for an employee roster with a genuinely empty week of shifts, and 'Sao chép từ tuần trước' only exists as a generic overflow-menu action, not as the call-to-action of an empty-week message. Since `schedule` is a single static object reused for every weekOffset, navigating weeks never even produces a zero-shift week to test this against."
+    }
+  ],
+  "tells": [
+    "card-in-card"
+  ],
+  "notes": "Side panel's avatar/name block (rounded-md bg-slate-50 p-3) nested inside the aside is a mild card-in-card pattern; otherwise the page is largely free of generic template tells (no greeting header, no KPI tiles, no gradients/glass, no emoji icons, no rainbow statuses, no sidebar at all). Main gaps are all functional: missing per-shift role display and overnight-shift marking, no contracted-hours comparison, no rule-conflict detection/display despite the sample data containing a rest violation, no public-holiday cell type, no publish confirmation step, row headers using <td> instead of <th scope=row>, and no dedicated empty-week-with-shifts state.",
+  "blind": true
+}

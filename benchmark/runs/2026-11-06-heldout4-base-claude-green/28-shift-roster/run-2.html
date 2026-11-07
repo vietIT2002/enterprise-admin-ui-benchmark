@@ -1,0 +1,871 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Lịch phân ca theo tuần</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+  [hidden] { display: none !important; }
+  .tabular-nums { font-variant-numeric: tabular-nums; }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.45} }
+  .skeleton { animation: pulse 1.4s ease-in-out infinite; }
+</style>
+</head>
+<body class="bg-slate-50 text-slate-900 antialiased text-sm">
+<div class="min-h-screen flex flex-col">
+
+  <!-- Page header -->
+  <header class="bg-white border-b border-slate-200 px-6 py-4 flex items-start justify-between gap-4 flex-wrap">
+    <div>
+      <h1 class="text-xl font-semibold text-slate-900">Lịch phân ca theo tuần</h1>
+      <p class="text-sm text-slate-600 mt-0.5">Siêu thị Minh Châu · Chi nhánh Nguyễn Trãi, Quận 5, TP.HCM</p>
+    </div>
+    <div class="flex items-center gap-2">
+      <button id="btnCopyWeek" type="button" class="h-8 px-3 rounded border border-slate-300 bg-white font-medium text-slate-700 hover:bg-slate-50">Sao chép tuần trước</button>
+      <div class="relative">
+        <button id="btnMore" type="button" aria-haspopup="true" aria-expanded="false" aria-label="Thêm hành động" class="h-8 w-8 inline-flex items-center justify-center rounded border border-slate-300 bg-white text-slate-600 hover:bg-slate-50">⋯</button>
+        <div id="moreMenu" hidden class="absolute right-0 mt-1 w-52 bg-white border border-slate-200 rounded-md shadow-lg py-1 z-30">
+          <button id="btnExport" type="button" class="w-full text-left px-3 py-2 hover:bg-slate-50">Xuất lịch (CSV)</button>
+          <button id="btnPrint" type="button" class="w-full text-left px-3 py-2 hover:bg-slate-50">In lịch tuần</button>
+        </div>
+      </div>
+      <button id="btnPublish" type="button" class="h-8 px-3 rounded bg-blue-700 font-medium text-white hover:bg-blue-800 disabled:bg-slate-200 disabled:text-slate-400 disabled:cursor-not-allowed">Công bố lịch tuần</button>
+    </div>
+  </header>
+
+  <!-- Draft / unsaved banner -->
+  <div id="draftBanner" role="status" hidden class="bg-amber-50 border-b border-amber-200 text-amber-800 px-6 py-2 flex items-center justify-between gap-3">
+    <span id="draftBannerText"></span>
+  </div>
+
+  <!-- Toolbar -->
+  <div class="bg-white border-b border-slate-200 px-6 py-3 flex items-center gap-3 flex-wrap">
+    <div class="flex items-center gap-1">
+      <button id="btnToday" type="button" class="h-8 px-3 rounded border border-slate-300 bg-white font-medium text-slate-700 hover:bg-slate-50">Hôm nay</button>
+      <button id="btnPrevWeek" type="button" aria-label="Tuần trước" class="h-8 w-8 inline-flex items-center justify-center rounded border border-slate-300 bg-white text-slate-600 hover:bg-slate-50">‹</button>
+      <button id="btnNextWeek" type="button" aria-label="Tuần sau" class="h-8 w-8 inline-flex items-center justify-center rounded border border-slate-300 bg-white text-slate-600 hover:bg-slate-50">›</button>
+    </div>
+    <h2 id="rangeHeading" class="font-semibold text-slate-900 tabular-nums"></h2>
+
+    <div role="group" aria-label="Chế độ xem" class="ml-auto inline-flex rounded border border-slate-300 overflow-hidden">
+      <button id="viewWeekBtn" type="button" aria-pressed="true" class="px-3 h-8 font-medium bg-blue-50 text-blue-800">Tuần</button>
+      <button id="viewListBtn" type="button" aria-pressed="false" class="px-3 h-8 font-medium bg-white text-slate-600 hover:bg-slate-50 border-l border-slate-300">Danh sách</button>
+    </div>
+
+    <div class="flex items-center gap-2">
+      <label for="filterDept" class="sr-only">Bộ phận</label>
+      <select id="filterDept" class="h-8 rounded border border-slate-300 bg-white px-2 text-slate-700">
+        <option value="">Tất cả bộ phận</option>
+        <option value="manage">Quản lý</option>
+        <option value="cashier">Thu ngân</option>
+        <option value="sales">Bán hàng</option>
+        <option value="warehouse">Kho</option>
+        <option value="security">Bảo vệ</option>
+      </select>
+      <label for="filterSearch" class="sr-only">Tìm nhân viên</label>
+      <input id="filterSearch" type="text" placeholder="Tìm nhân viên…" class="h-8 w-48 rounded border border-slate-300 bg-white px-2" />
+    </div>
+  </div>
+
+  <!-- Applied filter chips -->
+  <div id="chipsRow" hidden class="bg-white border-b border-slate-200 px-6 py-2 flex items-center gap-2 flex-wrap"></div>
+
+  <main class="flex-1 overflow-auto p-6">
+
+    <!-- Week grid view -->
+    <div id="weekView">
+      <div id="gridCard" class="bg-white border border-slate-200 rounded-md overflow-hidden">
+        <div class="overflow-x-auto">
+          <table id="rosterTable" class="w-full border-collapse">
+            <caption class="sr-only" id="tableCaption"></caption>
+            <thead id="rosterThead"></thead>
+            <tbody id="rosterTbody"></tbody>
+            <tfoot id="rosterTfoot"></tfoot>
+          </table>
+        </div>
+      </div>
+
+      <div class="mt-4 flex flex-wrap items-center gap-x-5 gap-y-2 text-xs text-slate-600">
+        <span class="flex items-center gap-1.5"><span class="inline-block w-3 h-3 rounded-full bg-blue-700"></span>Hôm nay</span>
+        <span class="flex items-center gap-1.5"><span class="inline-block w-3 h-3 rounded bg-slate-200 border border-slate-300"></span>Cuối tuần</span>
+        <span class="flex items-center gap-1.5"><span class="inline-block w-3 h-3 rounded border-2 border-blue-600 bg-blue-50"></span>Ca sáng · 06:00–14:00</span>
+        <span class="flex items-center gap-1.5"><span class="inline-block w-3 h-3 rounded border-2 border-amber-600 bg-amber-50"></span>Ca chiều · 14:00–22:00</span>
+        <span class="flex items-center gap-1.5"><span class="inline-block w-3 h-3 rounded border-2 border-violet-600 bg-violet-50"></span>Ca tối · 22:00–06:00</span>
+        <span class="flex items-center gap-1.5"><span class="inline-block w-3 h-3 rounded border-2 border-slate-300 bg-slate-50"></span>Nghỉ</span>
+        <span class="flex items-center gap-1.5"><span class="inline-block w-3 h-3 rounded border-2 border-dashed border-slate-500"></span>Nháp · chưa công bố</span>
+        <span class="flex items-center gap-1.5"><span class="inline-block w-3 h-3 rounded border-2 border-dashed border-slate-300"></span>Chưa xếp ca</span>
+      </div>
+    </div>
+
+    <!-- List view -->
+    <div id="listView" hidden>
+      <div class="bg-white border border-slate-200 rounded-md overflow-hidden">
+        <div class="overflow-x-auto">
+          <table class="w-full border-collapse">
+            <thead>
+              <tr class="border-b border-slate-200 bg-slate-50">
+                <th scope="col" class="text-left px-3 py-2.5 font-medium text-slate-600">Ngày</th>
+                <th scope="col" class="text-left px-3 py-2.5 font-medium text-slate-600">Nhân viên</th>
+                <th scope="col" class="text-left px-3 py-2.5 font-medium text-slate-600">Bộ phận</th>
+                <th scope="col" class="text-left px-3 py-2.5 font-medium text-slate-600">Ca làm</th>
+                <th scope="col" class="text-left px-3 py-2.5 font-medium text-slate-600">Giờ</th>
+                <th scope="col" class="text-left px-3 py-2.5 font-medium text-slate-600">Trạng thái</th>
+              </tr>
+            </thead>
+            <tbody id="listTbody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+  </main>
+</div>
+
+<!-- Edit side panel -->
+<div id="panelOverlay" hidden class="fixed inset-0 bg-slate-900/30 z-40"></div>
+<aside id="editPanel" hidden role="dialog" aria-modal="true" aria-labelledby="editPanelTitle" class="fixed top-0 right-0 h-full w-full sm:w-96 bg-white border-l border-slate-200 shadow-xl z-50 flex flex-col">
+  <div class="flex items-center justify-between px-5 py-4 border-b border-slate-200">
+    <h3 id="editPanelTitle" class="font-semibold text-slate-900">Sửa ca làm</h3>
+    <button id="btnClosePanel" type="button" aria-label="Đóng" class="h-8 w-8 inline-flex items-center justify-center rounded hover:bg-slate-100 text-slate-500">✕</button>
+  </div>
+  <div class="flex-1 overflow-y-auto px-5 py-4 space-y-4">
+    <div>
+      <div class="font-medium text-slate-900" id="panelEmpName"></div>
+      <div class="text-slate-600" id="panelEmpRole"></div>
+      <div class="text-slate-600 mt-1" id="panelDayLabel"></div>
+    </div>
+    <div>
+      <label for="shiftTypeSelect" class="block font-medium text-slate-900 mb-1">Loại ca</label>
+      <select id="shiftTypeSelect" class="w-full h-8 rounded border border-slate-300 px-2">
+        <option value="morning">Ca sáng</option>
+        <option value="afternoon">Ca chiều</option>
+        <option value="night">Ca tối</option>
+        <option value="off">Nghỉ</option>
+      </select>
+    </div>
+    <div class="flex gap-3" id="timeFieldsRow">
+      <div class="flex-1">
+        <label for="startTimeInput" class="block font-medium text-slate-900 mb-1">Giờ bắt đầu</label>
+        <input id="startTimeInput" type="time" class="w-full h-8 rounded border border-slate-300 px-2" />
+      </div>
+      <div class="flex-1">
+        <label for="endTimeInput" class="block font-medium text-slate-900 mb-1">Giờ kết thúc</label>
+        <input id="endTimeInput" type="time" class="w-full h-8 rounded border border-slate-300 px-2" />
+      </div>
+    </div>
+    <div>
+      <label for="noteInput" class="block font-medium text-slate-900 mb-1">Ghi chú (tuỳ chọn)</label>
+      <textarea id="noteInput" rows="3" class="w-full rounded border border-slate-300 px-2 py-1.5" placeholder="Ví dụ: đổi ca với Hùng, hỗ trợ kiểm kê…"></textarea>
+    </div>
+    <p class="text-xs text-slate-600" id="panelStatusHint"></p>
+  </div>
+  <div class="sticky bottom-0 border-t border-slate-200 bg-white px-5 py-3 flex items-center justify-between gap-2">
+    <button id="btnDeleteShift" type="button" hidden class="h-8 px-3 rounded text-red-700 font-medium hover:bg-red-50">Xoá ca</button>
+    <div class="flex items-center gap-2 ml-auto">
+      <button id="btnCancelPanel" type="button" class="h-8 px-3 rounded border border-slate-300 bg-white font-medium text-slate-700 hover:bg-slate-50">Hủy</button>
+      <button id="btnSavePanel" type="button" class="h-8 px-3 rounded bg-blue-700 font-medium text-white hover:bg-blue-800">Lưu</button>
+    </div>
+  </div>
+</aside>
+
+<!-- Confirm dialog -->
+<div id="confirmOverlay" hidden class="fixed inset-0 bg-slate-900/40 flex items-center justify-center z-50 px-4">
+  <div role="alertdialog" aria-modal="true" aria-labelledby="confirmTitle" aria-describedby="confirmMessage" class="bg-white rounded-lg shadow-xl w-full max-w-sm p-5">
+    <h3 id="confirmTitle" class="font-semibold text-slate-900 mb-2"></h3>
+    <p id="confirmMessage" class="text-slate-600 mb-5"></p>
+    <div class="flex justify-end gap-2">
+      <button id="btnCancelConfirm" type="button" class="h-8 px-3 rounded border border-slate-300 bg-white font-medium text-slate-700 hover:bg-slate-50">Hủy</button>
+      <button id="btnConfirmAction" type="button" class="h-8 px-3 rounded bg-red-700 font-medium text-white hover:bg-red-800">Xoá</button>
+    </div>
+  </div>
+</div>
+
+<!-- Toasts -->
+<div id="toastContainer" role="status" aria-live="polite" class="fixed bottom-4 right-4 z-[60] flex flex-col gap-2"></div>
+
+<script>
+(function () {
+  "use strict";
+
+  /* ---------- Data ---------- */
+
+  var DEPT_LABELS = { manage: "Quản lý", cashier: "Thu ngân", sales: "Bán hàng", warehouse: "Kho", security: "Bảo vệ" };
+
+  var EMPLOYEES = [
+    { id: "e1", name: "Nguyễn Thị Lan", role: "Quản lý ca", dept: "manage", code: "NV-101", initials: "LA", color: "bg-blue-600" },
+    { id: "e2", name: "Trần Văn Hùng", role: "Thu ngân", dept: "cashier", code: "NV-102", initials: "HU", color: "bg-teal-700" },
+    { id: "e3", name: "Phạm Thị Mai", role: "Thu ngân", dept: "cashier", code: "NV-103", initials: "MA", color: "bg-teal-700" },
+    { id: "e4", name: "Lê Văn Đức", role: "Nhân viên bán hàng", dept: "sales", code: "NV-104", initials: "ĐƯ", color: "bg-indigo-700" },
+    { id: "e5", name: "Hoàng Thị Thu", role: "Nhân viên bán hàng", dept: "sales", code: "NV-105", initials: "TH", color: "bg-indigo-700" },
+    { id: "e6", name: "Vũ Văn Nam", role: "Nhân viên bán hàng", dept: "sales", code: "NV-106", initials: "NA", color: "bg-indigo-700" },
+    { id: "e7", name: "Đặng Thị Hoa", role: "Nhân viên kho", dept: "warehouse", code: "NV-107", initials: "HO", color: "bg-fuchsia-700" },
+    { id: "e8", name: "Bùi Văn Sơn", role: "Bảo vệ", dept: "security", code: "NV-108", initials: "SƠ", color: "bg-slate-700" }
+  ];
+
+  var SHIFT_TYPES = {
+    morning: { label: "Ca sáng", start: "06:00", end: "14:00", chip: "border-blue-600 bg-blue-50 text-blue-800" },
+    afternoon: { label: "Ca chiều", start: "14:00", end: "22:00", chip: "border-amber-600 bg-amber-50 text-amber-800" },
+    night: { label: "Ca tối", start: "22:00", end: "06:00", chip: "border-violet-600 bg-violet-50 text-violet-800" },
+    off: { label: "Nghỉ", start: "", end: "", chip: "border-slate-300 bg-slate-50 text-slate-600" }
+  };
+
+  var WEEKDAY_SHORT = ["T2", "T3", "T4", "T5", "T6", "T7", "CN"];
+  var WEEKDAY_FULL = ["Thứ Hai", "Thứ Ba", "Thứ Tư", "Thứ Năm", "Thứ Sáu", "Thứ Bảy", "Chủ Nhật"];
+  var MIN_COVERAGE_RATIO = 0.6;
+
+  // type per [employeeIndex][dayOffset 0=Mon..6=Sun]; null = chưa xếp ca
+  var BASE_TYPE = {
+    e1: ["morning", "morning", "afternoon", "off", "morning", "morning", "off"],
+    e2: ["afternoon", "afternoon", "morning", "morning", "afternoon", "afternoon", "afternoon"],
+    e3: ["morning", "off", "afternoon", "afternoon", "morning", "off", "morning"],
+    e4: ["afternoon", "morning", "off", "morning", "afternoon", "morning", null],
+    e5: ["morning", "afternoon", "morning", "off", "off", "afternoon", "afternoon"],
+    e6: ["off", "morning", "afternoon", "afternoon", "morning", "morning", null],
+    e7: ["morning", "morning", "morning", "morning", "off", "off", null],
+    e8: ["night", "night", "night", "night", "night", "night", "night"]
+  };
+  var BASE_STATUS = {
+    e1: ["published", "published", "published", "published", "draft", "draft", "published"],
+    e2: ["published", "published", "published", "published", "draft", "draft", "draft"],
+    e3: ["published", "published", "published", "published", "draft", "published", "draft"],
+    e4: ["published", "published", "published", "published", "draft", "draft", null],
+    e5: ["published", "published", "published", "published", "published", "draft", "draft"],
+    e6: ["published", "published", "published", "published", "draft", "draft", null],
+    e7: ["published", "published", "published", "published", "published", "published", null],
+    e8: ["published", "published", "published", "published", "draft", "draft", "draft"]
+  };
+
+  /* ---------- Date helpers ---------- */
+
+  function pad2(n) { return String(n).padStart(2, "0"); }
+  function isoKey(d) { return d.getFullYear() + "-" + pad2(d.getMonth() + 1) + "-" + pad2(d.getDate()); }
+  function fmtDate(d) { return pad2(d.getDate()) + "/" + pad2(d.getMonth() + 1) + "/" + d.getFullYear(); }
+  function addDays(d, n) { var r = new Date(d); r.setDate(r.getDate() + n); return r; }
+  function getMonday(d) {
+    var r = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+    var day = r.getDay();
+    var diff = day === 0 ? -6 : 1 - day;
+    r.setDate(r.getDate() + diff);
+    return r;
+  }
+  function parseIso(key) {
+    var p = key.split("-");
+    return new Date(parseInt(p[0], 10), parseInt(p[1], 10) - 1, parseInt(p[2], 10));
+  }
+
+  /* ---------- Schedule store ---------- */
+
+  var today = new Date();
+  var baseWeekStart = getMonday(today);
+  var baseWeekKey = isoKey(baseWeekStart);
+
+  function buildWeekFromBase() {
+    var week = {};
+    EMPLOYEES.forEach(function (emp) {
+      for (var d = 0; d < 7; d++) {
+        var type = BASE_TYPE[emp.id][d];
+        var status = BASE_STATUS[emp.id][d];
+        if (type) week[emp.id + "_" + d] = { type: type, status: status, note: "" };
+      }
+    });
+    return week;
+  }
+
+  var scheduleStore = {};
+  scheduleStore[baseWeekKey] = buildWeekFromBase();
+
+  /* ---------- App state ---------- */
+
+  var urlState = new URLSearchParams(location.search).get("state"); // null | 'empty' | 'error' | 'loading'
+
+  var state = {
+    weekStart: baseWeekStart,
+    view: "week",
+    filterDept: "",
+    filterSearch: ""
+  };
+
+  var pendingConfirmAction = null;
+  var activeCell = null; // {empId, day, existing}
+  var lastFocusedBeforePanel = null;
+
+  /* ---------- Elements ---------- */
+
+  var el = {};
+  [
+    "rangeHeading", "rosterThead", "rosterTbody", "rosterTfoot", "tableCaption", "gridCard", "weekView", "listView",
+    "listTbody", "chipsRow", "draftBanner", "draftBannerText", "btnPublish", "filterDept", "filterSearch",
+    "viewWeekBtn", "viewListBtn", "btnToday", "btnPrevWeek", "btnNextWeek", "btnCopyWeek", "btnMore", "moreMenu",
+    "btnExport", "btnPrint", "panelOverlay", "editPanel", "editPanelTitle", "panelEmpName", "panelEmpRole",
+    "panelDayLabel", "shiftTypeSelect", "startTimeInput", "endTimeInput", "noteInput", "panelStatusHint",
+    "btnDeleteShift", "btnCancelPanel", "btnSavePanel", "btnClosePanel", "confirmOverlay", "confirmTitle",
+    "confirmMessage", "btnCancelConfirm", "btnConfirmAction", "toastContainer"
+  ].forEach(function (id) { el[id] = document.getElementById(id); });
+
+  /* ---------- Toast ---------- */
+
+  function toast(message, variant) {
+    var t = document.createElement("div");
+    t.className = "rounded-md shadow-lg px-4 py-3 min-w-[260px] max-w-sm text-white " + (variant === "error" ? "bg-red-700" : "bg-slate-800");
+    t.textContent = message;
+    el.toastContainer.appendChild(t);
+    setTimeout(function () { t.remove(); }, 3800);
+  }
+
+  /* ---------- Confirm dialog ---------- */
+
+  function openConfirm(opts) {
+    el.confirmTitle.textContent = opts.title;
+    el.confirmMessage.textContent = opts.message;
+    el.btnConfirmAction.textContent = opts.confirmLabel || "Xoá";
+    el.btnConfirmAction.className = "h-8 px-3 rounded font-medium text-white hover:brightness-95 " + (opts.danger === false ? "bg-blue-700" : "bg-red-700");
+    pendingConfirmAction = opts.onConfirm;
+    el.confirmOverlay.hidden = false;
+    el.btnCancelConfirm.focus();
+  }
+  function closeConfirm() {
+    el.confirmOverlay.hidden = true;
+    pendingConfirmAction = null;
+  }
+  el.btnCancelConfirm.addEventListener("click", closeConfirm);
+  el.btnConfirmAction.addEventListener("click", function () {
+    var fn = pendingConfirmAction;
+    closeConfirm();
+    if (fn) fn();
+  });
+  el.confirmOverlay.addEventListener("click", function (e) { if (e.target === el.confirmOverlay) closeConfirm(); });
+
+  /* ---------- Schedule mutation ---------- */
+
+  function weekKey() { return isoKey(state.weekStart); }
+
+  function ensureWeek(key) {
+    if (!scheduleStore[key]) scheduleStore[key] = {};
+    return scheduleStore[key];
+  }
+
+  function setAssignment(key, empId, day, type, note) {
+    var week = ensureWeek(key);
+    week[empId + "_" + day] = { type: type, status: "draft", note: note || "" };
+  }
+
+  function deleteAssignment(key, empId, day) {
+    var week = scheduleStore[key];
+    if (week) delete week[empId + "_" + day];
+  }
+
+  function publishWeek(key) {
+    var week = scheduleStore[key];
+    if (!week) return 0;
+    var n = 0;
+    Object.keys(week).forEach(function (k) {
+      if (week[k].status === "draft") { week[k].status = "published"; n++; }
+    });
+    return n;
+  }
+
+  function copyPreviousWeek(key) {
+    var prevKey = isoKey(addDays(parseIso(key), -7));
+    var prevWeek = scheduleStore[prevKey];
+    if (!prevWeek) { toast("Tuần trước chưa có lịch để sao chép.", "error"); return; }
+    var copy = {};
+    Object.keys(prevWeek).forEach(function (k) {
+      copy[k] = { type: prevWeek[k].type, status: "draft", note: prevWeek[k].note || "" };
+    });
+    scheduleStore[key] = copy;
+    toast("Đã sao chép lịch từ tuần trước · " + Object.keys(copy).length + " ca.");
+    renderWeek();
+  }
+
+  /* ---------- Filters ---------- */
+
+  function filteredEmployees() {
+    var dept = state.filterDept, q = state.filterSearch.trim().toLowerCase();
+    return EMPLOYEES.filter(function (e) {
+      if (dept && e.dept !== dept) return false;
+      if (q && e.name.toLowerCase().indexOf(q) === -1) return false;
+      return true;
+    });
+  }
+
+  function renderChips() {
+    var chips = [];
+    if (state.filterDept) chips.push({ key: "dept", label: "Bộ phận: " + DEPT_LABELS[state.filterDept] });
+    if (state.filterSearch.trim()) chips.push({ key: "search", label: 'Tìm: "' + state.filterSearch.trim() + '"' });
+    if (!chips.length) { el.chipsRow.hidden = true; el.chipsRow.innerHTML = ""; return; }
+    el.chipsRow.hidden = false;
+    el.chipsRow.innerHTML = chips.map(function (c) {
+      return '<span class="inline-flex items-center gap-1.5 rounded-full border border-slate-300 bg-slate-50 pl-3 pr-1.5 h-7 text-xs text-slate-700">' + c.label +
+        '<button type="button" data-chip="' + c.key + '" aria-label="Xoá bộ lọc ' + c.label + '" class="h-5 w-5 inline-flex items-center justify-center rounded-full hover:bg-slate-200 text-slate-500">×</button></span>';
+    }).join("") + '<button type="button" id="btnClearAllFilters" class="text-xs font-medium text-blue-700 hover:underline ml-1">Xoá tất cả</button>';
+
+    el.chipsRow.querySelectorAll("[data-chip]").forEach(function (btn) {
+      btn.addEventListener("click", function () {
+        var k = btn.getAttribute("data-chip");
+        if (k === "dept") { state.filterDept = ""; el.filterDept.value = ""; }
+        if (k === "search") { state.filterSearch = ""; el.filterSearch.value = ""; }
+        renderWeek();
+      });
+    });
+    var clearAll = document.getElementById("btnClearAllFilters");
+    if (clearAll) clearAll.addEventListener("click", function () {
+      state.filterDept = ""; state.filterSearch = "";
+      el.filterDept.value = ""; el.filterSearch.value = "";
+      renderWeek();
+    });
+  }
+
+  /* ---------- Range heading ---------- */
+
+  function updateRangeHeading() {
+    var end = addDays(state.weekStart, 6);
+    el.rangeHeading.textContent = fmtDate(state.weekStart) + " – " + fmtDate(end);
+    el.tableCaption.textContent = "Lịch phân ca tuần " + fmtDate(state.weekStart) + " đến " + fmtDate(end) + " theo nhân viên";
+  }
+
+  /* ---------- Skeleton ---------- */
+
+  function renderSkeleton() {
+    el.rosterThead.innerHTML = "";
+    el.rosterTfoot.innerHTML = "";
+    var rows = "";
+    for (var r = 0; r < 5; r++) {
+      var cells = '<td class="px-3 py-2.5 sticky left-0 bg-white"><div class="skeleton h-4 w-32 bg-slate-200 rounded mb-1"></div><div class="skeleton h-3 w-20 bg-slate-100 rounded"></div></td>';
+      for (var c = 0; c < 7; c++) cells += '<td class="p-1.5"><div class="skeleton h-12 rounded bg-slate-100"></div></td>';
+      rows += "<tr>" + cells + "</tr>";
+    }
+    el.rosterTbody.innerHTML = rows;
+  }
+
+  /* ---------- Error state ---------- */
+
+  function renderError() {
+    el.rosterThead.innerHTML = "";
+    el.rosterTfoot.innerHTML = "";
+    el.rosterTbody.innerHTML = '<tr><td class="p-10 text-center">' +
+      '<p class="text-slate-900 font-medium mb-1">Không thể tải lịch phân ca</p>' +
+      '<p class="text-slate-600 mb-4">Đã có lỗi khi tải dữ liệu lịch làm việc. Dữ liệu đã nhập trước đó vẫn được giữ.</p>' +
+      '<button type="button" id="btnRetryLoad" class="h-8 px-4 rounded bg-blue-700 text-white font-medium hover:bg-blue-800">Thử lại</button>' +
+      "</td></tr>";
+    document.getElementById("btnRetryLoad").addEventListener("click", function () {
+      var url = new URL(location.href);
+      url.searchParams.delete("state");
+      history.replaceState(null, "", url.toString());
+      urlState = null;
+      startLoad();
+    });
+  }
+
+  /* ---------- Empty week state ---------- */
+
+  function renderEmptyWeek() {
+    var prevKey = isoKey(addDays(state.weekStart, -7));
+    var hasPrev = !!scheduleStore[prevKey];
+    el.rosterThead.innerHTML = "";
+    el.rosterTfoot.innerHTML = "";
+    el.rosterTbody.innerHTML = '<tr><td class="p-12 text-center">' +
+      '<p class="text-slate-900 font-medium mb-1">Chưa có lịch cho tuần này</p>' +
+      '<p class="text-slate-600 mb-4">Tuần ' + fmtDate(state.weekStart) + ' – ' + fmtDate(addDays(state.weekStart, 6)) + ' chưa có ca làm nào được xếp.</p>' +
+      '<button type="button" id="btnEmptyAction" class="h-8 px-4 rounded bg-blue-700 text-white font-medium hover:bg-blue-800">' +
+      (hasPrev ? "Sao chép lịch tuần trước" : "Bắt đầu xếp lịch") + "</button>" +
+      "</td></tr>";
+    document.getElementById("btnEmptyAction").addEventListener("click", function () {
+      if (hasPrev) { copyPreviousWeek(weekKey()); }
+      else { scheduleStore[weekKey()] = {}; renderWeek(); }
+    });
+  }
+
+  /* ---------- No-results state ---------- */
+
+  function renderNoResults() {
+    el.rosterTbody.innerHTML = '<tr><td class="p-12 text-center">' +
+      '<p class="text-slate-900 font-medium mb-1">Không có nhân viên phù hợp</p>' +
+      '<p class="text-slate-600 mb-4">Không có nhân viên nào khớp với bộ lọc hiện tại.</p>' +
+      '<button type="button" id="btnClearFiltersEmpty" class="h-8 px-4 rounded border border-slate-300 bg-white font-medium text-slate-700 hover:bg-slate-50">Xoá bộ lọc</button>' +
+      "</td></tr>";
+    document.getElementById("btnClearFiltersEmpty").addEventListener("click", function () {
+      state.filterDept = ""; state.filterSearch = "";
+      el.filterDept.value = ""; el.filterSearch.value = "";
+      renderWeek();
+    });
+  }
+
+  /* ---------- Grid render ---------- */
+
+  function dayDate(day) { return addDays(state.weekStart, day); }
+  function isWeekend(day) { return day === 5 || day === 6; }
+  function isToday(day) { return isoKey(dayDate(day)) === isoKey(today); }
+
+  function renderGridHead() {
+    var corner = '<th scope="col" class="sticky left-0 top-0 z-20 bg-white border-b border-r border-slate-200 px-3 py-2.5 text-left font-medium text-slate-600 min-w-[220px]">Nhân viên</th>';
+    var days = "";
+    for (var d = 0; d < 7; d++) {
+      var date = dayDate(d);
+      var today_ = isToday(d);
+      var weekend = isWeekend(d);
+      days += '<th scope="col" ' + (today_ ? 'aria-current="date"' : "") +
+        ' class="sticky top-0 z-10 border-b border-slate-200 px-2 py-2.5 text-center font-medium min-w-[150px] ' +
+        (weekend ? "bg-slate-50 " : "bg-white ") + (today_ ? "text-blue-800" : "text-slate-700") + '">' +
+        '<div>' + WEEKDAY_SHORT[d] + ' <span class="text-slate-500 font-normal">· ' + fmtDate(date) + '</span></div>' +
+        (today_ ? '<div class="mt-0.5 inline-flex items-center gap-1 text-xs font-semibold text-blue-700"><span class="inline-block w-1.5 h-1.5 rounded-full bg-blue-700" aria-hidden="true"></span>Hôm nay</div>' : "") +
+        "</th>";
+    }
+    el.rosterThead.innerHTML = "<tr>" + corner + days + "</tr>";
+  }
+
+  function shiftCellHtml(emp, day, rowIdx, data) {
+    var key = emp.id + "_" + day;
+    var entry = data[key];
+    var dateLabel = WEEKDAY_FULL[day] + " " + fmtDate(dayDate(day));
+
+    if (!entry) {
+      return '<button type="button" data-row="' + rowIdx + '" data-col="' + day + '" data-key="' + key + '" ' +
+        'class="w-full min-h-[48px] rounded border-2 border-dashed border-slate-300 text-slate-500 flex items-center justify-center gap-1 hover:border-slate-400 hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600" ' +
+        'aria-label="' + emp.name + ', chưa xếp ca, ' + dateLabel + '. Nhấn để thêm ca.">' +
+        '<span aria-hidden="true">+</span><span class="text-xs">Thêm ca</span></button>';
+    }
+
+    var def = SHIFT_TYPES[entry.type];
+    var isDraft = entry.status === "draft";
+    var timeLine = def.start ? ('<span class="block text-[11px] opacity-90">' + def.start + '–' + def.end + "</span>") : "";
+    var draftLine = isDraft ? '<span class="block text-[11px] font-semibold">Nháp</span>' : "";
+    var ariaLabel = emp.name + ", " + def.label + (def.start ? (", " + def.start + " đến " + def.end) : "") + ", " + dateLabel + (isDraft ? ", chưa công bố" : "") + ". Nhấn để sửa ca.";
+
+    return '<button type="button" data-row="' + rowIdx + '" data-col="' + day + '" data-key="' + key + '" ' +
+      'class="w-full min-h-[48px] rounded border-2 px-2 py-1.5 text-left text-xs leading-tight hover:brightness-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 ' +
+      def.chip + (isDraft ? " border-dashed" : "") + '" aria-label="' + ariaLabel + '">' +
+      '<span class="block font-medium">' + def.label + "</span>" + timeLine + draftLine +
+      "</button>";
+  }
+
+  function renderGridBody(data, employees) {
+    var rows = employees.map(function (emp, idx) {
+      var identity = '<th scope="row" class="sticky left-0 z-10 bg-white border-r border-b border-slate-200 px-3 py-2 text-left align-top min-w-[220px]">' +
+        '<div class="flex items-center gap-2">' +
+        '<span class="h-7 w-7 shrink-0 rounded-full ' + emp.color + ' text-white text-xs font-semibold flex items-center justify-center" aria-hidden="true">' + emp.initials + "</span>" +
+        '<span><span class="block font-medium text-slate-900">' + emp.name + '</span>' +
+        '<span class="block text-xs text-slate-600">' + emp.role + " · " + emp.code + "</span></span>" +
+        "</div></th>";
+      var cells = "";
+      for (var d = 0; d < 7; d++) {
+        cells += '<td class="border-b border-slate-200 p-1.5 align-top ' + (isWeekend(d) ? "bg-slate-50" : "") + '">' + shiftCellHtml(emp, d, idx, data) + "</td>";
+      }
+      return "<tr>" + identity + cells + "</tr>";
+    });
+    el.rosterTbody.innerHTML = rows.join("");
+  }
+
+  function renderGridFoot(data, employees) {
+    var total = employees.length;
+    var head = '<th scope="row" class="sticky left-0 z-10 bg-slate-50 border-r border-t border-slate-200 px-3 py-2 text-left font-medium text-slate-600 min-w-[220px]">Đã xếp ca / Tổng NV</th>';
+    var cells = "";
+    for (var d = 0; d < 7; d++) {
+      var scheduled = employees.filter(function (e) {
+        var a = data[e.id + "_" + d];
+        return a && a.type !== "off";
+      }).length;
+      var warn = total > 0 && scheduled < total * MIN_COVERAGE_RATIO;
+      cells += '<td class="border-t border-slate-200 px-2 py-2 text-center ' + (isWeekend(d) ? "bg-slate-50" : "bg-slate-50") + '">' +
+        '<div class="font-medium tabular-nums ' + (warn ? "text-amber-800" : "text-slate-700") + '">' + scheduled + "/" + total + "</div>" +
+        (warn ? '<div class="text-[11px] text-amber-700">Thiếu nhân sự</div>' : "") +
+        "</td>";
+    }
+    el.rosterTfoot.innerHTML = "<tr>" + head + cells + "</tr>";
+  }
+
+  function renderDraftBanner(data) {
+    var draftCount = Object.keys(data).filter(function (k) { return data[k].status === "draft"; }).length;
+    if (draftCount > 0) {
+      el.draftBanner.hidden = false;
+      el.draftBannerText.textContent = "Có " + draftCount + " ca chưa công bố trong tuần này. Nhân viên sẽ không thấy các ca này cho đến khi bạn công bố lịch.";
+      el.btnPublish.disabled = false;
+    } else {
+      el.draftBanner.hidden = true;
+      el.btnPublish.disabled = true;
+    }
+  }
+
+  /* ---------- List view ---------- */
+
+  function renderListView(data, employees) {
+    if (!data) {
+      el.listTbody.innerHTML = '<tr><td colspan="6" class="p-10 text-center text-slate-600">Chưa có ca làm nào trong tuần này.</td></tr>';
+      return;
+    }
+    var empMap = {};
+    EMPLOYEES.forEach(function (e) { empMap[e.id] = e; });
+    var visibleIds = {};
+    employees.forEach(function (e) { visibleIds[e.id] = true; });
+
+    var rowsHtml = "";
+    for (var d = 0; d < 7; d++) {
+      var dayEntries = Object.keys(data).filter(function (k) {
+        var parts = k.split("_");
+        return parts[1] === String(d) && visibleIds[parts[0]];
+      }).map(function (k) {
+        var empId = k.split("_")[0];
+        return { emp: empMap[empId], entry: data[k] };
+      }).sort(function (a, b) { return a.emp.name.localeCompare(b.emp.name); });
+
+      rowsHtml += '<tr class="bg-slate-50"><td colspan="6" class="px-3 py-2 font-medium text-slate-700 border-t border-slate-200">' +
+        WEEKDAY_FULL[d] + " · " + fmtDate(dayDate(d)) + "</td></tr>";
+
+      if (!dayEntries.length) {
+        rowsHtml += '<tr><td colspan="6" class="px-3 py-2.5 text-slate-500 border-b border-slate-200">Chưa có ca nào</td></tr>';
+        continue;
+      }
+      dayEntries.forEach(function (row) {
+        var def = SHIFT_TYPES[row.entry.type];
+        var statusBadge = row.entry.status === "draft"
+          ? '<span class="inline-flex items-center rounded-full bg-slate-100 text-slate-700 text-xs font-medium px-2 py-0.5">Nháp</span>'
+          : '<span class="inline-flex items-center rounded-full bg-green-50 text-green-800 text-xs font-medium px-2 py-0.5">Đã công bố</span>';
+        rowsHtml += "<tr>" +
+          '<td class="px-3 py-2.5 border-b border-slate-200 text-slate-700">' + fmtDate(dayDate(d)) + "</td>" +
+          '<td class="px-3 py-2.5 border-b border-slate-200 font-medium text-slate-900">' + row.emp.name + "</td>" +
+          '<td class="px-3 py-2.5 border-b border-slate-200 text-slate-700">' + DEPT_LABELS[row.emp.dept] + "</td>" +
+          '<td class="px-3 py-2.5 border-b border-slate-200 text-slate-700">' + def.label + "</td>" +
+          '<td class="px-3 py-2.5 border-b border-slate-200 text-slate-700 tabular-nums">' + (def.start ? (def.start + "–" + def.end) : "—") + "</td>" +
+          '<td class="px-3 py-2.5 border-b border-slate-200">' + statusBadge + "</td>" +
+          "</tr>";
+      });
+    }
+    el.listTbody.innerHTML = rowsHtml;
+  }
+
+  /* ---------- Master render ---------- */
+
+  function toggleViews() {
+    el.weekView.hidden = state.view !== "week";
+    el.listView.hidden = state.view !== "list";
+    el.viewWeekBtn.setAttribute("aria-pressed", state.view === "week" ? "true" : "false");
+    el.viewListBtn.setAttribute("aria-pressed", state.view === "list" ? "true" : "false");
+    el.viewWeekBtn.className = "px-3 h-8 font-medium " + (state.view === "week" ? "bg-blue-50 text-blue-800" : "bg-white text-slate-600 hover:bg-slate-50");
+    el.viewListBtn.className = "px-3 h-8 font-medium border-l border-slate-300 " + (state.view === "list" ? "bg-blue-50 text-blue-800" : "bg-white text-slate-600 hover:bg-slate-50");
+  }
+
+  function renderWeek() {
+    updateRangeHeading();
+    renderChips();
+    toggleViews();
+
+    if (urlState === "error") { renderError(); el.draftBanner.hidden = true; el.btnPublish.disabled = true; return; }
+
+    var key = weekKey();
+    var data = urlState === "empty" ? null : (scheduleStore[key] || null);
+    var employees = filteredEmployees();
+
+    if (state.view === "list") {
+      renderListView(data, employees);
+      el.draftBanner.hidden = true;
+      el.btnPublish.disabled = !data || !Object.keys(data).some(function (k) { return data[k].status === "draft"; });
+      return;
+    }
+
+    if (!data) {
+      el.rosterThead.innerHTML = "";
+      el.rosterTfoot.innerHTML = "";
+      renderGridHead();
+      renderEmptyWeek();
+      el.draftBanner.hidden = true;
+      el.btnPublish.disabled = true;
+      return;
+    }
+
+    renderGridHead();
+    if (!employees.length) {
+      renderNoResults();
+      el.rosterTfoot.innerHTML = "";
+      el.draftBanner.hidden = true;
+      el.btnPublish.disabled = true;
+      return;
+    }
+
+    renderGridBody(data, employees);
+    renderGridFoot(data, employees);
+    renderDraftBanner(data);
+  }
+
+  function startLoad() {
+    if (urlState === "loading") { renderSkeleton(); return; }
+    if (urlState === "error") { renderError(); return; }
+    renderSkeleton();
+    setTimeout(renderWeek, 550);
+  }
+
+  /* ---------- Edit panel ---------- */
+
+  function dayLabelFor(day) { return WEEKDAY_FULL[day] + ", " + fmtDate(dayDate(day)); }
+
+  function openPanel(empId, day) {
+    var emp = EMPLOYEES.filter(function (e) { return e.id === empId; })[0];
+    var key = weekKey();
+    var data = ensureWeek(key);
+    var entry = data[empId + "_" + day];
+
+    activeCell = { empId: empId, day: day, existing: !!entry };
+    lastFocusedBeforePanel = document.activeElement;
+
+    el.editPanelTitle.textContent = entry ? "Sửa ca làm" : "Thêm ca làm";
+    el.panelEmpName.textContent = emp.name;
+    el.panelEmpRole.textContent = emp.role + " · " + emp.code;
+    el.panelDayLabel.textContent = dayLabelFor(day);
+
+    var type = entry ? entry.type : "morning";
+    el.shiftTypeSelect.value = type;
+    applyDefaultTimes(type, entry);
+    el.noteInput.value = entry ? entry.note || "" : "";
+    el.panelStatusHint.textContent = entry && entry.status === "published"
+      ? "Ca này đã được công bố. Lưu thay đổi sẽ chuyển ca về trạng thái Nháp và cần công bố lại."
+      : "Ca sẽ ở trạng thái Nháp cho đến khi bạn công bố lịch tuần.";
+    el.btnDeleteShift.hidden = !entry;
+
+    el.panelOverlay.hidden = false;
+    el.editPanel.hidden = false;
+    el.shiftTypeSelect.focus();
+  }
+
+  function applyDefaultTimes(type, entry) {
+    var def = SHIFT_TYPES[type];
+    el.startTimeInput.value = def.start || "";
+    el.endTimeInput.value = def.end || "";
+    var isOff = type === "off";
+    el.startTimeInput.disabled = isOff;
+    el.endTimeInput.disabled = isOff;
+  }
+
+  el.shiftTypeSelect.addEventListener("change", function () { applyDefaultTimes(el.shiftTypeSelect.value, null); });
+
+  function closePanel() {
+    el.panelOverlay.hidden = true;
+    el.editPanel.hidden = true;
+    activeCell = null;
+    if (lastFocusedBeforePanel && document.contains(lastFocusedBeforePanel)) lastFocusedBeforePanel.focus();
+  }
+
+  el.btnClosePanel.addEventListener("click", closePanel);
+  el.btnCancelPanel.addEventListener("click", closePanel);
+  el.panelOverlay.addEventListener("click", closePanel);
+
+  el.btnSavePanel.addEventListener("click", function () {
+    if (!activeCell) return;
+    var key = weekKey();
+    var emp = EMPLOYEES.filter(function (e) { return e.id === activeCell.empId; })[0];
+    var type = el.shiftTypeSelect.value;
+    setAssignment(key, activeCell.empId, activeCell.day, type, el.noteInput.value);
+    toast("Đã lưu ca làm cho " + emp.name + " · " + dayLabelFor(activeCell.day));
+    closePanel();
+    renderWeek();
+  });
+
+  el.btnDeleteShift.addEventListener("click", function () {
+    if (!activeCell) return;
+    var emp = EMPLOYEES.filter(function (e) { return e.id === activeCell.empId; })[0];
+    var day = activeCell.day, empId = activeCell.empId;
+    var label = dayLabelFor(day);
+    openConfirm({
+      title: "Xoá ca làm?",
+      message: "Xoá ca làm của " + emp.name + " vào " + label + "? Nhân viên sẽ không có ca làm được xếp vào ngày này.",
+      confirmLabel: "Xoá ca",
+      danger: true,
+      onConfirm: function () {
+        deleteAssignment(weekKey(), empId, day);
+        toast("Đã xoá ca làm của " + emp.name + " · " + label);
+        closePanel();
+        renderWeek();
+      }
+    });
+  });
+
+  /* Delegated click + keyboard nav on roster grid */
+  el.rosterTbody.addEventListener("click", function (e) {
+    var btn = e.target.closest("button[data-key]");
+    if (!btn) return;
+    var parts = btn.getAttribute("data-key").split("_");
+    openPanel(parts[0], parseInt(parts[1], 10));
+  });
+
+  el.rosterTbody.addEventListener("keydown", function (e) {
+    var btn = e.target.closest("button[data-row][data-col]");
+    if (!btn) return;
+    var row = parseInt(btn.getAttribute("data-row"), 10);
+    var col = parseInt(btn.getAttribute("data-col"), 10);
+    var nr = row, nc = col, handled = true;
+    if (e.key === "ArrowRight") nc = Math.min(6, col + 1);
+    else if (e.key === "ArrowLeft") nc = Math.max(0, col - 1);
+    else if (e.key === "ArrowDown") nr = row + 1;
+    else if (e.key === "ArrowUp") nr = row - 1;
+    else if (e.key === "Home") nc = 0;
+    else if (e.key === "End") nc = 6;
+    else handled = false;
+    if (!handled) return;
+    var next = el.rosterTbody.querySelector('[data-row="' + nr + '"][data-col="' + nc + '"]');
+    if (next) { e.preventDefault(); next.focus(); }
+  });
+
+  /* ---------- Global Escape handling ---------- */
+
+  document.addEventListener("keydown", function (e) {
+    if (e.key !== "Escape") return;
+    if (!el.confirmOverlay.hidden) closeConfirm();
+    else if (!el.editPanel.hidden) closePanel();
+    else if (!el.moreMenu.hidden) closeMoreMenu();
+  });
+
+  /* ---------- Toolbar wiring ---------- */
+
+  el.btnToday.addEventListener("click", function () { state.weekStart = getMonday(new Date()); renderWeek(); });
+  el.btnPrevWeek.addEventListener("click", function () { state.weekStart = addDays(state.weekStart, -7); renderWeek(); });
+  el.btnNextWeek.addEventListener("click", function () { state.weekStart = addDays(state.weekStart, 7); renderWeek(); });
+
+  el.viewWeekBtn.addEventListener("click", function () { state.view = "week"; renderWeek(); });
+  el.viewListBtn.addEventListener("click", function () { state.view = "list"; renderWeek(); });
+
+  el.filterDept.addEventListener("change", function () { state.filterDept = el.filterDept.value; renderWeek(); });
+  el.filterSearch.addEventListener("input", function () { state.filterSearch = el.filterSearch.value; renderWeek(); });
+
+  el.btnPublish.addEventListener("click", function () {
+    var key = weekKey();
+    var n = publishWeek(key);
+    if (n > 0) toast("Đã công bố lịch tuần " + fmtDate(state.weekStart) + " – " + fmtDate(addDays(state.weekStart, 6)) + " · " + n + " ca.");
+    renderWeek();
+  });
+
+  el.btnCopyWeek.addEventListener("click", function () {
+    var key = weekKey();
+    var hasData = scheduleStore[key] && Object.keys(scheduleStore[key]).length > 0;
+    if (hasData) {
+      openConfirm({
+        title: "Ghi đè lịch tuần này?",
+        message: "Thao tác này sẽ thay thế toàn bộ lịch hiện tại của tuần " + fmtDate(state.weekStart) + " – " + fmtDate(addDays(state.weekStart, 6)) + " bằng lịch của tuần trước.",
+        confirmLabel: "Sao chép",
+        danger: true,
+        onConfirm: function () { copyPreviousWeek(key); }
+      });
+    } else {
+      copyPreviousWeek(key);
+    }
+  });
+
+  function closeMoreMenu() { el.moreMenu.hidden = true; el.btnMore.setAttribute("aria-expanded", "false"); }
+  el.btnMore.addEventListener("click", function () {
+    var willOpen = el.moreMenu.hidden;
+    el.moreMenu.hidden = !willOpen;
+    el.btnMore.setAttribute("aria-expanded", String(willOpen));
+  });
+  document.addEventListener("click", function (e) {
+    if (!el.moreMenu.hidden && !el.moreMenu.contains(e.target) && e.target !== el.btnMore) closeMoreMenu();
+  });
+  el.btnExport.addEventListener("click", function () {
+    closeMoreMenu();
+    toast("Đã xuất lịch tuần " + fmtDate(state.weekStart) + " – " + fmtDate(addDays(state.weekStart, 6)) + " (CSV).");
+  });
+  el.btnPrint.addEventListener("click", function () { closeMoreMenu(); window.print(); });
+
+  /* ---------- Init ---------- */
+
+  startLoad();
+})();
+</script>
+</body>
+</html>

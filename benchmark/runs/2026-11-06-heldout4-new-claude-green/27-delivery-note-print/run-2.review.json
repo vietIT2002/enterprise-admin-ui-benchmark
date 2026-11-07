@@ -1,0 +1,58 @@
+{
+  "brief": "27-delivery-note-print",
+  "run": 2,
+  "items": [
+    {
+      "item": "The header shows the delivery note number, issue date, source sales order or transfer number and dispatching warehouse, each with a visible label, and every date on the note uses one unambiguous format (such as 06 Nov 2026)",
+      "pass": false,
+      "evidence": "Header dl shows 'Số phiếu PGH-2026-00142', 'Ngày lập 07/11/2026', 'Đơn hàng liên quan DH-2026-03981' (lines 90-103), but the dispatching warehouse ('Kho xuất: Kho số 2 — KCN Tân Tạo, Quận Bình Tân') only appears later in the sender block, not in the header. Also every date on the page ('07/11/2026', '05/11/2026', '07/11/2026 09:15') uses numeric DD/MM/YYYY slash format, which is ambiguous (could be read as MM/DD/YYYY), not an unambiguous named-month format like '06 Nov 2026'."
+    },
+    {
+      "item": "Sender (company name, address, tax ID), recipient (customer name, delivery address, contact person and phone) and carrier (carrier name, vehicle plate or driver name) appear in three separately labelled blocks",
+      "pass": false,
+      "evidence": "Only two labelled blocks exist: h2#h-sender 'Bên giao hàng (xuất kho)' and h2#h-buyer 'Khách hàng & địa chỉ giao hàng'. The recipient block is complete (customer, tax id, contact, phone, delivery address). Carrier info ('Phương tiện vận chuyển: Xe tải 2,5 tấn · BKS 51C-123.45') is folded inside the sender block instead of its own labelled carrier block, and no driver name field exists anywhere."
+    },
+    {
+      "item": "The goods are in a real <table> with column headers in <thead>, giving per line: line number, item code, description, unit of measure, quantity ordered, quantity delivered and lot or serial number, with quantities right-aligned",
+      "pass": false,
+      "evidence": "table#goodsTable has a <thead> with columns STT, Mã hàng, Tên hàng hóa, ĐVT, SL đặt hàng, SL thực xuất, Ghi chú (lines 137-147); 'SL đặt hàng'/'SL thực xuất' and their td cells use text-right (right-aligned, confirmed in screenshot). However there is no lot/serial number column anywhere in the table."
+    },
+    {
+      "item": "A line delivered short of the ordered quantity states the outstanding amount in words (such as \"Backorder: 4 pcs\") rather than by colour alone",
+      "pass": true,
+      "evidence": "Row 3 (Xi măng Hà Tiên PCB40, ordered 300 / issued 280) shows amber row background plus the Ghi chú text 'Thiếu 20 bao, giao bổ sung sau' (\"Short 20 bags, supplementary delivery later\"), from GOODS[2].note rendered in the row (script lines 215, 235)."
+    },
+    {
+      "item": "A footer gives the total quantity delivered, the number of packages and the gross weight with its unit, and the quantity total equals the sum of the lines",
+      "pass": false,
+      "evidence": "tfoot#totalIssued shows 585 (sum of 120+45+280+80+60, matches lines) and 'Tổng số kiện: 18 kiện' gives package count (line 160), but there is no gross weight field anywhere on the page."
+    },
+    {
+      "item": "Signature boxes are provided for the warehouse keeper (issued by), the driver or carrier and the receiver, each with room for printed name, signature and date, plus a remarks area for the condition of the goods on receipt",
+      "pass": false,
+      "evidence": "The .signatures grid (lines 168-187) has three boxes: 'Người lập phiếu' (preparer, not warehouse keeper), 'Thủ kho / Người giao hàng' (warehouse keeper and driver merged into one box), and 'Người nhận hàng' (receiver, with '(Ký, ghi rõ họ tên, ngày nhận)' including date). There is no distinct driver/carrier box, no date line for the first two signers, and no remarks area for condition of goods received."
+    },
+    {
+      "item": "A Print control that is a real <button> starts printing, and an @media print stylesheet hides the app navigation and on-screen controls, sets page margins and keeps the signature block from splitting across pages",
+      "pass": true,
+      "evidence": "<button id=\"btnPrint\" type=\"button\">In phiếu</button> calls window.print() (line 252). @media print hides '.no-print' and 'body > header' (lines 16-17), sets '@page { size: A4; margin: 14mm 12mm 16mm; }' (line 13), and '.signatures { break-inside: avoid; }' (line 23)."
+    },
+    {
+      "item": "The note's status (such as Draft, Dispatched, Delivered or Cancelled) is shown in words next to its number, and a draft or cancelled note prints with a visible \"DRAFT\" or \"CANCELLED\" mark so it cannot pass as a valid dispatch document",
+      "pass": false,
+      "evidence": "span#statusBadge shows 'Đã xuất kho' next to the title on screen (line 45), and clicking cancel changes it to 'Đã hủy' (line 294). But statusBadge lives inside <header class=\"no-print\"> (line 33), which is hidden by '.no-print { display: none !important }' under @media print — so the printable .sheet contains no status text or DRAFT/CANCELLED watermark at all, cancelled or not."
+    },
+    {
+      "item": "A loading state is present, and a note that fails to load or does not exist shows a message with Retry and a link back to the delivery note list, never an empty template with blank fields",
+      "pass": false,
+      "evidence": "The document data (GOODS array, parties, header fields) is hard-coded directly in the script (lines 212-218) and rendered synchronously on load; there is no loading spinner/skeleton, no fetch/error handling, and no Retry or back-to-list UI anywhere in the markup or script."
+    }
+  ],
+  "tells": [
+    "initials-avatar-non-person",
+    "tracked-uppercase-labels",
+    "card-in-card"
+  ],
+  "notes": "The 'MP' letterhead mark (div.flex.h-12.w-12...rounded bg-blue-700 text-white font-bold text-lg, line 83) is a company-logo initials tile rather than a person avatar — initials-avatar-non-person. Section headers h-sender/h-buyer use 'text-xs font-semibold uppercase ... text-slate-500' (lines 112, 122), flagged by the audit's uppercase-text rule — tracked-uppercase-labels. The delivery-address sub-box ('rounded border border-slate-300 bg-slate-50', line 127) is a bordered card nested inside the recipient block, itself inside the outer .sheet card — card-in-card. Audit score 68/100 with numeric-align, text-contrast, uppercase-text, table-row-two-line and surface-shadow violations corroborate several findings above (missing right-alignment consistency and dense multi-line rows).",
+  "blind": true
+}

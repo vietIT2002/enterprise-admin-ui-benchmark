@@ -1,0 +1,57 @@
+{
+  "brief": "30-product-category-tree",
+  "run": 1,
+  "items": [
+    {
+      "item": "Each category in the tree shows a product count, the page states whether counts include subcategories, and in the sample data every parent's total equals its own products plus the totals of its children",
+      "pass": false,
+      "evidence": "Tree row badge shows `${fmt(total)}` where `totalCount(node) = node.directCount + children totals` (page.html lines 221-223, 291), and sample math checks out (e.g. Electronics=1200 = Computers 450 + Mobile Phones 300 + Audio 150 + Cameras 300). But nowhere does the UI state whether the displayed number includes subcategories — the tree badge has no label/tooltip, and even the detail panel's 'Total products'/'Direct products' stat cards (lines 381-388) carry no explanatory text clarifying the distinction."
+    },
+    {
+      "item": "The tree exposes its structure to screen readers (role=\"tree\" and \"treeitem\", or nested lists) with aria-expanded on parent nodes and the selected node marked, and nodes can be expanded, collapsed and selected from the keyboard",
+      "pass": false,
+      "evidence": "No `role=`, `aria-expanded`, or `aria-selected` attributes exist anywhere in page.html; the tree is built from plain `<div class=\"tree-row\">` elements (line 283) with only a `click` listener on treeContainer (line 298) — no keydown handler exists anywhere in the script, so nodes cannot be expanded/collapsed/selected via keyboard. Audit confirms: icon-button-name violation ×10 on `button.chevron-btn.shrink-0` for 'no accessible name'."
+    },
+    {
+      "item": "Searching by name keeps the ancestors of each matching category visible and expanded so its place in the hierarchy is clear, and a search with no matches says so",
+      "pass": true,
+      "evidence": "`matchesSearch` recurses into children so an ancestor is considered a match if any descendant matches (lines 229-233); the search input handler expands every matching node with children (line 316), which includes ancestors of a deep match; `renderTree` falls back to `<div class=\"text-sm text-slate-400 text-center py-8\">No categories match your search.</div>` when the filtered list is empty (line 272)."
+    },
+    {
+      "item": "The detail panel shows the selected category's full path (such as \"Home › Kitchen › Cookware\"), name, URL slug, parent, visibility status, product count with a link to those products, and the last modified date and user",
+      "pass": false,
+      "evidence": "Breadcrumb path (line 347-352), name (`<h2>`, line 360), slug (`/${node.slug}`, line 363), parent stat card (lines 393-396), and status badge (line 361/258-263) are all present, and 'Last updated' date is shown (line 452). But the 'Total products' stat (lines 381-384) is plain text with no click handler or href — it is not a link to the products; and no 'modified by user' field exists anywhere in the markup or data model (`cat()` objects only carry `updatedAt`, no `updatedBy`)."
+    },
+    {
+      "item": "Hidden or inactive categories are marked in the tree with a text label or icon (such as \"Hidden\"), not only by greying out",
+      "pass": true,
+      "evidence": "Inactive rows get greyed text/icon AND an extra marker dot `<span class=\"shrink-0 w-1.5 h-1.5 rounded-full bg-slate-300\" title=\"Inactive\"></span>` (line 290) that is only rendered for inactive nodes (visible next to 'Kids' in the screenshot), so inactive status is signaled by more than color alone."
+    },
+    {
+      "item": "Deleting a category that still has products or subcategories is blocked or requires choosing where to move them, and the confirmation names the category and the counts affected",
+      "pass": false,
+      "evidence": "`deleteCategory` (lines 636-654) only shows `window.confirm('Delete \"name\" and its N subcategories? This cannot be undone.')` and, on confirm, cascades the delete immediately — it never blocks deletion nor offers to reassign/move child products or subcategories elsewhere. The confirmation also omits the affected product count entirely (only subcategory count is mentioned)."
+    },
+    {
+      "item": "A category can be given a new parent without drag-and-drop (a parent picker or \"Move to…\" action), and the picker excludes the category itself and its own descendants",
+      "pass": false,
+      "evidence": "No 'Move to…' button, parent-picker control, or any reparenting logic exists anywhere in page.html — the only mutation actions are Edit (name/slug/description/status, lines 542-589), Add (lines 591-634) and Delete (lines 636-654); none change a node's parent."
+    },
+    {
+      "item": "Selecting another category while the detail form has unsaved edits asks to save or discard first",
+      "pass": false,
+      "evidence": "The edit form is a modal overlay (`openEditForm`, lines 542-589) that discards silently on backdrop click: `overlay.addEventListener(\"click\", (e) => { if (e.target === overlay) overlay.remove(); });` (line 576) — there is no dirty-check or confirmation prompt anywhere before discarding unsaved input."
+    },
+    {
+      "item": "With nothing selected the detail panel shows a prompt instead of blank fields, a catalogue with no categories offers to create the first one, and the tree has loading and load-error-with-retry states",
+      "pass": false,
+      "evidence": "`renderDetails` does show a prompt when `findNode(selectedId)` is null: 'Select a category from the tree to view its details.' (line 336). But an empty catalog renders only the generic `No categories match your search.` fallback (line 272) regardless of whether a search is active, with no 'create your first category' call-to-action; and there is no loading state or load-error/retry UI anywhere — `categoryData` is a synchronous in-memory array with no fetch/async simulation at all."
+    }
+  ],
+  "tells": [
+    "oversized-radius",
+    "card-in-card"
+  ],
+  "notes": "Automated audit (score 70/100) independently flags text-contrast errors (header breadcrumb/stat labels ~2.5:1), icon-button-name errors on the 10 chevron toggle buttons (no accessible name), and radius-scale (rounded-xl/12px panels exceed the ≤8px guidance plus 4 distinct radii in use). No emoji icons, gradients, backdrop-blur, uppercase tracked labels, greeting header, KPI icon tiles, delta pills, rainbow statuses, sidebar promo card, decorative charts, hover-lift, initials avatars, or navy-sidebar-indigo-accent styling were found.",
+  "blind": true
+}

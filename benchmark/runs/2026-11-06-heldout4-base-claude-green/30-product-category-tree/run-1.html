@@ -1,0 +1,998 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Product categories · Back office</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+  [hidden] { display: none !important; }
+  html, body { height: 100%; }
+  ::selection { background-color: rgba(29,78,216,0.15); }
+  .tabular-nums { font-variant-numeric: tabular-nums; }
+  .tree-row:focus-visible, .focusable:focus-visible { outline: 2px solid #1d4ed8; outline-offset: -1px; }
+  [role="treeitem"] { outline: none; }
+  [role="treeitem"].focused { box-shadow: inset 0 0 0 2px #1d4ed8; }
+  mark { background-color: #fef08a; color: inherit; border-radius: 2px; }
+</style>
+</head>
+<body class="h-full bg-white text-[#0f172a] antialiased">
+<div class="flex h-full flex-col" style="--header-h: 57px;">
+
+  <!-- App header -->
+  <header class="flex h-[57px] shrink-0 items-center justify-between border-b border-slate-200 bg-white px-4">
+    <div class="flex items-center gap-3">
+      <div class="flex h-7 w-7 items-center justify-center rounded-md bg-blue-700 text-sm font-semibold text-white">N</div>
+      <span class="text-sm font-semibold text-slate-900">Northwind back office</span>
+      <span class="text-slate-300">/</span>
+      <nav aria-label="Breadcrumb">
+        <ol class="flex items-center gap-1.5 text-sm text-slate-600">
+          <li><a href="#" class="hover:text-slate-900 hover:underline">Catalog</a></li>
+          <li aria-hidden="true" class="text-slate-400">/</li>
+          <li class="font-medium text-slate-900" aria-current="page">Categories</li>
+        </ol>
+      </nav>
+    </div>
+    <div class="flex items-center gap-2">
+      <button type="button" class="inline-flex h-8 items-center gap-1.5 rounded border border-slate-300 bg-white px-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50 focus-visible:ring-2 focus-visible:ring-blue-700">
+        Import
+      </button>
+      <button type="button" class="inline-flex h-8 items-center gap-1.5 rounded border border-slate-300 bg-white px-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50 focus-visible:ring-2 focus-visible:ring-blue-700">
+        Export
+      </button>
+      <div class="flex h-7 w-7 items-center justify-center rounded-full bg-slate-200 text-xs font-medium text-slate-700" title="Hà My · Catalog manager">HM</div>
+    </div>
+  </header>
+
+  <!-- Page header -->
+  <div class="flex shrink-0 items-center justify-between border-b border-slate-200 bg-white px-4 py-3">
+    <div>
+      <h1 class="text-xl font-semibold text-slate-900">Categories</h1>
+    </div>
+    <div class="flex items-center gap-2">
+      <button type="button" id="btn-expand-all" class="inline-flex h-8 items-center rounded border border-slate-300 bg-white px-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50 focus-visible:ring-2 focus-visible:ring-blue-700">
+        Expand all
+      </button>
+      <button type="button" id="btn-collapse-all" class="inline-flex h-8 items-center rounded border border-slate-300 bg-white px-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50 focus-visible:ring-2 focus-visible:ring-blue-700">
+        Collapse all
+      </button>
+      <div class="mx-1 h-5 w-px bg-slate-200" aria-hidden="true"></div>
+      <button type="button" id="btn-add-root" class="inline-flex h-8 items-center gap-1.5 rounded bg-blue-700 px-3 text-sm font-medium text-white hover:bg-blue-800 focus-visible:ring-2 focus-visible:ring-blue-700 focus-visible:ring-offset-2">
+        <svg class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14"/><path d="M12 5v14"/></svg>
+        Add category
+      </button>
+    </div>
+  </div>
+
+  <!-- Split view -->
+  <div class="flex min-h-0 flex-1">
+
+    <!-- Tree panel -->
+    <div id="tree-panel" class="flex w-[360px] shrink-0 flex-col border-r border-slate-200 bg-slate-50">
+      <div class="shrink-0 space-y-2 border-b border-slate-200 bg-slate-50 p-3">
+        <label for="tree-search" class="sr-only">Search categories</label>
+        <div class="relative">
+          <svg class="pointer-events-none absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-slate-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+          <input id="tree-search" type="text" placeholder="Search categories" class="h-8 w-full rounded border border-slate-300 bg-white pl-8 pr-8 text-sm text-slate-900 placeholder:text-slate-400 focus:border-blue-700 focus:outline focus:outline-2 focus:outline-blue-700">
+          <button id="tree-search-clear" type="button" hidden class="absolute right-1.5 top-1/2 flex size-5 -translate-y-1/2 items-center justify-center rounded text-slate-400 hover:bg-slate-100 hover:text-slate-600" aria-label="Clear search">
+            <svg class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6 6 18"/><path d="M6 6l12 12"/></svg>
+          </button>
+        </div>
+        <p id="tree-count" class="text-xs text-slate-500">24 categories · 8,412 products</p>
+      </div>
+
+      <div id="tree-scroll" class="min-h-0 flex-1 overflow-y-auto p-1" style="height: calc(100dvh - var(--header-h) - 113px);">
+        <ul id="tree" role="tree" aria-label="Product categories" class="py-1"></ul>
+        <div id="tree-no-results" hidden class="px-4 py-10 text-center">
+          <p class="text-sm text-slate-600">No category matches <span id="tree-no-results-query" class="font-medium text-slate-900"></span></p>
+          <button type="button" id="tree-clear-search-btn" class="mt-2 text-sm font-medium text-blue-700 hover:underline focus-visible:ring-2 focus-visible:ring-blue-700">Clear search</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Detail panel -->
+    <div id="detail-panel" class="min-h-0 flex-1 overflow-y-auto bg-white" style="height: calc(100dvh - var(--header-h) - 57px);">
+
+      <!-- No selection state -->
+      <div id="detail-empty" class="flex h-full flex-col items-center justify-center px-6 text-center">
+        <svg class="size-10 text-slate-300" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 3v18h18"/><path d="M7 17v-6"/><path d="M12 17V7"/><path d="M17 17v-3"/></svg>
+        <p class="mt-3 text-sm text-slate-600">Select a category to see its details</p>
+        <button type="button" id="btn-add-root-2" class="mt-3 inline-flex h-8 items-center gap-1.5 rounded bg-blue-700 px-3 text-sm font-medium text-white hover:bg-blue-800 focus-visible:ring-2 focus-visible:ring-blue-700 focus-visible:ring-offset-2">
+          <svg class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14"/><path d="M12 5v14"/></svg>
+          Add category
+        </button>
+      </div>
+
+      <!-- Record detail -->
+      <div id="detail-content" hidden class="mx-auto max-w-3xl px-6 py-5">
+        <nav aria-label="Category path" class="mb-2">
+          <ol id="detail-path" class="flex flex-wrap items-center gap-1 text-sm text-slate-500"></ol>
+        </nav>
+
+        <div class="flex items-start justify-between gap-4 border-b border-slate-200 pb-4">
+          <div class="min-w-0">
+            <div class="flex items-center gap-2">
+              <h2 id="detail-name" class="truncate text-xl font-semibold text-slate-900">Category name</h2>
+              <span id="detail-status-badge" class="inline-flex h-6 shrink-0 items-center gap-1 rounded-full px-2 text-xs font-medium leading-5"></span>
+            </div>
+            <p class="mt-1 text-sm text-slate-500">Slug: <span id="detail-slug" class="font-medium text-slate-700 tabular-nums"></span></p>
+          </div>
+          <div class="flex shrink-0 items-center gap-2">
+            <button type="button" id="btn-edit" class="inline-flex h-8 items-center gap-1.5 rounded border border-slate-300 bg-white px-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50 focus-visible:ring-2 focus-visible:ring-blue-700">
+              <svg class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17 3a2.85 2.85 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/></svg>
+              Edit
+            </button>
+            <div class="relative">
+              <button type="button" id="btn-more" aria-haspopup="menu" aria-expanded="false" class="inline-flex h-8 w-8 items-center justify-center rounded border border-slate-300 bg-white text-slate-600 hover:bg-slate-50 focus-visible:ring-2 focus-visible:ring-blue-700" aria-label="More actions">
+                <svg class="size-4" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="5" cy="12" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="19" cy="12" r="1.5"/></svg>
+              </button>
+              <div id="more-menu" role="menu" hidden class="absolute right-0 top-9 z-10 w-52 rounded-md border border-slate-200 bg-white py-1 shadow-md">
+                <button type="button" role="menuitem" id="action-add-child" class="flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm text-slate-700 hover:bg-slate-50">Add child category</button>
+                <button type="button" role="menuitem" id="action-move" class="flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm text-slate-700 hover:bg-slate-50">Move to…</button>
+                <button type="button" role="menuitem" id="action-toggle-status" class="flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm text-slate-700 hover:bg-slate-50">Deactivate</button>
+                <div class="my-1 border-t border-slate-200"></div>
+                <button type="button" role="menuitem" id="action-delete" class="flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm text-red-700 hover:bg-red-50">Delete category</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Key figures -->
+        <dl class="grid grid-cols-3 gap-4 border-b border-slate-200 py-4">
+          <div>
+            <dt class="text-xs text-slate-500">Products (own)</dt>
+            <dd id="detail-own-count" class="mt-0.5 text-lg font-semibold text-slate-900 tabular-nums"></dd>
+          </div>
+          <div>
+            <dt class="text-xs text-slate-500">Products (incl. subcategories)</dt>
+            <dd id="detail-total-count" class="mt-0.5 text-lg font-semibold text-slate-900 tabular-nums"></dd>
+          </div>
+          <div>
+            <dt class="text-xs text-slate-500">Subcategories</dt>
+            <dd id="detail-child-count" class="mt-0.5 text-lg font-semibold text-slate-900 tabular-nums"></dd>
+          </div>
+        </dl>
+
+        <!-- Overview section -->
+        <section class="border-b border-slate-200 py-4">
+          <h3 class="text-sm font-medium text-slate-900">Overview</h3>
+          <dl class="mt-3 grid grid-cols-2 gap-y-3 text-sm">
+            <div>
+              <dt class="text-slate-500">Description</dt>
+              <dd id="detail-description" class="mt-0.5 text-slate-900"></dd>
+            </div>
+            <div>
+              <dt class="text-slate-500">Parent category</dt>
+              <dd id="detail-parent" class="mt-0.5 text-slate-900"></dd>
+            </div>
+            <div>
+              <dt class="text-slate-500">Visible in storefront</dt>
+              <dd id="detail-visible" class="mt-0.5 text-slate-900"></dd>
+            </div>
+            <div>
+              <dt class="text-slate-500">Position</dt>
+              <dd id="detail-position" class="mt-0.5 text-slate-900 tabular-nums"></dd>
+            </div>
+          </dl>
+        </section>
+
+        <!-- Subcategories -->
+        <section class="border-b border-slate-200 py-4">
+          <div class="flex items-center justify-between">
+            <h3 class="text-sm font-medium text-slate-900">Subcategories</h3>
+            <button type="button" id="action-add-child-2" class="text-sm font-medium text-blue-700 hover:underline focus-visible:ring-2 focus-visible:ring-blue-700">Add child category</button>
+          </div>
+          <div id="detail-children-wrap" class="mt-3 overflow-x-auto">
+            <table class="w-full text-sm">
+              <thead>
+                <tr class="border-b border-slate-200 text-left text-slate-500">
+                  <th scope="col" class="py-2 pr-3 font-medium">Name</th>
+                  <th scope="col" class="py-2 pr-3 text-right font-medium">
+                    <span class="inline-flex">Products</span>
+                  </th>
+                  <th scope="col" class="py-2 pr-3 font-medium">Status</th>
+                  <th scope="col" class="py-2 pl-3"><span class="sr-only">Actions</span></th>
+                </tr>
+              </thead>
+              <tbody id="detail-children-body" class="divide-y divide-slate-100"></tbody>
+            </table>
+          </div>
+          <div id="detail-children-empty" hidden class="mt-3 rounded border border-dashed border-slate-300 py-6 text-center">
+            <p class="text-sm text-slate-500">No subcategories yet</p>
+            <button type="button" id="action-add-child-3" class="mt-1 text-sm font-medium text-blue-700 hover:underline focus-visible:ring-2 focus-visible:ring-blue-700">Add child category</button>
+          </div>
+        </section>
+
+        <!-- Products preview -->
+        <section class="py-4">
+          <div class="flex items-center justify-between">
+            <h3 class="text-sm font-medium text-slate-900">Products in this category</h3>
+            <a href="#" id="detail-view-all-products" class="text-sm font-medium text-blue-700 hover:underline focus-visible:ring-2 focus-visible:ring-blue-700">View all</a>
+          </div>
+          <div id="detail-products-wrap" class="mt-3 overflow-x-auto">
+            <table class="w-full text-sm">
+              <thead>
+                <tr class="border-b border-slate-200 text-left text-slate-500">
+                  <th scope="col" class="py-2 pr-3 font-medium">Product</th>
+                  <th scope="col" class="py-2 pr-3 font-medium">SKU</th>
+                  <th scope="col" class="py-2 pr-3 text-right font-medium">Price (USD)</th>
+                  <th scope="col" class="py-2 pl-3 text-right font-medium">Stock</th>
+                </tr>
+              </thead>
+              <tbody id="detail-products-body" class="divide-y divide-slate-100"></tbody>
+            </table>
+          </div>
+          <div id="detail-products-empty" hidden class="mt-3 rounded border border-dashed border-slate-300 py-6 text-center">
+            <p class="text-sm text-slate-500">No products assigned directly to this category</p>
+          </div>
+        </section>
+
+        <p id="detail-audit" class="border-t border-slate-200 pt-3 text-sm text-slate-500"></p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Toast -->
+<div id="toast" role="status" aria-live="polite" hidden class="fixed bottom-4 right-4 z-50 flex items-center gap-2 rounded-md border border-slate-200 bg-white px-4 py-2.5 text-sm text-slate-900 shadow-md">
+  <svg class="size-4 shrink-0 text-emerald-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>
+  <span id="toast-message"></span>
+</div>
+
+<!-- Confirm delete dialog -->
+<div id="confirm-overlay" hidden class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4">
+  <div role="alertdialog" aria-modal="true" aria-labelledby="confirm-title" aria-describedby="confirm-desc" class="w-full max-w-md rounded-lg border border-slate-200 bg-white p-5 shadow-lg">
+    <h2 id="confirm-title" class="text-base font-semibold text-slate-900">Delete category?</h2>
+    <p id="confirm-desc" class="mt-2 text-sm text-slate-600"></p>
+    <div class="mt-5 flex justify-end gap-2">
+      <button type="button" id="confirm-cancel" class="inline-flex h-8 items-center rounded border border-slate-300 bg-white px-3 text-sm font-medium text-slate-700 hover:bg-slate-50 focus-visible:ring-2 focus-visible:ring-blue-700">Cancel</button>
+      <button type="button" id="confirm-delete" class="inline-flex h-8 items-center rounded bg-red-700 px-3 text-sm font-medium text-white hover:bg-red-800 focus-visible:ring-2 focus-visible:ring-red-700 focus-visible:ring-offset-2">Delete category</button>
+    </div>
+  </div>
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  /* ---------------------------------------------------------------------
+   * Mock data: a product category tree with realistic e-commerce shape.
+   * Each node: id, name, slug, description, visible, position, status,
+   * ownCount (products assigned directly), children[].
+   * ------------------------------------------------------------------- */
+  const DATA = [
+    {
+      id: "electronics", name: "Electronics", slug: "electronics",
+      description: "Consumer electronics and accessories.", visible: true, position: 1, status: "active", ownCount: 12,
+      changedBy: "Lê Hoa", changedAt: "2026-10-28T09:12:00Z",
+      children: [
+        {
+          id: "phones", name: "Phones & tablets", slug: "phones-tablets",
+          description: "Smartphones, tablets and accessories.", visible: true, position: 1, status: "active", ownCount: 34,
+          changedBy: "Lê Hoa", changedAt: "2026-10-30T14:02:00Z",
+          children: [
+            { id: "smartphones", name: "Smartphones", slug: "smartphones", description: "Unlocked and carrier smartphones.", visible: true, position: 1, status: "active", ownCount: 186, changedBy: "Trần Minh Quân", changedAt: "2026-11-02T08:20:00Z", children: [] },
+            { id: "tablets", name: "Tablets", slug: "tablets", description: "Tablets from 7\" to 13\".", visible: true, position: 2, status: "active", ownCount: 54, changedBy: "Trần Minh Quân", changedAt: "2026-09-18T11:40:00Z", children: [] },
+            { id: "phone-cases", name: "Cases & screen protectors", slug: "phone-cases", description: "Protective cases, covers and tempered glass.", visible: true, position: 3, status: "active", ownCount: 212, changedBy: "Lê Hoa", changedAt: "2026-10-05T16:55:00Z", children: [] },
+          ],
+        },
+        {
+          id: "computers", name: "Computers", slug: "computers",
+          description: "Laptops, desktops and components.", visible: true, position: 2, status: "active", ownCount: 8,
+          changedBy: "Lê Hoa", changedAt: "2026-10-22T10:00:00Z",
+          children: [
+            { id: "laptops", name: "Laptops", slug: "laptops", description: "Ultrabooks, gaming and business laptops.", visible: true, position: 1, status: "active", ownCount: 97, changedBy: "Trần Minh Quân", changedAt: "2026-11-01T09:30:00Z", children: [] },
+            { id: "desktops", name: "Desktops", slug: "desktops", description: "Pre-built and workstation desktops.", visible: true, position: 2, status: "active", ownCount: 41, changedBy: "Trần Minh Quân", changedAt: "2026-08-14T13:12:00Z", children: [] },
+            { id: "pc-components", name: "Components", slug: "pc-components", description: "CPUs, GPUs, memory and storage.", visible: true, position: 3, status: "active", ownCount: 168, changedBy: "Lê Hoa", changedAt: "2026-10-26T15:48:00Z", children: [] },
+            { id: "pc-peripherals", name: "Peripherals", slug: "pc-peripherals", description: "Keyboards, mice and webcams.", visible: false, position: 4, status: "inactive", ownCount: 0, changedBy: "Lê Hoa", changedAt: "2026-07-02T12:00:00Z", children: [] },
+          ],
+        },
+        {
+          id: "audio", name: "Audio", slug: "audio",
+          description: "Headphones, speakers and home audio.", visible: true, position: 3, status: "active", ownCount: 19,
+          changedBy: "Trần Minh Quân", changedAt: "2026-09-29T17:10:00Z",
+          children: [
+            { id: "headphones", name: "Headphones & earbuds", slug: "headphones-earbuds", description: "Wired and wireless headphones and earbuds.", visible: true, position: 1, status: "active", ownCount: 143, changedBy: "Lê Hoa", changedAt: "2026-10-31T10:05:00Z", children: [] },
+            { id: "speakers", name: "Speakers", slug: "speakers", description: "Bluetooth, soundbars and home speakers.", visible: true, position: 2, status: "active", ownCount: 62, changedBy: "Trần Minh Quân", changedAt: "2026-08-30T09:45:00Z", children: [] },
+          ],
+        },
+        {
+          id: "wearables", name: "Wearables", slug: "wearables",
+          description: "Smartwatches and fitness trackers.", visible: true, position: 4, status: "active", ownCount: 76,
+          changedBy: "Lê Hoa", changedAt: "2026-09-10T08:00:00Z", children: [],
+        },
+      ],
+    },
+    {
+      id: "home-kitchen", name: "Home & kitchen", slug: "home-kitchen",
+      description: "Furniture, kitchenware and home decor.", visible: true, position: 2, status: "active", ownCount: 5,
+      changedBy: "Nguyễn Văn Đức", changedAt: "2026-10-12T12:20:00Z",
+      children: [
+        {
+          id: "kitchen", name: "Kitchen", slug: "kitchen",
+          description: "Cookware, small appliances and dining.", visible: true, position: 1, status: "active", ownCount: 22,
+          changedBy: "Nguyễn Văn Đức", changedAt: "2026-10-15T09:00:00Z",
+          children: [
+            { id: "cookware", name: "Cookware", slug: "cookware", description: "Pots, pans and bakeware.", visible: true, position: 1, status: "active", ownCount: 118, changedBy: "Nguyễn Văn Đức", changedAt: "2026-10-19T14:30:00Z", children: [] },
+            { id: "small-appliances", name: "Small appliances", slug: "small-appliances", description: "Blenders, kettles and coffee makers.", visible: true, position: 2, status: "active", ownCount: 89, changedBy: "Nguyễn Văn Đức", changedAt: "2026-09-25T11:10:00Z", children: [] },
+          ],
+        },
+        {
+          id: "furniture", name: "Furniture", slug: "furniture",
+          description: "Living room, bedroom and office furniture.", visible: true, position: 2, status: "active", ownCount: 3,
+          changedBy: "Nguyễn Văn Đức", changedAt: "2026-08-02T10:40:00Z",
+          children: [
+            { id: "living-room", name: "Living room", slug: "living-room", description: "Sofas, coffee tables and shelving.", visible: true, position: 1, status: "active", ownCount: 64, changedBy: "Nguyễn Văn Đức", changedAt: "2026-08-20T13:15:00Z", children: [] },
+            { id: "bedroom", name: "Bedroom", slug: "bedroom", description: "Beds, mattresses and wardrobes.", visible: true, position: 2, status: "active", ownCount: 47, changedBy: "Nguyễn Văn Đức", changedAt: "2026-07-28T09:50:00Z", children: [] },
+          ],
+        },
+        { id: "home-decor", name: "Home decor", slug: "home-decor", description: "Rugs, lighting and wall art.", visible: true, position: 3, status: "active", ownCount: 131, changedBy: "Lê Hoa", changedAt: "2026-09-05T15:25:00Z", children: [] },
+      ],
+    },
+    {
+      id: "fashion", name: "Fashion", slug: "fashion",
+      description: "Apparel, footwear and accessories.", visible: true, position: 3, status: "active", ownCount: 0,
+      changedBy: "Trần Minh Quân", changedAt: "2026-06-18T08:30:00Z",
+      children: [
+        { id: "mens", name: "Men's clothing", slug: "mens-clothing", description: "Shirts, outerwear and basics for men.", visible: true, position: 1, status: "active", ownCount: 214, changedBy: "Trần Minh Quân", changedAt: "2026-10-08T10:15:00Z", children: [] },
+        { id: "womens", name: "Women's clothing", slug: "womens-clothing", description: "Dresses, outerwear and basics for women.", visible: true, position: 2, status: "active", ownCount: 298, changedBy: "Trần Minh Quân", changedAt: "2026-10-09T10:20:00Z", children: [] },
+        { id: "footwear", name: "Footwear", slug: "footwear", description: "Shoes, boots and sandals.", visible: true, position: 3, status: "active", ownCount: 176, changedBy: "Lê Hoa", changedAt: "2026-09-14T12:05:00Z", children: [] },
+        { id: "seasonal-swim", name: "Seasonal: swimwear", slug: "seasonal-swimwear", description: "Summer swimwear collection.", visible: false, position: 4, status: "archived", ownCount: 0, changedBy: "Trần Minh Quân", changedAt: "2026-03-01T09:00:00Z", children: [] },
+      ],
+    },
+    {
+      id: "sports", name: "Sports & outdoors", slug: "sports-outdoors",
+      description: "Fitness, camping and outdoor gear.", visible: true, position: 4, status: "active", ownCount: 14,
+      changedBy: "Lê Hoa", changedAt: "2026-09-21T13:40:00Z",
+      children: [
+        { id: "fitness", name: "Fitness equipment", slug: "fitness-equipment", description: "Weights, mats and cardio equipment.", visible: true, position: 1, status: "active", ownCount: 88, changedBy: "Lê Hoa", changedAt: "2026-09-23T09:10:00Z", children: [] },
+        { id: "camping", name: "Camping & hiking", slug: "camping-hiking", description: "Tents, backpacks and hiking gear.", visible: true, position: 2, status: "active", ownCount: 59, changedBy: "Lê Hoa", changedAt: "2026-08-11T14:50:00Z", children: [] },
+      ],
+    },
+    {
+      id: "seasonal-discontinued", name: "Discontinued lines", slug: "discontinued-lines",
+      description: "Legacy categories kept for historical orders only.", visible: false, position: 5, status: "archived", ownCount: 0,
+      changedBy: "Trần Minh Quân", changedAt: "2026-01-05T10:00:00Z", children: [],
+    },
+  ];
+
+  /* ---------------------------------------------------------------------
+   * Mock products, keyed by category id, for the detail panel preview.
+   * ------------------------------------------------------------------- */
+  const PRODUCTS_BY_CATEGORY = {
+    smartphones: [
+      { name: "Aurora X12 128GB", sku: "AUR-X12-128", price: 699, stock: 214 },
+      { name: "Aurora X12 256GB", sku: "AUR-X12-256", price: 799, stock: 132 },
+      { name: "Nimbus S7 5G", sku: "NIM-S7-5G", price: 549, stock: 0 },
+      { name: "Nimbus S7 5G Pro", sku: "NIM-S7-PRO", price: 649, stock: 58 },
+    ],
+    laptops: [
+      { name: "Vector 14 Ultrabook", sku: "VEC-14-ULT", price: 1199, stock: 76 },
+      { name: "Vector 16 Studio", sku: "VEC-16-STU", price: 1799, stock: 22 },
+      { name: "Forge 15 Gaming", sku: "FRG-15-GAM", price: 1399, stock: 0 },
+    ],
+    headphones: [
+      { name: "EchoBuds Pro", sku: "ECH-BUDS-PRO", price: 179, stock: 341 },
+      { name: "EchoBuds Lite", sku: "ECH-BUDS-LT", price: 89, stock: 512 },
+      { name: "SilentWave ANC Over-ear", sku: "SIL-ANC-OE", price: 249, stock: 64 },
+    ],
+    cookware: [
+      { name: "Clearline 10-piece Set", sku: "CLR-10PC", price: 229, stock: 48 },
+      { name: "Clearline Cast Iron Skillet", sku: "CLR-CI-SKL", price: 59, stock: 190 },
+    ],
+    "small-appliances": [
+      { name: "Brewline Drip Coffee Maker", sku: "BRW-DRIP-01", price: 69, stock: 103 },
+      { name: "Brewline Espresso Machine", sku: "BRW-ESP-02", price: 249, stock: 17 },
+    ],
+    mens: [
+      { name: "Oakline Cotton Shirt", sku: "OAK-SHIRT-M", price: 49, stock: 320 },
+      { name: "Oakline Chino Trousers", sku: "OAK-CHINO-M", price: 59, stock: 211 },
+    ],
+    womens: [
+      { name: "Linen Wrap Dress", sku: "LIN-WRAP-W", price: 79, stock: 154 },
+      { name: "Tailored Blazer", sku: "TLR-BLZ-W", price: 129, stock: 72 },
+    ],
+    footwear: [
+      { name: "Trailrunner Mesh Sneaker", sku: "TRL-MESH-01", price: 89, stock: 198 },
+      { name: "Heritage Leather Boot", sku: "HER-BOOT-02", price: 159, stock: 41 },
+    ],
+    "pc-components": [
+      { name: "Radeon-class GPU 12GB", sku: "GPU-12GB-A", price: 429, stock: 36 },
+      { name: "NVMe SSD 1TB", sku: "SSD-1TB-NV", price: 99, stock: 284 },
+    ],
+  };
+
+  const LOCALE = "en-US";
+  const nfCount = new Intl.NumberFormat(LOCALE);
+  const nfMoney = new Intl.NumberFormat(LOCALE, { style: "currency", currency: "USD" });
+  const dtf = new Intl.DateTimeFormat(LOCALE, { day: "2-digit", month: "2-digit", year: "numeric" });
+  const tf = new Intl.DateTimeFormat(LOCALE, { hour: "2-digit", minute: "2-digit", hourCycle: "h23" });
+  function formatDateTime(iso) {
+    const d = new Date(iso);
+    return `${dtf.format(d)} ${tf.format(d)}`;
+  }
+
+  /* ---------------------------------------------------------------------
+   * Flatten the tree into a parent-indexed map and compute totals.
+   * A parent's total count is the sum of its own count and every
+   * descendant's own count — computed, never typed in mock data.
+   * ------------------------------------------------------------------- */
+  const byId = new Map();
+  let maxLevel = 0;
+
+  function index(nodes, parent, level) {
+    maxLevel = Math.max(maxLevel, level);
+    nodes.forEach((n) => {
+      n.parentId = parent ? parent.id : null;
+      n.level = level;
+      byId.set(n.id, n);
+      index(n.children, n, level + 1);
+    });
+  }
+  index(DATA, null, 0);
+
+  function totalCount(node) {
+    if (node._total != null) return node._total;
+    let t = node.ownCount;
+    node.children.forEach((c) => { t += totalCount(c); });
+    node._total = t;
+    return t;
+  }
+  function allNodes() {
+    const out = [];
+    (function walk(nodes) { nodes.forEach((n) => { out.push(n); walk(n.children); }); })(DATA);
+    return out;
+  }
+  const ALL_NODES = allNodes();
+  ALL_NODES.forEach(totalCount);
+  const GRAND_TOTAL_PRODUCTS = ALL_NODES.reduce((s, n) => s + n.ownCount, 0);
+
+  function pathTo(node) {
+    const path = [];
+    let cur = node;
+    while (cur) { path.unshift(cur); cur = cur.parentId ? byId.get(cur.parentId) : null; }
+    return path;
+  }
+
+  function statusTone(status) {
+    if (status === "active") return { classes: "bg-emerald-50 text-emerald-700", label: "Active" };
+    if (status === "inactive") return { classes: "bg-slate-100 text-slate-700", label: "Inactive" };
+    return { classes: "bg-slate-100 text-slate-700", label: "Archived" };
+  }
+
+  /* ---------------------------------------------------------------------
+   * Persisted state: expanded set (localStorage) and selection (URL).
+   * ------------------------------------------------------------------- */
+  const EXPANDED_KEY = "pct-expanded";
+  function loadExpanded() {
+    try { return new Set(JSON.parse(localStorage.getItem(EXPANDED_KEY) || "[]")); }
+    catch (e) { return new Set(); }
+  }
+  function saveExpanded(set) {
+    try { localStorage.setItem(EXPANDED_KEY, JSON.stringify([...set])); } catch (e) {}
+  }
+  let expanded = loadExpanded();
+  if (expanded.size === 0) {
+    // First run: default to the top two levels open.
+    ALL_NODES.forEach((n) => { if (n.level < 1 && n.children.length) expanded.add(n.id); });
+  }
+
+  function getUrlCategory() {
+    return new URLSearchParams(location.search).get("category");
+  }
+  function setUrlCategory(id) {
+    const url = new URL(location.href);
+    if (id) url.searchParams.set("category", id); else url.searchParams.delete("category");
+    history.replaceState(null, "", url);
+  }
+
+  let selectedId = getUrlCategory() && byId.has(getUrlCategory()) ? getUrlCategory() : null;
+  let focusedId = selectedId || (DATA[0] && DATA[0].id);
+  let searchQuery = "";
+
+  /* ---------------------------------------------------------------------
+   * Visible rows: respects expanded state and search filtering.
+   * ------------------------------------------------------------------- */
+  function foldText(s) { return s.toLowerCase(); }
+
+  function matchSet(query) {
+    const q = foldText(query.trim());
+    if (!q) return null;
+    const matched = new Set();
+    ALL_NODES.forEach((n) => { if (foldText(n.name).includes(q)) matched.add(n.id); });
+    const withAncestors = new Set(matched);
+    matched.forEach((id) => {
+      let cur = byId.get(id).parentId;
+      while (cur) { withAncestors.add(cur); cur = byId.get(cur).parentId; }
+    });
+    return { matched, withAncestors };
+  }
+
+  function visibleRows() {
+    const m = searchQuery ? matchSet(searchQuery) : null;
+    const rows = [];
+    function walk(nodes) {
+      nodes.forEach((n) => {
+        if (m && !m.withAncestors.has(n.id)) return;
+        rows.push(n);
+        const isExpanded = m ? m.withAncestors.has(n.id) : expanded.has(n.id);
+        if (n.children.length && isExpanded) walk(n.children);
+      });
+    }
+    walk(DATA);
+    return rows;
+  }
+
+  /* ---------------------------------------------------------------------
+   * Render the tree.
+   * ------------------------------------------------------------------- */
+  const treeEl = document.getElementById("tree");
+  const noResultsEl = document.getElementById("tree-no-results");
+  const noResultsQueryEl = document.getElementById("tree-no-results-query");
+  const treeCountEl = document.getElementById("tree-count");
+
+  function highlight(name, query) {
+    if (!query) return escapeHtml(name);
+    const q = query.trim();
+    if (!q) return escapeHtml(name);
+    const idx = name.toLowerCase().indexOf(q.toLowerCase());
+    if (idx === -1) return escapeHtml(name);
+    return escapeHtml(name.slice(0, idx)) + "<mark>" + escapeHtml(name.slice(idx, idx + q.length)) + "</mark>" + escapeHtml(name.slice(idx + q.length));
+  }
+  function escapeHtml(s) {
+    return s.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+  }
+
+  function renderTree() {
+    const rows = visibleRows();
+    treeEl.innerHTML = "";
+
+    if (searchQuery.trim() && rows.length === 0) {
+      noResultsEl.hidden = false;
+      noResultsQueryEl.textContent = "“" + searchQuery.trim() + "”";
+      treeCountEl.textContent = "No matches";
+      return;
+    }
+    noResultsEl.hidden = true;
+
+    const activeCats = ALL_NODES.filter((n) => n.status !== "archived").length;
+    treeCountEl.textContent = `${nfCount.format(ALL_NODES.length)} categories · ${nfCount.format(GRAND_TOTAL_PRODUCTS)} products`;
+
+    rows.forEach((node, i) => {
+      const hasChildren = node.children.length > 0;
+      const isExpanded = searchQuery.trim() ? true : expanded.has(node.id);
+      const isSelected = node.id === selectedId;
+      const isFocusable = node.id === focusedId;
+      const li = document.createElement("li");
+      li.setAttribute("role", "none");
+
+      const row = document.createElement("div");
+      row.setAttribute("role", "treeitem");
+      row.setAttribute("id", "row-" + node.id);
+      row.setAttribute("aria-level", String(node.level + 1));
+      row.setAttribute("aria-setsize", String((node.parentId ? byId.get(node.parentId).children.length : DATA.length)));
+      row.setAttribute("aria-posinset", String(node.position));
+      row.setAttribute("aria-selected", isSelected ? "true" : "false");
+      if (hasChildren) row.setAttribute("aria-expanded", isExpanded ? "true" : "false");
+      row.setAttribute("tabindex", isFocusable ? "0" : "-1");
+      row.dataset.id = node.id;
+      row.title = node.name;
+      row.className = "tree-row flex h-9 cursor-pointer items-center gap-1 rounded text-sm " +
+        (isSelected ? "bg-blue-50 text-blue-900" : "text-slate-700 hover:bg-slate-100") +
+        (isFocusable ? " focused" : "");
+      row.style.paddingLeft = (8 + node.level * 20) + "px";
+      row.style.paddingRight = "8px";
+
+      // Chevron slot (fixed 24px) — part of the row, aria-hidden.
+      const chevronSlot = document.createElement("span");
+      chevronSlot.className = "flex h-6 w-6 shrink-0 items-center justify-center";
+      if (hasChildren) {
+        chevronSlot.innerHTML = `<svg aria-hidden="true" class="size-4 text-slate-500 transition-transform ${isExpanded ? "rotate-90" : ""}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg>`;
+        chevronSlot.dataset.chevron = node.id;
+      }
+      row.appendChild(chevronSlot);
+
+      // Name + count.
+      const nameSpan = document.createElement("span");
+      nameSpan.className = "min-w-0 flex-1 truncate" + (isSelected ? " font-medium" : "");
+      nameSpan.innerHTML = highlight(node.name, searchQuery);
+      row.appendChild(nameSpan);
+
+      if (node.status !== "active") {
+        const badge = document.createElement("span");
+        const tone = statusTone(node.status);
+        badge.className = "mr-1 shrink-0 rounded-full px-1.5 py-0.5 text-[11px] font-medium leading-none " + tone.classes;
+        badge.textContent = tone.label;
+        row.appendChild(badge);
+      }
+
+      const countSpan = document.createElement("span");
+      countSpan.className = "shrink-0 tabular-nums text-xs " + (isSelected ? "text-blue-700" : "text-slate-500");
+      countSpan.textContent = nfCount.format(totalCount(node));
+      row.appendChild(countSpan);
+
+      li.appendChild(row);
+
+      if (hasChildren && !isExpanded) {
+        row.setAttribute("aria-expanded", "false");
+      }
+
+      treeEl.appendChild(li);
+    });
+  }
+
+  /* ---------------------------------------------------------------------
+   * Row interactions: click, chevron toggle, keyboard.
+   * ------------------------------------------------------------------- */
+  function toggle(id) {
+    const node = byId.get(id);
+    if (!node.children.length) return;
+    if (expanded.has(id)) expanded.delete(id); else expanded.add(id);
+    saveExpanded(expanded);
+    renderTree();
+    focusRow(id);
+  }
+  function expandNode(id) {
+    const node = byId.get(id);
+    if (node.children.length && !expanded.has(id)) { expanded.add(id); saveExpanded(expanded); renderTree(); }
+  }
+  function collapseNode(id) {
+    if (expanded.has(id)) { expanded.delete(id); saveExpanded(expanded); renderTree(); }
+  }
+  function focusRow(id) {
+    focusedId = id;
+    renderTree();
+    const el = document.getElementById("row-" + id);
+    if (el) el.focus();
+  }
+
+  function selectNode(id) {
+    selectedId = id;
+    focusedId = id;
+    setUrlCategory(id);
+    renderTree();
+    renderDetail();
+  }
+
+  treeEl.addEventListener("click", (e) => {
+    const chevron = e.target.closest("[data-chevron]");
+    const row = e.target.closest("[role='treeitem']");
+    if (!row) return;
+    if (chevron) { toggle(chevron.dataset.chevron); return; }
+    selectNode(row.dataset.id);
+    focusRow(row.dataset.id);
+  });
+
+  treeEl.addEventListener("keydown", (e) => {
+    const row = e.target.closest("[role='treeitem']");
+    if (!row) return;
+    const id = row.dataset.id;
+    const node = byId.get(id);
+    const rows = visibleRows();
+    const i = rows.findIndex((r) => r.id === id);
+
+    switch (e.key) {
+      case "ArrowDown": {
+        e.preventDefault();
+        const next = rows[i + 1];
+        if (next) focusRow(next.id);
+        return;
+      }
+      case "ArrowUp": {
+        e.preventDefault();
+        const prev = rows[i - 1];
+        if (prev) focusRow(prev.id);
+        return;
+      }
+      case "Home": {
+        e.preventDefault();
+        if (rows[0]) focusRow(rows[0].id);
+        return;
+      }
+      case "End": {
+        e.preventDefault();
+        if (rows[rows.length - 1]) focusRow(rows[rows.length - 1].id);
+        return;
+      }
+      case "ArrowRight": {
+        e.preventDefault();
+        if (node.children.length && !expanded.has(id)) { expandNode(id); focusRow(id); }
+        else if (node.children.length) { const next = rows[i + 1]; if (next && next.parentId === id) focusRow(next.id); }
+        return;
+      }
+      case "ArrowLeft": {
+        e.preventDefault();
+        if (expanded.has(id) && node.children.length) { collapseNode(id); focusRow(id); }
+        else if (node.parentId) { focusRow(node.parentId); }
+        return;
+      }
+      case "Enter":
+      case " ": {
+        e.preventDefault();
+        selectNode(id);
+        return;
+      }
+      case "*": {
+        e.preventDefault();
+        const siblings = node.parentId ? byId.get(node.parentId).children : DATA;
+        siblings.forEach((s) => { if (s.children.length) expanded.add(s.id); });
+        saveExpanded(expanded);
+        renderTree();
+        focusRow(id);
+        return;
+      }
+      default: {
+        if (e.key.length === 1 && /\S/.test(e.key)) {
+          const ordered = [...rows.slice(i + 1), ...rows.slice(0, i)];
+          const match = ordered.find((r) => r.name.toLowerCase().startsWith(e.key.toLowerCase()));
+          if (match) focusRow(match.id);
+        }
+      }
+    }
+  });
+
+  // Expand all / collapse all.
+  document.getElementById("btn-expand-all").addEventListener("click", () => {
+    const LIMIT_NODES = 500;
+    if (ALL_NODES.length > LIMIT_NODES) {
+      ALL_NODES.forEach((n) => { if (n.children.length && n.level < 2) expanded.add(n.id); });
+    } else {
+      ALL_NODES.forEach((n) => { if (n.children.length) expanded.add(n.id); });
+    }
+    saveExpanded(expanded);
+    renderTree();
+  });
+  document.getElementById("btn-collapse-all").addEventListener("click", () => {
+    expanded.clear();
+    saveExpanded(expanded);
+    renderTree();
+  });
+
+  // Search.
+  const searchInput = document.getElementById("tree-search");
+  const searchClearBtn = document.getElementById("tree-search-clear");
+  function applySearch(value) {
+    searchQuery = value;
+    searchClearBtn.hidden = value.trim().length === 0;
+    renderTree();
+  }
+  searchInput.addEventListener("input", (e) => applySearch(e.target.value));
+  searchClearBtn.addEventListener("click", () => { searchInput.value = ""; applySearch(""); searchInput.focus(); });
+  document.getElementById("tree-clear-search-btn").addEventListener("click", () => { searchInput.value = ""; applySearch(""); searchInput.focus(); });
+
+  /* ---------------------------------------------------------------------
+   * Detail panel.
+   * ------------------------------------------------------------------- */
+  const detailEmpty = document.getElementById("detail-empty");
+  const detailContent = document.getElementById("detail-content");
+
+  function renderDetail() {
+    if (!selectedId || !byId.has(selectedId)) {
+      detailEmpty.hidden = false;
+      detailContent.hidden = true;
+      return;
+    }
+    detailEmpty.hidden = true;
+    detailContent.hidden = false;
+
+    const node = byId.get(selectedId);
+    const path = pathTo(node);
+
+    // Breadcrumb path.
+    const pathEl = document.getElementById("detail-path");
+    pathEl.innerHTML = "";
+    path.forEach((p, i) => {
+      const li = document.createElement("li");
+      li.className = "flex items-center gap-1";
+      if (i > 0) {
+        const sep = document.createElement("span");
+        sep.setAttribute("aria-hidden", "true");
+        sep.className = "text-slate-400";
+        sep.textContent = "/";
+        li.appendChild(sep);
+      }
+      if (i === path.length - 1) {
+        const span = document.createElement("span");
+        span.className = "font-medium text-slate-700";
+        span.textContent = p.name;
+        li.appendChild(span);
+      } else {
+        const btn = document.createElement("button");
+        btn.type = "button";
+        btn.className = "rounded hover:text-slate-900 hover:underline focus-visible:ring-2 focus-visible:ring-blue-700";
+        btn.textContent = p.name;
+        btn.addEventListener("click", () => selectNode(p.id));
+        li.appendChild(btn);
+      }
+      pathEl.appendChild(li);
+    });
+
+    document.getElementById("detail-name").textContent = node.name;
+    document.getElementById("detail-name").title = node.name;
+    document.getElementById("detail-slug").textContent = node.slug;
+
+    const tone = statusTone(node.status);
+    const badge = document.getElementById("detail-status-badge");
+    badge.className = "inline-flex h-6 shrink-0 items-center gap-1 rounded-full px-2 text-xs font-medium leading-5 " + tone.classes;
+    badge.textContent = tone.label;
+
+    document.getElementById("detail-own-count").textContent = nfCount.format(node.ownCount);
+    document.getElementById("detail-total-count").textContent = nfCount.format(totalCount(node));
+    document.getElementById("detail-child-count").textContent = nfCount.format(node.children.length);
+
+    document.getElementById("detail-description").textContent = node.description || "—";
+    document.getElementById("detail-parent").textContent = node.parentId ? byId.get(node.parentId).name : "—  (top-level category)";
+    document.getElementById("detail-visible").textContent = node.visible ? "Yes" : "No";
+    document.getElementById("detail-position").textContent = nfCount.format(node.position);
+
+    // Subcategories table.
+    const childBody = document.getElementById("detail-children-body");
+    const childWrap = document.getElementById("detail-children-wrap");
+    const childEmpty = document.getElementById("detail-children-empty");
+    childBody.innerHTML = "";
+    if (node.children.length === 0) {
+      childWrap.hidden = true;
+      childEmpty.hidden = false;
+    } else {
+      childWrap.hidden = false;
+      childEmpty.hidden = true;
+      node.children.forEach((c) => {
+        const tr = document.createElement("tr");
+        tr.className = "h-10";
+        const ctone = statusTone(c.status);
+        tr.innerHTML = `
+          <td class="py-2 pr-3">
+            <button type="button" class="font-medium text-blue-700 hover:underline focus-visible:ring-2 focus-visible:ring-blue-700" data-goto="${c.id}">${escapeHtml(c.name)}</button>
+          </td>
+          <td class="py-2 pr-3 text-right tabular-nums">${nfCount.format(totalCount(c))}</td>
+          <td class="py-2 pr-3"><span class="inline-flex h-6 items-center rounded-full px-2 text-xs font-medium leading-5 ${ctone.classes}">${ctone.label}</span></td>
+          <td class="py-2 pl-3 text-right">
+            <button type="button" class="text-sm font-medium text-slate-600 hover:text-slate-900 hover:underline focus-visible:ring-2 focus-visible:ring-blue-700" data-goto="${c.id}">Open</button>
+          </td>`;
+        childBody.appendChild(tr);
+      });
+      childBody.querySelectorAll("[data-goto]").forEach((btn) => {
+        btn.addEventListener("click", () => selectNode(btn.dataset.goto));
+      });
+    }
+
+    // Products preview.
+    const prodBody = document.getElementById("detail-products-body");
+    const prodWrap = document.getElementById("detail-products-wrap");
+    const prodEmpty = document.getElementById("detail-products-empty");
+    const products = (PRODUCTS_BY_CATEGORY[node.id] || []).slice(0, 5);
+    prodBody.innerHTML = "";
+    if (products.length === 0) {
+      prodWrap.hidden = true;
+      prodEmpty.hidden = false;
+    } else {
+      prodWrap.hidden = false;
+      prodEmpty.hidden = true;
+      products.forEach((p) => {
+        const tr = document.createElement("tr");
+        tr.className = "h-10";
+        tr.innerHTML = `
+          <td class="py-2 pr-3 font-medium text-slate-900">${escapeHtml(p.name)}</td>
+          <td class="py-2 pr-3 text-slate-600">${escapeHtml(p.sku)}</td>
+          <td class="py-2 pr-3 text-right tabular-nums">${nfMoney.format(p.price)}</td>
+          <td class="py-2 pl-3 text-right tabular-nums ${p.stock === 0 ? "text-red-700 font-medium" : ""}">${p.stock === 0 ? "Out of stock" : nfCount.format(p.stock)}</td>`;
+        prodBody.appendChild(tr);
+      });
+    }
+    document.getElementById("detail-view-all-products").textContent = `View all ${nfCount.format(node.ownCount)}`;
+    document.getElementById("detail-view-all-products").href = "#products?category=" + encodeURIComponent(node.id);
+
+    document.getElementById("detail-audit").innerHTML =
+      `Last changed by <span class="font-medium text-slate-700">${escapeHtml(node.changedBy)}</span> on ${formatDateTime(node.changedAt)}`;
+
+    // Toggle-status menu label.
+    document.getElementById("action-toggle-status").textContent = node.status === "active" ? "Deactivate" : "Activate";
+  }
+
+  /* ---------------------------------------------------------------------
+   * More-actions menu.
+   * ------------------------------------------------------------------- */
+  const moreBtn = document.getElementById("btn-more");
+  const moreMenu = document.getElementById("more-menu");
+  function closeMenu() { moreMenu.hidden = true; moreBtn.setAttribute("aria-expanded", "false"); }
+  moreBtn.addEventListener("click", (e) => {
+    e.stopPropagation();
+    const willOpen = moreMenu.hidden;
+    moreMenu.hidden = !willOpen;
+    moreBtn.setAttribute("aria-expanded", willOpen ? "true" : "false");
+  });
+  document.addEventListener("click", (e) => { if (!moreMenu.hidden && !moreMenu.contains(e.target) && e.target !== moreBtn) closeMenu(); });
+  document.addEventListener("keydown", (e) => { if (e.key === "Escape" && !moreMenu.hidden) closeMenu(); });
+
+  /* ---------------------------------------------------------------------
+   * Toast.
+   * ------------------------------------------------------------------- */
+  let toastTimer = null;
+  function showToast(message) {
+    const toast = document.getElementById("toast");
+    document.getElementById("toast-message").textContent = message;
+    toast.hidden = false;
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => { toast.hidden = true; }, 3200);
+  }
+
+  document.getElementById("action-toggle-status").addEventListener("click", () => {
+    if (!selectedId) return;
+    const node = byId.get(selectedId);
+    node.status = node.status === "active" ? "inactive" : "active";
+    closeMenu();
+    renderTree();
+    renderDetail();
+    showToast(`Category "${node.name}" ${node.status === "active" ? "activated" : "deactivated"}`);
+  });
+
+  [document.getElementById("action-add-child"), document.getElementById("action-add-child-2"), document.getElementById("action-add-child-3"), document.getElementById("btn-add-root"), document.getElementById("btn-add-root-2")].forEach((btn) => {
+    if (!btn) return;
+    btn.addEventListener("click", () => {
+      closeMenu();
+      showToast("Opening the category form is not wired up in this preview.");
+    });
+  });
+  document.getElementById("btn-edit").addEventListener("click", () => showToast("Opening the edit form is not wired up in this preview."));
+  document.getElementById("action-move").addEventListener("click", () => { closeMenu(); showToast("Move picker is not wired up in this preview."); });
+
+  /* ---------------------------------------------------------------------
+   * Delete confirmation.
+   * ------------------------------------------------------------------- */
+  const confirmOverlay = document.getElementById("confirm-overlay");
+  const confirmDesc = document.getElementById("confirm-desc");
+  const confirmCancelBtn = document.getElementById("confirm-cancel");
+  const confirmDeleteBtn = document.getElementById("confirm-delete");
+  let lastFocusedBeforeDialog = null;
+
+  function openDeleteConfirm() {
+    if (!selectedId) return;
+    const node = byId.get(selectedId);
+    const childCount = node.children.length;
+    const ownCount = node.ownCount;
+    if (ownCount > 0 || childCount > 0) {
+      confirmDesc.textContent =
+        `Cannot delete "${node.name}": it has ${nfCount.format(ownCount)} product${ownCount === 1 ? "" : "s"} assigned directly` +
+        (childCount > 0 ? ` and ${nfCount.format(childCount)} subcategor${childCount === 1 ? "y" : "ies"}.` : ".") +
+        " Reassign its products and subcategories first.";
+      confirmDeleteBtn.hidden = true;
+      confirmCancelBtn.textContent = "Close";
+    } else {
+      confirmDesc.textContent = `Delete category "${node.name}"? This cannot be undone.`;
+      confirmDeleteBtn.hidden = false;
+      confirmCancelBtn.textContent = "Cancel";
+    }
+    document.getElementById("confirm-title").textContent = `Delete category ${node.name}?`;
+    lastFocusedBeforeDialog = document.activeElement;
+    confirmOverlay.hidden = false;
+    confirmCancelBtn.focus();
+  }
+  function closeDeleteConfirm() {
+    confirmOverlay.hidden = true;
+    if (lastFocusedBeforeDialog) lastFocusedBeforeDialog.focus();
+  }
+  document.getElementById("action-delete").addEventListener("click", () => { closeMenu(); openDeleteConfirm(); });
+  confirmCancelBtn.addEventListener("click", closeDeleteConfirm);
+  confirmOverlay.addEventListener("click", (e) => { if (e.target === confirmOverlay) closeDeleteConfirm(); });
+  document.addEventListener("keydown", (e) => { if (e.key === "Escape" && !confirmOverlay.hidden) closeDeleteConfirm(); });
+  confirmDeleteBtn.addEventListener("click", () => {
+    if (!selectedId) return;
+    const node = byId.get(selectedId);
+    closeDeleteConfirm();
+    showToast(`Category "${node.name}" deleted`);
+  });
+
+  /* ---------------------------------------------------------------------
+   * Initial render.
+   * ------------------------------------------------------------------- */
+  // Expand ancestors of the selection on load.
+  if (selectedId) {
+    let cur = byId.get(selectedId).parentId;
+    while (cur) { expanded.add(cur); cur = byId.get(cur).parentId; }
+  }
+  renderTree();
+  renderDetail();
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,54 @@
+{
+  "brief": "29-support-ticket-board",
+  "run": 2,
+  "items": [
+    {
+      "item": "Every status column heading shows the status name and its ticket count, and the count equals the cards shown or the column states how many are not shown (such as \"Showing 20 of 134\")",
+      "pass": false,
+      "evidence": "For the 4 open columns the h2 label + countSpan (e.g. 'Mới 5', 'Đang xử lý 6 / 8') correctly match the rendered <ol> cards (page.html:703-714, 737-739). But the default-collapsed 'Đã đóng' column (state.collapsedClosed = true) renders only an icon and a bare number ('4') with no visible status name — the label only exists in a title='Đã đóng (4)' tooltip attribute, not as visible/accessible heading text (page.html:689-700)."
+    },
+    {
+      "item": "Each card shows the ticket number (such as #4821), subject, customer, priority as a word or code (such as \"P1 · Urgent\") and the assignee, or an explicit \"Unassigned\"",
+      "pass": true,
+      "evidence": "renderCard builds '<span class=\"font-mono text-xs...\">' + ticket.code + '</span>' (e.g. TK-2026-1038), the title paragraph, customer · company line, priorityBadge(ticket.priority) (e.g. 'Khẩn cấp'), and assigneeHtml which prints the staff name with initials avatar or '<span class=\"truncate text-slate-500\">Chưa phân công</span>' (Unassigned) when ticket.assignee is null (page.html:618-634)."
+    },
+    {
+      "item": "Open tickets show the time left to the next SLA target and which target it is (such as \"Resolution due in 2h 15m\"), and breached tickets show how long they are overdue (such as \"Breached 40m ago\") in text or with an icon, not by colour alone",
+      "pass": false,
+      "evidence": "slaInfo() only renders a countdown ('Còn 10 phút · hạn 10:05') when diffMin <= 120; tickets with more runway just get an absolute date ('Hạn 07/11/2026 15:45') with no time-left countdown at all (page.html:323-335, visible on cards like TK-2026-1048 'Hạn 07/11/2026 15:45' in first.png). Overdue tickets do get text like 'Quá hạn 40 phút' (not colour-only), but no ticket ever states which SLA target (first response vs resolution) the countdown refers to — there's only one generic 'hạn' (due) value per ticket."
+    },
+    {
+      "item": "Tickets in a waiting status (such as \"Waiting on customer\") show their SLA timer as paused instead of counting down",
+      "pass": false,
+      "evidence": "slaInfo() only special-cases status === 'resolved' || 'closed'; the 'waiting' (Chờ phản hồi KH) status falls through to the same live diffMin countdown as any open ticket, e.g. the waiting-status ticket 'Đặng Thu Hà' shows an actively counting 'Còn 1 giờ · hạn 11:25' in first.png, not a paused indicator (page.html:323-335)."
+    },
+    {
+      "item": "Within each column the cards are ordered by SLA due time or by priority, and the board states which ordering is used",
+      "pass": false,
+      "evidence": "sortWithinColumn() sorts by PRIORITY_ORDER then by dueAt (page.html:357-363), so the ordering is implemented, but no UI text anywhere states the ordering used (no 'Sorted by priority' or similar label in the header or column markup)."
+    },
+    {
+      "item": "Search finds tickets by number, subject or customer, and filters cover assignee (including \"Me\" and \"Unassigned\"), priority and SLA state (such as breached or due within 1 hour)",
+      "pass": false,
+      "evidence": "matchesFilters() searches t.code/title/customer/company (page.html:337-350); assigneeFilter has an 'unassigned' option and #assignedToMeBtn toggles state.mine against CURRENT_USER_ID (page.html:86-92, 924-931); priorityFilter exists (page.html:77-84). But there is no SLA-state filter (breached / due within 1 hour) anywhere in the filter bar or state object."
+    },
+    {
+      "item": "Each card has keyboard-reachable actions to assign the ticket (including \"Assign to me\") and to change its status without dragging, with accessible names that include the ticket number",
+      "pass": false,
+      "evidence": "The kebab button's aria-label is 'Hành động cho ' + ticket.code (includes ticket number, page.html:653) and opens a status-change menu (openMoveMenu, no drag required). But the per-card 'Nhận việc' (claim/assign-to-me) button has no aria-label at all — its accessible name is just the literal text 'Nhận việc' with no ticket number (page.html:642-647), so it fails the 'include the ticket number' requirement."
+    },
+    {
+      "item": "An empty column shows a short message instead of blank space, a search or filter with no matches offers to clear it, and loading and failed-load (with retry) states exist",
+      "pass": true,
+      "evidence": "Empty column: 'Không có ticket ở ' + statusDef.label.toLowerCase() (page.html:732-736). No-match state: #noResultsBanner with 'Không có ticket khớp với bộ lọc này.' and a 'Xóa bộ lọc' button calling clearAll (page.html:110-113, 932). Loading: renderSkeleton() shimmer cards (page.html:888-908). Failed load: #errorBanner with 'Thử lại' retry button wired to retryLoad (page.html:103-107, 951-960)."
+    },
+    {
+      "item": "Every relative time (such as \"Updated 3h ago\") also exposes the exact date, time and timezone, in a <time datetime> element or a title attribute",
+      "pass": false,
+      "evidence": "There is no <time> element anywhere in page.html (confirmed by search), and relative SLA strings such as 'Quá hạn 40 phút' / 'Còn 10 phút · hạn 10:05' (slaInfo, page.html:323-335) are plain text spans with no title attribute exposing the full date/time/timezone — only a bare HH:MM is appended for near-due tickets, with no date or timezone anywhere."
+    }
+  ],
+  "tells": [],
+  "notes": "This mock largely avoids stock dashboard-template tells: no gradients, no backdrop-blur/glass, no uppercase tracked labels, no emoji icons, no decorative charts, no sidebar (hence no sidebar-promo-card or navy-sidebar-indigo-accent), no oversized radii (radii are 4px/6px per audit.json), and card hover is a plain border/shadow change with no lift/transform. The one automated audit violation (font-size-base, 12px column count text) is minor and not part of the checklist. Main functional gaps are SLA-target naming/pausing, stated sort order, SLA-state filtering, and the collapsed closed-column losing its visible status name.",
+  "blind": true
+}

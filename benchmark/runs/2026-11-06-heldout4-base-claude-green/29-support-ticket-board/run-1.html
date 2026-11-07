@@ -1,0 +1,1178 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Support tickets · Helpdesk</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+  [hidden] { display: none !important; }
+  .line-clamp-2 { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+  .tabular-nums { font-variant-numeric: tabular-nums; }
+  ::-webkit-scrollbar { width: 8px; height: 8px; }
+  ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 9999px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  @media (prefers-reduced-motion: reduce) {
+    .animate-pulse { animation: none; }
+  }
+  .card-btn:focus-visible, button:focus-visible, a:focus-visible, select:focus-visible, input:focus-visible, textarea:focus-visible, [tabindex]:focus-visible {
+    outline: 2px solid #1d4ed8; outline-offset: 2px;
+  }
+  .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0; }
+  .vertical-rl { writing-mode: vertical-rl; }
+</style>
+</head>
+<body class="h-screen overflow-hidden flex flex-col bg-slate-50 text-slate-900 antialiased text-sm">
+
+  <!-- App header -->
+  <header class="shrink-0 border-b border-slate-200 bg-white px-6 py-3 flex items-center justify-between gap-4">
+    <div>
+      <h1 class="text-xl font-semibold text-slate-900">Support tickets</h1>
+      <p id="summary-line" class="text-xs text-slate-500 mt-0.5"></p>
+    </div>
+    <button id="btn-new-ticket" type="button" class="inline-flex items-center gap-1.5 rounded-md bg-blue-700 px-3 py-2 text-sm font-medium text-white hover:bg-blue-800">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+      New ticket
+    </button>
+  </header>
+
+  <!-- Toolbar -->
+  <div class="shrink-0 border-b border-slate-200 bg-white px-6 py-2.5 flex flex-wrap items-center gap-2">
+    <div class="relative">
+      <svg class="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+      <input id="filter-search" type="search" placeholder="Search ticket or subject" class="h-8 w-56 rounded-md border border-slate-300 pl-8 pr-2 text-sm placeholder:text-slate-400 focus:border-blue-700" aria-label="Search tickets by code or subject">
+    </div>
+    <select id="filter-assignee" class="h-8 rounded-md border border-slate-300 px-2 text-sm" aria-label="Filter by assignee">
+      <option value="">All assignees</option>
+    </select>
+    <select id="filter-priority" class="h-8 rounded-md border border-slate-300 px-2 text-sm" aria-label="Filter by priority">
+      <option value="">All priorities</option>
+    </select>
+    <select id="filter-type" class="h-8 rounded-md border border-slate-300 px-2 text-sm" aria-label="Filter by type">
+      <option value="">All types</option>
+    </select>
+    <label class="inline-flex items-center gap-1.5 text-sm text-slate-700 pl-1">
+      <input id="filter-mine" type="checkbox" class="h-4 w-4 rounded border-slate-300 text-blue-700 focus:ring-blue-700">
+      Assigned to me
+    </label>
+
+    <div class="ml-auto inline-flex rounded-md border border-slate-300 overflow-hidden" role="group" aria-label="Switch view">
+      <button id="btn-view-board" type="button" class="px-3 py-1.5 text-sm font-medium bg-slate-900 text-white" aria-pressed="true">Board</button>
+      <button id="btn-view-list" type="button" class="px-3 py-1.5 text-sm font-medium bg-white text-slate-700 hover:bg-slate-50" aria-pressed="false">List</button>
+    </div>
+  </div>
+
+  <!-- Chips row -->
+  <div id="chips-row" class="shrink-0 border-b border-slate-200 bg-white px-6 py-2 flex flex-wrap items-center gap-2" hidden></div>
+
+  <!-- Main region -->
+  <main id="main-region" class="flex-1 min-h-0 flex flex-col relative">
+
+    <!-- Board view -->
+    <div id="board-view" class="flex-1 min-h-0 flex gap-3 overflow-x-auto p-3" role="region" aria-label="Ticket board"></div>
+
+    <!-- List view -->
+    <div id="list-view" class="flex-1 min-h-0 overflow-auto p-3" hidden>
+      <table class="w-full border-collapse bg-white border border-slate-200 rounded-md overflow-hidden">
+        <thead class="bg-slate-50 border-b border-slate-200">
+          <tr>
+            <th class="text-left px-3 py-2 font-medium text-slate-600">Ticket</th>
+            <th class="text-left px-3 py-2 font-medium text-slate-600">Customer</th>
+            <th class="text-left px-3 py-2 font-medium text-slate-600">Priority</th>
+            <th class="text-left px-3 py-2 font-medium text-slate-600">Status</th>
+            <th class="text-left px-3 py-2 font-medium text-slate-600">Assignee</th>
+            <th class="text-left px-3 py-2 font-medium text-slate-600">SLA</th>
+            <th class="px-3 py-2"><span class="sr-only">Actions</span></th>
+          </tr>
+        </thead>
+        <tbody id="list-body"></tbody>
+      </table>
+    </div>
+
+    <!-- Overlay states -->
+    <div id="state-empty" class="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-slate-50 px-6 text-center" hidden>
+      <p class="text-base font-medium text-slate-900">No tickets yet</p>
+      <p class="max-w-sm text-sm text-slate-500">Tickets submitted by customers or created by agents will appear here.</p>
+      <button type="button" class="btn-empty-new rounded-md bg-blue-700 px-3 py-2 text-sm font-medium text-white hover:bg-blue-800">New ticket</button>
+    </div>
+
+    <div id="state-no-results" class="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-slate-50 px-6 text-center" hidden>
+      <p class="text-base font-medium text-slate-900">No tickets match these filters</p>
+      <button type="button" id="btn-clear-filters-overlay" class="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">Clear filters</button>
+    </div>
+
+    <div id="state-error" class="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-slate-50 px-6 text-center" hidden>
+      <p class="text-base font-medium text-slate-900">Couldn't load tickets</p>
+      <p class="max-w-sm text-sm text-slate-500">Check your connection and try again.</p>
+      <button type="button" id="btn-retry" class="rounded-md bg-blue-700 px-3 py-2 text-sm font-medium text-white hover:bg-blue-800">Retry</button>
+    </div>
+
+  </main>
+
+  <!-- Overlay for panels -->
+  <div id="overlay" class="fixed inset-0 bg-slate-900/30 z-40" hidden></div>
+
+  <!-- Detail / create side panel -->
+  <aside id="detail-panel" class="fixed top-0 right-0 h-full w-full sm:w-[520px] bg-white border-l border-slate-200 shadow-lg z-50 flex flex-col" role="dialog" aria-modal="true" aria-labelledby="panel-title" hidden></aside>
+
+  <!-- Resolve dialog -->
+  <div id="resolve-dialog" class="fixed inset-0 z-[70] flex items-center justify-center px-4" hidden>
+    <div class="w-full max-w-md rounded-lg bg-white shadow-lg border border-slate-200">
+      <div class="px-5 py-4 border-b border-slate-200">
+        <h2 class="text-base font-semibold text-slate-900">Mark ticket Resolved?</h2>
+        <p class="text-sm text-slate-500 mt-1">Add a resolution note so the customer and the team know what was done.</p>
+      </div>
+      <div class="px-5 py-4">
+        <label for="resolution-note" class="block text-sm font-medium text-slate-700 mb-1">Resolution note *</label>
+        <textarea id="resolution-note" rows="3" class="w-full rounded-md border border-slate-300 px-2 py-1.5 text-sm focus:border-blue-700" placeholder="Describe how this was resolved"></textarea>
+        <p id="resolution-error" class="text-xs text-red-700 mt-1" hidden>Resolution note is required.</p>
+      </div>
+      <div class="px-5 py-3 border-t border-slate-200 flex justify-end gap-2">
+        <button type="button" id="btn-resolve-cancel" class="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">Keep working</button>
+        <button type="button" id="btn-resolve-confirm" class="rounded-md bg-blue-700 px-3 py-2 text-sm font-medium text-white hover:bg-blue-800">Mark resolved</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toasts -->
+  <div id="toast-container" class="fixed top-4 right-4 z-[80] flex flex-col gap-2 w-80" role="status" aria-live="polite"></div>
+
+<script>
+(function () {
+  "use strict";
+
+  // ---------- Reference time (fixed, so the demo reads consistently) ----------
+  function d(y, m, day, h, mi) { return new Date(y, m - 1, day, h || 0, mi || 0); }
+  var NOW = d(2026, 11, 7, 9, 30);
+  var CURRENT_USER = "Sara Kim";
+  var AGENTS = ["Sara Kim", "Carlos Mendes", "Priya Nair", "Jordan Lee", "Minh Anh Tran"];
+  var TYPES = ["Bug", "Billing", "Account", "Question", "Feature request"];
+
+  var STATUSES = [
+    { id: "new", label: "New", tone: "info" },
+    { id: "inprogress", label: "In progress", tone: "info", limit: 6 },
+    { id: "waiting", label: "Waiting on customer", tone: "warning" },
+    { id: "resolved", label: "Resolved", tone: "success" },
+    { id: "closed", label: "Closed", tone: "neutral", collapsedDefault: true }
+  ];
+  var STATUS_BY_ID = {};
+  STATUSES.forEach(function (s) { STATUS_BY_ID[s.id] = s; });
+
+  var NEXT_STATES = {
+    new: ["inprogress", "waiting", "resolved"],
+    inprogress: ["new", "waiting", "resolved"],
+    waiting: ["inprogress", "resolved"],
+    resolved: ["inprogress", "closed"],
+    closed: ["inprogress"]
+  };
+
+  var PRIORITIES = [
+    { id: "urgent", label: "Urgent", tone: "danger", rank: 0 },
+    { id: "high", label: "High", tone: "warning", rank: 1 },
+    { id: "medium", label: "Medium", tone: "info", rank: 2 },
+    { id: "low", label: "Low", tone: "neutral", rank: 3 }
+  ];
+  var PRIORITY_BY_ID = {};
+  PRIORITIES.forEach(function (p) { PRIORITY_BY_ID[p.id] = p; });
+
+  var TONE_BADGE = {
+    neutral: "bg-slate-100 text-slate-700",
+    info: "bg-blue-50 text-blue-700",
+    success: "bg-emerald-50 text-emerald-700",
+    warning: "bg-amber-50 text-amber-800",
+    danger: "bg-red-50 text-red-700"
+  };
+  var TONE_DOT = {
+    neutral: "bg-slate-400",
+    info: "bg-blue-600",
+    success: "bg-emerald-600",
+    warning: "bg-amber-600",
+    danger: "bg-red-600"
+  };
+  var TONE_TEXT = {
+    neutral: "text-slate-500",
+    info: "text-blue-700",
+    success: "text-emerald-700",
+    warning: "text-amber-700",
+    danger: "text-red-700"
+  };
+
+  // ---------- Mock customers ----------
+  var CUSTOMERS = {
+    jamesobrien: { name: "James O'Brien", company: "Coastal Insurance", email: "james.obrien@coastalins.com", phone: "+1 617-555-0198" },
+    tombaker: { name: "Tom Baker", company: "Granite Construction", email: "tom.baker@graniteco.com", phone: "+1 303-555-0120" },
+    elenaruiz: { name: "Elena Ruiz", company: "Vertex Analytics", email: "elena.ruiz@vertexanalytics.io", phone: "+1 212-555-0147" },
+    priyashah: { name: "Priya Shah", company: "Horizon Media", email: "priya.shah@horizonmedia.com", phone: "+1 646-555-0113" },
+    noahbecker: { name: "Noah Becker", company: "Pinnacle Foods", email: "noah.becker@pinnaclefoods.com", phone: "+1 312-555-0176" },
+    mariagomez: { name: "Maria Gomez", company: "Acme Logistics", email: "maria.gomez@acmelogistics.com", phone: "+1 415-555-0132" },
+    gracechen: { name: "Grace Chen", company: "Delta Robotics", email: "grace.chen@deltarobotics.com", phone: "+1 650-555-0167" },
+    anikapatel: { name: "Anika Patel", company: "Harbor Bank", email: "anika.patel@harborbank.com", phone: "+1 212-555-0198" },
+    sophielaurent: { name: "Sophie Laurent", company: "Bluewave Retail", email: "sophie.laurent@bluewaveretail.com", phone: "+1 503-555-0159" },
+    ahmedhassan: { name: "Ahmed Hassan", company: "Nimbus Health", email: "ahmed.hassan@nimbushealth.com", phone: "+1 202-555-0184" },
+    liamwalsh: { name: "Liam Walsh", company: "Solstice Travel", email: "liam.walsh@solsticetravel.com", phone: "+1 305-555-0141" },
+    diegofernandez: { name: "Diego Fernandez", company: "Fenwick & Co", email: "diego.fernandez@fenwickco.com", phone: "+1 617-555-0129" }
+  };
+
+  // ---------- Mock tickets ----------
+  var NEXT_ID = 1051;
+  var TICKETS = [
+    { id: "TK-1050", subject: "Mobile app crashes on login after 4.12 update", description: "Customer reports the iOS app crashes immediately after entering credentials, since updating to version 4.12 yesterday.", customer: CUSTOMERS.jamesobrien, priority: "urgent", type: "Bug", assignee: null, status: "new", dueAt: d(2026, 11, 7, 13, 0), createdAt: d(2026, 11, 7, 8, 10) },
+    { id: "TK-1049", subject: "Search returns no results for valid SKU query", description: "Searching for SKU GC-4471 returns 'No results' even though the item exists in inventory.", customer: CUSTOMERS.tombaker, priority: "medium", type: "Bug", assignee: null, status: "new", dueAt: d(2026, 11, 9, 12, 0), createdAt: d(2026, 11, 7, 7, 45) },
+    { id: "TK-1047", subject: "Feature request: bulk tag editing for contacts", description: "Customer would like to apply or remove a tag across many contacts at once instead of one at a time.", customer: CUSTOMERS.elenaruiz, priority: "low", type: "Feature request", assignee: null, status: "new", dueAt: d(2026, 11, 13, 17, 0), createdAt: d(2026, 11, 6, 16, 40) },
+    { id: "TK-1045", subject: "Need seat count increased to 50 users", description: "Account currently has 32 seats; customer wants to raise the plan to 50 before onboarding a new team.", customer: CUSTOMERS.priyashah, priority: "medium", type: "Account", assignee: null, status: "new", dueAt: d(2026, 11, 10, 9, 0), createdAt: d(2026, 11, 6, 14, 5) },
+    { id: "TK-1043", subject: "Report time zone displayed incorrectly", description: "Scheduled reports show timestamps in UTC instead of the account's configured time zone (America/Chicago).", customer: CUSTOMERS.noahbecker, priority: "low", type: "Bug", assignee: null, status: "new", dueAt: d(2026, 11, 13, 17, 0), createdAt: d(2026, 11, 6, 11, 20) },
+
+    { id: "TK-1048", subject: "API returns 500 on /v2/orders endpoint", description: "Calls to /v2/orders with a date range filter intermittently return HTTP 500. Started after last night's deploy.", customer: CUSTOMERS.mariagomez, priority: "urgent", type: "Bug", assignee: "Carlos Mendes", status: "inprogress", dueAt: d(2026, 11, 6, 18, 0), createdAt: d(2026, 11, 5, 9, 12) },
+    { id: "TK-1046", subject: "Integration webhook not firing for new orders", description: "The order.created webhook has not fired since Monday; customer's warehouse system is missing new orders.", customer: CUSTOMERS.gracechen, priority: "high", type: "Bug", assignee: "Priya Nair", status: "inprogress", dueAt: d(2026, 11, 7, 16, 0), createdAt: d(2026, 11, 5, 10, 0) },
+    { id: "TK-1044", subject: "Duplicate charge on invoice #4588", description: "Customer was billed twice for invoice #4588 on the same card; requesting a refund of the duplicate charge.", customer: CUSTOMERS.anikapatel, priority: "high", type: "Billing", assignee: "Jordan Lee", status: "inprogress", dueAt: d(2026, 11, 7, 9, 0), createdAt: d(2026, 11, 6, 9, 30) },
+    { id: "TK-1042", subject: "Unable to upload attachments larger than 10MB", description: "Uploads above 10MB fail silently in the ticket composer; customer needs to attach a 24MB diagnostic log.", customer: CUSTOMERS.sophielaurent, priority: "medium", type: "Account", assignee: "Minh Anh Tran", status: "inprogress", dueAt: d(2026, 11, 8, 9, 0), createdAt: d(2026, 11, 4, 13, 30) },
+    { id: "TK-1040", subject: "Two-factor authentication locked out", description: "Customer lost access to their authenticator app and cannot get past the 2FA prompt to sign in.", customer: CUSTOMERS.ahmedhassan, priority: "urgent", type: "Account", assignee: "Sara Kim", status: "inprogress", dueAt: d(2026, 11, 7, 11, 0), createdAt: d(2026, 11, 6, 9, 0) },
+    { id: "TK-1038", subject: "Dashboard widgets not loading on Safari", description: "Revenue and shipments widgets spin indefinitely in Safari 18; Chrome and Firefox are unaffected.", customer: CUSTOMERS.liamwalsh, priority: "medium", type: "Bug", assignee: "Carlos Mendes", status: "inprogress", dueAt: d(2026, 11, 9, 17, 0), createdAt: d(2026, 11, 4, 15, 40) },
+    { id: "TK-1036", subject: "How to configure SSO with Okta", description: "Customer's IT team is asking for step-by-step guidance to connect Okta as their SSO provider.", customer: CUSTOMERS.diegofernandez, priority: "low", type: "Question", assignee: "Priya Nair", status: "inprogress", dueAt: d(2026, 11, 11, 17, 0), createdAt: d(2026, 11, 3, 10, 15) },
+
+    { id: "TK-1041", subject: "Export to CSV fails for reports over 50k rows", description: "Large exports time out at ~50,000 rows. Waiting on the customer to confirm which report and date range triggers it.", customer: CUSTOMERS.mariagomez, priority: "high", type: "Bug", assignee: "Jordan Lee", status: "waiting", dueAt: d(2026, 11, 9, 17, 0), createdAt: d(2026, 11, 4, 9, 0) },
+    { id: "TK-1037", subject: "Request to merge duplicate accounts", description: "Customer has two accounts under different emails and wants them merged. Awaiting written confirmation from the account owner.", customer: CUSTOMERS.noahbecker, priority: "medium", type: "Account", assignee: "Minh Anh Tran", status: "waiting", dueAt: d(2026, 11, 10, 17, 0), createdAt: d(2026, 11, 3, 13, 0) },
+    { id: "TK-1034", subject: "Billing address update needs verification", description: "Requested billing address change requires verification from the account owner before it can be applied.", customer: CUSTOMERS.priyashah, priority: "medium", type: "Billing", assignee: "Sara Kim", status: "waiting", dueAt: d(2026, 11, 8, 17, 0), createdAt: d(2026, 11, 2, 11, 0) },
+    { id: "TK-1031", subject: "Scheduled report not sending emails", description: "Weekly report emails stopped arriving two weeks ago; waiting on customer to confirm their spam filter settings.", customer: CUSTOMERS.gracechen, priority: "low", type: "Bug", assignee: "Carlos Mendes", status: "waiting", dueAt: d(2026, 11, 12, 17, 0), createdAt: d(2026, 11, 1, 9, 30) },
+
+    { id: "TK-1030", subject: "SSL certificate renewal for custom domain", description: "Custom domain certificate had expired, causing browser warnings for all visitors.", customer: CUSTOMERS.elenaruiz, priority: "high", type: "Bug", assignee: "Jordan Lee", status: "resolved", createdAt: d(2026, 10, 30, 9, 0), resolvedAt: d(2026, 11, 6, 15, 20), resolutionNote: "Renewed the certificate and verified HTTPS on all custom domains." },
+    { id: "TK-1028", subject: "Permission error accessing shared folder", description: "Customer's teammate could not open a shared reports folder due to a missing role permission.", customer: CUSTOMERS.diegofernandez, priority: "medium", type: "Question", assignee: "Priya Nair", status: "resolved", createdAt: d(2026, 10, 29, 10, 0), resolvedAt: d(2026, 11, 5, 11, 40), resolutionNote: "Granted folder access and confirmed with the customer." },
+    { id: "TK-1025", subject: "Slow page load on reports tab", description: "The reports tab was taking over 12 seconds to load for accounts with large order histories.", customer: CUSTOMERS.tombaker, priority: "urgent", type: "Bug", assignee: "Minh Anh Tran", status: "resolved", createdAt: d(2026, 10, 27, 9, 0), resolvedAt: d(2026, 11, 4, 16, 0), resolutionNote: "Optimized the report query; load time dropped from 12s to under 2s." },
+    { id: "TK-1022", subject: "Invoice #4521 shows incorrect tax", description: "Invoice #4521 applied the wrong tax region, overcharging the customer by $42.", customer: CUSTOMERS.anikapatel, priority: "low", type: "Billing", assignee: "Sara Kim", status: "resolved", createdAt: d(2026, 10, 25, 9, 0), resolvedAt: d(2026, 11, 3, 9, 50), resolutionNote: "Corrected the tax region on the account and reissued the invoice." },
+
+    { id: "TK-1020", subject: "Password reset link expired before use", description: "Customer's reset link had expired; a new one was issued and used successfully.", customer: CUSTOMERS.sophielaurent, priority: "low", type: "Account", assignee: "Sara Kim", status: "closed", createdAt: d(2026, 10, 20, 9, 0), resolvedAt: d(2026, 10, 21, 10, 0), closedAt: d(2026, 10, 22, 9, 0), resolutionNote: "Issued a new reset link; customer confirmed access was restored." },
+    { id: "TK-1018", subject: "Question about annual billing discount", description: "Customer asked about the discount for switching from monthly to annual billing.", customer: CUSTOMERS.liamwalsh, priority: "low", type: "Billing", assignee: "Jordan Lee", status: "closed", createdAt: d(2026, 10, 18, 9, 0), resolvedAt: d(2026, 10, 18, 14, 0), closedAt: d(2026, 10, 19, 9, 0), resolutionNote: "Shared the annual pricing sheet; customer switched plans." },
+    { id: "TK-1015", subject: "Sync delay between CRM and helpdesk", description: "Contact updates in the CRM were taking up to an hour to appear in the helpdesk.", customer: CUSTOMERS.gracechen, priority: "medium", type: "Bug", assignee: "Carlos Mendes", status: "closed", createdAt: d(2026, 10, 15, 9, 0), resolvedAt: d(2026, 10, 16, 12, 0), closedAt: d(2026, 10, 17, 9, 0), resolutionNote: "Reduced the sync interval from 60 to 5 minutes." },
+    { id: "TK-1012", subject: "API key rotation request", description: "Customer rotated their API key as part of a security review and needed the old one revoked.", customer: CUSTOMERS.ahmedhassan, priority: "medium", type: "Account", assignee: "Priya Nair", status: "closed", createdAt: d(2026, 10, 12, 9, 0), resolvedAt: d(2026, 10, 12, 15, 0), closedAt: d(2026, 10, 13, 9, 0), resolutionNote: "Issued a new key and revoked the old one immediately." },
+    { id: "TK-1009", subject: "Onboarding call follow-up questions", description: "Customer had three follow-up questions after their onboarding call about role permissions.", customer: CUSTOMERS.priyashah, priority: "low", type: "Question", assignee: "Minh Anh Tran", status: "closed", createdAt: d(2026, 10, 9, 9, 0), resolvedAt: d(2026, 10, 9, 16, 0), closedAt: d(2026, 10, 10, 9, 0), resolutionNote: "Answered all three questions by email with documentation links." },
+    { id: "TK-1005", subject: "Data export missing October records", description: "A full account export was missing roughly 200 records from early October.", customer: CUSTOMERS.mariagomez, priority: "high", type: "Bug", assignee: "Jordan Lee", status: "closed", createdAt: d(2026, 10, 5, 9, 0), resolvedAt: d(2026, 10, 6, 12, 0), closedAt: d(2026, 10, 7, 9, 0), resolutionNote: "Fixed the export date filter and re-ran the export; customer confirmed all records were present." }
+  ];
+
+  // Collapsed-state memory for the Closed column
+  var collapsedColumns = { closed: true };
+
+  // ---------- DOM helper ----------
+  function h(tag, props) {
+    var node = document.createElement(tag);
+    props = props || {};
+    for (var k in props) {
+      if (!props.hasOwnProperty(k)) continue;
+      var v = props[k];
+      if (k === "class") node.className = v;
+      else if (k === "text") node.textContent = v;
+      else if (k === "html_safe_children") continue;
+      else if (k.indexOf("on") === 0 && typeof v === "function") node.addEventListener(k.slice(2), v);
+      else if (v === true) node.setAttribute(k, "");
+      else if (v === false || v === null || v === undefined) { /* skip */ }
+      else node.setAttribute(k, v);
+    }
+    for (var i = 2; i < arguments.length; i++) {
+      var c = arguments[i];
+      if (c === null || c === undefined) continue;
+      if (Array.isArray(c)) {
+        c.forEach(function (cc) { if (cc) node.appendChild(typeof cc === "string" ? document.createTextNode(cc) : cc); });
+      } else {
+        node.appendChild(typeof c === "string" ? document.createTextNode(c) : c);
+      }
+    }
+    return node;
+  }
+
+  // ---------- Formatting ----------
+  function pad(n) { return n < 10 ? "0" + n : "" + n; }
+  function fmtDateShort(dt) { return pad(dt.getDate()) + "/" + pad(dt.getMonth() + 1); }
+  function fmtDateTime(dt) { return pad(dt.getDate()) + "/" + pad(dt.getMonth() + 1) + "/" + dt.getFullYear() + " " + pad(dt.getHours()) + ":" + pad(dt.getMinutes()); }
+
+  function dueInfo(ticket) {
+    if (ticket.status === "resolved") {
+      return { meta: "Resolved " + fmtDateShort(ticket.resolvedAt), badge: null };
+    }
+    if (ticket.status === "closed") {
+      return { meta: "Closed " + fmtDateShort(ticket.closedAt), badge: null };
+    }
+    if (!ticket.dueAt) {
+      return { meta: "Opened " + fmtDateShort(ticket.createdAt), badge: null };
+    }
+    var diffMs = ticket.dueAt.getTime() - NOW.getTime();
+    var abs = fmtDateShort(ticket.dueAt);
+    if (diffMs < 0) {
+      var overdueH = Math.round(-diffMs / 3600000);
+      var text = overdueH < 24 ? ("Overdue " + overdueH + "h") : ("Overdue " + Math.round(overdueH / 24) + "d");
+      return { meta: "Due " + abs + " · " + text.toLowerCase(), badge: { text: text, tone: "danger" } };
+    }
+    var diffH = diffMs / 3600000;
+    if (diffH < 24) {
+      return { meta: "Due " + abs + " · in " + Math.round(diffH) + "h", badge: { text: "Due soon", tone: "warning" } };
+    }
+    var days = Math.round(diffH / 24);
+    return { meta: "Due " + abs + " · in " + days + " day" + (days > 1 ? "s" : ""), badge: null };
+  }
+
+  function sortRank(ticket) {
+    var dt = ticket.dueAt || ticket.resolvedAt || ticket.closedAt || ticket.createdAt;
+    return dt.getTime();
+  }
+
+  // ---------- Filter state ----------
+  var filters = { search: "", assignee: "", priority: "", type: "", mine: false };
+  var currentView = "board";
+  var openTicketId = null;
+
+  function applyFilters(list) {
+    return list.filter(function (t) {
+      if (filters.search) {
+        var q = filters.search.toLowerCase();
+        if (t.id.toLowerCase().indexOf(q) === -1 && t.subject.toLowerCase().indexOf(q) === -1) return false;
+      }
+      if (filters.assignee) {
+        if (filters.assignee === "__unassigned__") { if (t.assignee) return false; }
+        else if (t.assignee !== filters.assignee) return false;
+      }
+      if (filters.priority && t.priority !== filters.priority) return false;
+      if (filters.type && t.type !== filters.type) return false;
+      if (filters.mine && t.assignee !== CURRENT_USER) return false;
+      return true;
+    });
+  }
+
+  function hasActiveFilters() {
+    return !!(filters.search || filters.assignee || filters.priority || filters.type || filters.mine);
+  }
+
+  // ---------- Toasts ----------
+  function showToast(message, opts) {
+    opts = opts || {};
+    var container = document.getElementById("toast-container");
+    var toast = h("div", { class: "rounded-md border border-slate-200 bg-white shadow-md px-3 py-2.5 flex items-center justify-between gap-3 text-sm text-slate-900" },
+      h("span", {}, message)
+    );
+    if (opts.undo) {
+      var undoBtn = h("button", { type: "button", class: "font-medium text-blue-700 hover:text-blue-800 shrink-0" }, "Undo");
+      undoBtn.addEventListener("click", function () {
+        opts.undo();
+        container.removeChild(toast);
+      });
+      toast.appendChild(undoBtn);
+    }
+    container.appendChild(toast);
+    var timeout = opts.undo ? 10000 : 5000;
+    var timer = setTimeout(remove, timeout);
+    toast.addEventListener("mouseenter", function () { clearTimeout(timer); });
+    toast.addEventListener("mouseleave", function () { timer = setTimeout(remove, timeout); });
+    function remove() { if (toast.parentNode) container.removeChild(toast); }
+  }
+
+  // ---------- Rendering: board ----------
+  function priorityLabel(priority) {
+    var p = PRIORITY_BY_ID[priority];
+    return h("span", { class: "inline-flex items-center gap-1 text-xs font-medium " + TONE_TEXT[p.tone] },
+      h("span", { class: "inline-block h-1.5 w-1.5 rounded-full " + TONE_DOT[p.tone] }),
+      p.label
+    );
+  }
+
+  function statusBadge(statusId) {
+    var s = STATUS_BY_ID[statusId];
+    return h("span", { class: "inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium " + TONE_BADGE[s.tone] }, s.label);
+  }
+
+  function initials(name) {
+    return name.split(" ").map(function (p) { return p[0]; }).join("").slice(0, 2).toUpperCase();
+  }
+
+  function avatar(name) {
+    return h("span", { class: "inline-flex h-5 w-5 items-center justify-center rounded-full bg-slate-200 text-[10px] font-medium text-slate-700 shrink-0" }, initials(name));
+  }
+
+  function moveMenuFor(ticket, closeMenu) {
+    var targets = NEXT_STATES[ticket.status] || [];
+    var menu = h("div", { class: "absolute right-0 top-7 z-20 w-52 rounded-md border border-slate-200 bg-white shadow-md py-1", role: "menu" });
+    var subLabel = h("div", { class: "px-3 py-1.5 text-xs font-medium text-slate-500" }, "Move to…");
+    menu.appendChild(subLabel);
+    targets.forEach(function (targetId) {
+      var target = STATUS_BY_ID[targetId];
+      var blocked = targetId === "closed" && ticket.assignee && ticket.assignee !== CURRENT_USER;
+      var item = h("button", {
+        type: "button", role: "menuitem",
+        class: "w-full text-left px-3 py-1.5 text-sm " + (blocked ? "text-slate-400 cursor-not-allowed" : "text-slate-700 hover:bg-slate-50"),
+        "aria-disabled": blocked ? "true" : "false",
+        title: blocked ? "Only the assignee can close this ticket" : undefined
+      }, target.label);
+      if (blocked) {
+        var reason = h("div", { class: "px-3 pb-1.5 -mt-1 text-[11px] text-slate-400" }, "Only " + ticket.assignee + " can close this ticket");
+        item.addEventListener("click", function (e) { e.preventDefault(); });
+      } else {
+        item.addEventListener("click", function () {
+          closeMenu();
+          requestMove(ticket, targetId);
+        });
+      }
+      menu.appendChild(item);
+      if (blocked) menu.appendChild(reason);
+    });
+    var viewItem = h("button", { type: "button", role: "menuitem", class: "w-full text-left px-3 py-1.5 text-sm text-slate-700 hover:bg-slate-50 border-t border-slate-100 mt-1" }, "View details");
+    viewItem.addEventListener("click", function () { closeMenu(); openDetailPanel(ticket.id); });
+    menu.appendChild(viewItem);
+    return menu;
+  }
+
+  function snapshotTicket(t) {
+    return {
+      status: t.status, resolvedAt: t.resolvedAt, closedAt: t.closedAt, resolutionNote: t.resolutionNote, activityExtra: t.activityExtra ? t.activityExtra.slice() : []
+    };
+  }
+  function restoreTicket(t, snap) {
+    t.status = snap.status; t.resolvedAt = snap.resolvedAt; t.closedAt = snap.closedAt; t.resolutionNote = snap.resolutionNote; t.activityExtra = snap.activityExtra;
+  }
+
+  function requestMove(ticket, targetId) {
+    if (targetId === "resolved") {
+      openResolveDialog(ticket);
+      return;
+    }
+    var snap = snapshotTicket(ticket);
+    var fromLabel = STATUS_BY_ID[ticket.status].label;
+    ticket.status = targetId;
+    if (targetId === "closed") ticket.closedAt = NOW;
+    if (!ticket.activityExtra) ticket.activityExtra = [];
+    ticket.activityExtra.push({ who: CURRENT_USER, text: "Moved from " + fromLabel + " to " + STATUS_BY_ID[targetId].label, at: NOW });
+    renderAll();
+    showToast(ticket.id + " moved to " + STATUS_BY_ID[targetId].label, {
+      undo: function () { restoreTicket(ticket, snap); renderAll(); showToast(ticket.id + " move undone"); }
+    });
+  }
+
+  var pendingResolveTicket = null;
+  function openResolveDialog(ticket) {
+    pendingResolveTicket = ticket;
+    document.getElementById("resolution-note").value = "";
+    document.getElementById("resolution-error").setAttribute("hidden", "");
+    document.getElementById("overlay").removeAttribute("hidden");
+    var dlg = document.getElementById("resolve-dialog");
+    dlg.removeAttribute("hidden");
+    document.getElementById("btn-resolve-cancel").focus();
+  }
+  function closeResolveDialog() {
+    pendingResolveTicket = null;
+    document.getElementById("resolve-dialog").setAttribute("hidden", "");
+    syncOverlay();
+  }
+
+  function confirmResolve() {
+    var note = document.getElementById("resolution-note").value.trim();
+    if (!note) {
+      document.getElementById("resolution-error").removeAttribute("hidden");
+      document.getElementById("resolution-note").focus();
+      return;
+    }
+    var ticket = pendingResolveTicket;
+    var confirmBtn = document.getElementById("btn-resolve-confirm");
+    confirmBtn.disabled = true;
+    confirmBtn.textContent = "Marking resolved…";
+    setTimeout(function () {
+      var snap = snapshotTicket(ticket);
+      ticket.status = "resolved";
+      ticket.resolvedAt = NOW;
+      ticket.resolutionNote = note;
+      confirmBtn.disabled = false;
+      confirmBtn.textContent = "Mark resolved";
+      closeResolveDialog();
+      renderAll();
+      showToast(ticket.id + " moved to Resolved", {
+        undo: function () { restoreTicket(ticket, snap); renderAll(); showToast(ticket.id + " move undone"); }
+      });
+    }, 200);
+  }
+
+  function makeCard(ticket) {
+    var info = dueInfo(ticket);
+    var card = h("li", { class: "relative" });
+    var btn = h("button", {
+      type: "button",
+      class: "card-btn relative w-full text-left rounded-md border border-slate-200 bg-white p-2.5 pr-7 hover:border-slate-300 hover:shadow-sm",
+      title: ticket.id + " — " + ticket.subject,
+      "aria-label": ticket.id + ": " + ticket.subject
+    });
+
+    var topRow = h("div", { class: "flex items-center justify-between gap-2" },
+      h("span", { class: "text-xs font-medium text-slate-500" }, ticket.id),
+      priorityLabel(ticket.priority)
+    );
+
+    var kebabWrap = h("div", { class: "absolute right-1.5 top-1.5" });
+    var kebab = h("button", {
+      type: "button",
+      class: "h-6 w-6 inline-flex items-center justify-center rounded hover:bg-slate-100 text-slate-500",
+      "aria-label": "Actions for " + ticket.id,
+      "aria-haspopup": "true",
+      "aria-expanded": "false"
+    },
+      h("svg", { width: "16", height: "16", viewBox: "0 0 24 24", fill: "currentColor" },
+        (function () { var g = document.createElementNS("http://www.w3.org/2000/svg", "g"); [5, 12, 19].forEach(function (cy) { var c = document.createElementNS("http://www.w3.org/2000/svg", "circle"); c.setAttribute("cx", "12"); c.setAttribute("cy", cy); c.setAttribute("r", "1.8"); g.appendChild(c); }); return g; })()
+      )
+    );
+    kebabWrap.appendChild(kebab);
+    kebab.addEventListener("click", function (e) {
+      e.stopPropagation();
+      var existing = kebabWrap.querySelector('[role="menu"]');
+      closeAllMenus();
+      if (existing) return;
+      kebab.setAttribute("aria-expanded", "true");
+      var menu = moveMenuFor(ticket, function () { closeAllMenus(); });
+      kebabWrap.appendChild(menu);
+    });
+
+    var title = h("p", { class: "mt-1.5 text-sm font-medium text-slate-900 line-clamp-2" }, ticket.subject);
+    var customerLine = h("p", { class: "mt-1 text-xs text-slate-600" }, ticket.customer.name + " · " + ticket.customer.company);
+
+    var metaRow = h("div", { class: "mt-2 flex items-center justify-between gap-2 text-xs text-slate-600" },
+      ticket.assignee
+        ? h("span", { class: "inline-flex items-center gap-1 min-w-0" }, avatar(ticket.assignee), h("span", { class: "truncate" }, ticket.assignee))
+        : h("span", { class: "text-slate-400" }, "Unassigned"),
+      h("span", { class: "shrink-0" }, info.meta)
+    );
+
+    var badgeRow = info.badge ? h("div", { class: "mt-1.5" }, h("span", { class: "inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium " + TONE_BADGE[info.badge.tone] }, info.badge.text)) : null;
+
+    btn.appendChild(topRow);
+    btn.appendChild(title);
+    btn.appendChild(customerLine);
+    btn.appendChild(metaRow);
+    if (badgeRow) btn.appendChild(badgeRow);
+    btn.addEventListener("click", function () { openDetailPanel(ticket.id); });
+
+    card.appendChild(btn);
+    card.appendChild(kebabWrap);
+    return card;
+  }
+
+  function closeAllMenus() {
+    document.querySelectorAll('[role="menu"]').forEach(function (m) { if (m.parentNode) m.parentNode.removeChild(m); });
+    document.querySelectorAll('[aria-haspopup="true"]').forEach(function (b) { b.setAttribute("aria-expanded", "false"); });
+  }
+  document.addEventListener("click", closeAllMenus);
+  document.addEventListener("keydown", function (e) { if (e.key === "Escape") closeAllMenus(); });
+
+  function renderBoard(allTickets) {
+    var board = document.getElementById("board-view");
+    board.innerHTML = "";
+    var filtered = applyFilters(allTickets);
+
+    STATUSES.forEach(function (status) {
+      var colTickets = filtered.filter(function (t) { return t.status === status.id; }).sort(function (a, b) { return sortRank(a) - sortRank(b); });
+      var collapsed = collapsedColumns[status.id];
+
+      if (collapsed) {
+        var strip = h("section", { class: "shrink-0 w-12 flex flex-col items-center rounded-md border border-slate-200 bg-slate-50 py-3", "aria-labelledby": "col-" + status.id });
+        var expandBtn = h("button", { type: "button", class: "flex flex-col items-center gap-2 text-slate-600 hover:text-slate-900", "aria-expanded": "false", "aria-label": "Expand " + status.label + " column" },
+          h("span", { class: "vertical-rl text-xs font-medium", id: "col-" + status.id }, status.label),
+          h("span", { class: "text-xs font-medium tabular-nums text-slate-500" }, String(colTickets.length))
+        );
+        expandBtn.addEventListener("click", function () { collapsedColumns[status.id] = false; renderAll(); });
+        strip.appendChild(expandBtn);
+        board.appendChild(strip);
+        return;
+      }
+
+      var header = h("div", { class: "sticky top-0 z-[1] flex items-center justify-between gap-2 rounded-t-md bg-slate-50 px-3 py-2 border-b border-slate-200" });
+      var left = h("div", { class: "flex items-center gap-2 min-w-0" },
+        h("h2", { id: "col-" + status.id, class: "text-sm font-medium text-slate-900 truncate" }, status.label)
+      );
+      var overLimit = status.limit && colTickets.length > status.limit;
+      var countText = status.limit ? (colTickets.length + " / " + status.limit) : String(colTickets.length);
+      var countEl = h("span", { class: "text-xs font-medium tabular-nums shrink-0 " + (overLimit ? "text-amber-700" : "text-slate-500") }, overLimit ? "Over limit" : countText);
+      header.appendChild(left);
+
+      var rightWrap = h("div", { class: "flex items-center gap-2 shrink-0" }, countEl);
+      if (status.collapsedDefault) {
+        var collapseBtn = h("button", { type: "button", class: "h-6 w-6 inline-flex items-center justify-center rounded hover:bg-slate-200 text-slate-500", "aria-expanded": "true", "aria-label": "Collapse " + status.label + " column" }, "–");
+        collapseBtn.addEventListener("click", function () { collapsedColumns[status.id] = true; renderAll(); });
+        rightWrap.appendChild(collapseBtn);
+      }
+      header.appendChild(rightWrap);
+
+      var section = h("section", { class: "flex w-[300px] shrink-0 flex-col rounded-md border border-slate-200 bg-slate-50 min-h-0", "aria-labelledby": "col-" + status.id });
+      section.appendChild(header);
+
+      var list = h("ol", { class: "flex-1 min-h-0 overflow-y-auto space-y-2 px-2 py-2" });
+      if (colTickets.length === 0) {
+        list.appendChild(h("li", { class: "px-1 py-4 text-center text-xs text-slate-500" }, "No tickets in " + status.label.toLowerCase()));
+      } else {
+        colTickets.forEach(function (t) { list.appendChild(makeCard(t)); });
+      }
+      section.appendChild(list);
+      board.appendChild(section);
+    });
+  }
+
+  function renderList(allTickets) {
+    var tbody = document.getElementById("list-body");
+    tbody.innerHTML = "";
+    var filtered = applyFilters(allTickets).slice().sort(function (a, b) {
+      var ai = dueInfo(a), bi = dueInfo(b);
+      var aOverdue = ai.badge && ai.badge.tone === "danger";
+      var bOverdue = bi.badge && bi.badge.tone === "danger";
+      if (aOverdue !== bOverdue) return aOverdue ? -1 : 1;
+      var aDue = a.dueAt ? a.dueAt.getTime() : Infinity;
+      var bDue = b.dueAt ? b.dueAt.getTime() : Infinity;
+      if (aDue !== bDue) return aDue - bDue;
+      return sortRank(b) - sortRank(a);
+    });
+
+    if (filtered.length === 0) return;
+
+    filtered.forEach(function (t) {
+      var info = dueInfo(t);
+      var row = h("tr", { class: "border-b border-slate-100 hover:bg-slate-50 h-10 cursor-pointer" });
+      row.addEventListener("click", function () { openDetailPanel(t.id); });
+
+      var ticketCell = h("td", { class: "px-3 py-2 align-middle" },
+        h("div", { class: "text-sm font-medium text-slate-900" }, t.id),
+        h("div", { class: "text-xs text-slate-500 line-clamp-2 max-w-xs" }, t.subject)
+      );
+      var customerCell = h("td", { class: "px-3 py-2 align-middle text-sm text-slate-700" }, t.customer.name + " · " + t.customer.company);
+      var priorityCell = h("td", { class: "px-3 py-2 align-middle" }, priorityLabel(t.priority));
+      var statusCell = h("td", { class: "px-3 py-2 align-middle" }, statusBadge(t.status));
+      var assigneeCell = h("td", { class: "px-3 py-2 align-middle text-sm text-slate-700" },
+        t.assignee ? h("span", { class: "inline-flex items-center gap-1.5" }, avatar(t.assignee), t.assignee) : h("span", { class: "text-slate-400" }, "Unassigned")
+      );
+      var slaCell = h("td", { class: "px-3 py-2 align-middle text-xs text-slate-600" }, info.meta);
+      var actionsCell = h("td", { class: "px-3 py-2 align-middle text-right" });
+      var kebabWrap = h("div", { class: "relative inline-block" });
+      var kebab = h("button", { type: "button", class: "h-7 w-7 inline-flex items-center justify-center rounded hover:bg-slate-100 text-slate-500", "aria-label": "Actions for " + t.id, "aria-haspopup": "true", "aria-expanded": "false" }, "⋯");
+      kebab.addEventListener("click", function (e) {
+        e.stopPropagation();
+        var existing = kebabWrap.querySelector('[role="menu"]');
+        closeAllMenus();
+        if (existing) return;
+        kebab.setAttribute("aria-expanded", "true");
+        var menu = moveMenuFor(t, function () { closeAllMenus(); });
+        menu.classList.remove("top-7"); menu.classList.add("top-8");
+        kebabWrap.appendChild(menu);
+      });
+      kebabWrap.appendChild(kebab);
+      actionsCell.appendChild(kebabWrap);
+
+      row.appendChild(ticketCell);
+      row.appendChild(customerCell);
+      row.appendChild(priorityCell);
+      row.appendChild(statusCell);
+      row.appendChild(assigneeCell);
+      row.appendChild(slaCell);
+      row.appendChild(actionsCell);
+      tbody.appendChild(row);
+    });
+  }
+
+  // ---------- Filters UI ----------
+  function populateFilterSelects() {
+    var assigneeSel = document.getElementById("filter-assignee");
+    AGENTS.forEach(function (a) { assigneeSel.appendChild(h("option", { value: a }, a)); });
+    assigneeSel.appendChild(h("option", { value: "__unassigned__" }, "Unassigned"));
+
+    var prioritySel = document.getElementById("filter-priority");
+    PRIORITIES.forEach(function (p) { prioritySel.appendChild(h("option", { value: p.id }, p.label)); });
+
+    var typeSel = document.getElementById("filter-type");
+    TYPES.forEach(function (t) { typeSel.appendChild(h("option", { value: t }, t)); });
+  }
+
+  function renderChips() {
+    var row = document.getElementById("chips-row");
+    row.innerHTML = "";
+    if (!hasActiveFilters()) { row.setAttribute("hidden", ""); return; }
+    row.removeAttribute("hidden");
+
+    function chip(label, onRemove) {
+      var c = h("span", { class: "inline-flex items-center gap-1 rounded-full bg-slate-100 pl-2.5 pr-1 py-1 text-xs font-medium text-slate-700" }, label);
+      var x = h("button", { type: "button", class: "h-4 w-4 inline-flex items-center justify-center rounded-full hover:bg-slate-200", "aria-label": "Remove filter: " + label }, "×");
+      x.addEventListener("click", onRemove);
+      c.appendChild(x);
+      return c;
+    }
+
+    if (filters.search) row.appendChild(chip('Search: "' + filters.search + '"', function () { filters.search = ""; document.getElementById("filter-search").value = ""; renderAll(); }));
+    if (filters.assignee) {
+      var label = filters.assignee === "__unassigned__" ? "Unassigned" : filters.assignee;
+      row.appendChild(chip("Assignee: " + label, function () { filters.assignee = ""; document.getElementById("filter-assignee").value = ""; renderAll(); }));
+    }
+    if (filters.priority) row.appendChild(chip("Priority: " + PRIORITY_BY_ID[filters.priority].label, function () { filters.priority = ""; document.getElementById("filter-priority").value = ""; renderAll(); }));
+    if (filters.type) row.appendChild(chip("Type: " + filters.type, function () { filters.type = ""; document.getElementById("filter-type").value = ""; renderAll(); }));
+    if (filters.mine) row.appendChild(chip("Assigned to me", function () { filters.mine = false; document.getElementById("filter-mine").checked = false; renderAll(); }));
+
+    var clearAll = h("button", { type: "button", class: "text-xs font-medium text-blue-700 hover:text-blue-800 ml-1" }, "Clear all");
+    clearAll.addEventListener("click", clearFilters);
+    row.appendChild(clearAll);
+  }
+
+  function clearFilters() {
+    filters = { search: "", assignee: "", priority: "", type: "", mine: false };
+    document.getElementById("filter-search").value = "";
+    document.getElementById("filter-assignee").value = "";
+    document.getElementById("filter-priority").value = "";
+    document.getElementById("filter-type").value = "";
+    document.getElementById("filter-mine").checked = false;
+    renderAll();
+  }
+
+  // ---------- Detail / create panel ----------
+  var lastFocusedTrigger = null;
+
+  function buildActivity(t) {
+    var items = [{ who: t.customer.name, text: "Submitted the ticket", at: t.createdAt }];
+    if (t.assignee) items.push({ who: CURRENT_USER, text: "Assigned to " + t.assignee, at: new Date(t.createdAt.getTime() + 20 * 60000) });
+    if (t.activityExtra) items = items.concat(t.activityExtra);
+    if (t.resolvedAt) items.push({ who: t.assignee || CURRENT_USER, text: "Marked as Resolved — " + t.resolutionNote, at: t.resolvedAt });
+    if (t.closedAt) items.push({ who: t.assignee || CURRENT_USER, text: "Ticket closed", at: t.closedAt });
+    return items.sort(function (a, b) { return a.at - b.at; });
+  }
+
+  function openDetailPanel(ticketId) {
+    var ticket = TICKETS.filter(function (t) { return t.id === ticketId; })[0];
+    if (!ticket) return;
+    lastFocusedTrigger = document.activeElement;
+    openTicketId = ticketId;
+    syncURL();
+
+    var panel = document.getElementById("detail-panel");
+    panel.innerHTML = "";
+
+    var header = h("div", { class: "shrink-0 border-b border-slate-200 px-5 py-4 flex items-start justify-between gap-3" },
+      h("div", {},
+        h("p", { class: "text-xs font-medium text-slate-500" }, ticket.id),
+        h("h2", { id: "panel-title", class: "text-base font-semibold text-slate-900 mt-0.5" }, ticket.subject),
+        h("div", { class: "mt-2 flex items-center gap-2" }, statusBadge(ticket.status), priorityLabel(ticket.priority))
+      )
+    );
+    var closeBtn = h("button", { type: "button", class: "h-8 w-8 inline-flex items-center justify-center rounded hover:bg-slate-100 text-slate-500 shrink-0", "aria-label": "Close panel" }, "×");
+    closeBtn.addEventListener("click", closeDetailPanel);
+    header.appendChild(closeBtn);
+    panel.appendChild(header);
+
+    var body = h("div", { class: "flex-1 min-h-0 overflow-y-auto px-5 py-4 space-y-5" });
+
+    // Customer
+    body.appendChild(h("div", {},
+      h("h3", { class: "text-xs font-medium uppercase tracking-wide text-slate-400 mb-1.5" }, "Customer"),
+      h("p", { class: "text-sm font-medium text-slate-900" }, ticket.customer.name + " · " + ticket.customer.company),
+      h("p", { class: "text-sm mt-0.5" }, h("a", { href: "mailto:" + ticket.customer.email, class: "text-blue-700 hover:underline" }, ticket.customer.email)),
+      h("p", { class: "text-sm mt-0.5" }, h("a", { href: "tel:" + ticket.customer.phone.replace(/[^0-9+]/g, ""), class: "text-blue-700 hover:underline" }, ticket.customer.phone))
+    ));
+
+    // Description
+    body.appendChild(h("div", {},
+      h("h3", { class: "text-xs font-medium uppercase tracking-wide text-slate-400 mb-1.5" }, "Description"),
+      h("p", { class: "text-sm text-slate-700" }, ticket.description)
+    ));
+
+    // Assignee select
+    var assigneeField = h("div", {},
+      h("label", { class: "block text-xs font-medium uppercase tracking-wide text-slate-400 mb-1.5", for: "panel-assignee" }, "Assignee")
+    );
+    var assigneeSelect = h("select", { id: "panel-assignee", class: "h-8 w-full max-w-xs rounded-md border border-slate-300 px-2 text-sm" },
+      h("option", { value: "" }, "Unassigned")
+    );
+    AGENTS.forEach(function (a) { assigneeSelect.appendChild(h("option", { value: a, selected: ticket.assignee === a ? true : undefined }, a)); });
+    if (!ticket.assignee) assigneeSelect.value = "";
+    assigneeSelect.addEventListener("change", function () {
+      ticket.assignee = assigneeSelect.value || null;
+      renderAll();
+      showToast(ticket.id + " reassigned to " + (ticket.assignee || "Unassigned"));
+    });
+    assigneeField.appendChild(assigneeSelect);
+    body.appendChild(assigneeField);
+
+    // SLA / status
+    var info = dueInfo(ticket);
+    var slaField = h("div", {},
+      h("h3", { class: "text-xs font-medium uppercase tracking-wide text-slate-400 mb-1.5" }, "SLA"),
+      h("p", { class: "text-sm text-slate-700" }, info.meta),
+      info.badge ? h("span", { class: "mt-1 inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium " + TONE_BADGE[info.badge.tone] }, info.badge.text) : null
+    );
+    body.appendChild(slaField);
+
+    // Move to (status select mirrors move menu)
+    var moveTargets = NEXT_STATES[ticket.status] || [];
+    if (moveTargets.length) {
+      var moveField = h("div", {},
+        h("label", { class: "block text-xs font-medium uppercase tracking-wide text-slate-400 mb-1.5", for: "panel-move" }, "Move to")
+      );
+      var moveSelect = h("select", { id: "panel-move", class: "h-8 w-full max-w-xs rounded-md border border-slate-300 px-2 text-sm" },
+        h("option", { value: "" }, "Choose a column…")
+      );
+      moveTargets.forEach(function (tid) {
+        var blocked = tid === "closed" && ticket.assignee && ticket.assignee !== CURRENT_USER;
+        moveSelect.appendChild(h("option", { value: tid, disabled: blocked ? true : undefined }, STATUS_BY_ID[tid].label + (blocked ? " (assignee only)" : "")));
+      });
+      moveSelect.addEventListener("change", function () {
+        var target = moveSelect.value;
+        if (!target) return;
+        closeDetailPanel();
+        requestMove(ticket, target);
+      });
+      moveField.appendChild(moveSelect);
+      body.appendChild(moveField);
+    }
+
+    // Resolution note if present
+    if (ticket.resolutionNote) {
+      body.appendChild(h("div", {},
+        h("h3", { class: "text-xs font-medium uppercase tracking-wide text-slate-400 mb-1.5" }, "Resolution note"),
+        h("p", { class: "text-sm text-slate-700" }, ticket.resolutionNote)
+      ));
+    }
+
+    // Activity
+    var activityWrap = h("div", {},
+      h("h3", { class: "text-xs font-medium uppercase tracking-wide text-slate-400 mb-1.5" }, "Activity")
+    );
+    var activityList = h("ol", { class: "space-y-2" });
+    buildActivity(ticket).forEach(function (a) {
+      activityList.appendChild(h("li", { class: "text-sm" },
+        h("span", { class: "text-slate-900" }, a.who + " "),
+        h("span", { class: "text-slate-600" }, a.text),
+        h("div", { class: "text-xs text-slate-400" }, fmtDateTime(a.at))
+      ));
+    });
+    activityWrap.appendChild(activityList);
+    body.appendChild(activityWrap);
+
+    panel.appendChild(body);
+
+    document.getElementById("overlay").removeAttribute("hidden");
+    panel.removeAttribute("hidden");
+    closeBtn.focus();
+  }
+
+  function closeDetailPanel() {
+    openTicketId = null;
+    document.getElementById("detail-panel").setAttribute("hidden", "");
+    syncOverlay();
+    syncURL();
+    if (lastFocusedTrigger && document.body.contains(lastFocusedTrigger)) lastFocusedTrigger.focus();
+  }
+
+  function syncOverlay() {
+    var panelOpen = !document.getElementById("detail-panel").hasAttribute("hidden");
+    var dialogOpen = !document.getElementById("resolve-dialog").hasAttribute("hidden");
+    if (panelOpen || dialogOpen) document.getElementById("overlay").removeAttribute("hidden");
+    else document.getElementById("overlay").setAttribute("hidden", "");
+  }
+
+  // ---------- Create ticket ----------
+  var createDirty = false;
+  function openCreatePanel() {
+    lastFocusedTrigger = document.activeElement;
+    createDirty = false;
+    var panel = document.getElementById("detail-panel");
+    panel.innerHTML = "";
+
+    var header = h("div", { class: "shrink-0 border-b border-slate-200 px-5 py-4 flex items-start justify-between gap-3" },
+      h("h2", { id: "panel-title", class: "text-base font-semibold text-slate-900" }, "New ticket")
+    );
+    var closeBtn = h("button", { type: "button", class: "h-8 w-8 inline-flex items-center justify-center rounded hover:bg-slate-100 text-slate-500 shrink-0", "aria-label": "Close panel" }, "×");
+    closeBtn.addEventListener("click", function () { confirmDiscardAndClose(); });
+    header.appendChild(closeBtn);
+    panel.appendChild(header);
+
+    var body = h("form", { id: "create-form", class: "flex-1 min-h-0 overflow-y-auto px-5 py-4 space-y-4", novalidate: true });
+    var errorSummary = h("div", { class: "rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700", role: "alert", hidden: true, id: "create-error-summary" });
+    body.appendChild(errorSummary);
+
+    function field(labelText, inputEl, required) {
+      var wrap = h("div", {});
+      var label = h("label", { class: "block text-sm font-medium text-slate-700 mb-1", for: inputEl.id }, labelText + (required ? " *" : ""));
+      var err = h("p", { class: "text-xs text-red-700 mt-1", id: inputEl.id + "-error", hidden: true });
+      wrap.appendChild(label); wrap.appendChild(inputEl); wrap.appendChild(err);
+      inputEl.addEventListener("input", function () { createDirty = true; });
+      inputEl.addEventListener("change", function () { createDirty = true; });
+      return wrap;
+    }
+
+    var custName = h("input", { id: "f-customer", type: "text", class: "h-8 w-full rounded-md border border-slate-300 px-2 text-sm" });
+    var custCompany = h("input", { id: "f-company", type: "text", class: "h-8 w-full rounded-md border border-slate-300 px-2 text-sm" });
+    var custEmail = h("input", { id: "f-email", type: "email", class: "h-8 w-full rounded-md border border-slate-300 px-2 text-sm" });
+    var subject = h("input", { id: "f-subject", type: "text", class: "h-8 w-full rounded-md border border-slate-300 px-2 text-sm" });
+    var desc = h("textarea", { id: "f-description", rows: "3", class: "w-full rounded-md border border-slate-300 px-2 py-1.5 text-sm" });
+    var prioritySelect = h("select", { id: "f-priority", class: "h-8 w-full rounded-md border border-slate-300 px-2 text-sm" }, h("option", { value: "" }, "Select priority"));
+    PRIORITIES.forEach(function (p) { prioritySelect.appendChild(h("option", { value: p.id }, p.label)); });
+    var typeSelect = h("select", { id: "f-type", class: "h-8 w-full rounded-md border border-slate-300 px-2 text-sm" }, h("option", { value: "" }, "Select type"));
+    TYPES.forEach(function (t) { typeSelect.appendChild(h("option", { value: t }, t)); });
+    var assigneeSelect = h("select", { id: "f-assignee", class: "h-8 w-full rounded-md border border-slate-300 px-2 text-sm" }, h("option", { value: "" }, "Unassigned"));
+    AGENTS.forEach(function (a) { assigneeSelect.appendChild(h("option", { value: a }, a)); });
+    var dueInput = h("input", { id: "f-due", type: "datetime-local", class: "h-8 w-full rounded-md border border-slate-300 px-2 text-sm" });
+
+    body.appendChild(field("Customer name", custName, true));
+    body.appendChild(field("Company", custCompany, true));
+    body.appendChild(field("Email", custEmail, true));
+    body.appendChild(field("Subject", subject, true));
+    body.appendChild(field("Description", desc, false));
+    body.appendChild(field("Priority", prioritySelect, true));
+    body.appendChild(field("Type", typeSelect, true));
+    body.appendChild(field("Assignee", assigneeSelect, false));
+    body.appendChild(field("SLA due", dueInput, false));
+
+    panel.appendChild(body);
+
+    var footer = h("div", { class: "shrink-0 border-t border-slate-200 bg-white px-5 py-3 flex justify-end gap-2" });
+    var cancelBtn = h("button", { type: "button", class: "rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50" }, "Cancel");
+    var saveBtn = h("button", { type: "button", class: "rounded-md bg-blue-700 px-3 py-2 text-sm font-medium text-white hover:bg-blue-800" }, "Create ticket");
+    cancelBtn.addEventListener("click", function () { confirmDiscardAndClose(); });
+    footer.appendChild(cancelBtn); footer.appendChild(saveBtn);
+    panel.appendChild(footer);
+
+    function clearFieldErrors() {
+      ["f-customer", "f-company", "f-email", "f-subject", "f-priority", "f-type"].forEach(function (id) {
+        var e = document.getElementById(id + "-error");
+        if (e) e.setAttribute("hidden", "");
+      });
+      errorSummary.setAttribute("hidden", ""); errorSummary.innerHTML = "";
+    }
+
+    saveBtn.addEventListener("click", function () {
+      clearFieldErrors();
+      var required = [
+        { id: "f-customer", el: custName, label: "Customer name" },
+        { id: "f-company", el: custCompany, label: "Company" },
+        { id: "f-email", el: custEmail, label: "Email" },
+        { id: "f-subject", el: subject, label: "Subject" },
+        { id: "f-priority", el: prioritySelect, label: "Priority" },
+        { id: "f-type", el: typeSelect, label: "Type" }
+      ];
+      var invalid = required.filter(function (r) { return !r.el.value.trim(); });
+      if (invalid.length) {
+        invalid.forEach(function (r) {
+          var e = document.getElementById(r.id + "-error");
+          e.textContent = r.label + " is required.";
+          e.removeAttribute("hidden");
+        });
+        if (invalid.length >= 3) {
+          errorSummary.innerHTML = "";
+          errorSummary.appendChild(h("p", { class: "font-medium" }, "Fix " + invalid.length + " fields before creating this ticket:"));
+          var ul = h("ul", { class: "list-disc list-inside mt-1" });
+          invalid.forEach(function (r) {
+            var li = h("li", {});
+            var a = h("a", { href: "#" + r.id, class: "underline" }, r.label);
+            a.addEventListener("click", function (e) { e.preventDefault(); r.el.focus(); });
+            li.appendChild(a);
+            ul.appendChild(li);
+          });
+          errorSummary.appendChild(ul);
+          errorSummary.removeAttribute("hidden");
+        }
+        invalid[0].el.focus();
+        return;
+      }
+
+      saveBtn.disabled = true; saveBtn.textContent = "Creating…";
+      setTimeout(function () {
+        var id = "TK-" + (NEXT_ID++);
+        var ticket = {
+          id: id,
+          subject: subject.value.trim(),
+          description: desc.value.trim() || "No description provided.",
+          customer: { name: custName.value.trim(), company: custCompany.value.trim(), email: custEmail.value.trim(), phone: "—" },
+          priority: prioritySelect.value,
+          type: typeSelect.value,
+          assignee: assigneeSelect.value || null,
+          status: "new",
+          dueAt: dueInput.value ? new Date(dueInput.value) : null,
+          createdAt: NOW
+        };
+        TICKETS.unshift(ticket);
+        saveBtn.disabled = false; saveBtn.textContent = "Create ticket";
+        createDirty = false;
+        closeDetailPanel();
+        renderAll();
+        showToast("Ticket " + id + " created");
+      }, 200);
+    });
+
+    document.getElementById("overlay").removeAttribute("hidden");
+    panel.removeAttribute("hidden");
+    custName.focus();
+  }
+
+  function confirmDiscardAndClose() {
+    if (createDirty) {
+      var ok = window.confirm("Discard this ticket? Your changes will be lost.");
+      if (!ok) return;
+    }
+    createDirty = false;
+    closeDetailPanel();
+  }
+
+  // ---------- URL sync ----------
+  function syncURL() {
+    var params = new URLSearchParams(window.location.search);
+    params.set("view", currentView);
+    if (openTicketId) params.set("ticket", openTicketId); else params.delete("ticket");
+    var newSearch = params.toString();
+    var newUrl = window.location.pathname + (newSearch ? "?" + newSearch : "");
+    window.history.replaceState(null, "", newUrl);
+  }
+
+  // ---------- Overlay states ----------
+  function showOnly(id) {
+    ["state-empty", "state-no-results", "state-error"].forEach(function (s) {
+      document.getElementById(s).setAttribute("hidden", "");
+    });
+    if (id) document.getElementById(id).removeAttribute("hidden");
+  }
+
+  function renderAll() {
+    renderChips();
+
+    var params = new URLSearchParams(window.location.search);
+    var stateParam = params.get("state");
+
+    if (stateParam === "error") {
+      document.getElementById("board-view").setAttribute("hidden", "");
+      document.getElementById("list-view").setAttribute("hidden", "");
+      showOnly("state-error");
+      document.getElementById("summary-line").textContent = "";
+      return;
+    }
+
+    var filteredCount = applyFilters(TICKETS).length;
+
+    if (TICKETS.length === 0) {
+      document.getElementById("board-view").setAttribute("hidden", "");
+      document.getElementById("list-view").setAttribute("hidden", "");
+      showOnly("state-empty");
+      document.getElementById("summary-line").textContent = "";
+      return;
+    }
+
+    if (filteredCount === 0) {
+      document.getElementById("board-view").setAttribute("hidden", "");
+      document.getElementById("list-view").setAttribute("hidden", "");
+      showOnly("state-no-results");
+      document.getElementById("summary-line").textContent = "0 of " + TICKETS.length + " tickets";
+      return;
+    }
+
+    showOnly(null);
+    var unassigned = TICKETS.filter(function (t) { return !t.assignee && (t.status !== "closed" && t.status !== "resolved"); }).length;
+    document.getElementById("summary-line").textContent = TICKETS.length + " tickets" + (unassigned ? " · " + unassigned + " unassigned" : "");
+
+    if (currentView === "board") {
+      document.getElementById("board-view").removeAttribute("hidden");
+      document.getElementById("list-view").setAttribute("hidden", "");
+      renderBoard(TICKETS);
+    } else {
+      document.getElementById("list-view").removeAttribute("hidden");
+      document.getElementById("board-view").setAttribute("hidden", "");
+      renderList(TICKETS);
+    }
+  }
+
+  function renderSkeleton() {
+    var board = document.getElementById("board-view");
+    board.innerHTML = "";
+    STATUSES.forEach(function (status) {
+      var section = h("section", { class: "flex w-[300px] shrink-0 flex-col rounded-md border border-slate-200 bg-slate-50", "aria-busy": "true" });
+      section.appendChild(h("div", { class: "px-3 py-2 border-b border-slate-200" }, h("span", { class: "text-sm font-medium text-slate-400" }, status.label)));
+      var list = h("div", { class: "p-2 space-y-2" });
+      for (var i = 0; i < 3; i++) {
+        list.appendChild(h("div", { class: "rounded-md border border-slate-200 bg-white p-2.5 space-y-2", "aria-hidden": "true" },
+          h("div", { class: "h-3 w-16 rounded bg-slate-200 animate-pulse" }),
+          h("div", { class: "h-4 w-full rounded bg-slate-200 animate-pulse" }),
+          h("div", { class: "h-3 w-2/3 rounded bg-slate-200 animate-pulse" })
+        ));
+      }
+      section.appendChild(list);
+      board.appendChild(section);
+    });
+  }
+
+  // ---------- Wiring ----------
+  function wire() {
+    populateFilterSelects();
+
+    document.getElementById("filter-search").addEventListener("input", function (e) { filters.search = e.target.value; renderAll(); });
+    document.getElementById("filter-assignee").addEventListener("change", function (e) { filters.assignee = e.target.value; renderAll(); });
+    document.getElementById("filter-priority").addEventListener("change", function (e) { filters.priority = e.target.value; renderAll(); });
+    document.getElementById("filter-type").addEventListener("change", function (e) { filters.type = e.target.value; renderAll(); });
+    document.getElementById("filter-mine").addEventListener("change", function (e) { filters.mine = e.target.checked; renderAll(); });
+    document.getElementById("btn-clear-filters-overlay").addEventListener("click", clearFilters);
+
+    document.getElementById("btn-view-board").addEventListener("click", function () {
+      currentView = "board";
+      document.getElementById("btn-view-board").setAttribute("aria-pressed", "true");
+      document.getElementById("btn-view-board").className = "px-3 py-1.5 text-sm font-medium bg-slate-900 text-white";
+      document.getElementById("btn-view-list").setAttribute("aria-pressed", "false");
+      document.getElementById("btn-view-list").className = "px-3 py-1.5 text-sm font-medium bg-white text-slate-700 hover:bg-slate-50";
+      syncURL(); renderAll();
+    });
+    document.getElementById("btn-view-list").addEventListener("click", function () {
+      currentView = "list";
+      document.getElementById("btn-view-list").setAttribute("aria-pressed", "true");
+      document.getElementById("btn-view-list").className = "px-3 py-1.5 text-sm font-medium bg-slate-900 text-white";
+      document.getElementById("btn-view-board").setAttribute("aria-pressed", "false");
+      document.getElementById("btn-view-board").className = "px-3 py-1.5 text-sm font-medium bg-white text-slate-700 hover:bg-slate-50";
+      syncURL(); renderAll();
+    });
+
+    document.getElementById("btn-new-ticket").addEventListener("click", openCreatePanel);
+    document.querySelector(".btn-empty-new").addEventListener("click", openCreatePanel);
+
+    document.getElementById("overlay").addEventListener("click", function () {
+      if (!document.getElementById("resolve-dialog").hasAttribute("hidden")) return;
+      confirmDiscardAndClose();
+    });
+    document.addEventListener("keydown", function (e) {
+      if (e.key !== "Escape") return;
+      if (!document.getElementById("resolve-dialog").hasAttribute("hidden")) { closeResolveDialog(); return; }
+      if (!document.getElementById("detail-panel").hasAttribute("hidden")) { confirmDiscardAndClose(); }
+    });
+
+    document.getElementById("btn-resolve-cancel").addEventListener("click", closeResolveDialog);
+    document.getElementById("btn-resolve-confirm").addEventListener("click", confirmResolve);
+
+    document.getElementById("btn-retry").addEventListener("click", function () {
+      var params = new URLSearchParams(window.location.search);
+      params.delete("state");
+      var newSearch = params.toString();
+      window.history.replaceState(null, "", window.location.pathname + (newSearch ? "?" + newSearch : ""));
+      init();
+    });
+  }
+
+  function init() {
+    var params = new URLSearchParams(window.location.search);
+    currentView = params.get("view") === "list" ? "list" : "board";
+    var stateParam = params.get("state");
+
+    document.getElementById("btn-view-board").setAttribute("aria-pressed", currentView === "board" ? "true" : "false");
+    document.getElementById("btn-view-list").setAttribute("aria-pressed", currentView === "list" ? "true" : "false");
+    document.getElementById("btn-view-board").className = "px-3 py-1.5 text-sm font-medium " + (currentView === "board" ? "bg-slate-900 text-white" : "bg-white text-slate-700 hover:bg-slate-50");
+    document.getElementById("btn-view-list").className = "px-3 py-1.5 text-sm font-medium " + (currentView === "list" ? "bg-slate-900 text-white" : "bg-white text-slate-700 hover:bg-slate-50");
+
+    if (stateParam === "error") { renderAll(); return; }
+    if (stateParam === "loading") {
+      renderSkeleton();
+      return;
+    }
+    if (stateParam === "empty") {
+      TICKETS = [];
+      renderAll();
+      return;
+    }
+
+    renderSkeleton();
+    setTimeout(function () {
+      var ticketParam = params.get("ticket");
+      renderAll();
+      if (ticketParam && TICKETS.some(function (t) { return t.id === ticketParam; })) {
+        openDetailPanel(ticketParam);
+      }
+    }, 450);
+  }
+
+  wire();
+  init();
+})();
+</script>
+</body>
+</html>

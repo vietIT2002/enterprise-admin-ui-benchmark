@@ -1,0 +1,1101 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Support tickets · Helpdesk</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+  [hidden] { display: none !important; }
+  :focus-visible { outline: 2px solid #1d4ed8; outline-offset: 2px; }
+  main:focus { outline: none; }
+  .line-clamp-2 { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+  dialog::backdrop { background: rgba(15, 23, 42, 0.4); }
+  @media (prefers-reduced-motion: reduce) {
+    .animate-pulse { animation: none; }
+  }
+</style>
+</head>
+<body class="h-screen overflow-hidden bg-slate-50 text-sm text-slate-900 antialiased">
+
+<a href="#main" class="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-2 focus:z-50 focus:rounded focus:bg-white focus:px-3 focus:py-2 focus:text-sm focus:shadow-lg focus:ring-1 focus:ring-slate-300">Skip to main content</a>
+
+<div class="flex h-full flex-col">
+
+  <!-- Top bar -->
+  <header class="flex h-12 shrink-0 items-center justify-between border-b border-slate-200 bg-white px-4">
+    <div class="flex items-center gap-2">
+      <div class="flex size-7 items-center justify-center rounded bg-blue-700 text-sm font-semibold text-white" aria-hidden="true">H</div>
+      <span class="text-sm font-semibold text-slate-900">Helpdesk</span>
+    </div>
+    <div class="flex items-center gap-1">
+      <button type="button" class="relative inline-flex size-8 items-center justify-center rounded text-slate-600 hover:bg-slate-100" aria-label="3 unread notifications">
+        <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" class="size-4"><path d="M18 8a6 6 0 10-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9Z"/><path d="M13.7 21a2 2 0 01-3.4 0"/></svg>
+        <span class="absolute right-1 top-1 inline-flex size-3.5 items-center justify-center rounded-full bg-red-700 text-[9px] font-medium text-white">3</span>
+      </button>
+      <button type="button" id="account-menu-trigger" class="inline-flex size-8 items-center justify-center rounded-full bg-blue-100 text-xs font-semibold text-blue-800 hover:ring-2 hover:ring-slate-200" aria-haspopup="menu" aria-expanded="false" aria-label="Account menu for Maria Chen">MC</button>
+    </div>
+  </header>
+
+  <main id="main" tabindex="-1" class="flex min-h-0 flex-1 flex-col overflow-hidden px-6 py-4">
+
+    <!-- Page header -->
+    <div class="mb-3 flex flex-wrap items-center justify-between gap-2">
+      <h1 class="text-xl font-semibold text-slate-900">Support tickets</h1>
+      <div class="flex items-center gap-2">
+        <span class="hidden text-xs text-slate-500 sm:inline" id="updated-stamp">Updated just now</span>
+        <button type="button" id="create-ticket-btn" class="inline-flex h-8 items-center rounded bg-blue-700 px-3 text-sm font-medium text-white hover:bg-blue-800">Create ticket</button>
+      </div>
+    </div>
+
+    <!-- Toolbar -->
+    <div class="flex flex-col gap-2">
+      <div class="flex flex-wrap items-center gap-2">
+        <div class="relative w-[280px]">
+          <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" class="pointer-events-none absolute left-2 top-1/2 size-4 -translate-y-1/2 text-slate-400"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
+          <input type="text" id="search-input" class="h-8 w-full rounded border border-slate-300 bg-white pl-8 pr-8 text-sm placeholder:text-slate-400 focus-visible:border-blue-700" placeholder="Search ticket no., subject, customer" aria-label="Search tickets">
+          <button type="button" id="search-clear" hidden class="absolute right-1.5 top-1/2 inline-flex size-5 -translate-y-1/2 items-center justify-center rounded text-slate-400 hover:bg-slate-100" aria-label="Clear search">
+            <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="size-3.5"><path d="M18 6 6 18M6 6l12 12"/></svg>
+          </button>
+        </div>
+
+        <select id="filter-assignee" class="h-8 rounded border border-slate-300 bg-white px-2 text-sm" aria-label="Filter by assignee">
+          <option value="">All assignees</option>
+          <option value="__unassigned__">Unassigned</option>
+        </select>
+
+        <select id="filter-priority" class="h-8 rounded border border-slate-300 bg-white px-2 text-sm" aria-label="Filter by priority">
+          <option value="">All priorities</option>
+        </select>
+
+        <select id="filter-type" class="h-8 rounded border border-slate-300 bg-white px-2 text-sm" aria-label="Filter by type">
+          <option value="">All types</option>
+        </select>
+
+        <button type="button" id="filter-mine" aria-pressed="false" class="h-8 rounded border border-slate-300 bg-white px-3 text-sm font-medium text-slate-700 hover:bg-slate-50 aria-pressed:border-blue-700 aria-pressed:bg-blue-50 aria-pressed:text-blue-700">Assigned to me</button>
+
+        <div class="ml-auto inline-flex h-8 items-center rounded border border-slate-300 bg-white p-0.5" role="group" aria-label="Board or list view">
+          <button type="button" id="view-board-btn" aria-pressed="true" class="inline-flex h-7 items-center rounded px-3 text-sm font-medium aria-pressed:bg-slate-900 aria-pressed:text-white">Board</button>
+          <button type="button" id="view-list-btn" aria-pressed="false" class="inline-flex h-7 items-center rounded px-3 text-sm font-medium aria-pressed:bg-slate-900 aria-pressed:text-white">List</button>
+        </div>
+      </div>
+
+      <div id="chips-row" class="flex flex-wrap items-center gap-2" hidden></div>
+    </div>
+
+    <p id="result-count" role="status" class="mb-1 text-xs tabular-nums text-slate-500"></p>
+
+    <!-- Board / list host -->
+    <div class="mt-3 flex min-h-0 flex-1 flex-col">
+
+      <div id="board-wrap" class="flex min-h-0 flex-1 flex-col">
+        <div id="board-region" class="flex min-h-0 flex-1 gap-3 overflow-x-auto pb-2" role="region" aria-label="Ticket board"></div>
+      </div>
+
+      <div id="list-wrap" hidden class="flex min-h-0 flex-1 flex-col overflow-y-auto rounded-md border border-slate-200 bg-white">
+        <table class="w-full text-sm" id="list-table">
+          <caption class="sr-only">Support tickets</caption>
+          <thead class="sticky top-0 z-10 bg-slate-50">
+            <tr class="h-10 border-b border-slate-200">
+              <th scope="col" class="px-3 text-left font-medium text-slate-600">Ticket</th>
+              <th scope="col" class="px-3 text-left font-medium text-slate-600">Subject</th>
+              <th scope="col" class="px-3 text-left font-medium text-slate-600">Customer</th>
+              <th scope="col" class="px-3 text-left font-medium text-slate-600" id="th-priority"><button type="button" class="inline-flex items-center gap-1" data-sort="priority">Priority <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="size-3"><path d="M7 10l5 5 5-5"/></svg></button></th>
+              <th scope="col" class="px-3 text-left font-medium text-slate-600">Status</th>
+              <th scope="col" class="px-3 text-left font-medium text-slate-600">Assignee</th>
+              <th scope="col" class="px-3 text-left font-medium text-slate-600" id="th-sla"><button type="button" class="inline-flex items-center gap-1" data-sort="sla">SLA <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="size-3"><path d="M7 10l5 5 5-5"/></svg></button></th>
+              <th scope="col" class="px-3"><span class="sr-only">Actions</span></th>
+            </tr>
+          </thead>
+          <tbody id="list-body"></tbody>
+        </table>
+      </div>
+
+      <!-- Error state -->
+      <div id="error-state" hidden class="flex flex-1 flex-col items-center justify-center gap-3 rounded-md border border-slate-200 bg-white px-6 py-12 text-center">
+        <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" class="size-8 text-red-700"><circle cx="12" cy="12" r="9"/><path d="M12 8v5M12 16h.01"/></svg>
+        <p class="text-sm font-medium text-slate-900">Couldn't load tickets. Check your connection and try again.</p>
+        <button type="button" id="retry-btn" class="inline-flex h-8 items-center rounded border border-slate-300 bg-white px-3 text-sm font-medium hover:bg-slate-50">Retry</button>
+      </div>
+    </div>
+  </main>
+</div>
+
+<!-- Ticket detail panel -->
+<div id="panel-overlay" hidden class="fixed inset-0 z-40 bg-slate-900/30"></div>
+<aside id="ticket-panel" hidden role="region" aria-label="Ticket details" tabindex="-1" class="fixed inset-y-0 right-0 z-50 flex w-[520px] max-w-[92vw] flex-col border-l border-slate-200 bg-white shadow-lg">
+  <div class="flex items-center justify-between border-b border-slate-200 px-4 py-3">
+    <h2 id="panel-heading" tabindex="-1" class="text-base font-semibold text-slate-900">Ticket details</h2>
+    <button type="button" id="panel-close" class="inline-flex size-8 items-center justify-center rounded text-slate-500 hover:bg-slate-100" aria-label="Close ticket details">
+      <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="size-4"><path d="M18 6 6 18M6 6l12 12"/></svg>
+    </button>
+  </div>
+  <div id="panel-body" class="flex-1 overflow-y-auto px-4 py-4"></div>
+</aside>
+
+<!-- Create ticket dialog -->
+<dialog id="create-dialog" class="w-[480px] max-w-[92vw] rounded-md border border-slate-200 p-0 shadow-xl">
+  <form id="create-form" novalidate class="flex max-h-[85vh] flex-col">
+    <div class="border-b border-slate-200 px-5 py-4">
+      <h2 class="text-base font-semibold text-slate-900">Create ticket</h2>
+      <p class="mt-0.5 text-xs text-slate-500">* Required</p>
+    </div>
+    <div class="flex-1 space-y-4 overflow-y-auto px-5 py-4">
+      <div>
+        <label for="f-customer" class="mb-1 block text-sm font-medium text-slate-900">Customer <span aria-hidden="true" class="text-red-700">*</span></label>
+        <input id="f-customer" name="customer" type="text" class="h-8 w-full rounded border border-slate-300 px-2 text-sm" aria-required="true" placeholder="e.g. Globex Logistics">
+        <p id="f-customer-err" class="mt-1 hidden text-xs text-red-700"></p>
+      </div>
+      <div>
+        <label for="f-subject" class="mb-1 block text-sm font-medium text-slate-900">Subject <span aria-hidden="true" class="text-red-700">*</span></label>
+        <input id="f-subject" name="subject" type="text" class="h-8 w-full rounded border border-slate-300 px-2 text-sm" aria-required="true" placeholder="Short summary of the issue">
+        <p id="f-subject-err" class="mt-1 hidden text-xs text-red-700"></p>
+      </div>
+      <div>
+        <label for="f-type" class="mb-1 block text-sm font-medium text-slate-900">Type <span aria-hidden="true" class="text-red-700">*</span></label>
+        <select id="f-type" name="type" class="h-8 w-full rounded border border-slate-300 px-2 text-sm"></select>
+      </div>
+      <div>
+        <label for="f-priority" class="mb-1 block text-sm font-medium text-slate-900">Priority <span aria-hidden="true" class="text-red-700">*</span></label>
+        <select id="f-priority" name="priority" class="h-8 w-full rounded border border-slate-300 px-2 text-sm"></select>
+      </div>
+      <div>
+        <label for="f-assignee" class="mb-1 block text-sm font-medium text-slate-900">Assignee</label>
+        <select id="f-assignee" name="assignee" class="h-8 w-full rounded border border-slate-300 px-2 text-sm">
+          <option value="">Unassigned</option>
+        </select>
+      </div>
+    </div>
+    <div class="flex items-center justify-end gap-2 border-t border-slate-200 bg-white px-5 py-3">
+      <button type="button" id="create-cancel" class="inline-flex h-8 items-center rounded border border-slate-300 bg-white px-3 text-sm font-medium hover:bg-slate-50">Cancel</button>
+      <button type="submit" class="inline-flex h-8 items-center rounded bg-blue-700 px-3 text-sm font-medium text-white hover:bg-blue-800">Create ticket</button>
+    </div>
+  </form>
+</dialog>
+
+<!-- Resolution note dialog -->
+<dialog id="resolve-dialog" class="w-[440px] max-w-[92vw] rounded-md border border-slate-200 p-0 shadow-xl">
+  <form id="resolve-form" novalidate class="flex flex-col">
+    <div class="border-b border-slate-200 px-5 py-4">
+      <h2 class="text-base font-semibold text-slate-900">Resolve ticket <span id="resolve-code"></span></h2>
+      <p class="mt-1 text-sm text-slate-600">Add a short resolution summary before moving this ticket to Resolved.</p>
+    </div>
+    <div class="px-5 py-4">
+      <label for="resolve-note" class="mb-1 block text-sm font-medium text-slate-900">Resolution summary <span aria-hidden="true" class="text-red-700">*</span></label>
+      <textarea id="resolve-note" rows="3" class="w-full rounded border border-slate-300 px-2 py-1.5 text-sm" aria-required="true" placeholder="What fixed the issue?"></textarea>
+      <p id="resolve-note-err" class="mt-1 hidden text-xs text-red-700"></p>
+    </div>
+    <div class="flex items-center justify-end gap-2 border-t border-slate-200 px-5 py-3">
+      <button type="button" id="resolve-cancel" class="inline-flex h-8 items-center rounded border border-slate-300 bg-white px-3 text-sm font-medium hover:bg-slate-50">Cancel</button>
+      <button type="submit" class="inline-flex h-8 items-center rounded bg-blue-700 px-3 text-sm font-medium text-white hover:bg-blue-800">Move to Resolved</button>
+    </div>
+  </form>
+</dialog>
+
+<!-- Toasts -->
+<div id="toast-host" class="fixed right-4 top-4 z-[60] flex flex-col gap-2"></div>
+
+<script>
+(function () {
+  "use strict";
+
+  /* ---------- Reference time (fixed so the demo stays consistent) ---------- */
+  var NOW = new Date(2026, 10, 7, 15, 0, 0);
+  function hrs(n) { return new Date(NOW.getTime() + n * 3600000); }
+
+  /* ---------- Vocabulary ---------- */
+  var TONE_CLASSES = {
+    neutral: "bg-slate-100 text-slate-700",
+    info: "bg-blue-50 text-blue-700",
+    success: "bg-green-50 text-green-700",
+    warning: "bg-amber-50 text-amber-800",
+    danger: "bg-red-50 text-red-700"
+  };
+
+  var STATUSES = [
+    { id: "open", label: "Open", tone: "info", limit: null },
+    { id: "in_progress", label: "In progress", tone: "info", limit: 8 },
+    { id: "waiting", label: "Waiting on customer", tone: "warning", limit: 5 },
+    { id: "resolved", label: "Resolved", tone: "success", limit: null },
+    { id: "closed", label: "Closed", tone: "neutral", limit: null }
+  ];
+  var STATUS_BY_ID = {};
+  STATUSES.forEach(function (s) { STATUS_BY_ID[s.id] = s; });
+
+  var PRIORITIES = {
+    urgent: { label: "Urgent", tone: "danger", order: 0 },
+    high: { label: "High", tone: "warning", order: 1 },
+    medium: { label: "Medium", tone: "info", order: 2 },
+    low: { label: "Low", tone: "neutral", order: 3 }
+  };
+  var PRIORITY_ORDER = ["urgent", "high", "medium", "low"];
+
+  var TYPES = ["Technical issue", "Billing", "Account", "Access", "Feature request"];
+
+  var AGENTS = ["Maria Chen", "James Okafor", "Priya Sharma", "Daniel Novak", "Sofia Rossi", "Ethan Walker", "Hana Kobayashi"];
+  var CURRENT_USER = "Maria Chen";
+
+  var CONTACTS = {
+    "Globex Logistics": { name: "Laura Bennett", email: "laura.bennett@globexlogistics.com", phone: "+12125550148" },
+    "Acme Retail Co.": { name: "Marcus Webb", email: "marcus.webb@acmeretail.com", phone: "+13125550173" },
+    "Nimbus Cloud Services": { name: "Priya Anand", email: "priya.anand@nimbuscloud.io", phone: "+14155550126" },
+    "Summit Financial Group": { name: "Richard Hale", email: "richard.hale@summitfg.com", phone: "+16465550199" },
+    "BrightPath Health": { name: "Dana Kim", email: "dana.kim@brightpathhealth.org", phone: "+15035550112" },
+    "Union Freight Co.": { name: "Carlos Mendes", email: "carlos.mendes@unionfreight.com", phone: "+17135550155" },
+    "Lakeside Media": { name: "Tasha Green", email: "tasha.green@lakesidemedia.com", phone: "+12065550188" },
+    "Pioneer Manufacturing": { name: "Walter Nguyen", email: "walter.nguyen@pioneermfg.com", phone: "+16165550141" },
+    "Crestline Realty": { name: "Olivia Park", email: "olivia.park@crestlinerealty.com", phone: "+17025550167" },
+    "Vertex Analytics": { name: "Samir Patel", email: "samir.patel@vertexanalytics.ai", phone: "+16505550134" },
+    "Harbor Telecom": { name: "Nadia Ruiz", email: "nadia.ruiz@harbortelecom.com", phone: "+13055550121" },
+    "Meridian Insurance": { name: "Gregory Shaw", email: "gregory.shaw@meridianinsure.com", phone: "+16175550109" },
+    "Cobalt Robotics": { name: "Elena Fischer", email: "elena.fischer@cobaltrobotics.com", phone: "+14085550162" },
+    "Aurora Biotech": { name: "Jonas Keller", email: "jonas.keller@aurorabiotech.com", phone: "+19195550177" },
+    "Falcon Airlines": { name: "Monique Diallo", email: "monique.diallo@falconair.com", phone: "+14045550193" }
+  };
+
+  var CHANNEL_BY_TYPE = {
+    "Technical issue": "email",
+    "Billing": "web form",
+    "Account": "phone",
+    "Access": "email",
+    "Feature request": "chat"
+  };
+
+  /* ---------- Mock tickets ---------- */
+  var RAW = [
+    [1042, "Globex Logistics", "API returning 500 on /v2/orders endpoint", "Technical issue", "urgent", "in_progress", "Maria Chen", -26, -2, null,
+      "Orders created through the /v2/orders API have been failing with HTTP 500 since this morning; Laura's integration team paused their batch jobs until this is fixed."],
+    [1041, "Acme Retail Co.", "Unable to log in after password reset", "Technical issue", "high", "open", null, -4, 2, null,
+      "Marcus can't sign back in after resetting his password — the reset email arrives but the new password is rejected at login."],
+    [1039, "Nimbus Cloud Services", "SSO integration fails with Okta", "Access", "urgent", "waiting", "James Okafor", -72, -24, null,
+      "Okta SSO logins are failing for the whole Nimbus workspace; Priya's IT team needs this restored before Monday's rollout."],
+    [1038, "Summit Financial Group", "Invoice INV-2291 shows incorrect tax", "Billing", "medium", "open", null, -24, 24, null,
+      "Invoice INV-2291 is charging 8.5% sales tax on a tax-exempt account; Richard is requesting a corrected invoice."],
+    [1037, "BrightPath Health", "Dashboard charts not loading in Safari", "Technical issue", "medium", "in_progress", "Priya Sharma", -48, 4, null,
+      "Dashboard charts fail to render in Safari 18 but work fine in Chrome; Dana has screenshots of the console errors."],
+    [1036, "Union Freight Co.", "Mobile app crashes on startup (iOS 18)", "Technical issue", "high", "in_progress", "Daniel Novak", -48, -5, null,
+      "The iOS mobile app crashes immediately on launch for drivers running iOS 18.1; Carlos has 40 drivers affected."],
+    [1035, "Lakeside Media", "Request to add 5 new user seats", "Account", "low", "open", null, -6, 72, null,
+      "Tasha would like to add 5 additional user seats to the current plan ahead of a new hire onboarding."],
+    [1034, "Pioneer Manufacturing", "Export to CSV truncates rows over 10k", "Technical issue", "high", "waiting", "Sofia Rossi", -96, -6, null,
+      "CSV exports silently truncate at 10,000 rows with no warning; Walter needs the full dataset for a compliance audit."],
+    [1033, "Crestline Realty", "Billing address update needed", "Billing", "low", "closed", "Ethan Walker", -216, -144, -144,
+      "Olivia asked to update the billing address on file after their office relocation.", "Billing address updated and confirmed with Olivia by email."],
+    [1032, "Vertex Analytics", "Webhook retries exceeding rate limit", "Technical issue", "urgent", "in_progress", "Maria Chen", -10, 1, null,
+      "Webhook deliveries are retrying far more than expected and tripping Vertex's own rate limiter; Samir suspects a backoff misconfiguration."],
+    [1031, "Harbor Telecom", "Two-factor codes not arriving via SMS", "Access", "high", "waiting", "Hana Kobayashi", -72, 5, null,
+      "Two-factor SMS codes aren't arriving for some Harbor Telecom users, locking them out of their accounts; Nadia has three blocked admins."],
+    [1030, "Meridian Insurance", "Report scheduling stuck at ‘Pending’", "Technical issue", "medium", "resolved", "James Okafor", -120, -72, -48,
+      "A scheduled weekly report has been stuck in ‘Pending’ for two days instead of emailing Gregory's finance team.",
+      "Restarted the report scheduler and cleared a stuck job; the weekly report is emailing again on schedule."],
+    [1029, "Cobalt Robotics", "Duplicate charge on October invoice", "Billing", "high", "open", null, -8, 16, null,
+      "Elena was charged twice for October and is requesting a refund of the duplicate transaction."],
+    [1028, "Aurora Biotech", "Permission error when assigning roles", "Access", "medium", "in_progress", "Priya Sharma", -24, 8, null,
+      "Jonas gets a permission error when trying to assign the ‘Reviewer’ role to new lab accounts."],
+    [1027, "Falcon Airlines", "Data sync delay with Salesforce connector", "Technical issue", "high", "waiting", "Daniel Novak", -48, 10, null,
+      "The Salesforce connector is syncing contacts roughly six hours late; Monique needs near-real-time sync for her sales team."],
+    [1026, "Globex Logistics", "Slow page load on reports tab", "Technical issue", "low", "resolved", "Sofia Rossi", -144, -96, -96,
+      "The Reports tab takes over 20 seconds to load for Laura's team; this is a long-standing performance complaint.",
+      "Added a database index on the reports query; load time is now under 2 seconds. Customer confirmed the fix."],
+    [1025, "Acme Retail Co.", "Request for GDPR data export", "Account", "medium", "closed", "Ethan Walker", -288, -216, -216,
+      "Marcus requested a full export of Acme's stored personal data to satisfy a customer's GDPR request.",
+      "Full data export delivered as an encrypted ZIP via secure link on Oct 30."],
+    [1024, "Nimbus Cloud Services", "License renewal question", "Account", "low", "closed", "Hana Kobayashi", -336, -264, -264,
+      "Priya asked whether their enterprise license auto-renews or needs manual renewal before the term ends.",
+      "Confirmed the plan auto-renews on the current terms; no action needed from the customer."],
+    [1023, "Summit Financial Group", "Password policy change request", "Account", "low", "open", null, -2, 96, null,
+      "Richard is requesting a stricter password policy (12-character minimum) be applied to all Summit users."],
+    [1022, "BrightPath Health", "Attachment upload fails over 20MB", "Technical issue", "medium", "in_progress", "Maria Chen", -72, 48, null,
+      "Attachments larger than 20MB fail silently when attached to a ticket reply; Dana needs to send a 35MB scan report."],
+    [1021, "Union Freight Co.", "API key rotation locked us out", "Access", "urgent", "waiting", "James Okafor", -24, -3, null,
+      "Carlos rotated the API key and is now locked out of the integration with no way to generate a new key from the UI."],
+    [1020, "Lakeside Media", "Custom field not saving on contact record", "Technical issue", "medium", "in_progress", "Daniel Novak", -24, 24, null,
+      "A custom ‘Campaign source’ field on contact records stops saving after the third edit; Tasha has reproduced it twice."],
+    [1019, "Pioneer Manufacturing", "Timezone displayed incorrectly in calendar", "Technical issue", "low", "waiting", "Sofia Rossi", -120, 48, null,
+      "Calendar events show times three hours off from the account's configured timezone for Walter's whole team."],
+    [1018, "Crestline Realty", "Unable to merge duplicate accounts", "Account", "medium", "resolved", "Priya Sharma", -96, -48, -24,
+      "Olivia has two duplicate customer accounts from a failed import and needs them merged without losing order history.",
+      "Merged the duplicate accounts and verified order history was preserved on the surviving record."],
+    [1017, "Vertex Analytics", "New SSO domain verification pending", "Access", "medium", "waiting", "Hana Kobayashi", -72, 24, null,
+      "Samir added a new email domain for SSO and is waiting on DNS verification to complete the setup."],
+    [1016, "Harbor Telecom", "Feature request: dark mode", "Feature request", "low", "open", null, -168, 240, null,
+      "Nadia's team requested a dark mode option for extended night-shift monitoring sessions."],
+    [1015, "Meridian Insurance", "Downtime during maintenance window", "Technical issue", "high", "closed", "Ethan Walker", -360, -312, -312,
+      "Gregory is asking for a summary of what was affected during last week's scheduled maintenance window.",
+      "Sent a maintenance summary covering the 45-minute window and confirming no data was affected."],
+    [1014, "Cobalt Robotics", "Email notifications delayed by hours", "Technical issue", "medium", "resolved", "James Okafor", -144, -96, -72,
+      "Elena reported that outbound email notifications were arriving 3–4 hours late during last week's queue backlog.",
+      "Cleared the backlogged notification queue and added monitoring to alert if delivery lag exceeds 30 minutes."],
+    [1013, "Aurora Biotech", "Refund request for cancelled seats", "Billing", "low", "resolved", "Sofia Rossi", -168, -120, -96,
+      "Jonas cancelled 10 seats mid-cycle and is requesting a prorated refund for the unused period.",
+      "Processed a prorated refund of $420 for the 10 cancelled seats."]
+  ];
+
+  var TICKETS = RAW.map(function (r) {
+    return {
+      id: "TCK-" + r[0],
+      code: "TCK-" + r[0],
+      customer: r[1],
+      subject: r[2],
+      type: r[3],
+      priority: r[4],
+      status: r[5],
+      assignee: r[6],
+      createdAt: hrs(r[7]),
+      dueAt: hrs(r[8]),
+      resolvedAt: r[9] != null ? hrs(r[9]) : null,
+      description: r[10],
+      resolutionNote: r[11] || null
+    };
+  });
+
+  /* ---------- State ---------- */
+  var state = {
+    view: "board",
+    q: "",
+    assignee: "",
+    priority: "",
+    type: "",
+    mine: false,
+    listSort: { key: "urgency", dir: "asc" },
+    collapsed: { closed: true },
+    pageState: null, // 'loading' | 'error' | null
+    openTicketId: null
+  };
+
+  var lastMove = null; // { ticketId, fromStatus, timer }
+
+  /* ---------- Helpers ---------- */
+  function escapeHtml(s) {
+    return String(s).replace(/[&<>"']/g, function (c) {
+      return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c];
+    });
+  }
+  function initials(name) {
+    if (!name) return "";
+    var parts = name.trim().split(/\s+/);
+    return ((parts[0] || "")[0] + (parts[1] ? parts[1][0] : "")).toUpperCase();
+  }
+  var dateFmt = new Intl.DateTimeFormat("en-US", { month: "2-digit", day: "2-digit", year: "numeric" });
+  var timeFmt = new Intl.DateTimeFormat("en-US", { hour: "numeric", minute: "2-digit" });
+  function formatDate(d) { return dateFmt.format(d); }
+  function formatDateTime(d) { return dateFmt.format(d) + ", " + timeFmt.format(d); }
+  function formatDuration(ms) {
+    var min = Math.round(ms / 60000);
+    if (min < 60) return min + " min";
+    var hrsN = Math.round(min / 60);
+    if (hrsN < 24) return hrsN + "h";
+    var days = Math.round(hrsN / 24);
+    return days + (days === 1 ? " day" : " days");
+  }
+  function ticketById(id) { return TICKETS.filter(function (t) { return t.id === id; })[0]; }
+
+  function badge(text, tone, extraClass) {
+    return '<span class="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium ' + TONE_CLASSES[tone] + ' ' + (extraClass || "") + '">' + escapeHtml(text) + "</span>";
+  }
+
+  function getUrgency(t) {
+    if (t.status === "resolved" || t.status === "closed") {
+      return { rank: 3, text: (t.status === "closed" ? "Closed" : "Resolved") + " " + formatDateTime(t.resolvedAt), tone: null, ms: null };
+    }
+    var diff = t.dueAt.getTime() - NOW.getTime();
+    if (diff < 0) return { rank: 0, text: "Overdue " + formatDuration(-diff), tone: "danger", ms: diff };
+    if (diff < 4 * 3600000) return { rank: 1, text: "Due in " + formatDuration(diff), tone: "warning", ms: diff };
+    return { rank: 2, text: "Due " + formatDateTime(t.dueAt), tone: null, ms: diff };
+  }
+
+  function statusLabel(id) { return STATUS_BY_ID[id].label; }
+
+  /* ---------- Populate static selects ---------- */
+  (function populateSelects() {
+    var assigneeSel = document.getElementById("filter-assignee");
+    AGENTS.forEach(function (a) {
+      var o = document.createElement("option"); o.value = a; o.textContent = a; assigneeSel.appendChild(o);
+    });
+    var prioritySel = document.getElementById("filter-priority");
+    PRIORITY_ORDER.forEach(function (p) {
+      var o = document.createElement("option"); o.value = p; o.textContent = PRIORITIES[p].label; prioritySel.appendChild(o);
+    });
+    var typeSel = document.getElementById("filter-type");
+    TYPES.forEach(function (t) {
+      var o = document.createElement("option"); o.value = t; o.textContent = t; typeSel.appendChild(o);
+    });
+
+    var fType = document.getElementById("f-type");
+    TYPES.forEach(function (t) { var o = document.createElement("option"); o.value = t; o.textContent = t; fType.appendChild(o); });
+    var fPriority = document.getElementById("f-priority");
+    PRIORITY_ORDER.forEach(function (p) { var o = document.createElement("option"); o.value = p; o.textContent = PRIORITIES[p].label; if (p === "medium") o.selected = true; fPriority.appendChild(o); });
+    var fAssignee = document.getElementById("f-assignee");
+    AGENTS.forEach(function (a) { var o = document.createElement("option"); o.value = a; o.textContent = a; fAssignee.appendChild(o); });
+  })();
+
+  /* ---------- Filtering ---------- */
+  function foldText(s) { return s.toLowerCase(); }
+  function matchesFilters(t) {
+    if (state.mine && t.assignee !== CURRENT_USER) return false;
+    if (state.assignee) {
+      if (state.assignee === "__unassigned__") { if (t.assignee) return false; }
+      else if (t.assignee !== state.assignee) return false;
+    }
+    if (state.priority && t.priority !== state.priority) return false;
+    if (state.type && t.type !== state.type) return false;
+    if (state.q) {
+      var q = foldText(state.q.trim());
+      var hay = foldText(t.code + " " + t.subject + " " + t.customer);
+      if (hay.indexOf(q) === -1) return false;
+    }
+    return true;
+  }
+  function filteredTickets() { return TICKETS.filter(matchesFilters); }
+
+  /* ---------- Chips ---------- */
+  function renderChips() {
+    var row = document.getElementById("chips-row");
+    var chips = [];
+    if (state.q) chips.push({ key: "q", label: 'Search: "' + state.q + '"' });
+    if (state.assignee) chips.push({ key: "assignee", label: "Assignee: " + (state.assignee === "__unassigned__" ? "Unassigned" : state.assignee) });
+    if (state.priority) chips.push({ key: "priority", label: "Priority: " + PRIORITIES[state.priority].label });
+    if (state.type) chips.push({ key: "type", label: "Type: " + state.type });
+    if (state.mine) chips.push({ key: "mine", label: "Assigned to me" });
+
+    if (chips.length === 0) { row.hidden = true; row.innerHTML = ""; return; }
+    row.hidden = false;
+    row.innerHTML = chips.map(function (c) {
+      return '<span class="inline-flex h-6 items-center gap-1 rounded-full border border-slate-200 bg-slate-100 pl-2 pr-1 text-xs font-medium text-slate-700">' +
+        escapeHtml(c.label) +
+        '<button type="button" data-remove-chip="' + c.key + '" aria-label="Remove filter ' + escapeHtml(c.label) + '" class="inline-flex size-5 items-center justify-center rounded-full hover:bg-slate-200">' +
+        '<svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="size-3"><path d="M18 6 6 18M6 6l12 12"/></svg></button></span>';
+    }).join("") + '<button type="button" id="clear-all-btn" class="text-xs font-medium text-blue-700 hover:underline">Clear all</button>';
+  }
+
+  function removeChip(key) {
+    if (key === "q") { state.q = ""; document.getElementById("search-input").value = ""; document.getElementById("search-clear").hidden = true; }
+    if (key === "assignee") { state.assignee = ""; document.getElementById("filter-assignee").value = ""; }
+    if (key === "priority") { state.priority = ""; document.getElementById("filter-priority").value = ""; }
+    if (key === "type") { state.type = ""; document.getElementById("filter-type").value = ""; }
+    if (key === "mine") { state.mine = false; document.getElementById("filter-mine").setAttribute("aria-pressed", "false"); }
+    renderAll();
+  }
+  function clearAllFilters() {
+    state.q = ""; state.assignee = ""; state.priority = ""; state.type = ""; state.mine = false;
+    document.getElementById("search-input").value = "";
+    document.getElementById("search-clear").hidden = true;
+    document.getElementById("filter-assignee").value = "";
+    document.getElementById("filter-priority").value = "";
+    document.getElementById("filter-type").value = "";
+    document.getElementById("filter-mine").setAttribute("aria-pressed", "false");
+    renderAll();
+  }
+
+  /* ---------- Card markup ---------- */
+  function cardHtml(t) {
+    var urg = getUrgency(t);
+    var slaHtml = urg.tone
+      ? badge(urg.text, urg.tone)
+      : '<span class="text-xs text-slate-600"><time datetime="' + (t.status === "resolved" || t.status === "closed" ? t.resolvedAt : t.dueAt).toISOString() + '">' + escapeHtml(urg.text) + "</time></span>";
+
+    var assigneeHtml = t.assignee
+      ? '<span class="inline-flex items-center gap-1.5 text-xs text-slate-600"><span class="inline-flex size-5 items-center justify-center rounded-full bg-slate-200 text-[10px] font-medium text-slate-700" aria-hidden="true">' + initials(t.assignee) + '</span>' + escapeHtml(t.assignee) + "</span>"
+      : '<span class="text-xs text-slate-500">Unassigned</span>';
+
+    var otherStatuses = STATUSES.filter(function (s) { return s.id !== t.status; });
+    var menuItems = otherStatuses.map(function (s) {
+      return '<button type="button" role="menuitem" class="block w-full px-3 py-1.5 text-left text-sm text-slate-700 hover:bg-slate-100" data-move-ticket="' + t.id + '" data-move-to="' + s.id + '">' + escapeHtml(s.label) + "</button>";
+    }).join("");
+
+    return (
+      '<li class="rounded-md border border-slate-200 bg-white p-3" data-ticket-card="' + t.id + '">' +
+        '<div class="flex items-center justify-between gap-2">' +
+          '<span class="font-mono text-xs text-slate-500">' + escapeHtml(t.code) + "</span>" +
+          badge(PRIORITIES[t.priority].label, PRIORITIES[t.priority].tone) +
+        "</div>" +
+        '<button type="button" class="mt-1 block w-full text-left text-sm font-medium leading-5 text-slate-900 line-clamp-2 hover:underline" title="' + escapeHtml(t.subject) + '" aria-label="' + escapeHtml(t.code) + " — " + escapeHtml(t.subject) + '" data-open-ticket="' + t.id + '">' + escapeHtml(t.subject) + "</button>" +
+        '<p class="mt-1 truncate text-xs text-slate-600" title="' + escapeHtml(t.customer) + '">' + escapeHtml(t.customer) + "</p>" +
+        '<div class="mt-2 flex items-center justify-between gap-2">' +
+          assigneeHtml +
+          '<div class="relative">' +
+            '<button type="button" class="inline-flex size-6 items-center justify-center rounded text-slate-500 hover:bg-slate-100" aria-haspopup="menu" aria-expanded="false" aria-label="Actions for ticket ' + escapeHtml(t.code) + '" data-kebab="' + t.id + '">' +
+              '<svg aria-hidden="true" viewBox="0 0 24 24" fill="currentColor" class="size-4"><circle cx="5" cy="12" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="19" cy="12" r="1.6"/></svg>' +
+            "</button>" +
+            '<div class="absolute right-0 top-7 z-30 hidden w-48 overflow-hidden rounded-md border border-slate-200 bg-white py-1 shadow-lg" role="menu" aria-label="Move ' + escapeHtml(t.code) + ' to…" data-move-menu="' + t.id + '">' +
+              '<p class="px-3 py-1 text-xs font-medium text-slate-500">Move to…</p>' + menuItems +
+            "</div>" +
+          "</div>" +
+        "</div>" +
+        '<div class="mt-2">' + slaHtml + "</div>" +
+      "</li>"
+    );
+  }
+
+  /* ---------- Board rendering ---------- */
+  function sortWithinColumn(list) {
+    return list.slice().sort(function (a, b) {
+      var pa = PRIORITIES[a.priority].order, pb = PRIORITIES[b.priority].order;
+      if (pa !== pb) return pa - pb;
+      return a.dueAt.getTime() - b.dueAt.getTime();
+    });
+  }
+
+  function renderBoard() {
+    var region = document.getElementById("board-region");
+    var all = filteredTickets();
+    var totalUnfiltered = TICKETS.length;
+
+    if (totalUnfiltered === 0) {
+      region.innerHTML =
+        '<div class="flex flex-1 flex-col items-center justify-center gap-3 rounded-md border border-slate-200 bg-white px-6 py-12 text-center">' +
+        '<p class="text-sm font-medium text-slate-900">No support tickets yet</p>' +
+        '<p class="max-w-sm text-sm text-slate-600">Tickets from email, chat and phone appear here as soon as a customer reaches out.</p>' +
+        '<button type="button" class="inline-flex h-8 items-center rounded bg-blue-700 px-3 text-sm font-medium text-white hover:bg-blue-800" id="empty-create-btn">Create ticket</button>' +
+        "</div>";
+      var btn = document.getElementById("empty-create-btn");
+      if (btn) btn.addEventListener("click", openCreateDialog);
+      return;
+    }
+
+    if (all.length === 0) {
+      region.innerHTML =
+        '<div class="flex flex-1 flex-col items-center justify-center gap-3 rounded-md border border-slate-200 bg-white px-6 py-12 text-center">' +
+        '<p class="text-sm font-medium text-slate-900">No tickets match these filters</p>' +
+        '<button type="button" class="inline-flex h-8 items-center rounded border border-slate-300 bg-white px-3 text-sm font-medium hover:bg-slate-50" id="board-clear-filters">Clear filters</button>' +
+        "</div>";
+      document.getElementById("board-clear-filters").addEventListener("click", clearAllFilters);
+      return;
+    }
+
+    region.innerHTML = STATUSES.map(function (s) {
+      var items = sortWithinColumn(all.filter(function (t) { return t.status === s.id; }));
+      var countAll = TICKETS.filter(function (t) { return t.status === s.id; }).length;
+      var isCollapsed = !!state.collapsed[s.id];
+      var overLimit = s.limit && items.length > s.limit;
+
+      var countText = s.limit ? items.length + " / " + s.limit + (overLimit ? " · Over limit" : "") : String(items.length);
+      var countClass = overLimit ? "text-amber-800 font-medium" : "text-slate-600";
+      if (items.length !== countAll) countText = items.length + " of " + countAll + (s.limit ? " / " + s.limit : "");
+
+      var collapseBtn = '<button type="button" class="ml-1 inline-flex size-5 items-center justify-center rounded text-slate-500 hover:bg-slate-200" aria-expanded="' + (!isCollapsed) + '" aria-label="' + (isCollapsed ? "Expand" : "Collapse") + " " + escapeHtml(s.label) + " column" + '" data-collapse-col="' + s.id + '">' +
+        '<svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="size-3.5"><path d="' + (isCollapsed ? "M9 6l6 6-6 6" : "M15 6l-6 6 6 6") + '"/></svg></button>';
+
+      var body = items.length === 0
+        ? '<p class="px-2 py-3 text-xs text-slate-500">No tickets in ' + escapeHtml(s.label.toLowerCase()) + "</p>"
+        : items.map(cardHtml).join("");
+
+      return (
+        '<section aria-labelledby="col-' + s.id + '" class="flex ' + (isCollapsed ? "w-[180px]" : "w-[300px]") + ' shrink-0 flex-col rounded-md border border-slate-200 bg-slate-50">' +
+          '<h2 id="col-' + s.id + '" class="sticky top-0 z-10 flex items-center justify-between gap-2 rounded-t-md border-b border-slate-200 bg-slate-50 px-3 py-2 text-sm font-medium text-slate-900">' +
+            '<span class="truncate">' + escapeHtml(s.label) + "</span>" +
+            '<span class="flex items-center">' +
+              '<span class="tabular-nums text-xs font-normal ' + countClass + '">' + countText + "</span>" +
+              collapseBtn +
+            "</span>" +
+          "</h2>" +
+          (isCollapsed
+            ? ""
+            : '<ol class="min-h-0 flex-1 space-y-2 overflow-y-auto px-2 py-2" aria-label="' + escapeHtml(s.label) + ' tickets">' + body + "</ol>") +
+        "</section>"
+      );
+    }).join("");
+  }
+
+  /* ---------- List rendering ---------- */
+  function listSortValue(t, key) {
+    if (key === "priority") return PRIORITIES[t.priority].order;
+    if (key === "sla") {
+      var u = getUrgency(t);
+      return u.ms == null ? Infinity : u.ms;
+    }
+    var u2 = getUrgency(t);
+    return u2.rank * 1e15 + (u2.ms == null ? 0 : u2.ms);
+  }
+  function sortedListTickets() {
+    var list = filteredTickets().slice();
+    var key = state.listSort.key, dir = state.listSort.dir === "asc" ? 1 : -1;
+    list.sort(function (a, b) { return dir * (listSortValue(a, key) - listSortValue(b, key)); });
+    return list;
+  }
+
+  function renderList() {
+    var body = document.getElementById("list-body");
+    var list = sortedListTickets();
+
+    ["th-priority", "th-sla"].forEach(function (id) {
+      var th = document.getElementById(id);
+      var key = id === "th-priority" ? "priority" : "sla";
+      th.removeAttribute("aria-sort");
+      if (state.listSort.key === key) th.setAttribute("aria-sort", state.listSort.dir === "asc" ? "ascending" : "descending");
+    });
+
+    if (TICKETS.length === 0) {
+      body.innerHTML = '<tr><td colspan="8" class="px-3 py-12 text-center text-sm text-slate-600">No support tickets yet. <button type="button" class="font-medium text-blue-700 hover:underline" id="list-empty-create">Create ticket</button></td></tr>';
+      var b = document.getElementById("list-empty-create");
+      if (b) b.addEventListener("click", openCreateDialog);
+      return;
+    }
+    if (list.length === 0) {
+      body.innerHTML = '<tr><td colspan="8" class="px-3 py-12 text-center text-sm text-slate-600">No tickets match these filters. <button type="button" class="font-medium text-blue-700 hover:underline" id="list-clear-filters">Clear filters</button></td></tr>';
+      document.getElementById("list-clear-filters").addEventListener("click", clearAllFilters);
+      return;
+    }
+
+    body.innerHTML = list.map(function (t) {
+      var urg = getUrgency(t);
+      var slaCell = urg.tone
+        ? badge(urg.text, urg.tone) + ' <time datetime="' + t.dueAt.toISOString() + '" class="tabular-nums text-xs text-slate-500">' + escapeHtml(formatDateTime(t.dueAt)) + "</time>"
+        : '<time datetime="' + (t.status === "resolved" || t.status === "closed" ? t.resolvedAt : t.dueAt).toISOString() + '" class="tabular-nums text-slate-700">' + escapeHtml(urg.text) + "</time>";
+      return (
+        '<tr class="h-10 border-b border-slate-100 hover:bg-slate-50">' +
+          '<th scope="row" class="px-3 text-left font-normal"><button type="button" class="font-mono text-xs text-blue-700 hover:underline" data-open-ticket="' + t.id + '">' + escapeHtml(t.code) + "</button></th>" +
+          '<td class="max-w-[260px] truncate px-3" title="' + escapeHtml(t.subject) + '">' + escapeHtml(t.subject) + "</td>" +
+          '<td class="max-w-[160px] truncate px-3" title="' + escapeHtml(t.customer) + '">' + escapeHtml(t.customer) + "</td>" +
+          '<td class="px-3">' + badge(PRIORITIES[t.priority].label, PRIORITIES[t.priority].tone) + "</td>" +
+          '<td class="px-3">' + badge(statusLabel(t.status), STATUS_BY_ID[t.status].tone) + "</td>" +
+          '<td class="px-3">' + (t.assignee ? escapeHtml(t.assignee) : '<span class="text-slate-500">Unassigned</span>') + "</td>" +
+          '<td class="px-3">' + slaCell + "</td>" +
+          '<td class="px-3 text-right"><button type="button" class="inline-flex h-7 items-center rounded border border-slate-300 bg-white px-2 text-xs font-medium hover:bg-slate-50" data-open-ticket="' + t.id + '">View</button></td>' +
+        "</tr>"
+      );
+    }).join("");
+  }
+
+  /* ---------- Result count live region ---------- */
+  function announceCount() {
+    var list = filteredTickets();
+    var el = document.getElementById("result-count");
+    el.textContent = list.length === TICKETS.length
+      ? list.length + " tickets"
+      : list.length + " of " + TICKETS.length + " tickets match";
+  }
+
+  /* ---------- Render orchestration ---------- */
+  function renderAll() {
+    if (state.pageState === "error") {
+      document.getElementById("chips-row").hidden = true;
+      document.getElementById("result-count").textContent = "";
+      showErrorState();
+      return;
+    }
+    renderChips();
+    announceCount();
+    document.getElementById("error-state").hidden = true;
+    if (state.view === "board") {
+      document.getElementById("board-wrap").hidden = false;
+      document.getElementById("list-wrap").hidden = true;
+      renderBoard();
+    } else {
+      document.getElementById("board-wrap").hidden = true;
+      document.getElementById("list-wrap").hidden = false;
+      renderList();
+    }
+  }
+
+  function showErrorState() {
+    document.getElementById("board-wrap").hidden = true;
+    document.getElementById("list-wrap").hidden = true;
+    document.getElementById("error-state").hidden = false;
+  }
+
+  function showSkeleton(held) {
+    var region = document.getElementById("board-region");
+    document.getElementById("board-wrap").hidden = false;
+    document.getElementById("list-wrap").hidden = true;
+    document.getElementById("error-state").hidden = true;
+    region.setAttribute("aria-busy", "true");
+    var cols = ["Open", "In progress", "Waiting on customer", "Resolved", "Closed"];
+    region.innerHTML = cols.map(function (label) {
+      var cards = [1, 2, 3].map(function () {
+        return '<li class="animate-pulse rounded-md border border-slate-200 bg-white p-3 motion-reduce:animate-none" aria-hidden="true">' +
+          '<div class="h-3 w-16 rounded bg-slate-200"></div>' +
+          '<div class="mt-2 h-4 w-full rounded bg-slate-200"></div>' +
+          '<div class="mt-2 h-3 w-24 rounded bg-slate-200"></div>' +
+          "</li>";
+      }).join("");
+      return '<section class="flex w-[300px] shrink-0 flex-col rounded-md border border-slate-200 bg-slate-50">' +
+        '<h2 class="sticky top-0 flex items-center px-3 py-2 text-sm font-medium text-slate-400">' + label + "</h2>" +
+        '<ol class="min-h-0 flex-1 space-y-2 overflow-y-auto px-2 py-2">' + cards + "</ol></section>";
+    }).join("");
+    if (!held) {
+      setTimeout(function () { region.removeAttribute("aria-busy"); renderAll(); }, 500);
+    }
+  }
+
+  /* ---------- Toasts ---------- */
+  function showToast(message, opts) {
+    opts = opts || {};
+    var host = document.getElementById("toast-host");
+    var el = document.createElement("div");
+    el.setAttribute("role", "status");
+    el.className = "flex items-center gap-3 rounded-md border border-slate-200 bg-white px-3 py-2 text-sm shadow-lg";
+    var html = '<span>' + escapeHtml(message) + "</span>";
+    if (opts.undo) html += '<button type="button" class="font-medium text-blue-700 hover:underline">Undo</button>';
+    html += '<button type="button" class="ml-1 inline-flex size-5 items-center justify-center rounded text-slate-400 hover:bg-slate-100" aria-label="Dismiss notification"><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="size-3"><path d="M18 6 6 18M6 6l12 12"/></svg></button>';
+    el.innerHTML = html;
+    host.appendChild(el);
+
+    var duration = opts.undo ? 10000 : 5000;
+    var timer = setTimeout(remove, duration);
+    function remove() { clearTimeout(timer); if (el.parentNode) el.parentNode.removeChild(el); }
+    el.addEventListener("mouseenter", function () { clearTimeout(timer); });
+    el.addEventListener("mouseleave", function () { timer = setTimeout(remove, duration); });
+    var buttons = el.querySelectorAll("button");
+    if (opts.undo) {
+      buttons[0].addEventListener("click", function () { opts.undo(); remove(); });
+      buttons[1].addEventListener("click", remove);
+    } else {
+      buttons[0].addEventListener("click", remove);
+    }
+  }
+
+  /* ---------- Moving tickets ---------- */
+  function closeAllMenus() {
+    document.querySelectorAll("[data-move-menu]").forEach(function (m) { m.classList.add("hidden"); });
+    document.querySelectorAll("[data-kebab]").forEach(function (b) { b.setAttribute("aria-expanded", "false"); });
+  }
+
+  function performMove(ticket, toStatus) {
+    var fromStatus = ticket.status;
+    ticket.status = toStatus;
+    renderAll();
+    if (state.openTicketId === ticket.id) openPanel(ticket.id, panelOpenerEl);
+    showToast(ticket.code + " moved to " + statusLabel(toStatus), {
+      undo: function () {
+        ticket.status = fromStatus;
+        renderAll();
+        if (state.openTicketId === ticket.id) openPanel(ticket.id, panelOpenerEl);
+      }
+    });
+  }
+
+  function requestMove(ticket, toStatus) {
+    if (toStatus === "resolved" && ticket.status !== "resolved") {
+      openResolveDialog(ticket);
+      return;
+    }
+    performMove(ticket, toStatus);
+  }
+
+  /* ---------- Resolve dialog ---------- */
+  var resolveDialog = document.getElementById("resolve-dialog");
+  var resolveForm = document.getElementById("resolve-form");
+  var pendingResolveTicket = null;
+  function openResolveDialog(ticket) {
+    pendingResolveTicket = ticket;
+    document.getElementById("resolve-code").textContent = ticket.code;
+    document.getElementById("resolve-note").value = "";
+    document.getElementById("resolve-note-err").classList.add("hidden");
+    resolveDialog.showModal();
+    document.getElementById("resolve-note").focus();
+  }
+  document.getElementById("resolve-cancel").addEventListener("click", function () { resolveDialog.close(); });
+  resolveDialog.addEventListener("close", function () {
+    if (state.openTicketId) openPanel(state.openTicketId, panelOpenerEl);
+  });
+  resolveForm.addEventListener("submit", function (e) {
+    e.preventDefault();
+    var note = document.getElementById("resolve-note").value.trim();
+    var err = document.getElementById("resolve-note-err");
+    if (note.length < 10) {
+      err.textContent = "Enter a resolution summary of at least 10 characters.";
+      err.classList.remove("hidden");
+      document.getElementById("resolve-note").focus();
+      return;
+    }
+    pendingResolveTicket.resolutionNote = note;
+    pendingResolveTicket.resolvedAt = NOW;
+    performMove(pendingResolveTicket, "resolved");
+    resolveDialog.close();
+  });
+
+  /* ---------- Create ticket dialog ---------- */
+  var createDialog = document.getElementById("create-dialog");
+  var createForm = document.getElementById("create-form");
+  var nextId = 1043;
+  function openCreateDialog() {
+    createForm.reset();
+    document.getElementById("f-priority").value = "medium";
+    ["f-customer-err", "f-subject-err"].forEach(function (id) { document.getElementById(id).classList.add("hidden"); });
+    createDialog.showModal();
+    document.getElementById("f-customer").focus();
+  }
+  document.getElementById("create-ticket-btn").addEventListener("click", openCreateDialog);
+  document.getElementById("create-cancel").addEventListener("click", function () { createDialog.close(); });
+  createForm.addEventListener("submit", function (e) {
+    e.preventDefault();
+    var customer = document.getElementById("f-customer").value.trim();
+    var subject = document.getElementById("f-subject").value.trim();
+    var firstInvalid = null;
+    var custErr = document.getElementById("f-customer-err");
+    var subjErr = document.getElementById("f-subject-err");
+    custErr.classList.add("hidden"); subjErr.classList.add("hidden");
+    if (!customer) { custErr.textContent = "Enter the customer's name."; custErr.classList.remove("hidden"); firstInvalid = firstInvalid || document.getElementById("f-customer"); }
+    if (!subject) { subjErr.textContent = "Enter a short subject."; subjErr.classList.remove("hidden"); firstInvalid = firstInvalid || document.getElementById("f-subject"); }
+    if (firstInvalid) { firstInvalid.focus(); return; }
+
+    var priority = document.getElementById("f-priority").value;
+    var type = document.getElementById("f-type").value || TYPES[0];
+    var assignee = document.getElementById("f-assignee").value || null;
+    var slaHoursByPriority = { urgent: 4, high: 24, medium: 48, low: 96 };
+    var code = "TCK-" + nextId++;
+    var ticket = {
+      id: code, code: code, customer: customer, subject: subject, type: type, priority: priority,
+      status: "open", assignee: assignee, createdAt: NOW, dueAt: hrs(slaHoursByPriority[priority]),
+      resolvedAt: null, description: "", resolutionNote: null
+    };
+    TICKETS.unshift(ticket);
+    createDialog.close();
+    renderAll();
+    showToast("Ticket " + code + " created");
+  });
+
+  /* ---------- Ticket detail panel ---------- */
+  var panel = document.getElementById("ticket-panel");
+  var overlay = document.getElementById("panel-overlay");
+  var panelOpenerEl = null;
+
+  function panelBodyHtml(t) {
+    var contact = CONTACTS[t.customer] || { name: t.customer, email: "", phone: "" };
+    var urg = getUrgency(t);
+    var slaLine = urg.tone
+      ? badge(urg.text, urg.tone) + ' <time datetime="' + t.dueAt.toISOString() + '" class="text-xs text-slate-500">' + escapeHtml(formatDateTime(t.dueAt)) + "</time>"
+      : '<span class="text-sm text-slate-700">' + escapeHtml(urg.text) + "</span>";
+
+    var statusOptions = STATUSES.map(function (s) {
+      return '<option value="' + s.id + '"' + (s.id === t.status ? " selected" : "") + ">" + escapeHtml(s.label) + "</option>";
+    }).join("");
+
+    var activity = [];
+    activity.push({ at: t.createdAt, text: "Ticket created via " + CHANNEL_BY_TYPE[t.type] });
+    if (t.assignee) activity.push({ at: new Date(t.createdAt.getTime() + 20 * 60000), text: "Assigned to " + t.assignee });
+    if (t.status === "waiting") activity.push({ at: new Date(Math.min(NOW.getTime(), t.dueAt.getTime())), text: "Waiting on customer response" });
+    if (t.resolvedAt) activity.push({ at: t.resolvedAt, text: "Marked resolved" });
+    if (t.status === "closed") activity.push({ at: t.resolvedAt, text: "Ticket closed" });
+    activity.sort(function (a, b) { return b.at.getTime() - a.at.getTime(); });
+
+    var activityHtml = activity.map(function (a) {
+      return '<li class="flex items-start justify-between gap-3 py-2 text-sm"><span class="text-slate-700">' + escapeHtml(a.text) + '</span><time datetime="' + a.at.toISOString() + '" class="shrink-0 whitespace-nowrap text-xs text-slate-500">' + escapeHtml(formatDateTime(a.at)) + "</time></li>";
+    }).join("");
+
+    return (
+      '<div class="space-y-5">' +
+        '<div>' +
+          '<div class="flex items-center gap-2">' +
+            '<span class="font-mono text-xs text-slate-500">' + escapeHtml(t.code) + "</span>" +
+            badge(PRIORITIES[t.priority].label, PRIORITIES[t.priority].tone) +
+            badge(statusLabel(t.status), STATUS_BY_ID[t.status].tone) +
+          "</div>" +
+          '<h3 class="mt-1 text-base font-semibold text-slate-900">' + escapeHtml(t.subject) + "</h3>" +
+        "</div>" +
+
+        '<div class="grid grid-cols-2 gap-3 rounded-md border border-slate-200 p-3 text-sm">' +
+          '<div><p class="text-xs text-slate-500">Customer</p><p class="font-medium text-slate-900">' + escapeHtml(t.customer) + "</p></div>" +
+          '<div><p class="text-xs text-slate-500">Type</p><p class="text-slate-900">' + escapeHtml(t.type) + "</p></div>" +
+          '<div><p class="text-xs text-slate-500">Contact</p><p class="text-slate-900">' + escapeHtml(contact.name) + "</p>" +
+            (contact.email ? '<a class="block text-blue-700 hover:underline" href="mailto:' + encodeURIComponent(contact.email) + '">' + escapeHtml(contact.email) + "</a>" : "") +
+            (contact.phone ? '<a class="block text-blue-700 hover:underline" href="tel:' + contact.phone + '">' + escapeHtml(contact.phone) + "</a>" : "") +
+          "</div>" +
+          '<div><p class="text-xs text-slate-500">SLA</p><div class="mt-0.5">' + slaLine + "</div></div>" +
+        "</div>" +
+
+        '<div>' +
+          '<label for="panel-status" class="mb-1 block text-sm font-medium text-slate-900">Status</label>' +
+          '<select id="panel-status" class="h-8 w-full rounded border border-slate-300 px-2 text-sm">' + statusOptions + "</select>" +
+        "</div>" +
+
+        '<div>' +
+          '<p class="mb-1 text-sm font-medium text-slate-900">Assignee</p>' +
+          '<p class="text-sm text-slate-700">' + (t.assignee ? escapeHtml(t.assignee) : "Unassigned") + "</p>" +
+        "</div>" +
+
+        '<div>' +
+          '<p class="mb-1 text-sm font-medium text-slate-900">Description</p>' +
+          '<p class="text-sm leading-relaxed text-slate-700">' + escapeHtml(t.description || "No description provided.") + "</p>" +
+        "</div>" +
+
+        (t.resolutionNote ? '<div><p class="mb-1 text-sm font-medium text-slate-900">Resolution</p><p class="text-sm leading-relaxed text-slate-700">' + escapeHtml(t.resolutionNote) + "</p></div>" : "") +
+
+        '<div>' +
+          '<p class="mb-1 text-sm font-medium text-slate-900">Activity</p>' +
+          '<ul class="divide-y divide-slate-100">' + activityHtml + "</ul>" +
+        "</div>" +
+      "</div>"
+    );
+  }
+
+  function openPanel(id, opener) {
+    var t = ticketById(id);
+    if (!t) return;
+    panelOpenerEl = opener || null;
+    state.openTicketId = id;
+    document.getElementById("panel-heading").textContent = t.code + " · " + t.subject;
+    document.getElementById("panel-body").innerHTML = panelBodyHtml(t);
+    document.getElementById("panel-status").addEventListener("change", function (e) {
+      var newStatus = e.target.value;
+      if (newStatus !== t.status) requestMove(t, newStatus);
+    });
+    panel.hidden = false;
+    overlay.hidden = false;
+    pushTicketUrl(id);
+    document.getElementById("panel-heading").focus();
+  }
+  function closePanel(skipHistory) {
+    panel.hidden = true;
+    overlay.hidden = true;
+    state.openTicketId = null;
+    if (!skipHistory) popTicketUrl();
+    if (panelOpenerEl && document.contains(panelOpenerEl)) panelOpenerEl.focus();
+    panelOpenerEl = null;
+  }
+  document.getElementById("panel-close").addEventListener("click", function () { closePanel(); });
+  overlay.addEventListener("click", function () { closePanel(); });
+  document.addEventListener("keydown", function (e) {
+    if (e.key === "Escape" && !panel.hidden) closePanel();
+  });
+
+  function pushTicketUrl(id) {
+    try {
+      var url = new URL(location.href);
+      url.searchParams.set("ticket", id);
+      history.pushState({ ticket: id }, "", url);
+    } catch (err) { /* history API may be restricted for file:// documents */ }
+  }
+  function popTicketUrl() {
+    try {
+      var url = new URL(location.href);
+      if (url.searchParams.has("ticket")) {
+        url.searchParams.delete("ticket");
+        history.pushState({}, "", url);
+      }
+    } catch (err) { /* history API may be restricted for file:// documents */ }
+  }
+  window.addEventListener("popstate", function () {
+    var url = new URL(location.href);
+    var id = url.searchParams.get("ticket");
+    if (id && ticketById(id)) openPanel(id, null);
+    else if (!panel.hidden) closePanel(true);
+  });
+
+  /* ---------- Delegated events ---------- */
+  document.addEventListener("click", function (e) {
+    var openBtn = e.target.closest("[data-open-ticket]");
+    if (openBtn) { openPanel(openBtn.getAttribute("data-open-ticket"), openBtn); return; }
+
+    var kebab = e.target.closest("[data-kebab]");
+    if (kebab) {
+      var id = kebab.getAttribute("data-kebab");
+      var menu = document.querySelector('[data-move-menu="' + id + '"]');
+      var wasHidden = menu.classList.contains("hidden");
+      closeAllMenus();
+      if (wasHidden) { menu.classList.remove("hidden"); kebab.setAttribute("aria-expanded", "true"); }
+      return;
+    }
+
+    var moveItem = e.target.closest("[data-move-ticket]");
+    if (moveItem) {
+      var tid = moveItem.getAttribute("data-move-ticket");
+      var to = moveItem.getAttribute("data-move-to");
+      closeAllMenus();
+      requestMove(ticketById(tid), to);
+      return;
+    }
+
+    var removeChipBtn = e.target.closest("[data-remove-chip]");
+    if (removeChipBtn) { removeChip(removeChipBtn.getAttribute("data-remove-chip")); return; }
+    if (e.target.closest("#clear-all-btn")) { clearAllFilters(); return; }
+
+    var collapseBtn = e.target.closest("[data-collapse-col]");
+    if (collapseBtn) {
+      var colId = collapseBtn.getAttribute("data-collapse-col");
+      state.collapsed[colId] = !state.collapsed[colId];
+      renderBoard();
+      return;
+    }
+
+    var sortBtn = e.target.closest("[data-sort]");
+    if (sortBtn) {
+      var key = sortBtn.getAttribute("data-sort");
+      if (state.listSort.key === key) state.listSort.dir = state.listSort.dir === "asc" ? "desc" : "asc";
+      else { state.listSort.key = key; state.listSort.dir = "asc"; }
+      renderList();
+      return;
+    }
+
+    if (!e.target.closest("[data-move-menu]") && !e.target.closest("[data-kebab]")) closeAllMenus();
+  });
+
+  document.addEventListener("keydown", function (e) {
+    if (e.key === "Escape") closeAllMenus();
+  });
+
+  /* ---------- Toolbar wiring ---------- */
+  var searchInput = document.getElementById("search-input");
+  var searchClear = document.getElementById("search-clear");
+  var searchTimer = null;
+  searchInput.addEventListener("input", function () {
+    searchClear.hidden = searchInput.value.length === 0;
+    clearTimeout(searchTimer);
+    searchTimer = setTimeout(function () { state.q = searchInput.value; renderAll(); }, 300);
+  });
+  searchClear.addEventListener("click", function () { searchInput.value = ""; searchClear.hidden = true; state.q = ""; renderAll(); searchInput.focus(); });
+
+  document.getElementById("filter-assignee").addEventListener("change", function (e) { state.assignee = e.target.value; renderAll(); });
+  document.getElementById("filter-priority").addEventListener("change", function (e) { state.priority = e.target.value; renderAll(); });
+  document.getElementById("filter-type").addEventListener("change", function (e) { state.type = e.target.value; renderAll(); });
+  document.getElementById("filter-mine").addEventListener("click", function (e) {
+    state.mine = !state.mine;
+    e.target.setAttribute("aria-pressed", String(state.mine));
+    renderAll();
+  });
+
+  var viewBoardBtn = document.getElementById("view-board-btn");
+  var viewListBtn = document.getElementById("view-list-btn");
+  function setView(v) {
+    state.view = v;
+    viewBoardBtn.setAttribute("aria-pressed", String(v === "board"));
+    viewListBtn.setAttribute("aria-pressed", String(v === "list"));
+    try {
+      var url = new URL(location.href);
+      if (v === "board") url.searchParams.delete("view"); else url.searchParams.set("view", v);
+      history.replaceState(history.state, "", url);
+    } catch (err) { /* history API may be restricted for file:// documents */ }
+    renderAll();
+  }
+  viewBoardBtn.addEventListener("click", function () { setView("board"); });
+  viewListBtn.addEventListener("click", function () { setView("list"); });
+
+  document.getElementById("retry-btn").addEventListener("click", function () {
+    state.pageState = null;
+    showSkeleton(false);
+  });
+
+  /* ---------- Account menu (minimal) ---------- */
+  document.getElementById("account-menu-trigger").addEventListener("click", function (e) {
+    e.target.setAttribute("aria-expanded", e.target.getAttribute("aria-expanded") === "true" ? "false" : "true");
+  });
+
+  /* ---------- Boot ---------- */
+  (function boot() {
+    var params = new URLSearchParams(location.search);
+    var urlState = params.get("state");
+    var urlView = params.get("view");
+    var urlTicket = params.get("ticket");
+    if (urlView === "list") setView("list");
+
+    if (urlState === "empty") {
+      TICKETS.length = 0;
+      renderAll();
+    } else if (urlState === "error") {
+      state.pageState = "error";
+      renderAll();
+    } else if (urlState === "loading") {
+      showSkeleton(true);
+    } else {
+      showSkeleton(false);
+    }
+
+    if (urlTicket && ticketById(urlTicket) && urlState !== "loading") {
+      setTimeout(function () { openPanel(urlTicket, null); }, urlState ? 0 : 520);
+    }
+  })();
+})();
+</script>
+</body>
+</html>

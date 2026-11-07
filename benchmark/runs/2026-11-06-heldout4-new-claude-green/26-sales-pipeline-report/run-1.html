@@ -1,0 +1,816 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Sales pipeline report</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+  [hidden] { display: none !important; }
+  body { font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
+  .tabular-nums { font-variant-numeric: tabular-nums; }
+  @page { size: A4 landscape; margin: 12mm; }
+  @media print {
+    html, body { background: #fff; }
+    .no-print { display: none !important; }
+    main { margin: 0; padding: 0; max-width: none; }
+    table { border-collapse: collapse; width: 100%; }
+    thead { display: table-header-group; }
+    tfoot { display: table-row-group; }
+    tr { break-inside: avoid; }
+    h1, h2 { break-after: avoid; }
+    * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  }
+</style>
+</head>
+<body class="bg-slate-50 text-slate-900 text-sm">
+
+<!-- ========== App shell ========== -->
+<div class="min-h-screen flex">
+  <!-- Sidebar -->
+  <aside class="no-print w-56 shrink-0 border-r border-slate-200 bg-white hidden md:flex flex-col">
+    <div class="h-14 flex items-center px-4 border-b border-slate-200">
+      <span class="font-semibold text-slate-900">Northwind CRM</span>
+    </div>
+    <nav class="flex-1 py-3 text-sm">
+      <div class="px-3 pb-1 pt-2 text-xs font-medium text-slate-500">Workspace</div>
+      <a href="#" class="flex items-center h-9 px-3 text-slate-600 hover:bg-slate-100 rounded mx-2">Dashboard</a>
+      <a href="#" class="flex items-center h-9 px-3 text-slate-600 hover:bg-slate-100 rounded mx-2">Deals</a>
+      <a href="#" class="flex items-center h-9 px-3 text-slate-600 hover:bg-slate-100 rounded mx-2">Accounts</a>
+      <div class="px-3 pb-1 pt-4 text-xs font-medium text-slate-500">Reports</div>
+      <a href="#" aria-current="page" class="flex items-center h-9 px-3 rounded mx-2 bg-blue-50 text-blue-700 font-medium">Sales pipeline</a>
+      <a href="#" class="flex items-center h-9 px-3 text-slate-600 hover:bg-slate-100 rounded mx-2">Forecast history</a>
+      <a href="#" class="flex items-center h-9 px-3 text-slate-600 hover:bg-slate-100 rounded mx-2">Activity log</a>
+    </nav>
+    <div class="border-t border-slate-200 p-3 text-xs text-slate-500">Help &amp; support</div>
+  </aside>
+
+  <!-- Main -->
+  <main class="flex-1 min-w-0">
+    <div class="max-w-[1400px] mx-auto px-4 md:px-6 py-6">
+
+      <!-- Breadcrumb -->
+      <nav aria-label="Breadcrumb" class="no-print text-xs text-slate-500 mb-2">
+        <a href="#" class="hover:underline">Reports</a>
+        <span class="mx-1">/</span>
+        <span class="text-slate-700">Sales pipeline</span>
+      </nav>
+
+      <!-- Page header -->
+      <div class="flex flex-wrap items-start justify-between gap-3 mb-1">
+        <div>
+          <h1 class="text-xl font-semibold text-slate-900">Sales pipeline · Q4 2026</h1>
+          <p class="text-xs text-slate-500 mt-1">Amounts in USD, open deals only · Updated <time dateTime="2026-11-07T14:20:00Z" id="updatedAtText">07/11/2026 14:20</time></p>
+        </div>
+        <div class="no-print flex items-center gap-2">
+          <button type="button" id="printBtn" class="h-8 px-3 rounded border border-slate-300 bg-white text-sm font-medium text-slate-700 hover:bg-slate-50">Print</button>
+          <div class="relative">
+            <button type="button" id="exportBtn" aria-haspopup="menu" aria-expanded="false" class="h-8 px-3 rounded border border-slate-300 bg-white text-sm font-medium text-slate-700 hover:bg-slate-50 inline-flex items-center gap-1">
+              Export <span id="exportScopeLabel" class="tabular-nums"></span>
+              <svg aria-hidden="true" class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
+            </button>
+            <div id="exportMenu" role="menu" hidden class="absolute right-0 mt-1 w-56 rounded-md border border-slate-200 bg-white shadow-md py-1 z-20">
+              <button type="button" role="menuitem" data-export="csv" class="w-full text-left h-9 px-3 text-sm hover:bg-slate-50">Export as CSV</button>
+              <button type="button" role="menuitem" data-export="xlsx" class="w-full text-left h-9 px-3 text-sm hover:bg-slate-50">Export as Excel</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- role=status live region for exports / filter counts -->
+      <p role="status" class="sr-only" id="liveRegion"></p>
+
+      <!-- Period presets -->
+      <div class="no-print flex items-center gap-2 mt-4 mb-3 flex-wrap">
+        <div role="group" aria-label="Period" class="inline-flex rounded-md border border-slate-300 bg-white overflow-hidden">
+          <button type="button" data-period="this-month" class="period-btn h-8 px-3 text-sm text-slate-600 hover:bg-slate-50 border-r border-slate-300">This month</button>
+          <button type="button" data-period="this-quarter" class="period-btn h-8 px-3 text-sm font-medium bg-blue-50 text-blue-700 border-r border-slate-300" aria-pressed="true">This quarter</button>
+          <button type="button" data-period="this-year" class="period-btn h-8 px-3 text-sm text-slate-600 hover:bg-slate-50 border-r border-slate-300">This year</button>
+          <button type="button" data-period="custom" class="period-btn h-8 px-3 text-sm text-slate-600 hover:bg-slate-50">Custom</button>
+        </div>
+        <span class="text-xs text-slate-500">01/10/2026 – 31/12/2026</span>
+      </div>
+
+      <!-- Filter bar -->
+      <div class="no-print flex flex-wrap items-center gap-2 mb-2">
+        <div class="relative w-72">
+          <svg aria-hidden="true" class="size-4 absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
+          <input id="searchInput" type="text" aria-label="Search deals" placeholder="Search deal, account, owner" class="h-8 w-full rounded-md border border-slate-300 bg-white pl-8 pr-8 text-sm focus:outline-none focus:ring-2 focus:ring-blue-600" />
+          <button type="button" id="searchClear" aria-label="Clear search" hidden class="absolute right-1.5 top-1/2 -translate-y-1/2 size-5 inline-flex items-center justify-center rounded hover:bg-slate-100 text-slate-500">
+            <svg aria-hidden="true" class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 6l12 12M18 6L6 18"/></svg>
+          </button>
+        </div>
+
+        <label class="sr-only" for="salespersonFilter">Salesperson</label>
+        <select id="salespersonFilter" class="h-8 rounded-md border border-slate-300 bg-white px-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-600">
+          <option value="">Salesperson: All</option>
+        </select>
+
+        <label class="sr-only" for="stageFilter">Stage</label>
+        <select id="stageFilter" class="h-8 rounded-md border border-slate-300 bg-white px-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-600">
+          <option value="">Stage: All</option>
+        </select>
+
+        <button type="button" id="moreFiltersBtn" aria-haspopup="dialog" aria-expanded="false" class="h-8 px-3 rounded-md border border-slate-300 bg-white text-sm text-slate-700 hover:bg-slate-50">More filters</button>
+
+        <div class="ml-auto flex items-center gap-2">
+          <label for="groupBySelect" class="text-xs text-slate-500">Group by</label>
+          <select id="groupBySelect" class="h-8 rounded-md border border-slate-300 bg-white px-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-600">
+            <option value="salesperson">Salesperson</option>
+            <option value="stage">Stage</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- More filters panel -->
+      <div id="moreFiltersPanel" hidden class="no-print mb-3 rounded-md border border-slate-200 bg-white p-4 shadow-md">
+        <div class="flex flex-wrap gap-4">
+          <div>
+            <label class="block text-xs font-medium text-slate-600 mb-1" for="regionFilter">Region</label>
+            <select id="regionFilter" class="h-8 w-44 rounded-md border border-slate-300 bg-white px-2 text-sm">
+              <option value="">All regions</option>
+              <option value="West">West</option>
+              <option value="East">East</option>
+              <option value="Central">Central</option>
+              <option value="International">International</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-xs font-medium text-slate-600 mb-1" for="minAmountFilter">Minimum deal value (USD)</label>
+            <input id="minAmountFilter" type="number" min="0" step="1000" class="h-8 w-44 rounded-md border border-slate-300 bg-white px-2 text-sm" placeholder="e.g. 10000" />
+          </div>
+          <div>
+            <label class="block text-xs font-medium text-slate-600 mb-1" for="probMinFilter">Minimum probability</label>
+            <select id="probMinFilter" class="h-8 w-44 rounded-md border border-slate-300 bg-white px-2 text-sm">
+              <option value="0">Any</option>
+              <option value="0.25">25%+</option>
+              <option value="0.5">50%+</option>
+              <option value="0.75">75%+</option>
+            </select>
+          </div>
+        </div>
+        <div class="flex justify-between items-center mt-4 pt-3 border-t border-slate-200">
+          <button type="button" id="moreFiltersReset" class="h-8 px-3 text-sm font-medium text-slate-600 hover:underline">Reset</button>
+          <div class="flex gap-2">
+            <button type="button" id="moreFiltersCancel" class="h-8 px-3 rounded-md border border-slate-300 bg-white text-sm font-medium text-slate-700 hover:bg-slate-50">Cancel</button>
+            <button type="button" id="moreFiltersApply" class="h-8 px-3 rounded-md bg-blue-700 text-sm font-medium text-white hover:bg-blue-800">Apply</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Applied chips -->
+      <div id="chipsRow" class="no-print flex flex-wrap items-center gap-2 mb-3"></div>
+
+      <!-- Summary line -->
+      <p id="summaryLine" class="text-sm text-slate-600 tabular-nums mb-3"></p>
+
+      <!-- ============ Report region ============ -->
+      <div id="reportRegion" aria-busy="false">
+
+        <!-- Loading skeleton -->
+        <div id="loadingState" hidden class="rounded-md border border-slate-200 bg-white overflow-hidden">
+          <div class="h-10 border-b border-slate-200 bg-slate-50"></div>
+          <div class="divide-y divide-slate-100">
+            <div class="h-10 flex items-center gap-4 px-3"><div class="h-3 w-40 bg-slate-200 rounded animate-pulse"></div><div class="h-3 w-20 bg-slate-200 rounded animate-pulse ml-auto"></div><div class="h-3 w-20 bg-slate-200 rounded animate-pulse"></div><div class="h-3 w-16 bg-slate-200 rounded animate-pulse"></div></div>
+            <div class="h-10 flex items-center gap-4 px-3"><div class="h-3 w-36 bg-slate-200 rounded animate-pulse"></div><div class="h-3 w-20 bg-slate-200 rounded animate-pulse ml-auto"></div><div class="h-3 w-20 bg-slate-200 rounded animate-pulse"></div><div class="h-3 w-16 bg-slate-200 rounded animate-pulse"></div></div>
+            <div class="h-10 flex items-center gap-4 px-3"><div class="h-3 w-44 bg-slate-200 rounded animate-pulse"></div><div class="h-3 w-20 bg-slate-200 rounded animate-pulse ml-auto"></div><div class="h-3 w-20 bg-slate-200 rounded animate-pulse"></div><div class="h-3 w-16 bg-slate-200 rounded animate-pulse"></div></div>
+            <div class="h-10 flex items-center gap-4 px-3"><div class="h-3 w-32 bg-slate-200 rounded animate-pulse"></div><div class="h-3 w-20 bg-slate-200 rounded animate-pulse ml-auto"></div><div class="h-3 w-20 bg-slate-200 rounded animate-pulse"></div><div class="h-3 w-16 bg-slate-200 rounded animate-pulse"></div></div>
+            <div class="h-10 flex items-center gap-4 px-3"><div class="h-3 w-40 bg-slate-200 rounded animate-pulse"></div><div class="h-3 w-20 bg-slate-200 rounded animate-pulse ml-auto"></div><div class="h-3 w-20 bg-slate-200 rounded animate-pulse"></div><div class="h-3 w-16 bg-slate-200 rounded animate-pulse"></div></div>
+          </div>
+        </div>
+
+        <!-- Error state -->
+        <div id="errorState" hidden class="rounded-md border border-slate-200 bg-white p-8 text-center">
+          <p class="text-sm text-slate-700 mb-3">Could not load the pipeline report.</p>
+          <button type="button" id="retryBtn" class="h-8 px-3 rounded-md border border-slate-300 bg-white text-sm font-medium text-slate-700 hover:bg-slate-50">Retry</button>
+        </div>
+
+        <!-- Empty state (no deals at all) -->
+        <div id="emptyState" hidden class="rounded-md border border-slate-200 bg-white p-8 text-center">
+          <p class="text-sm text-slate-700 mb-1">No open deals yet.</p>
+          <p class="text-xs text-slate-500 mb-3">Deals you create for this quarter will appear here, grouped by salesperson and stage.</p>
+          <a href="#" class="inline-flex h-8 items-center px-3 rounded-md bg-blue-700 text-sm font-medium text-white hover:bg-blue-800">Create deal</a>
+        </div>
+
+        <!-- No-results state -->
+        <div id="noResultsState" hidden class="rounded-md border border-slate-200 bg-white p-8 text-center">
+          <p class="text-sm text-slate-700 mb-1" id="noResultsText">No deals match these filters.</p>
+          <p class="text-xs text-slate-500 mb-3">Check the spelling, or widen the stage, salesperson or value filters.</p>
+          <button type="button" id="clearFiltersBtn" class="h-8 px-3 rounded-md border border-slate-300 bg-white text-sm font-medium text-slate-700 hover:bg-slate-50">Clear filters</button>
+        </div>
+
+        <!-- Data: tables -->
+        <div id="dataState" hidden>
+          <div class="rounded-md border border-slate-200 bg-white overflow-x-auto">
+            <table class="w-full text-sm" aria-label="Open pipeline by group">
+              <caption class="sr-only">Open deals grouped by <span id="groupCaption">salesperson</span>, with pipeline value, weighted forecast and win rate</caption>
+              <thead>
+                <tr class="border-b border-slate-200 bg-slate-50">
+                  <th scope="col" class="h-10 px-3 text-left font-medium text-slate-600">
+                    <button type="button" class="sort-btn inline-flex items-center gap-1" data-sort="group">Group
+                      <svg aria-hidden="true" class="size-4 opacity-40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12l7 7 7-7"/></svg>
+                    </button>
+                  </th>
+                  <th scope="col" class="h-10 px-3 text-right font-medium text-slate-600">
+                    <button type="button" class="sort-btn inline-flex flex-row-reverse items-center gap-1 text-right" data-sort="deals">Open deals
+                      <svg aria-hidden="true" class="size-4 opacity-40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12l7 7 7-7"/></svg>
+                    </button>
+                  </th>
+                  <th scope="col" class="h-10 px-3 text-right font-medium text-slate-600">
+                    <button type="button" class="sort-btn inline-flex flex-row-reverse items-center gap-1 text-right" data-sort="pipeline" aria-sort="descending">Pipeline value (USD)
+                      <svg aria-hidden="true" class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 15l-7-7-7 7"/></svg>
+                    </button>
+                  </th>
+                  <th scope="col" class="h-10 px-3 text-right font-medium text-slate-600">
+                    <button type="button" class="sort-btn inline-flex flex-row-reverse items-center gap-1 text-right" data-sort="weighted">Weighted forecast (USD)
+                      <svg aria-hidden="true" class="size-4 opacity-40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12l7 7 7-7"/></svg>
+                    </button>
+                  </th>
+                  <th scope="col" class="h-10 px-3 text-right font-medium text-slate-600">
+                    <button type="button" class="sort-btn inline-flex flex-row-reverse items-center gap-1 text-right" data-sort="winrate">Win rate (QTD)
+                      <svg aria-hidden="true" class="size-4 opacity-40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12l7 7 7-7"/></svg>
+                    </button>
+                  </th>
+                  <th scope="col" class="h-10 px-3 text-right font-medium text-slate-600">Share</th>
+                </tr>
+              </thead>
+              <tbody id="groupTableBody"></tbody>
+              <tfoot>
+                <tr class="border-t-2 border-slate-300 bg-slate-50 font-medium">
+                  <th scope="row" class="h-10 px-3 text-left">Total</th>
+                  <td id="totalDeals" class="h-10 px-3 text-right tabular-nums"></td>
+                  <td id="totalPipeline" class="h-10 px-3 text-right tabular-nums"></td>
+                  <td id="totalWeighted" class="h-10 px-3 text-right tabular-nums"></td>
+                  <td id="totalWinrate" class="h-10 px-3 text-right tabular-nums"></td>
+                  <td class="h-10 px-3 text-right tabular-nums">100%</td>
+                </tr>
+              </tfoot>
+            </table>
+          </div>
+
+          <!-- Deal detail table -->
+          <h2 class="text-base font-semibold text-slate-900 mt-6 mb-2">Open deals</h2>
+          <div class="rounded-md border border-slate-200 bg-white overflow-x-auto max-h-[480px] overflow-y-auto">
+            <table class="w-full text-sm" aria-label="Open deals detail">
+              <thead>
+                <tr class="border-b border-slate-200 bg-slate-50 sticky top-0">
+                  <th scope="col" class="h-10 px-3 text-left font-medium text-slate-600">Deal</th>
+                  <th scope="col" class="h-10 px-3 text-left font-medium text-slate-600">Account</th>
+                  <th scope="col" class="h-10 px-3 text-left font-medium text-slate-600">Salesperson</th>
+                  <th scope="col" class="h-10 px-3 text-left font-medium text-slate-600">Stage</th>
+                  <th scope="col" class="h-10 px-3 text-left font-medium text-slate-600">Expected close</th>
+                  <th scope="col" class="h-10 px-3 text-right font-medium text-slate-600">
+                    <button type="button" class="sort-btn inline-flex flex-row-reverse items-center gap-1 text-right" data-sort-deal="amount">Value (USD)
+                      <svg aria-hidden="true" class="size-4 opacity-40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12l7 7 7-7"/></svg>
+                    </button>
+                  </th>
+                  <th scope="col" class="h-10 px-3 text-right font-medium text-slate-600">Probability</th>
+                  <th scope="col" class="h-10 px-3 text-right font-medium text-slate-600">Weighted (USD)</th>
+                </tr>
+              </thead>
+              <tbody id="dealsTableBody"></tbody>
+            </table>
+          </div>
+          <p class="text-xs text-slate-500 mt-2" id="dealCountLine"></p>
+        </div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  var fmtMoney = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 });
+  var fmtNumber = new Intl.NumberFormat('en-US');
+  var fmtPercent1 = new Intl.NumberFormat('en-US', { style: 'percent', maximumFractionDigits: 1 });
+
+  // Intl en-US gives MM/DD/YYYY; normalize to dd/MM/yyyy for consistency with the basis line.
+  function fmtDateDMY(iso) {
+    var parts = iso.split('-'); // YYYY-MM-DD
+    return parts[2] + '/' + parts[1] + '/' + parts[0];
+  }
+
+  // ---------- Mock data ----------
+  var SALESPEOPLE = ['Dana Whitfield', 'Marcus Lee', 'Priya Nandakumar', 'Carlos Ibarra', 'Jenna Ostrowski', 'Tom Baptiste'];
+  var STAGES = ['Qualification', 'Discovery', 'Proposal', 'Negotiation', 'Closing'];
+  var STAGE_PROB = { 'Qualification': 0.15, 'Discovery': 0.3, 'Proposal': 0.5, 'Negotiation': 0.7, 'Closing': 0.9 };
+  var STAGE_TONE = { 'Qualification': 'neutral', 'Discovery': 'info', 'Proposal': 'info', 'Negotiation': 'warning', 'Closing': 'success' };
+  var REGIONS = ['West', 'East', 'Central', 'International'];
+  var ACCOUNTS = ['Alder Logistics', 'Brightpath Health', 'Celeste Retail Group', 'Driftwood Manufacturing', 'Ember Financial',
+    'Fenwick & Co.', 'Granite Peak Energy', 'Harborline Shipping', 'Ironclad Insurance', 'Juniper Media',
+    'Kestrel Aerospace', 'Lumenwell Pharma', 'Meridian Capital', 'Northbridge Telecom', 'Orchard Foods',
+    'Pinewood Realty', 'Quarry Construction', 'Redwood Analytics', 'Summit Outdoor Gear', 'Vantage Robotics'];
+
+  function seededRandom(seed) {
+    var s = seed % 2147483647;
+    if (s <= 0) s += 2147483646;
+    return function () { s = (s * 16807) % 2147483647; return (s - 1) / 2147483646; };
+  }
+  var rand = seededRandom(42);
+
+  var DEALS = (function () {
+    var out = [];
+    var id = 1001;
+    ACCOUNTS.forEach(function (account, i) {
+      var count = 2 + Math.floor(rand() * 2); // 2-3 deals per account
+      for (var k = 0; k < count; k++) {
+        var stage = STAGES[Math.floor(rand() * STAGES.length)];
+        var owner = SALESPEOPLE[Math.floor(rand() * SALESPEOPLE.length)];
+        var region = REGIONS[Math.floor(rand() * REGIONS.length)];
+        var amount = Math.round((8000 + rand() * 180000) / 500) * 500;
+        var day = 1 + Math.floor(rand() * 28);
+        var month = 10 + Math.floor(rand() * 3); // Oct(10)-Dec(12)
+        var closeDate = '2026-' + String(month).padStart(2, '0') + '-' + String(day).padStart(2, '0');
+        out.push({
+          id: 'DL-' + (id++),
+          name: account.split(' ')[0] + ' ' + ['Expansion', 'Renewal', 'New platform', 'Upgrade', 'Pilot rollout'][Math.floor(rand() * 5)],
+          account: account,
+          owner: owner,
+          region: region,
+          stage: stage,
+          probability: STAGE_PROB[stage],
+          amount: amount,
+          closeDate: closeDate
+        });
+      }
+    });
+    return out;
+  })();
+
+  // Win rate mock: per salesperson and per stage, closed deals this quarter
+  var WIN_RATE_BY_SALESPERSON = { 'Dana Whitfield': 0.42, 'Marcus Lee': 0.35, 'Priya Nandakumar': 0.51, 'Carlos Ibarra': 0.28, 'Jenna Ostrowski': 0.39, 'Tom Baptiste': 0.33 };
+  var WIN_RATE_BY_STAGE = { 'Qualification': 0.12, 'Discovery': 0.22, 'Proposal': 0.38, 'Negotiation': 0.58, 'Closing': 0.81 };
+
+  // ---------- State ----------
+  var state = {
+    q: '',
+    salesperson: '',
+    stage: '',
+    region: '',
+    minAmount: 0,
+    probMin: 0,
+    groupBy: 'salesperson',
+    sortGroup: { key: 'pipeline', dir: 'desc' },
+    sortDeal: { key: 'amount', dir: 'desc' },
+    pageState: null // null = normal, 'empty' | 'error' | 'loading'
+  };
+
+  function parseParams() {
+    var sp = new URLSearchParams(location.search);
+    var s = sp.get('state');
+    if (s === 'empty' || s === 'error' || s === 'loading') state.pageState = s;
+    if (sp.get('q')) state.q = sp.get('q');
+    if (sp.get('salesperson')) state.salesperson = sp.get('salesperson');
+    if (sp.get('stage')) state.stage = sp.get('stage');
+    if (sp.get('groupBy')) state.groupBy = sp.get('groupBy');
+  }
+  parseParams();
+
+  // ---------- Populate filter selects ----------
+  var salespersonFilter = document.getElementById('salespersonFilter');
+  SALESPEOPLE.forEach(function (name) {
+    var opt = document.createElement('option');
+    opt.value = name; opt.textContent = name;
+    salespersonFilter.appendChild(opt);
+  });
+  var stageFilter = document.getElementById('stageFilter');
+  STAGES.forEach(function (name) {
+    var opt = document.createElement('option');
+    opt.value = name; opt.textContent = name;
+    stageFilter.appendChild(opt);
+  });
+  salespersonFilter.value = state.salesperson;
+  stageFilter.value = state.stage;
+  document.getElementById('groupBySelect').value = state.groupBy;
+  document.getElementById('searchInput').value = state.q;
+
+  function foldText(s) { return s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase(); }
+
+  function applyFilters() {
+    return DEALS.filter(function (d) {
+      if (state.salesperson && d.owner !== state.salesperson) return false;
+      if (state.stage && d.stage !== state.stage) return false;
+      if (state.region && d.region !== state.region) return false;
+      if (state.minAmount && d.amount < state.minAmount) return false;
+      if (state.probMin && d.probability < state.probMin) return false;
+      if (state.q) {
+        var hay = foldText(d.name + ' ' + d.account + ' ' + d.owner + ' ' + d.id);
+        if (hay.indexOf(foldText(state.q.trim())) === -1) return false;
+      }
+      return true;
+    });
+  }
+
+  function groupDeals(deals, by) {
+    var keys = by === 'stage' ? STAGES : SALESPEOPLE;
+    var groups = keys.map(function (k) { return { key: k, deals: [] }; });
+    var map = {};
+    groups.forEach(function (g) { map[g.key] = g; });
+    deals.forEach(function (d) {
+      var k = by === 'stage' ? d.stage : d.owner;
+      if (map[k]) map[k].deals.push(d);
+    });
+    return groups.filter(function (g) { return g.deals.length > 0; }).map(function (g) {
+      var pipeline = g.deals.reduce(function (s, d) { return s + d.amount; }, 0);
+      var weighted = g.deals.reduce(function (s, d) { return s + d.amount * d.probability; }, 0);
+      var winRate = by === 'stage' ? WIN_RATE_BY_STAGE[g.key] : WIN_RATE_BY_SALESPERSON[g.key];
+      return { group: g.key, deals: g.deals.length, pipeline: pipeline, weighted: weighted, winRate: winRate };
+    });
+  }
+
+  function sortRows(rows, sort) {
+    var copy = rows.slice();
+    copy.sort(function (a, b) {
+      var av = sort.key === 'group' ? a.group : sort.key === 'deals' ? a.deals : sort.key === 'pipeline' ? a.pipeline : sort.key === 'weighted' ? a.weighted : a.winRate;
+      var bv = sort.key === 'group' ? b.group : sort.key === 'deals' ? b.deals : sort.key === 'pipeline' ? b.pipeline : sort.key === 'weighted' ? b.weighted : b.winRate;
+      if (typeof av === 'string') return sort.dir === 'asc' ? av.localeCompare(bv) : bv.localeCompare(av);
+      return sort.dir === 'asc' ? av - bv : bv - av;
+    });
+    return copy;
+  }
+
+  function sortDealsList(deals, sort) {
+    var copy = deals.slice();
+    copy.sort(function (a, b) {
+      var av = sort.key === 'amount' ? a.amount : a.amount;
+      var bv = sort.key === 'amount' ? b.amount : b.amount;
+      return sort.dir === 'asc' ? av - bv : bv - av;
+    });
+    return copy;
+  }
+
+  var TONE_CLASSES = {
+    neutral: 'bg-slate-100 text-slate-700',
+    info: 'bg-blue-50 text-blue-700',
+    success: 'bg-emerald-50 text-emerald-700',
+    warning: 'bg-amber-50 text-amber-800',
+    danger: 'bg-red-50 text-red-700'
+  };
+
+  function stageBadge(stage) {
+    var tone = STAGE_TONE[stage] || 'neutral';
+    return '<span class="inline-flex h-6 items-center whitespace-nowrap rounded-full px-2 text-xs leading-5 font-medium ' + TONE_CLASSES[tone] + '">' + stage + '</span>';
+  }
+
+  function renderChips() {
+    var chipsRow = document.getElementById('chipsRow');
+    chipsRow.innerHTML = '';
+    var chips = [];
+    if (state.q) chips.push({ key: 'q', label: 'Search: ' + state.q });
+    if (state.salesperson) chips.push({ key: 'salesperson', label: 'Salesperson: ' + state.salesperson });
+    if (state.stage) chips.push({ key: 'stage', label: 'Stage: ' + state.stage });
+    if (state.region) chips.push({ key: 'region', label: 'Region: ' + state.region });
+    if (state.minAmount) chips.push({ key: 'minAmount', label: 'Min value: ' + fmtMoney.format(state.minAmount) });
+    if (state.probMin) chips.push({ key: 'probMin', label: 'Min probability: ' + fmtPercent1.format(state.probMin) });
+
+    if (chips.length === 0) return;
+
+    chips.forEach(function (c) {
+      var span = document.createElement('span');
+      span.className = 'inline-flex h-6 items-center gap-1 rounded-full border border-slate-300 bg-white pl-2 pr-1 text-xs leading-5 font-medium text-slate-700';
+      span.innerHTML = c.label + ' <button type="button" aria-label="Remove filter ' + c.label + '" class="chip-remove inline-flex size-6 items-center justify-center rounded-full hover:bg-slate-100" data-key="' + c.key + '"><svg aria-hidden="true" class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 6l12 12M18 6L6 18"/></svg></button>';
+      chipsRow.appendChild(span);
+    });
+    var clearAll = document.createElement('button');
+    clearAll.type = 'button';
+    clearAll.id = 'clearAllChips';
+    clearAll.className = 'text-sm font-medium text-blue-700 hover:underline';
+    clearAll.textContent = 'Clear all';
+    chipsRow.appendChild(clearAll);
+
+    chipsRow.querySelectorAll('.chip-remove').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        var key = btn.getAttribute('data-key');
+        if (key === 'q') { state.q = ''; document.getElementById('searchInput').value = ''; }
+        if (key === 'salesperson') { state.salesperson = ''; salespersonFilter.value = ''; }
+        if (key === 'stage') { state.stage = ''; stageFilter.value = ''; }
+        if (key === 'region') { state.region = ''; document.getElementById('regionFilter').value = ''; }
+        if (key === 'minAmount') { state.minAmount = 0; document.getElementById('minAmountFilter').value = ''; }
+        if (key === 'probMin') { state.probMin = 0; document.getElementById('probMinFilter').value = '0'; }
+        render();
+      });
+    });
+    clearAll.addEventListener('click', clearAllFilters);
+  }
+
+  function clearAllFilters() {
+    state.q = ''; state.salesperson = ''; state.stage = ''; state.region = ''; state.minAmount = 0; state.probMin = 0;
+    document.getElementById('searchInput').value = '';
+    salespersonFilter.value = '';
+    stageFilter.value = '';
+    document.getElementById('regionFilter').value = '';
+    document.getElementById('minAmountFilter').value = '';
+    document.getElementById('probMinFilter').value = '0';
+    render();
+  }
+
+  function showOnly(id) {
+    ['loadingState', 'errorState', 'emptyState', 'noResultsState', 'dataState'].forEach(function (x) {
+      document.getElementById(x).hidden = x !== id;
+    });
+  }
+
+  function updateSortIndicators() {
+    document.querySelectorAll('.sort-btn[data-sort]').forEach(function (btn) {
+      var th = btn.closest('th');
+      var key = btn.getAttribute('data-sort');
+      if (key === state.sortGroup.key) {
+        th.setAttribute('aria-sort', state.sortGroup.dir === 'asc' ? 'ascending' : 'descending');
+      } else {
+        th.removeAttribute('aria-sort');
+      }
+    });
+  }
+
+  function render() {
+    renderChips();
+
+    var exportScopeLabel = document.getElementById('exportScopeLabel');
+
+    if (state.pageState === 'loading') {
+      document.getElementById('reportRegion').setAttribute('aria-busy', 'true');
+      showOnly('loadingState');
+      document.getElementById('summaryLine').textContent = '';
+      exportScopeLabel.textContent = '';
+      return;
+    }
+    document.getElementById('reportRegion').setAttribute('aria-busy', 'false');
+
+    if (state.pageState === 'error') {
+      showOnly('errorState');
+      document.getElementById('summaryLine').textContent = '';
+      exportScopeLabel.textContent = '';
+      return;
+    }
+
+    if (state.pageState === 'empty') {
+      showOnly('emptyState');
+      document.getElementById('summaryLine').textContent = '';
+      exportScopeLabel.textContent = '';
+      return;
+    }
+
+    var filtered = applyFilters();
+    var hasAnyFilter = !!(state.q || state.salesperson || state.stage || state.region || state.minAmount || state.probMin);
+
+    if (filtered.length === 0) {
+      if (!hasAnyFilter) {
+        showOnly('emptyState');
+      } else {
+        var noResultsText = state.q
+          ? 'No deals match "' + state.q + '".'
+          : 'No deals match these filters.';
+        document.getElementById('noResultsText').textContent = noResultsText;
+        showOnly('noResultsState');
+      }
+      document.getElementById('summaryLine').textContent = '';
+      document.getElementById('liveRegion').textContent = 'No deals match';
+      exportScopeLabel.textContent = '';
+      return;
+    }
+
+    showOnly('dataState');
+
+    var totalPipeline = filtered.reduce(function (s, d) { return s + d.amount; }, 0);
+    var totalWeighted = filtered.reduce(function (s, d) { return s + d.amount * d.probability; }, 0);
+
+    // Summary line
+    document.getElementById('summaryLine').textContent =
+      fmtNumber.format(filtered.length) + ' open deal' + (filtered.length === 1 ? '' : 's') + ' · ' + fmtMoney.format(totalPipeline) + ' pipeline';
+    document.getElementById('liveRegion').textContent = fmtNumber.format(filtered.length) + ' deals match';
+    exportScopeLabel.textContent = '(' + fmtNumber.format(filtered.length) + ')';
+
+    // Group table
+    document.getElementById('groupCaption').textContent = state.groupBy;
+    var groups = groupDeals(filtered, state.groupBy);
+    groups = sortRows(groups, state.sortGroup);
+    var tbody = document.getElementById('groupTableBody');
+    tbody.innerHTML = '';
+    groups.forEach(function (g) {
+      var share = totalPipeline > 0 ? g.pipeline / totalPipeline : 0;
+      var tr = document.createElement('tr');
+      tr.className = 'h-10 border-b border-slate-100 hover:bg-slate-50 last:border-0';
+      tr.innerHTML =
+        '<td class="px-3 text-left font-medium">' + g.group + '</td>' +
+        '<td class="px-3 text-right tabular-nums">' + fmtNumber.format(g.deals) + '</td>' +
+        '<td class="px-3 text-right tabular-nums">' + fmtMoney.format(g.pipeline) + '</td>' +
+        '<td class="px-3 text-right tabular-nums">' + fmtMoney.format(g.weighted) + '</td>' +
+        '<td class="px-3 text-right tabular-nums">' + fmtPercent1.format(g.winRate) + '</td>' +
+        '<td class="px-3 text-right tabular-nums">' + fmtPercent1.format(share) + '</td>';
+      tbody.appendChild(tr);
+    });
+
+    document.getElementById('totalDeals').textContent = fmtNumber.format(filtered.length);
+    document.getElementById('totalPipeline').textContent = fmtMoney.format(totalPipeline);
+    document.getElementById('totalWeighted').textContent = fmtMoney.format(totalWeighted);
+    var blendedWinRate = groups.length ? groups.reduce(function (s, g) { return s + g.winRate * g.pipeline; }, 0) / totalPipeline : 0;
+    document.getElementById('totalWinrate').textContent = totalPipeline > 0 ? fmtPercent1.format(blendedWinRate) : '—';
+
+    updateSortIndicators();
+
+    // Deal detail table
+    var sortedDeals = sortDealsList(filtered, state.sortDeal);
+    var dealsBody = document.getElementById('dealsTableBody');
+    dealsBody.innerHTML = '';
+    sortedDeals.forEach(function (d) {
+      var tr = document.createElement('tr');
+      tr.className = 'h-10 border-b border-slate-100 hover:bg-slate-50 last:border-0';
+      tr.innerHTML =
+        '<td class="px-3 text-left"><a href="#" class="text-blue-700 hover:underline">' + d.name + '</a></td>' +
+        '<td class="px-3 text-left">' + d.account + '</td>' +
+        '<td class="px-3 text-left">' + d.owner + '</td>' +
+        '<td class="px-3 text-left">' + stageBadge(d.stage) + '</td>' +
+        '<td class="px-3 text-left tabular-nums"><time datetime="' + d.closeDate + '">' + fmtDateDMY(d.closeDate) + '</time></td>' +
+        '<td class="px-3 text-right tabular-nums">' + fmtMoney.format(d.amount) + '</td>' +
+        '<td class="px-3 text-right tabular-nums">' + fmtPercent1.format(d.probability) + '</td>' +
+        '<td class="px-3 text-right tabular-nums">' + fmtMoney.format(Math.round(d.amount * d.probability)) + '</td>';
+      dealsBody.appendChild(tr);
+    });
+    document.getElementById('dealCountLine').textContent = fmtNumber.format(sortedDeals.length) + ' of ' + fmtNumber.format(DEALS.length) + ' deals shown';
+  }
+
+  // ---------- Wire up controls ----------
+  var searchInput = document.getElementById('searchInput');
+  var searchClear = document.getElementById('searchClear');
+  var searchDebounce = null;
+  searchInput.addEventListener('input', function () {
+    searchClear.hidden = !searchInput.value;
+    clearTimeout(searchDebounce);
+    searchDebounce = setTimeout(function () { state.q = searchInput.value; render(); }, 300);
+  });
+  searchInput.addEventListener('keydown', function (e) {
+    if (e.key === 'Enter') { clearTimeout(searchDebounce); state.q = searchInput.value; render(); }
+  });
+  searchClear.addEventListener('click', function () {
+    searchInput.value = ''; state.q = ''; searchClear.hidden = true; render(); searchInput.focus();
+  });
+
+  salespersonFilter.addEventListener('change', function () { state.salesperson = salespersonFilter.value; render(); });
+  stageFilter.addEventListener('change', function () { state.stage = stageFilter.value; render(); });
+  document.getElementById('groupBySelect').addEventListener('change', function (e) {
+    state.groupBy = e.target.value;
+    state.sortGroup = { key: 'pipeline', dir: 'desc' };
+    render();
+  });
+
+  // More filters panel
+  var moreFiltersBtn = document.getElementById('moreFiltersBtn');
+  var moreFiltersPanel = document.getElementById('moreFiltersPanel');
+  function closeMoreFilters(focusTrigger) {
+    moreFiltersPanel.hidden = true;
+    moreFiltersBtn.setAttribute('aria-expanded', 'false');
+    if (focusTrigger) moreFiltersBtn.focus();
+  }
+  moreFiltersBtn.addEventListener('click', function () {
+    var willOpen = moreFiltersPanel.hidden;
+    moreFiltersPanel.hidden = !willOpen;
+    moreFiltersBtn.setAttribute('aria-expanded', String(willOpen));
+  });
+  document.getElementById('moreFiltersCancel').addEventListener('click', function () { closeMoreFilters(true); });
+  document.getElementById('moreFiltersApply').addEventListener('click', function () {
+    state.region = document.getElementById('regionFilter').value;
+    state.minAmount = Number(document.getElementById('minAmountFilter').value) || 0;
+    state.probMin = Number(document.getElementById('probMinFilter').value) || 0;
+    closeMoreFilters(true);
+    updateMoreFiltersButtonLabel();
+    render();
+  });
+  document.getElementById('moreFiltersReset').addEventListener('click', function () {
+    document.getElementById('regionFilter').value = '';
+    document.getElementById('minAmountFilter').value = '';
+    document.getElementById('probMinFilter').value = '0';
+  });
+  function updateMoreFiltersButtonLabel() {
+    var count = (state.region ? 1 : 0) + (state.minAmount ? 1 : 0) + (state.probMin ? 1 : 0);
+    moreFiltersBtn.textContent = count > 0 ? 'More filters (' + count + ')' : 'More filters';
+  }
+
+  document.getElementById('clearFiltersBtn').addEventListener('click', clearAllFilters);
+
+  // Period presets (visual only — mock data is fixed to Q4 2026)
+  document.querySelectorAll('.period-btn').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      document.querySelectorAll('.period-btn').forEach(function (b) {
+        b.classList.remove('bg-blue-50', 'text-blue-700', 'font-medium');
+        b.classList.add('text-slate-600');
+        b.removeAttribute('aria-pressed');
+      });
+      btn.classList.add('bg-blue-50', 'text-blue-700', 'font-medium');
+      btn.classList.remove('text-slate-600');
+      btn.setAttribute('aria-pressed', 'true');
+    });
+  });
+
+  // Group table sorting
+  document.querySelectorAll('.sort-btn[data-sort]').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      var key = btn.getAttribute('data-sort');
+      if (state.sortGroup.key === key) {
+        state.sortGroup.dir = state.sortGroup.dir === 'desc' ? 'asc' : 'desc';
+      } else {
+        state.sortGroup = { key: key, dir: key === 'group' ? 'asc' : 'desc' };
+      }
+      render();
+    });
+  });
+
+  // Deal table sorting
+  document.querySelectorAll('[data-sort-deal]').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      state.sortDeal.dir = state.sortDeal.dir === 'desc' ? 'asc' : 'desc';
+      render();
+    });
+  });
+
+  // Retry
+  document.getElementById('retryBtn').addEventListener('click', function () {
+    state.pageState = 'loading';
+    render();
+    setTimeout(function () { state.pageState = null; render(); }, 600);
+  });
+
+  // Print
+  document.getElementById('printBtn').addEventListener('click', function () { window.print(); });
+
+  // Export menu
+  var exportBtn = document.getElementById('exportBtn');
+  var exportMenu = document.getElementById('exportMenu');
+  function closeExportMenu(focusTrigger) {
+    exportMenu.hidden = true;
+    exportBtn.setAttribute('aria-expanded', 'false');
+    if (focusTrigger) exportBtn.focus();
+  }
+  exportBtn.addEventListener('click', function () {
+    var willOpen = exportMenu.hidden;
+    exportMenu.hidden = !willOpen;
+    exportBtn.setAttribute('aria-expanded', String(willOpen));
+  });
+  document.addEventListener('click', function (e) {
+    if (!exportBtn.contains(e.target) && !exportMenu.contains(e.target)) closeExportMenu(false);
+    if (!moreFiltersBtn.contains(e.target) && !moreFiltersPanel.contains(e.target)) {
+      if (!moreFiltersPanel.hidden) closeMoreFilters(false);
+    }
+  });
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape') {
+      if (!exportMenu.hidden) closeExportMenu(true);
+      if (!moreFiltersPanel.hidden) closeMoreFilters(true);
+    }
+  });
+
+  function toCSV(rows) {
+    var header = ['Deal', 'Account', 'Salesperson', 'Stage', 'Expected close', 'Value (USD)', 'Probability', 'Weighted (USD)'];
+    var lines = [header.join(',')];
+    rows.forEach(function (d) {
+      lines.push([
+        '"' + d.name.replace(/"/g, '""') + '"',
+        '"' + d.account.replace(/"/g, '""') + '"',
+        '"' + d.owner + '"',
+        d.stage,
+        d.closeDate,
+        d.amount,
+        d.probability,
+        Math.round(d.amount * d.probability)
+      ].join(','));
+    });
+    return lines.join('\r\n');
+  }
+
+  document.querySelectorAll('[data-export]').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      var filtered = applyFilters();
+      var sortedDeals = sortDealsList(filtered, state.sortDeal);
+      var type = btn.getAttribute('data-export');
+      var ext = type === 'xlsx' ? 'csv' : 'csv'; // mock export: both download CSV content
+      var filename = 'sales-pipeline-q4-2026.' + ext;
+      var blob = new Blob([toCSV(sortedDeals)], { type: 'text/csv;charset=utf-8;' });
+      var url = URL.createObjectURL(blob);
+      var a = document.createElement('a');
+      a.href = url; a.download = filename;
+      document.body.appendChild(a); a.click(); document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      document.getElementById('liveRegion').textContent = 'Exported ' + fmtNumber.format(sortedDeals.length) + ' deals to ' + filename;
+      closeExportMenu(true);
+    });
+  });
+
+  // ---------- Initial load simulation ----------
+  updateMoreFiltersButtonLabel();
+  if (state.pageState === 'loading') {
+    render();
+  } else if (state.pageState === 'empty' || state.pageState === 'error') {
+    render();
+  } else {
+    state.pageState = 'loading';
+    render();
+    setTimeout(function () {
+      state.pageState = null;
+      render();
+    }, 450);
+  }
+})();
+</script>
+</body>
+</html>

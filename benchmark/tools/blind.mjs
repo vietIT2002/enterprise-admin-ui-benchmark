@@ -34,9 +34,10 @@ function pagesIn(folder) {
   return out;
 }
 
-export function makeBlind(folders, outDir, { seed = Date.now() } = {}) {
+export function makeBlind(folders, outDir, { seed = Date.now(), runs = null } = {}) {
   const rand = rng(seed);
-  const all = folders.flatMap(pagesIn);
+  // runs: only these run numbers, for example [2] when run 1 is already reviewed.
+  const all = folders.flatMap(pagesIn).filter((p) => !runs || runs.includes(p.run));
   for (let i = all.length - 1; i > 0; i--) {
     const j = Math.floor(rand() * (i + 1));
     [all[i], all[j]] = [all[j], all[i]];

@@ -1,0 +1,1002 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Bảng ticket hỗ trợ</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+  [hidden] { display: none !important; }
+  * { font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; }
+  .tabular-nums { font-variant-numeric: tabular-nums; }
+  @keyframes pulse-bg { 0%,100% { opacity: 1 } 50% { opacity: .5 } }
+  .skel { background-color: #e2e8f0; border-radius: 4px; animation: pulse-bg 1.4s ease-in-out infinite; }
+  @media (prefers-reduced-motion: reduce) { .skel { animation: none; } }
+  .card-grab:focus-visible, button:focus-visible, a:focus-visible, select:focus-visible, input:focus-visible, [tabindex]:focus-visible {
+    outline: 2px solid #1d4ed8; outline-offset: 1px;
+  }
+  .scrollbar-thin::-webkit-scrollbar { height: 8px; width: 8px; }
+  .scrollbar-thin::-webkit-scrollbar-thumb { background-color: #cbd5e1; border-radius: 4px; }
+</style>
+</head>
+<body class="h-screen overflow-hidden bg-white text-[#0f172a] text-sm">
+
+<div id="app" class="flex h-screen flex-col">
+
+  <!-- App header -->
+  <header class="flex h-12 shrink-0 items-center justify-between border-b border-slate-200 bg-white px-4">
+    <div class="flex items-center gap-2 text-slate-600">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+      <span class="font-medium text-slate-900">Trung tâm hỗ trợ</span>
+    </div>
+    <div class="flex items-center gap-3">
+      <button type="button" class="flex h-8 w-8 items-center justify-center rounded text-slate-500 hover:bg-slate-100" aria-label="Thông báo">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg>
+      </button>
+      <button type="button" class="flex h-8 w-8 items-center justify-center rounded-full bg-slate-200 text-xs font-medium text-slate-700" aria-label="Menu tài khoản">HA</button>
+    </div>
+  </header>
+
+  <!-- Page content -->
+  <main class="flex min-h-0 flex-1 flex-col px-4 pt-3">
+    <!-- Page header -->
+    <div class="mb-3 flex flex-col gap-2">
+      <nav aria-label="Breadcrumb">
+        <ol class="flex items-center gap-1 text-sm text-slate-500">
+          <li><a href="#" class="hover:text-slate-900 hover:underline">Hỗ trợ</a></li>
+          <li aria-hidden="true">/</li>
+          <li><span aria-current="page" class="text-slate-900">Ticket</span></li>
+        </ol>
+      </nav>
+      <div class="flex flex-wrap items-center justify-between gap-2">
+        <h1 class="text-xl font-semibold text-slate-900">Ticket hỗ trợ</h1>
+        <div class="flex items-center gap-2">
+          <div class="flex items-center rounded-md border border-slate-300 p-0.5" role="group" aria-label="Chuyển đổi chế độ xem">
+            <button id="viewBoardBtn" type="button" class="rounded-[4px] px-3 py-1 text-sm font-medium" aria-pressed="true">Bảng</button>
+            <button id="viewListBtn" type="button" class="rounded-[4px] px-3 py-1 text-sm font-medium text-slate-600" aria-pressed="false">Danh sách</button>
+          </div>
+          <button type="button" id="createTicketBtn" class="inline-flex h-8 items-center gap-1.5 rounded-md bg-blue-700 px-3 text-sm font-medium text-white hover:bg-blue-800">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
+            Tạo ticket
+          </button>
+        </div>
+      </div>
+      <p id="summaryLine" class="text-sm text-slate-600" role="status">—</p>
+    </div>
+
+    <!-- Filter bar -->
+    <div class="mb-2 flex flex-wrap items-center gap-2">
+      <div class="relative w-[300px]">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" aria-hidden="true"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+        <input id="searchInput" type="text" placeholder="Tìm theo mã, tiêu đề, khách hàng" aria-label="Tìm ticket" class="h-8 w-full rounded-md border border-slate-300 bg-white pl-8 pr-8 text-sm placeholder:text-slate-400 focus:border-blue-700" />
+        <button id="searchClearBtn" type="button" hidden aria-label="Xóa tìm kiếm" class="absolute right-1.5 top-1/2 flex h-5 w-5 -translate-y-1/2 items-center justify-center rounded-full text-slate-400 hover:bg-slate-100">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg>
+        </button>
+      </div>
+
+      <label class="sr-only" for="priorityFilter">Mức ưu tiên</label>
+      <select id="priorityFilter" class="h-8 rounded-md border border-slate-300 bg-white px-2 text-sm">
+        <option value="">Mức ưu tiên: Tất cả</option>
+        <option value="urgent">Khẩn cấp</option>
+        <option value="high">Cao</option>
+        <option value="medium">Trung bình</option>
+        <option value="low">Thấp</option>
+      </select>
+
+      <label class="sr-only" for="assigneeFilter">Người phụ trách</label>
+      <select id="assigneeFilter" class="h-8 rounded-md border border-slate-300 bg-white px-2 text-sm">
+        <option value="">Người phụ trách: Tất cả</option>
+        <option value="unassigned">Chưa phân công</option>
+      </select>
+
+      <button id="assignedToMeBtn" type="button" aria-pressed="false" class="h-8 rounded-md border border-slate-300 px-3 text-sm font-medium text-slate-700 hover:bg-slate-50">Giao cho tôi</button>
+
+      <div class="ml-auto flex items-center gap-2">
+        <button id="retryBtn" type="button" hidden class="h-8 rounded-md border border-slate-300 px-3 text-sm font-medium text-slate-700 hover:bg-slate-50">Thử lại</button>
+      </div>
+    </div>
+
+    <!-- Applied chips -->
+    <div id="chipsRow" class="mb-1 flex min-h-[0px] flex-wrap items-center gap-2 empty:mb-0"></div>
+
+    <!-- Error banner -->
+    <div id="errorBanner" role="alert" hidden class="mb-3 flex items-center gap-3 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="shrink-0" aria-hidden="true"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z"/><path d="M12 9v4M12 17h.01"/></svg>
+      <span class="flex-1">Không thể tải danh sách ticket. Kiểm tra kết nối và thử lại.</span>
+      <button id="errorRetryBtn" type="button" class="shrink-0 rounded-md border border-red-300 bg-white px-3 py-1 text-sm font-medium text-red-800 hover:bg-red-100">Thử lại</button>
+    </div>
+
+    <!-- No results across board -->
+    <div id="noResultsBanner" hidden class="mb-3 flex flex-col items-center gap-2 rounded-md border border-slate-200 bg-slate-50 px-6 py-10 text-center">
+      <p class="text-sm font-medium text-slate-900">Không có ticket khớp với bộ lọc này.</p>
+      <button id="clearFromNoResultsBtn" type="button" class="rounded-md border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50">Xóa bộ lọc</button>
+    </div>
+
+    <!-- Board region -->
+    <div id="boardRegion" role="region" aria-label="Bảng ticket" aria-busy="false" class="flex min-h-0 flex-1 gap-3 overflow-x-auto pb-3 scrollbar-thin">
+    </div>
+
+    <!-- List region -->
+    <div id="listRegion" hidden class="min-h-0 flex-1 overflow-auto rounded-md border border-slate-200 scrollbar-thin">
+      <table class="w-full border-collapse text-sm">
+        <thead class="sticky top-0 z-10 bg-slate-50">
+          <tr class="border-b border-slate-200">
+            <th scope="col" class="h-10 px-3 text-left font-medium text-slate-600">Mã</th>
+            <th scope="col" class="h-10 px-3 text-left font-medium text-slate-600">Tiêu đề</th>
+            <th scope="col" class="h-10 px-3 text-left font-medium text-slate-600">Khách hàng</th>
+            <th scope="col" class="h-10 px-3 text-left font-medium text-slate-600">Mức ưu tiên</th>
+            <th scope="col" class="h-10 px-3 text-left font-medium text-slate-600">Người phụ trách</th>
+            <th scope="col" class="h-10 px-3 text-left font-medium text-slate-600">Trạng thái</th>
+            <th scope="col" class="h-10 px-3 text-left font-medium text-slate-600">SLA</th>
+            <th scope="col" class="h-10 px-3 text-right font-medium text-slate-600"><span class="sr-only">Hành động</span></th>
+          </tr>
+        </thead>
+        <tbody id="listTableBody"></tbody>
+      </table>
+    </div>
+  </main>
+</div>
+
+<!-- Details side panel -->
+<div id="panelOverlay" hidden class="fixed inset-0 z-40 bg-slate-900/30"></div>
+<aside id="detailsPanel" hidden class="fixed right-0 top-0 z-50 flex h-full w-[520px] max-w-full flex-col border-l border-slate-200 bg-white shadow-xl" role="dialog" aria-modal="true" aria-labelledby="panelTitle">
+  <div class="flex items-center justify-between border-b border-slate-200 px-5 py-3">
+    <h2 id="panelTitle" class="text-base font-semibold text-slate-900">Chi tiết ticket</h2>
+    <button id="panelCloseBtn" type="button" aria-label="Đóng" class="flex h-8 w-8 items-center justify-center rounded text-slate-500 hover:bg-slate-100">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg>
+    </button>
+  </div>
+  <div id="panelBody" class="min-h-0 flex-1 overflow-y-auto px-5 py-4"></div>
+</aside>
+
+<!-- Resolution dialog -->
+<div id="resolveOverlay" hidden class="fixed inset-0 z-[60] flex items-center justify-center bg-slate-900/40 px-4">
+  <div role="dialog" aria-modal="true" aria-labelledby="resolveTitle" class="w-full max-w-md rounded-lg bg-white p-5 shadow-xl">
+    <h2 id="resolveTitle" class="text-base font-semibold text-slate-900">Ghi chú giải quyết</h2>
+    <p class="mt-1 text-sm text-slate-600">Nhập tóm tắt cách xử lý trước khi chuyển ticket <span id="resolveTicketCode" class="font-medium text-slate-900"></span> sang trạng thái Đã giải quyết.</p>
+    <label for="resolveNote" class="mt-3 block text-sm font-medium text-slate-900">Ghi chú giải quyết <span class="text-red-700">*</span></label>
+    <textarea id="resolveNote" rows="3" class="mt-1 w-full rounded-md border border-slate-300 px-2.5 py-2 text-sm focus:border-blue-700" placeholder="Ví dụ: Đã hướng dẫn khách đặt lại mật khẩu, khách xác nhận đăng nhập thành công."></textarea>
+    <p id="resolveError" role="alert" hidden class="mt-1 text-sm text-red-700">Vui lòng nhập ghi chú giải quyết.</p>
+    <div class="mt-4 flex justify-end gap-2">
+      <button id="resolveCancelBtn" type="button" class="h-8 rounded-md border border-slate-300 px-3 text-sm font-medium text-slate-700 hover:bg-slate-50">Hủy</button>
+      <button id="resolveConfirmBtn" type="button" class="h-8 rounded-md bg-blue-700 px-3 text-sm font-medium text-white hover:bg-blue-800">Xác nhận giải quyết</button>
+    </div>
+  </div>
+</div>
+
+<!-- Live region for move announcements -->
+<p id="liveRegion" role="status" class="sr-only"></p>
+
+<!-- Toast -->
+<div id="toastRegion" class="pointer-events-none fixed right-4 top-4 z-[70] flex flex-col gap-2"></div>
+
+<script>
+(function () {
+  "use strict";
+
+  var LOCALE = "vi-VN";
+
+  // ---------- Formatting ----------
+  function formatDateTime(d) {
+    return new Intl.DateTimeFormat(LOCALE, { day: "2-digit", month: "2-digit", year: "numeric" }).format(d) + " " +
+      new Intl.DateTimeFormat(LOCALE, { hour: "2-digit", minute: "2-digit", hourCycle: "h23" }).format(d);
+  }
+  function formatTime(d) {
+    return new Intl.DateTimeFormat(LOCALE, { hour: "2-digit", minute: "2-digit", hourCycle: "h23" }).format(d);
+  }
+  var COMBINING_MARKS_RE = new RegExp("[̀-ͯ]", "g");
+  function foldVi(s) {
+    return s.normalize("NFD").replace(COMBINING_MARKS_RE, "").replace(/đ/g, "d").replace(/Đ/g, "D").toLowerCase();
+  }
+  function initials(name) {
+    var parts = name.trim().split(/\s+/);
+    var last = parts[parts.length - 1] || "";
+    var first = parts.length > 1 ? parts[0] : "";
+    return ((first[0] || "") + (last[0] || "")).toUpperCase();
+  }
+  function minutesToWords(mins) {
+    var abs = Math.abs(Math.round(mins));
+    if (abs < 60) return abs + " phút";
+    var h = Math.floor(abs / 60);
+    if (h < 24) return h + " giờ";
+    var d = Math.floor(h / 24);
+    return d + " ngày";
+  }
+
+  // ---------- Static defs ----------
+  var STATUSES = [
+    { id: "new", label: "Mới", tone: "info", limit: null },
+    { id: "in_progress", label: "Đang xử lý", tone: "info", limit: 8 },
+    { id: "waiting", label: "Chờ phản hồi KH", tone: "warning", limit: null },
+    { id: "resolved", label: "Đã giải quyết", tone: "success", limit: null },
+    { id: "closed", label: "Đã đóng", tone: "neutral", limit: null }
+  ];
+  var STATUS_BY_ID = {};
+  STATUSES.forEach(function (s) { STATUS_BY_ID[s.id] = s; });
+
+  var PRIORITIES = {
+    urgent: { label: "Khẩn cấp", tone: "danger" },
+    high: { label: "Cao", tone: "warning" },
+    medium: { label: "Trung bình", tone: "info" },
+    low: { label: "Thấp", tone: "neutral" }
+  };
+  var PRIORITY_ORDER = { urgent: 0, high: 1, medium: 2, low: 3 };
+
+  var TONE_CLASSES = {
+    neutral: "bg-slate-100 text-slate-700",
+    info: "bg-blue-50 text-blue-700",
+    success: "bg-emerald-50 text-emerald-800",
+    warning: "bg-amber-50 text-amber-800",
+    danger: "bg-red-50 text-red-700"
+  };
+
+  var STAFF = [
+    { id: "s1", name: "Nguyễn Văn An" },
+    { id: "s2", name: "Trần Thị Bích" },
+    { id: "s3", name: "Lê Hoàng Nam" },
+    { id: "s4", name: "Phạm Thu Hà" },
+    { id: "s5", name: "Đỗ Minh Quân" },
+    { id: "s6", name: "Vũ Ngọc Lan" }
+  ];
+  var STAFF_BY_ID = {};
+  STAFF.forEach(function (s) { STAFF_BY_ID[s.id] = s; });
+  var CURRENT_USER_ID = "s4";
+
+  // offsets are minutes relative to "now" at load time
+  var TICKET_SEED = [
+    { title: "Không đăng nhập được vào hệ thống", customer: "Nguyễn Thị Mai", company: "Công ty TNHH Minh Phát", priority: "urgent", status: "new", assignee: null, createdOffset: -20, dueOffset: -40 },
+    { title: "Lỗi thanh toán khi checkout đơn hàng", customer: "Trần Văn Hùng", company: "Cửa hàng Hùng Phát", priority: "urgent", status: "in_progress", assignee: "s1", createdOffset: -180, dueOffset: -15 },
+    { title: "Yêu cầu khôi phục dữ liệu khách hàng đã xóa nhầm", customer: "Lê Thị Hương", company: "Công ty CP Sao Việt", priority: "high", status: "in_progress", assignee: "s3", createdOffset: -300, dueOffset: 25 },
+    { title: "Email thông báo đơn hàng không gửi được cho khách", customer: "Phạm Quốc Bảo", company: "Shop Bảo Anh", priority: "medium", status: "new", assignee: null, createdOffset: -40, dueOffset: 200 },
+    { title: "Tốc độ tải trang quản trị chậm bất thường từ sáng nay", customer: "Đặng Thu Hà", company: "Công ty TNHH Đông Á", priority: "high", status: "waiting", assignee: "s2", createdOffset: -600, dueOffset: 90 },
+    { title: "Không xuất được báo cáo doanh thu theo tháng", customer: "Vũ Minh Tuấn", company: "Công ty Phát Đạt", priority: "medium", status: "in_progress", assignee: "s4", createdOffset: -120, dueOffset: 300 },
+    { title: "Yêu cầu thêm tài khoản nhân viên mới vào hệ thống", customer: "Ngô Thị Lan", company: "Công ty CP Minh Long", priority: "low", status: "new", assignee: null, createdOffset: -10, dueOffset: 1400 },
+    { title: "Lỗi hiển thị sai số lượng hàng trong kho", customer: "Bùi Văn Đức", company: "Kho vận An Khánh", priority: "high", status: "waiting", assignee: "s5", createdOffset: -500, dueOffset: -60 },
+    { title: "Không nhận được mã OTP khi đăng ký tài khoản mới", customer: "Hoàng Thị Nga", company: "Công ty TNHH Nga Sơn", priority: "urgent", status: "waiting", assignee: "s1", createdOffset: -90, dueOffset: 10 },
+    { title: "Giao diện bị vỡ layout trên điện thoại", customer: "Trịnh Văn Khoa", company: "Thời trang Khoa Store", priority: "low", status: "in_progress", assignee: "s6", createdOffset: -200, dueOffset: 600 },
+    { title: "Cần hướng dẫn cách cấu hình webhook thanh toán", customer: "Lý Thị Thanh", company: "Công ty CP Thanh Bình", priority: "medium", status: "new", assignee: null, createdOffset: -5, dueOffset: 350 },
+    { title: "Hóa đơn điện tử xuất sai thông tin thuế", customer: "Phan Văn Lộc", company: "Công ty TNHH Lộc Phát", priority: "high", status: "in_progress", assignee: "s3", createdOffset: -240, dueOffset: 45 },
+    { title: "Không thể hủy đơn hàng đã đặt nhầm", customer: "Đỗ Thị Yến", company: "Cửa hàng Yến Nhi", priority: "medium", status: "waiting", assignee: "s2", createdOffset: -150, dueOffset: 400 },
+    { title: "Yêu cầu nâng cấp gói dịch vụ lên bản cao cấp", customer: "Trần Quốc Việt", company: "Công ty CP Việt Hưng", priority: "low", status: "new", assignee: null, createdOffset: -3, dueOffset: 1600 },
+    { title: "Dữ liệu đồng bộ giữa hai chi nhánh bị lệch", customer: "Nguyễn Hữu Phúc", company: "Chuỗi bán lẻ Phúc Gia", priority: "urgent", status: "in_progress", assignee: "s4", createdOffset: -60, dueOffset: -5 },
+    { title: "Không gửi được tin nhắn SMS xác nhận đơn hàng", customer: "Lê Văn Sơn", company: "Công ty TNHH Sơn Hà", priority: "high", status: "resolved", assignee: "s1", createdOffset: -1400, dueOffset: -800, resolution: "Đã cấu hình lại nhà cung cấp SMS, kiểm tra gửi thử thành công." },
+    { title: "Lỗi font chữ tiếng Việt bị lỗi dấu trong báo cáo PDF", customer: "Mai Thị Thu", company: "Công ty CP Thu Minh", priority: "medium", status: "resolved", assignee: "s6", createdOffset: -2000, dueOffset: -1200, resolution: "Đã cập nhật font hỗ trợ tiếng Việt cho module xuất PDF." },
+    { title: "Khách hàng yêu cầu xuất lại hợp đồng điện tử", customer: "Cao Văn Long", company: "Công ty TNHH Long Thành", priority: "low", status: "resolved", assignee: "s5", createdOffset: -3000, dueOffset: -2000, resolution: "Đã gửi lại hợp đồng qua email đăng ký, khách xác nhận nhận được." },
+    { title: "Không truy cập được trang quản lý từ xa", customer: "Tạ Thị Quỳnh", company: "Công ty CP Quỳnh Anh", priority: "high", status: "resolved", assignee: "s2", createdOffset: -2600, dueOffset: -1500, resolution: "Đã gỡ chặn IP trên tường lửa, khách truy cập lại bình thường." },
+    { title: "Yêu cầu đổi email đăng nhập tài khoản quản trị", customer: "Dương Văn Hải", company: "Công ty TNHH Hải Đăng", priority: "low", status: "closed", assignee: "s3", createdOffset: -5000, dueOffset: -4000, resolution: "Đã đổi email theo yêu cầu, xác minh qua hotline." },
+    { title: "Lỗi hiển thị trùng lặp sản phẩm trong danh mục", customer: "Phùng Thị Oanh", company: "Siêu thị Oanh Vũ", priority: "medium", status: "closed", assignee: "s4", createdOffset: -6000, dueOffset: -5000, resolution: "Đã xóa bản ghi trùng, kiểm tra lại danh mục ổn định." },
+    { title: "Không in được phiếu xuất kho từ máy in nhiệt", customer: "Lâm Văn Tài", company: "Công ty CP Tài Nguyên", priority: "low", status: "closed", assignee: "s6", createdOffset: -7000, dueOffset: -6000, resolution: "Đã hướng dẫn cài lại driver máy in, in thử thành công." },
+    { title: "Yêu cầu xóa vĩnh viễn tài khoản theo quy định", customer: "Chu Thị Bảo Ngọc", company: "Công ty TNHH Bảo Ngọc", priority: "medium", status: "closed", assignee: "s1", createdOffset: -8000, dueOffset: -7000, resolution: "Đã xóa tài khoản và gửi email xác nhận hoàn tất." }
+  ];
+
+  var now = new Date();
+  var seq = 1037;
+  var TICKETS = TICKET_SEED.map(function (t) {
+    seq += 1;
+    return {
+      id: "tk-" + seq,
+      code: "TK-2026-" + seq,
+      title: t.title,
+      customer: t.customer,
+      company: t.company,
+      priority: t.priority,
+      status: t.status,
+      assignee: t.assignee,
+      createdAt: new Date(now.getTime() + t.createdOffset * 60000),
+      dueAt: new Date(now.getTime() + t.dueOffset * 60000),
+      resolution: t.resolution || null
+    };
+  });
+
+  // ---------- State ----------
+  var qs = new URLSearchParams(window.location.search);
+  var pageState = qs.get("state") || "ok"; // ok | empty | error | loading
+  var state = {
+    view: "board",
+    q: "",
+    priority: "",
+    assignee: "",
+    mine: false,
+    openTicketId: null,
+    collapsedClosed: true,
+    loaded: pageState === "ok" ? false : pageState !== "loading",
+    errored: pageState === "error"
+  };
+
+  var lastMove = null; // for undo
+  var toastTimers = [];
+
+  // populate assignee filter options
+  var assigneeFilterEl = document.getElementById("assigneeFilter");
+  STAFF.forEach(function (s) {
+    var opt = document.createElement("option");
+    opt.value = s.id;
+    opt.textContent = s.name;
+    assigneeFilterEl.appendChild(opt);
+  });
+
+  // ---------- Derived helpers ----------
+  function getAssigneeName(id) {
+    return id ? STAFF_BY_ID[id].name : "Chưa phân công";
+  }
+
+  function slaInfo(ticket) {
+    if (ticket.status === "resolved" || ticket.status === "closed") {
+      return { text: "Hoàn tất · hạn " + formatDateTime(ticket.dueAt), tone: null };
+    }
+    var diffMin = (ticket.dueAt.getTime() - now.getTime()) / 60000;
+    if (diffMin < 0) {
+      return { text: "Quá hạn " + minutesToWords(diffMin), tone: "danger" };
+    }
+    if (diffMin <= 120) {
+      return { text: "Còn " + minutesToWords(diffMin) + " · hạn " + formatTime(ticket.dueAt), tone: "warning" };
+    }
+    return { text: "Hạn " + formatDateTime(ticket.dueAt), tone: "neutral" };
+  }
+
+  function matchesFilters(t) {
+    if (state.q) {
+      var q = foldVi(state.q.trim());
+      var hay = foldVi(t.code + " " + t.title + " " + t.customer + " " + t.company);
+      if (hay.indexOf(q) === -1) return false;
+    }
+    if (state.priority && t.priority !== state.priority) return false;
+    if (state.assignee) {
+      if (state.assignee === "unassigned" && t.assignee) return false;
+      if (state.assignee !== "unassigned" && t.assignee !== state.assignee) return false;
+    }
+    if (state.mine && t.assignee !== CURRENT_USER_ID) return false;
+    return true;
+  }
+
+  function filteredTickets() {
+    if (pageState === "empty") return [];
+    return TICKETS.filter(matchesFilters);
+  }
+
+  function sortWithinColumn(list) {
+    return list.slice().sort(function (a, b) {
+      var p = PRIORITY_ORDER[a.priority] - PRIORITY_ORDER[b.priority];
+      if (p !== 0) return p;
+      return a.dueAt - b.dueAt;
+    });
+  }
+
+  // ---------- Chips ----------
+  function activeChips() {
+    var chips = [];
+    if (state.q) chips.push({ key: "q", label: "Tìm: " + state.q });
+    if (state.priority) chips.push({ key: "priority", label: "Mức ưu tiên: " + PRIORITIES[state.priority].label });
+    if (state.assignee) chips.push({ key: "assignee", label: "Người phụ trách: " + (state.assignee === "unassigned" ? "Chưa phân công" : STAFF_BY_ID[state.assignee].name) });
+    if (state.mine) chips.push({ key: "mine", label: "Giao cho tôi" });
+    return chips;
+  }
+
+  function removeChip(key) {
+    if (key === "q") { state.q = ""; document.getElementById("searchInput").value = ""; toggleSearchClear(); }
+    if (key === "priority") { state.priority = ""; document.getElementById("priorityFilter").value = ""; }
+    if (key === "assignee") { state.assignee = ""; document.getElementById("assigneeFilter").value = ""; }
+    if (key === "mine") { state.mine = false; document.getElementById("assignedToMeBtn").setAttribute("aria-pressed", "false"); document.getElementById("assignedToMeBtn").classList.remove("bg-blue-50", "border-blue-300", "text-blue-700"); }
+    render();
+  }
+
+  function clearAll() {
+    state.q = ""; state.priority = ""; state.assignee = ""; state.mine = false;
+    document.getElementById("searchInput").value = "";
+    document.getElementById("priorityFilter").value = "";
+    document.getElementById("assigneeFilter").value = "";
+    var mineBtn = document.getElementById("assignedToMeBtn");
+    mineBtn.setAttribute("aria-pressed", "false");
+    mineBtn.classList.remove("bg-blue-50", "border-blue-300", "text-blue-700");
+    toggleSearchClear();
+    render();
+  }
+
+  // ---------- Rendering: chips ----------
+  function renderChips() {
+    var row = document.getElementById("chipsRow");
+    var chips = activeChips();
+    row.innerHTML = "";
+    if (!chips.length) return;
+    chips.forEach(function (c) {
+      var span = document.createElement("span");
+      span.className = "inline-flex h-6 items-center gap-1 rounded-full border border-slate-300 bg-slate-50 pl-2 pr-1 text-xs font-medium text-slate-700";
+      span.innerHTML = '<span></span><button type="button" class="inline-flex h-6 w-6 items-center justify-center rounded-full hover:bg-slate-200" aria-label="Xóa bộ lọc ' + escapeAttr(c.label) + '"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg></button>';
+      span.querySelector("span").textContent = c.label;
+      span.querySelector("button").addEventListener("click", function () { removeChip(c.key); });
+      row.appendChild(span);
+    });
+    var clearBtn = document.createElement("button");
+    clearBtn.type = "button";
+    clearBtn.className = "text-xs font-medium text-blue-700 hover:underline";
+    clearBtn.textContent = "Xóa tất cả";
+    clearBtn.addEventListener("click", clearAll);
+    row.appendChild(clearBtn);
+  }
+
+  function escapeHtml(s) {
+    return String(s).replace(/[&<>"']/g, function (c) {
+      return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c];
+    });
+  }
+  function escapeAttr(s) { return escapeHtml(s); }
+
+  // ---------- Toast ----------
+  function showToast(message, opts) {
+    opts = opts || {};
+    var region = document.getElementById("toastRegion");
+    var el = document.createElement("div");
+    el.className = "pointer-events-auto flex items-center gap-3 rounded-md border border-slate-200 bg-slate-900 px-3 py-2 text-sm text-white shadow-lg";
+    el.setAttribute("role", "status");
+    var span = document.createElement("span");
+    span.textContent = message;
+    el.appendChild(span);
+    var duration = 5000;
+    if (opts.undo) {
+      duration = 10000;
+      var undoBtn = document.createElement("button");
+      undoBtn.type = "button";
+      undoBtn.className = "shrink-0 font-medium text-blue-300 hover:underline";
+      undoBtn.textContent = "Hoàn tác";
+      undoBtn.addEventListener("click", function () {
+        opts.undo();
+        el.remove();
+      });
+      el.appendChild(undoBtn);
+    }
+    region.appendChild(el);
+    var timer = setTimeout(function () { el.remove(); }, duration);
+    el.addEventListener("mouseenter", function () { clearTimeout(timer); });
+    el.addEventListener("mouseleave", function () { timer = setTimeout(function () { el.remove(); }, duration); });
+  }
+
+  function announce(text) {
+    document.getElementById("liveRegion").textContent = text;
+  }
+
+  // ---------- Moving tickets ----------
+  function moveTicket(id, newStatus, resolutionNote) {
+    var t = TICKETS.find(function (x) { return x.id === id; });
+    if (!t) return;
+    var fromStatus = t.status;
+    if (fromStatus === newStatus) return;
+    if (newStatus === "resolved" && !resolutionNote) {
+      openResolveDialog(id, newStatus);
+      return;
+    }
+    t.status = newStatus;
+    if (resolutionNote) t.resolution = resolutionNote;
+    lastMove = { id: id, from: fromStatus };
+    announce(t.code + " đã chuyển sang " + STATUS_BY_ID[newStatus].label + ".");
+    showToast(t.code + " đã chuyển sang " + STATUS_BY_ID[newStatus].label, {
+      undo: function () {
+        t.status = fromStatus;
+        announce(t.code + " đã được hoàn tác, trở lại " + STATUS_BY_ID[fromStatus].label + ".");
+        render();
+      }
+    });
+    render();
+  }
+
+  function claimTicket(id) {
+    var t = TICKETS.find(function (x) { return x.id === id; });
+    if (!t) return;
+    t.assignee = CURRENT_USER_ID;
+    announce(t.code + " đã được nhận bởi " + getAssigneeName(CURRENT_USER_ID) + ".");
+    showToast(t.code + " đã được nhận bởi bạn", {
+      undo: function () {
+        t.assignee = null;
+        render();
+      }
+    });
+    render();
+  }
+
+  // ---------- Resolve dialog ----------
+  var pendingResolveId = null;
+  function openResolveDialog(id, targetStatus) {
+    var t = TICKETS.find(function (x) { return x.id === id; });
+    pendingResolveId = id;
+    document.getElementById("resolveTicketCode").textContent = t.code;
+    document.getElementById("resolveNote").value = "";
+    document.getElementById("resolveError").hidden = true;
+    document.getElementById("resolveOverlay").hidden = false;
+    document.getElementById("resolveNote").focus();
+  }
+  function closeResolveDialog() {
+    document.getElementById("resolveOverlay").hidden = true;
+    pendingResolveId = null;
+  }
+  document.getElementById("resolveCancelBtn").addEventListener("click", closeResolveDialog);
+  document.getElementById("resolveOverlay").addEventListener("keydown", function (e) {
+    if (e.key === "Escape") closeResolveDialog();
+  });
+  document.getElementById("resolveConfirmBtn").addEventListener("click", function () {
+    var note = document.getElementById("resolveNote").value.trim();
+    if (!note) {
+      document.getElementById("resolveError").hidden = false;
+      document.getElementById("resolveNote").focus();
+      return;
+    }
+    var id = pendingResolveId;
+    closeResolveDialog();
+    moveTicket(id, "resolved", note);
+    if (state.openTicketId === id) renderDetailsPanel(id);
+  });
+
+  // ---------- Dropdown menu (move to...) ----------
+  var openMenuEl = null;
+  function closeOpenMenu() {
+    if (openMenuEl) { openMenuEl.remove(); openMenuEl = null; }
+    document.removeEventListener("click", onDocClickCloseMenu, true);
+  }
+  function onDocClickCloseMenu(e) {
+    if (openMenuEl && !openMenuEl.contains(e.target)) closeOpenMenu();
+  }
+  function openMoveMenu(triggerBtn, ticket) {
+    closeOpenMenu();
+    var menu = document.createElement("div");
+    menu.setAttribute("role", "menu");
+    menu.setAttribute("aria-label", "Chuyển " + ticket.code + " đến");
+    menu.className = "absolute z-50 mt-1 min-w-[200px] rounded-md border border-slate-200 bg-white py-1 shadow-lg";
+    var rect = triggerBtn.getBoundingClientRect();
+    menu.style.position = "fixed";
+    menu.style.top = (rect.bottom + 4) + "px";
+    menu.style.left = Math.min(rect.left, window.innerWidth - 220) + "px";
+
+    var header = document.createElement("div");
+    header.className = "px-3 py-1 text-xs font-medium text-slate-500";
+    header.textContent = "Chuyển đến…";
+    menu.appendChild(header);
+
+    STATUSES.filter(function (s) { return s.id !== ticket.status; }).forEach(function (s) {
+      var item = document.createElement("button");
+      item.type = "button";
+      item.setAttribute("role", "menuitem");
+      item.className = "flex w-full items-center px-3 py-1.5 text-left text-sm text-slate-700 hover:bg-slate-50";
+      item.textContent = s.label;
+      item.addEventListener("click", function () {
+        closeOpenMenu();
+        moveTicket(ticket.id, s.id);
+      });
+      menu.appendChild(item);
+    });
+
+    if (!ticket.assignee) {
+      var sep = document.createElement("div");
+      sep.className = "my-1 border-t border-slate-100";
+      menu.appendChild(sep);
+      var claimItem = document.createElement("button");
+      claimItem.type = "button";
+      claimItem.setAttribute("role", "menuitem");
+      claimItem.className = "flex w-full items-center px-3 py-1.5 text-left text-sm text-slate-700 hover:bg-slate-50";
+      claimItem.textContent = "Nhận xử lý";
+      claimItem.addEventListener("click", function () {
+        closeOpenMenu();
+        claimTicket(ticket.id);
+      });
+      menu.appendChild(claimItem);
+    }
+
+    document.body.appendChild(menu);
+    openMenuEl = menu;
+    var first = menu.querySelector('[role="menuitem"]');
+    if (first) first.focus();
+    menu.addEventListener("keydown", function (e) {
+      var items = Array.prototype.slice.call(menu.querySelectorAll('[role="menuitem"]'));
+      var idx = items.indexOf(document.activeElement);
+      if (e.key === "ArrowDown") { e.preventDefault(); items[(idx + 1) % items.length].focus(); }
+      if (e.key === "ArrowUp") { e.preventDefault(); items[(idx - 1 + items.length) % items.length].focus(); }
+      if (e.key === "Escape") { e.preventDefault(); closeOpenMenu(); triggerBtn.focus(); }
+    });
+    setTimeout(function () { document.addEventListener("click", onDocClickCloseMenu, true); }, 0);
+  }
+
+  // ---------- Card template ----------
+  function priorityBadge(priority) {
+    var p = PRIORITIES[priority];
+    return '<span class="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ' + TONE_CLASSES[p.tone] + '">' + p.label + "</span>";
+  }
+
+  function slaBadge(ticket) {
+    var sla = slaInfo(ticket);
+    if (!sla.tone) return "";
+    return '<span class="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium ' + TONE_CLASSES[sla.tone] + '">' + escapeHtml(sla.text) + "</span>";
+  }
+
+  function renderCard(ticket) {
+    var card = document.createElement("li");
+    card.className = "group list-none";
+    var btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "card-grab block w-full rounded-md border border-slate-200 bg-white p-3 text-left hover:border-slate-300 hover:shadow-sm";
+    var accessibleName = ticket.code + ": " + ticket.title + ", " + PRIORITIES[ticket.priority].label + ", khách hàng " + ticket.customer + ", phụ trách " + getAssigneeName(ticket.assignee);
+    btn.setAttribute("aria-label", accessibleName);
+    btn.addEventListener("click", function () { openDetailsPanel(ticket.id); });
+
+    var sla = slaInfo(ticket);
+    var assigneeHtml = ticket.assignee
+      ? '<span class="flex h-5 w-5 items-center justify-center rounded-full bg-slate-200 text-[10px] font-medium text-slate-700" aria-hidden="true">' + initials(STAFF_BY_ID[ticket.assignee].name) + '</span><span class="truncate">' + escapeHtml(STAFF_BY_ID[ticket.assignee].name) + '</span>'
+      : '<span class="truncate text-slate-500">Chưa phân công</span>';
+
+    btn.innerHTML =
+      '<div class="flex items-center justify-between gap-2">' +
+        '<span class="font-mono text-xs text-slate-500">' + ticket.code + '</span>' +
+        priorityBadge(ticket.priority) +
+      '</div>' +
+      '<p class="mt-1.5 line-clamp-2 text-sm font-medium leading-5 text-slate-900" title="' + escapeAttr(ticket.title) + '">' + escapeHtml(ticket.title) + '</p>' +
+      '<p class="mt-1 truncate text-xs text-slate-600">' + escapeHtml(ticket.customer) + ' · ' + escapeHtml(ticket.company) + '</p>' +
+      '<div class="mt-2 flex items-center justify-between gap-2">' +
+        '<div class="flex min-w-0 items-center gap-1.5 text-xs text-slate-700">' + assigneeHtml + '</div>' +
+      '</div>' +
+      '<div class="mt-2 flex items-center justify-between gap-2">' +
+        (sla.tone ? slaBadge(ticket) : '<span class="text-xs text-slate-500">' + escapeHtml(sla.text) + '</span>') +
+      '</div>';
+
+    card.appendChild(btn);
+
+    var actionsWrap = document.createElement("div");
+    actionsWrap.className = "absolute right-2 top-2 flex items-center gap-1";
+
+    if (!ticket.assignee) {
+      var claimBtn = document.createElement("button");
+      claimBtn.type = "button";
+      claimBtn.className = "rounded-md border border-slate-300 bg-white px-1.5 py-0.5 text-[11px] font-medium text-slate-700 opacity-0 hover:bg-slate-50 group-hover:opacity-100 focus-visible:opacity-100";
+      claimBtn.textContent = "Nhận việc";
+      claimBtn.addEventListener("click", function (e) { e.stopPropagation(); claimTicket(ticket.id); });
+      actionsWrap.appendChild(claimBtn);
+    }
+
+    var kebabBtn = document.createElement("button");
+    kebabBtn.type = "button";
+    kebabBtn.className = "flex h-6 w-6 items-center justify-center rounded text-slate-500 opacity-0 hover:bg-slate-100 group-hover:opacity-100 focus-visible:opacity-100";
+    kebabBtn.setAttribute("aria-label", "Hành động cho " + ticket.code);
+    kebabBtn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></svg>';
+    kebabBtn.addEventListener("click", function (e) {
+      e.stopPropagation();
+      openMoveMenu(kebabBtn, ticket);
+    });
+    actionsWrap.appendChild(kebabBtn);
+
+    card.style.position = "relative";
+    card.appendChild(actionsWrap);
+    return card;
+  }
+
+  // ---------- Board render ----------
+  function renderBoard() {
+    var region = document.getElementById("boardRegion");
+    region.innerHTML = "";
+    var tickets = filteredTickets();
+
+    STATUSES.forEach(function (statusDef) {
+      var colTickets = sortWithinColumn(tickets.filter(function (t) { return t.status === statusDef.id; }));
+      var isLastGroup = statusDef.id === "closed";
+      var collapsed = isLastGroup && state.collapsedClosed;
+
+      var section = document.createElement("section");
+      section.setAttribute("aria-labelledby", "col-" + statusDef.id);
+      section.className = collapsed
+        ? "flex w-[64px] shrink-0 flex-col rounded-md border border-slate-200 bg-slate-50"
+        : "flex w-[300px] shrink-0 flex-col rounded-md border border-slate-200 bg-slate-50";
+
+      var overLimit = statusDef.limit && colTickets.length > statusDef.limit;
+      var countText = statusDef.limit ? colTickets.length + " / " + statusDef.limit : String(colTickets.length);
+
+      var headerWrap = document.createElement("div");
+      headerWrap.className = "sticky top-0 z-10 flex items-center justify-between gap-2 rounded-t-md bg-slate-50 px-3 py-2";
+
+      if (collapsed) {
+        var expandBtn = document.createElement("button");
+        expandBtn.type = "button";
+        expandBtn.className = "flex w-full flex-col items-center gap-1 text-xs font-medium text-slate-700";
+        expandBtn.setAttribute("aria-expanded", "false");
+        expandBtn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 18 6-6-6-6"/></svg><span class="tabular-nums">' + colTickets.length + '</span>';
+        expandBtn.setAttribute("title", statusDef.label + " (" + colTickets.length + ")");
+        expandBtn.addEventListener("click", function () { state.collapsedClosed = false; render(); });
+        headerWrap.appendChild(expandBtn);
+        section.appendChild(headerWrap);
+        region.appendChild(section);
+        return;
+      }
+
+      var h2 = document.createElement("h2");
+      h2.id = "col-" + statusDef.id;
+      h2.className = "flex items-center gap-1.5 text-sm font-medium text-slate-900";
+      h2.textContent = statusDef.label;
+      headerWrap.appendChild(h2);
+
+      var right = document.createElement("div");
+      right.className = "flex items-center gap-2";
+      var countSpan = document.createElement("span");
+      countSpan.className = "tabular-nums text-xs " + (overLimit ? "font-medium text-amber-800" : "text-slate-500");
+      countSpan.textContent = overLimit ? countText + " · Vượt giới hạn" : countText;
+      right.appendChild(countSpan);
+
+      if (isLastGroup) {
+        var collapseBtn = document.createElement("button");
+        collapseBtn.type = "button";
+        collapseBtn.className = "flex h-5 w-5 items-center justify-center rounded text-slate-500 hover:bg-slate-200";
+        collapseBtn.setAttribute("aria-label", "Thu gọn cột " + statusDef.label);
+        collapseBtn.setAttribute("aria-expanded", "true");
+        collapseBtn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m15 18-6-6 6-6"/></svg>';
+        collapseBtn.addEventListener("click", function () { state.collapsedClosed = true; render(); });
+        right.appendChild(collapseBtn);
+      }
+      headerWrap.appendChild(right);
+      section.appendChild(headerWrap);
+
+      var ol = document.createElement("ol");
+      ol.className = "min-h-0 flex-1 space-y-2 overflow-y-auto px-2 pb-2 scrollbar-thin";
+
+      if (colTickets.length === 0) {
+        var emptyLi = document.createElement("li");
+        emptyLi.className = "list-none px-1 py-6 text-center text-xs text-slate-500";
+        emptyLi.textContent = "Không có ticket ở " + statusDef.label.toLowerCase();
+        ol.appendChild(emptyLi);
+      } else {
+        colTickets.forEach(function (t) { ol.appendChild(renderCard(t)); });
+      }
+
+      section.appendChild(ol);
+      region.appendChild(section);
+    });
+  }
+
+  // ---------- List render ----------
+  function renderList() {
+    var tbody = document.getElementById("listTableBody");
+    tbody.innerHTML = "";
+    var tickets = sortWithinColumn(filteredTickets());
+    tickets.forEach(function (t) {
+      var tr = document.createElement("tr");
+      tr.className = "h-10 border-b border-slate-100 hover:bg-slate-50";
+      var sla = slaInfo(t);
+      var statusDef = STATUS_BY_ID[t.status];
+      tr.innerHTML =
+        '<td class="px-3 font-mono text-xs text-slate-600">' + t.code + '</td>' +
+        '<td class="max-w-[260px] truncate px-3 text-slate-900" title="' + escapeAttr(t.title) + '">' + escapeHtml(t.title) + '</td>' +
+        '<td class="max-w-[180px] truncate px-3 text-slate-700">' + escapeHtml(t.customer) + '</td>' +
+        '<td class="px-3">' + priorityBadge(t.priority) + '</td>' +
+        '<td class="px-3 text-slate-700">' + escapeHtml(getAssigneeName(t.assignee)) + '</td>' +
+        '<td class="px-3"><span class="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ' + TONE_CLASSES[statusDef.tone] + '">' + statusDef.label + '</span></td>' +
+        '<td class="px-3">' + (sla.tone ? slaBadge(t) : '<span class="text-xs text-slate-600">' + escapeHtml(sla.text) + '</span>') + '</td>' +
+        '<td class="px-3 text-right"><button type="button" class="rounded-md border border-slate-300 px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50">Mở</button></td>';
+      tr.querySelector("button").addEventListener("click", function () { openDetailsPanel(t.id); });
+      tr.addEventListener("dblclick", function () { openDetailsPanel(t.id); });
+      tbody.appendChild(tr);
+    });
+  }
+
+  // ---------- Details panel ----------
+  function openDetailsPanel(id) {
+    state.openTicketId = id;
+    var url = new URL(window.location.href);
+    url.searchParams.set("ticket", id);
+    history.pushState({}, "", url);
+    document.getElementById("panelOverlay").hidden = false;
+    document.getElementById("detailsPanel").hidden = false;
+    renderDetailsPanel(id);
+    document.getElementById("panelCloseBtn").focus();
+  }
+
+  function closeDetailsPanel() {
+    state.openTicketId = null;
+    var url = new URL(window.location.href);
+    url.searchParams.delete("ticket");
+    history.pushState({}, "", url);
+    document.getElementById("panelOverlay").hidden = true;
+    document.getElementById("detailsPanel").hidden = true;
+  }
+
+  function renderDetailsPanel(id) {
+    var t = TICKETS.find(function (x) { return x.id === id; });
+    if (!t) { closeDetailsPanel(); return; }
+    document.getElementById("panelTitle").textContent = t.code + " · " + t.title;
+    var statusDef = STATUS_BY_ID[t.status];
+    var sla = slaInfo(t);
+
+    var optionsHtml = STATUSES.map(function (s) {
+      return '<option value="' + s.id + '"' + (s.id === t.status ? " selected" : "") + '>' + s.label + '</option>';
+    }).join("");
+
+    var body = document.getElementById("panelBody");
+    body.innerHTML =
+      '<div class="flex items-center gap-2">' + priorityBadge(t.priority) +
+        '<span class="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ' + TONE_CLASSES[statusDef.tone] + '">' + statusDef.label + '</span>' +
+      '</div>' +
+      '<dl class="mt-4 grid grid-cols-1 gap-3 text-sm">' +
+        detailRow("Khách hàng", escapeHtml(t.customer)) +
+        detailRow("Công ty", escapeHtml(t.company)) +
+        detailRow("Người phụ trách", escapeHtml(getAssigneeName(t.assignee))) +
+        detailRow("Tạo lúc", formatDateTime(t.createdAt)) +
+        detailRow("SLA", (sla.tone ? slaBadge(t) : escapeHtml(sla.text))) +
+      '</dl>' +
+      '<div class="mt-4 border-t border-slate-200 pt-4">' +
+        '<h3 class="text-sm font-medium text-slate-900">Nội dung yêu cầu</h3>' +
+        '<p class="mt-1 text-sm text-slate-700">' + escapeHtml(t.title) + '</p>' +
+      '</div>' +
+      (t.resolution ? '<div class="mt-4 rounded-md border border-emerald-200 bg-emerald-50 p-3"><p class="text-xs font-medium text-emerald-800">Ghi chú giải quyết</p><p class="mt-1 text-sm text-emerald-900">' + escapeHtml(t.resolution) + '</p></div>' : '') +
+      '<div class="mt-4 border-t border-slate-200 pt-4">' +
+        '<label for="statusSelect" class="block text-sm font-medium text-slate-900">Trạng thái</label>' +
+        '<select id="statusSelect" class="mt-1 h-8 w-full rounded-md border border-slate-300 bg-white px-2 text-sm">' + optionsHtml + '</select>' +
+      '</div>' +
+      (!t.assignee ? '<div class="mt-4"><button id="panelClaimBtn" type="button" class="h-8 rounded-md border border-slate-300 px-3 text-sm font-medium text-slate-700 hover:bg-slate-50">Nhận việc</button></div>' : '');
+
+    document.getElementById("statusSelect").addEventListener("change", function (e) {
+      var newStatus = e.target.value;
+      if (newStatus === t.status) return;
+      if (newStatus === "resolved") {
+        e.target.value = t.status;
+        openResolveDialog(t.id, newStatus);
+        return;
+      }
+      moveTicket(t.id, newStatus);
+      renderDetailsPanel(t.id);
+    });
+    var claimBtn = document.getElementById("panelClaimBtn");
+    if (claimBtn) claimBtn.addEventListener("click", function () { claimTicket(t.id); renderDetailsPanel(t.id); });
+  }
+
+  function detailRow(label, valueHtml) {
+    return '<div class="flex items-start justify-between gap-3"><dt class="text-slate-500">' + label + '</dt><dd class="text-right font-medium text-slate-900">' + valueHtml + '</dd></div>';
+  }
+
+  document.getElementById("panelCloseBtn").addEventListener("click", closeDetailsPanel);
+  document.getElementById("panelOverlay").addEventListener("click", closeDetailsPanel);
+  document.addEventListener("keydown", function (e) {
+    if (e.key === "Escape" && !document.getElementById("detailsPanel").hidden) closeDetailsPanel();
+  });
+
+  // ---------- Summary line / states ----------
+  function renderSummary() {
+    var total = TICKETS.filter(function () { return pageState !== "empty"; }).length === 0 ? 0 : TICKETS.length;
+    var visible = filteredTickets().length;
+    var line = document.getElementById("summaryLine");
+    if (pageState === "empty") { line.textContent = "0 ticket"; return; }
+    var chips = activeChips();
+    line.textContent = chips.length ? visible + " trong " + total + " ticket khớp bộ lọc" : total + " ticket";
+  }
+
+  function toggleSearchClear() {
+    document.getElementById("searchClearBtn").hidden = document.getElementById("searchInput").value.length === 0;
+  }
+
+  // ---------- Master render ----------
+  function render() {
+    renderChips();
+    renderSummary();
+
+    var tickets = filteredTickets();
+    var noResults = state.loaded && !state.errored && tickets.length === 0 && activeChips().length > 0 && pageState !== "empty";
+    document.getElementById("noResultsBanner").hidden = !noResults;
+
+    var showBoard = state.view === "board" && !noResults && state.loaded && !state.errored;
+    var showList = state.view === "list" && !noResults && state.loaded && !state.errored;
+    document.getElementById("boardRegion").hidden = !showBoard;
+    document.getElementById("listRegion").hidden = !showList;
+
+    if (showBoard) renderBoard();
+    if (showList) renderList();
+
+    document.getElementById("errorBanner").hidden = !state.errored;
+    document.getElementById("boardRegion").setAttribute("aria-busy", state.loaded ? "false" : "true");
+
+    if (!state.loaded && !state.errored) renderSkeleton();
+  }
+
+  function renderSkeleton() {
+    var region = document.getElementById("boardRegion");
+    region.hidden = false;
+    document.getElementById("listRegion").hidden = true;
+    region.innerHTML = "";
+    STATUSES.slice(0, 5).forEach(function () {
+      var section = document.createElement("section");
+      section.className = "flex w-[300px] shrink-0 flex-col rounded-md border border-slate-200 bg-slate-50 p-2";
+      section.setAttribute("aria-hidden", "true");
+      var headerSkel = document.createElement("div");
+      headerSkel.className = "skel mb-2 h-5 w-24";
+      section.appendChild(headerSkel);
+      for (var i = 0; i < 3; i++) {
+        var card = document.createElement("div");
+        card.className = "mb-2 rounded-md border border-slate-200 bg-white p-3";
+        card.innerHTML = '<div class="skel mb-2 h-3 w-16"></div><div class="skel mb-1.5 h-4 w-full"></div><div class="skel mb-2 h-4 w-3/4"></div><div class="skel h-3 w-1/2"></div>';
+        section.appendChild(card);
+      }
+      region.appendChild(section);
+    });
+  }
+
+  // ---------- Events ----------
+  document.getElementById("searchInput").addEventListener("input", debounce(function (e) {
+    state.q = e.target.value;
+    toggleSearchClear();
+    render();
+  }, 300));
+  document.getElementById("searchClearBtn").addEventListener("click", function () {
+    document.getElementById("searchInput").value = "";
+    state.q = "";
+    toggleSearchClear();
+    render();
+  });
+  document.getElementById("priorityFilter").addEventListener("change", function (e) { state.priority = e.target.value; render(); });
+  document.getElementById("assigneeFilter").addEventListener("change", function (e) { state.assignee = e.target.value; render(); });
+  document.getElementById("assignedToMeBtn").addEventListener("click", function () {
+    state.mine = !state.mine;
+    this.setAttribute("aria-pressed", String(state.mine));
+    this.classList.toggle("bg-blue-50", state.mine);
+    this.classList.toggle("border-blue-300", state.mine);
+    this.classList.toggle("text-blue-700", state.mine);
+    render();
+  });
+  document.getElementById("clearFromNoResultsBtn").addEventListener("click", clearAll);
+
+  function setView(view) {
+    state.view = view;
+    document.getElementById("viewBoardBtn").setAttribute("aria-pressed", String(view === "board"));
+    document.getElementById("viewListBtn").setAttribute("aria-pressed", String(view === "list"));
+    document.getElementById("viewBoardBtn").classList.toggle("bg-white", view === "board");
+    document.getElementById("viewBoardBtn").classList.toggle("shadow-sm", view === "board");
+    document.getElementById("viewBoardBtn").classList.toggle("text-slate-900", view === "board");
+    document.getElementById("viewBoardBtn").classList.toggle("text-slate-600", view !== "board");
+    document.getElementById("viewListBtn").classList.toggle("bg-white", view === "list");
+    document.getElementById("viewListBtn").classList.toggle("shadow-sm", view === "list");
+    document.getElementById("viewListBtn").classList.toggle("text-slate-900", view === "list");
+    document.getElementById("viewListBtn").classList.toggle("text-slate-600", view !== "list");
+    render();
+  }
+  document.getElementById("viewBoardBtn").addEventListener("click", function () { setView("board"); });
+  document.getElementById("viewListBtn").addEventListener("click", function () { setView("list"); });
+
+  document.getElementById("errorRetryBtn").addEventListener("click", retryLoad);
+  function retryLoad() {
+    state.errored = false;
+    state.loaded = false;
+    render();
+    setTimeout(function () {
+      state.loaded = true;
+      render();
+    }, 500);
+  }
+
+  document.getElementById("createTicketBtn").addEventListener("click", function () {
+    showToast("Màn hình tạo ticket chưa được triển khai trong bản mô phỏng này");
+  });
+
+  function debounce(fn, wait) {
+    var timer;
+    return function () {
+      var args = arguments;
+      clearTimeout(timer);
+      timer = setTimeout(function () { fn.apply(null, args); }, wait);
+    };
+  }
+
+  // ---------- Boot ----------
+  setView("board");
+  render();
+
+  if (pageState === "ok") {
+    setTimeout(function () {
+      state.loaded = true;
+      render();
+    }, 500);
+  } else if (pageState === "error") {
+    setTimeout(function () {
+      state.errored = true;
+      state.loaded = true;
+      render();
+    }, 500);
+  } else if (pageState === "empty") {
+    state.loaded = true;
+    render();
+  }
+
+  var ticketParam = qs.get("ticket");
+  if (ticketParam && TICKETS.some(function (t) { return t.id === ticketParam; })) {
+    setTimeout(function () { openDetailsPanel(ticketParam); }, 550);
+  }
+})();
+</script>
+</body>
+</html>

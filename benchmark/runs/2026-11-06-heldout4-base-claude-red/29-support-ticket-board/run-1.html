@@ -1,0 +1,349 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Helpdesk Ticket Board</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+  body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
+  .card-drag-over { outline: 2px dashed #6366f1; outline-offset: 2px; }
+  .card-dragging { opacity: 0.4; }
+  .col-drag-over { background-color: rgba(99,102,241,0.06); }
+  ::-webkit-scrollbar { height: 8px; width: 8px; }
+  ::-webkit-scrollbar-thumb { background-color: #cbd5e1; border-radius: 4px; }
+</style>
+</head>
+<body class="bg-slate-100 text-slate-800 min-h-screen flex flex-col">
+
+<header class="bg-white border-b border-slate-200 px-6 py-4 flex items-center justify-between shadow-sm">
+  <div class="flex items-center gap-3">
+    <div class="w-9 h-9 rounded-lg bg-indigo-600 flex items-center justify-center text-white font-bold text-sm">HD</div>
+    <div>
+      <h1 class="text-lg font-semibold text-slate-900 leading-tight">Helpdesk Ticket Board</h1>
+      <p class="text-xs text-slate-500">Drag cards between columns to update status</p>
+    </div>
+  </div>
+  <div class="flex items-center gap-4">
+    <div id="sla-breach-banner" class="hidden text-xs font-medium text-red-700 bg-red-50 border border-red-200 rounded-full px-3 py-1.5"></div>
+    <div class="relative">
+      <input id="search-input" type="text" placeholder="Search tickets, customers..." class="w-64 text-sm border border-slate-300 rounded-md pl-8 pr-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500" />
+      <svg class="w-4 h-4 text-slate-400 absolute left-2.5 top-2" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-4.35-4.35M17 10a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
+    </div>
+    <select id="assignee-filter" class="text-sm border border-slate-300 rounded-md px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500">
+      <option value="">All Assignees</option>
+    </select>
+    <div class="flex items-center gap-2 pl-4 border-l border-slate-200">
+      <div class="w-8 h-8 rounded-full bg-indigo-100 text-indigo-700 flex items-center justify-center text-xs font-semibold">JM</div>
+      <span class="text-sm font-medium text-slate-700">Jordan Mills</span>
+    </div>
+  </div>
+</header>
+
+<main class="flex-1 overflow-x-auto p-6">
+  <div id="board" class="flex gap-4 min-w-max h-full"></div>
+</main>
+
+<div id="ticket-modal" class="hidden fixed inset-0 bg-slate-900/40 flex items-center justify-center z-50 p-4">
+  <div class="bg-white rounded-xl shadow-xl max-w-lg w-full p-6" id="modal-content"></div>
+</div>
+
+<script>
+const STATUSES = [
+  { key: "new", label: "New", color: "bg-sky-500" },
+  { key: "open", label: "Open", color: "bg-indigo-500" },
+  { key: "pending", label: "Pending Customer", color: "bg-amber-500" },
+  { key: "resolved", label: "Resolved", color: "bg-emerald-500" },
+  { key: "closed", label: "Closed", color: "bg-slate-400" },
+];
+
+const PRIORITY_STYLES = {
+  urgent:  { label: "Urgent",  classes: "bg-red-100 text-red-700 border border-red-200" },
+  high:    { label: "High",    classes: "bg-orange-100 text-orange-700 border border-orange-200" },
+  medium:  { label: "Medium",  classes: "bg-amber-100 text-amber-700 border border-amber-200" },
+  low:     { label: "Low",     classes: "bg-slate-100 text-slate-600 border border-slate-200" },
+};
+
+const AGENTS = [
+  { name: "Priya Shah", initials: "PS" },
+  { name: "Marcus Webb", initials: "MW" },
+  { name: "Elena Torres", initials: "ET" },
+  { name: "Sam Okafor", initials: "SO" },
+  { name: "Lina Park", initials: "LP" },
+  { name: "Unassigned", initials: "?" },
+];
+
+function agentColor(initials) {
+  const palette = ["bg-fuchsia-100 text-fuchsia-700","bg-cyan-100 text-cyan-700","bg-lime-100 text-lime-700","bg-violet-100 text-violet-700","bg-rose-100 text-rose-700","bg-slate-200 text-slate-500"];
+  const idx = AGENTS.findIndex(a => a.initials === initials);
+  return palette[idx % palette.length];
+}
+
+let tickets = [
+  { id: "TCK-1042", customer: "Harlow & Finch Logistics", subject: "Unable to generate quarterly invoice export", priority: "urgent", assignee: "Priya Shah", status: "new", sla: "2026-11-07T14:00:00", channel: "Email" },
+  { id: "TCK-1043", customer: "Bluepeak Retail Group", subject: "SSO login redirect loop after password reset", priority: "high", assignee: "Marcus Webb", status: "new", sla: "2026-11-07T16:30:00", channel: "Chat" },
+  { id: "TCK-1044", customer: "Dana Whitfield", subject: "Mobile app crashes when uploading receipt photo", priority: "medium", assignee: "Unassigned", status: "new", sla: "2026-11-08T09:00:00", channel: "Chat" },
+  { id: "TCK-1045", customer: "Cinder & Oak Furniture Co.", subject: "Bulk order discount code not applying at checkout", priority: "medium", assignee: "Unassigned", status: "new", sla: "2026-11-08T12:00:00", channel: "Web Form" },
+  { id: "TCK-1031", customer: "Northgate Medical Supply", subject: "API webhook deliveries failing intermittently (500s)", priority: "urgent", assignee: "Elena Torres", status: "open", sla: "2026-11-07T11:00:00", channel: "API/Dev Support" },
+  { id: "TCK-1033", customer: "Rosalind Keyes", subject: "Billing charged twice for October subscription", priority: "high", assignee: "Sam Okafor", status: "open", sla: "2026-11-07T15:00:00", channel: "Phone" },
+  { id: "TCK-1036", customer: "Thistle & Vine Florists", subject: "Inventory sync delayed by several hours", priority: "medium", assignee: "Priya Shah", status: "open", sla: "2026-11-08T10:00:00", channel: "Email" },
+  { id: "TCK-1038", customer: "Omar Delacroix", subject: "Password reset email never arrives", priority: "low", assignee: "Lina Park", status: "open", sla: "2026-11-09T09:00:00", channel: "Email" },
+  { id: "TCK-1020", customer: "Granite Ridge Construction", subject: "Requesting clarification on contract renewal terms", priority: "low", assignee: "Marcus Webb", status: "pending", sla: "2026-11-10T17:00:00", channel: "Email" },
+  { id: "TCK-1024", customer: "Felicity Byrne", subject: "Awaiting screenshot of error before reproducing", priority: "medium", assignee: "Elena Torres", status: "pending", sla: "2026-11-09T13:00:00", channel: "Chat" },
+  { id: "TCK-1027", customer: "Vantage Point Consulting", subject: "Confirming data migration window with customer IT", priority: "high", assignee: "Sam Okafor", status: "pending", sla: "2026-11-07T18:00:00", channel: "Phone" },
+  { id: "TCK-1005", customer: "Marlowe Dental Group", subject: "Appointment reminder SMS not sending to new patients", priority: "high", assignee: "Priya Shah", status: "resolved", sla: "2026-11-06T12:00:00", channel: "Phone" },
+  { id: "TCK-1008", customer: "Juniper & Sage Cafe", subject: "POS terminal offline sync caused duplicate orders", priority: "medium", assignee: "Lina Park", status: "resolved", sla: "2026-11-06T16:00:00", channel: "Chat" },
+  { id: "TCK-1011", customer: "Theo Castellanos", subject: "Export to CSV missing the last column of data", priority: "low", assignee: "Marcus Webb", status: "resolved", sla: "2026-11-05T09:00:00", channel: "Email" },
+  { id: "TCK-0991", customer: "Ashgrove Veterinary Clinic", subject: "Staff account locked after multiple failed logins", priority: "medium", assignee: "Elena Torres", status: "closed", sla: "2026-11-04T10:00:00", channel: "Phone" },
+  { id: "TCK-0987", customer: "Priya Nandakumar", subject: "Question about annual plan pricing tiers", priority: "low", assignee: "Sam Okafor", status: "closed", sla: "2026-11-03T15:00:00", channel: "Web Form" },
+  { id: "TCK-0982", customer: "Ferris Wheel Media", subject: "Dashboard widget showing stale analytics data", priority: "high", assignee: "Lina Park", status: "closed", sla: "2026-11-02T11:00:00", channel: "Email" },
+];
+
+const NOW = new Date("2026-11-07T10:15:00");
+
+function slaInfo(iso, status) {
+  const due = new Date(iso);
+  const diffMs = due - NOW;
+  const diffHrs = diffMs / 36e5;
+  const closed = status === "resolved" || status === "closed";
+  const dateStr = due.toLocaleString(undefined, { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
+  if (closed) {
+    return { text: "Met " + dateStr, classes: "text-slate-500", icon: "check" };
+  }
+  if (diffMs < 0) {
+    return { text: "Breached " + dateStr, classes: "text-red-600 font-semibold", icon: "alert" };
+  }
+  if (diffHrs <= 4) {
+    return { text: "Due " + dateStr, classes: "text-amber-600 font-semibold", icon: "clock" };
+  }
+  return { text: "Due " + dateStr, classes: "text-slate-500", icon: "clock" };
+}
+
+function icon(name) {
+  if (name === "alert") return '<svg class="w-3.5 h-3.5 inline -mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007" /></svg>';
+  if (name === "clock") return '<svg class="w-3.5 h-3.5 inline -mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6l4 2m6-2a10 10 0 11-20 0 10 10 0 0120 0z" /></svg>';
+  return '<svg class="w-3.5 h-3.5 inline -mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" /></svg>';
+}
+
+function initialsOf(name) {
+  const found = AGENTS.find(a => a.name === name);
+  return found ? found.initials : name.split(" ").map(p => p[0]).join("").slice(0,2).toUpperCase();
+}
+
+let draggedId = null;
+let activeFilter = { search: "", assignee: "" };
+
+function matchesFilter(t) {
+  const s = activeFilter.search.trim().toLowerCase();
+  const matchesSearch = !s ||
+    t.customer.toLowerCase().includes(s) ||
+    t.subject.toLowerCase().includes(s) ||
+    t.id.toLowerCase().includes(s);
+  const matchesAssignee = !activeFilter.assignee || t.assignee === activeFilter.assignee;
+  return matchesSearch && matchesAssignee;
+}
+
+function renderBoard() {
+  const board = document.getElementById("board");
+  board.innerHTML = "";
+
+  let breachCount = 0;
+
+  STATUSES.forEach(status => {
+    const colTickets = tickets.filter(t => t.status === status.key && matchesFilter(t));
+
+    const col = document.createElement("div");
+    col.className = "flex flex-col w-80 shrink-0 bg-slate-50 rounded-xl border border-slate-200";
+    col.dataset.status = status.key;
+
+    const header = document.createElement("div");
+    header.className = "flex items-center justify-between px-4 py-3 border-b border-slate-200 sticky top-0";
+    header.innerHTML = `
+      <div class="flex items-center gap-2">
+        <span class="w-2.5 h-2.5 rounded-full ${status.color}"></span>
+        <h2 class="text-sm font-semibold text-slate-700">${status.label}</h2>
+      </div>
+      <span class="text-xs font-medium text-slate-400 bg-slate-100 rounded-full px-2 py-0.5">${colTickets.length}</span>
+    `;
+    col.appendChild(header);
+
+    const body = document.createElement("div");
+    body.className = "flex-1 flex flex-col gap-3 p-3 overflow-y-auto";
+    body.style.minHeight = "120px";
+    body.style.maxHeight = "calc(100vh - 220px)";
+
+    if (colTickets.length === 0) {
+      const empty = document.createElement("div");
+      empty.className = "text-xs text-slate-400 text-center py-8 border border-dashed border-slate-200 rounded-lg";
+      empty.textContent = "No tickets";
+      body.appendChild(empty);
+    }
+
+    colTickets.forEach(t => {
+      const sla = slaInfo(t.sla, t.status);
+      if (sla.icon === "alert") breachCount++;
+      const pr = PRIORITY_STYLES[t.priority];
+
+      const card = document.createElement("div");
+      card.className = "bg-white rounded-lg border border-slate-200 shadow-sm p-3 cursor-grab hover:shadow-md transition-shadow";
+      card.draggable = true;
+      card.dataset.id = t.id;
+      card.innerHTML = `
+        <div class="flex items-start justify-between gap-2 mb-1.5">
+          <span class="text-[11px] font-mono text-slate-400">${t.id}</span>
+          <span class="text-[11px] px-2 py-0.5 rounded-full ${pr.classes}">${pr.label}</span>
+        </div>
+        <p class="text-sm font-medium text-slate-800 leading-snug mb-1.5">${escapeHtml(t.subject)}</p>
+        <p class="text-xs text-slate-500 mb-2.5">${escapeHtml(t.customer)}</p>
+        <div class="flex items-center justify-between">
+          <div class="flex items-center gap-1.5">
+            <span class="w-6 h-6 rounded-full ${agentColor(initialsOf(t.assignee))} flex items-center justify-center text-[10px] font-semibold">${initialsOf(t.assignee)}</span>
+            <span class="text-xs text-slate-600">${t.assignee}</span>
+          </div>
+          <span class="text-[11px] ${sla.classes} flex items-center gap-1">${icon(sla.icon)} ${sla.text}</span>
+        </div>
+      `;
+
+      card.addEventListener("click", () => openModal(t.id));
+      card.addEventListener("dragstart", e => {
+        draggedId = t.id;
+        card.classList.add("card-dragging");
+        e.dataTransfer.effectAllowed = "move";
+      });
+      card.addEventListener("dragend", () => {
+        card.classList.remove("card-dragging");
+        draggedId = null;
+      });
+
+      body.appendChild(card);
+    });
+
+    body.addEventListener("dragover", e => {
+      e.preventDefault();
+      col.classList.add("col-drag-over");
+    });
+    body.addEventListener("dragleave", () => col.classList.remove("col-drag-over"));
+    body.addEventListener("drop", e => {
+      e.preventDefault();
+      col.classList.remove("col-drag-over");
+      if (draggedId) {
+        const ticket = tickets.find(t => t.id === draggedId);
+        if (ticket && ticket.status !== status.key) {
+          ticket.status = status.key;
+          renderBoard();
+        }
+      }
+    });
+
+    col.appendChild(body);
+    board.appendChild(col);
+  });
+
+  const banner = document.getElementById("sla-breach-banner");
+  if (breachCount > 0) {
+    banner.classList.remove("hidden");
+    banner.textContent = `⚠ ${breachCount} ticket${breachCount > 1 ? "s" : ""} past SLA`;
+  } else {
+    banner.classList.add("hidden");
+  }
+}
+
+function escapeHtml(str) {
+  const div = document.createElement("div");
+  div.textContent = str;
+  return div.innerHTML;
+}
+
+function openModal(id) {
+  const t = tickets.find(x => x.id === id);
+  if (!t) return;
+  const pr = PRIORITY_STYLES[t.priority];
+  const sla = slaInfo(t.sla, t.status);
+  const statusObj = STATUSES.find(s => s.key === t.status);
+
+  const modal = document.getElementById("ticket-modal");
+  const content = document.getElementById("modal-content");
+  content.innerHTML = `
+    <div class="flex items-start justify-between mb-4">
+      <div>
+        <p class="text-xs font-mono text-slate-400 mb-1">${t.id}</p>
+        <h3 class="text-lg font-semibold text-slate-900">${escapeHtml(t.subject)}</h3>
+      </div>
+      <button id="modal-close" class="text-slate-400 hover:text-slate-600 text-xl leading-none">&times;</button>
+    </div>
+    <div class="grid grid-cols-2 gap-4 text-sm mb-5">
+      <div>
+        <p class="text-xs text-slate-400 mb-0.5">Customer</p>
+        <p class="font-medium text-slate-800">${escapeHtml(t.customer)}</p>
+      </div>
+      <div>
+        <p class="text-xs text-slate-400 mb-0.5">Channel</p>
+        <p class="font-medium text-slate-800">${t.channel}</p>
+      </div>
+      <div>
+        <p class="text-xs text-slate-400 mb-0.5">Priority</p>
+        <span class="inline-block text-xs px-2 py-0.5 rounded-full ${pr.classes}">${pr.label}</span>
+      </div>
+      <div>
+        <p class="text-xs text-slate-400 mb-0.5">Assignee</p>
+        <select id="assignee-select" class="w-full text-sm border border-slate-300 rounded-md px-2 py-1 focus:outline-none focus:ring-2 focus:ring-indigo-500">
+          ${AGENTS.map(a => `<option value="${a.name}" ${a.name === t.assignee ? "selected" : ""}>${a.name}</option>`).join("")}
+        </select>
+      </div>
+      <div>
+        <p class="text-xs text-slate-400 mb-0.5">SLA</p>
+        <p class="${sla.classes}">${icon(sla.icon)} ${sla.text}</p>
+      </div>
+      <div>
+        <p class="text-xs text-slate-400 mb-0.5">Status</p>
+        <select id="status-select" class="w-full text-sm border border-slate-300 rounded-md px-2 py-1 focus:outline-none focus:ring-2 focus:ring-indigo-500">
+          ${STATUSES.map(s => `<option value="${s.key}" ${s.key === t.status ? "selected" : ""}>${s.label}</option>`).join("")}
+        </select>
+      </div>
+    </div>
+    <div class="flex justify-end gap-2">
+      <button id="modal-cancel" class="text-sm px-3 py-1.5 rounded-md border border-slate-300 text-slate-600 hover:bg-slate-50">Cancel</button>
+      <button id="modal-save" class="text-sm px-3 py-1.5 rounded-md bg-indigo-600 text-white hover:bg-indigo-700">Save changes</button>
+    </div>
+  `;
+
+  modal.classList.remove("hidden");
+  document.getElementById("modal-close").addEventListener("click", closeModal);
+  document.getElementById("modal-cancel").addEventListener("click", closeModal);
+  document.getElementById("modal-save").addEventListener("click", () => {
+    t.assignee = document.getElementById("assignee-select").value;
+    t.status = document.getElementById("status-select").value;
+    closeModal();
+    renderBoard();
+  });
+}
+
+function closeModal() {
+  document.getElementById("ticket-modal").classList.add("hidden");
+}
+
+document.getElementById("ticket-modal").addEventListener("click", e => {
+  if (e.target.id === "ticket-modal") closeModal();
+});
+
+document.getElementById("search-input").addEventListener("input", e => {
+  activeFilter.search = e.target.value;
+  renderBoard();
+});
+
+const assigneeFilterEl = document.getElementById("assignee-filter");
+AGENTS.forEach(a => {
+  const opt = document.createElement("option");
+  opt.value = a.name;
+  opt.textContent = a.name;
+  assigneeFilterEl.appendChild(opt);
+});
+assigneeFilterEl.addEventListener("change", e => {
+  activeFilter.assignee = e.target.value;
+  renderBoard();
+});
+
+renderBoard();
+</script>
+</body>
+</html>

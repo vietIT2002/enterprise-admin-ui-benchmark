@@ -5,6 +5,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 export const SUITES = [
+  { id: 'heldout4', label: 'Held-out 4 (blind)', red: '2026-11-06-heldout4-base-claude-red', green: '2026-11-06-heldout4-base-claude-green', note: 'Six more briefs written by an agent that never read the skill, reviewed blind. v0.5.8, Claude Sonnet 5.5, single HTML file. Run 2 is the Vietnamese prompt, built with the skill only.' },
   { id: 'heldout3', label: 'Held-out 3 (blind)', red: '2026-11-06-heldout3-claude-red', green: '2026-11-06-heldout3-claude-green', note: 'Six briefs written by a separate agent that never read the skill, committed before the run, and reviewed blind. v0.5.8, Claude Sonnet 5.5, single HTML file. The fairest estimate: checklists include domain rules the prompts do not state.' },
   { id: 'newtypes', label: 'New screen types', red: '2026-11-06-newtypes-claude-red', green: '2026-11-06-newtypes-after-claude-green', note: 'A report, a printable invoice, a leave calendar, a Kanban board and a chart of accounts. With the skill means v0.5.8, whose references for these screens were written from failures on these briefs. Claude Sonnet 5.5, single HTML file.' },
   { id: 'heldout2', label: 'Held-out 2', red: '2026-11-05-red-heldout2', green: '2026-11-05-green-heldout2', note: 'Three briefs written after the v0.5.2 rules. Claude Sonnet 5.5, single HTML file.' },

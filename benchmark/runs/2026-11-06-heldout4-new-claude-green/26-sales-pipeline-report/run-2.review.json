@@ -1,0 +1,54 @@
+{
+  "brief": "26-sales-pipeline-report",
+  "run": 2,
+  "items": [
+    {
+      "item": "The stage breakdown lists stages in pipeline order (not alphabetical), each with its win probability, and each stage's weighted value equals its open value × that probability, with the weighted total equal to the sum of the stages",
+      "pass": false,
+      "evidence": "renderChart() does `totals.sort((a,b) => b.value - a.value)` so bars render by descending value (screenshot order: Đề xuất, Phân tích nhu cầu, Đàm phán, Chốt đơn, Tiếp cận) instead of the STAGES pipeline order (Tiếp cận → Phân tích nhu cầu → Đề xuất → Đàm phán → Chốt đơn). Neither the bars nor #chartTable (columns: Giai đoạn, Số cơ hội, Giá trị, Tỷ trọng) display each stage's win probability or weighted value at all, so the weighted-value-per-stage equation can't be checked."
+    },
+    {
+      "item": "Win rate is computed over closed deals only, won ÷ (won + lost), with the counts shown beside it (such as \"38% · 19 of 50 closed\"), and a salesperson with no closed deals shows \"—\" instead of 0% or NaN",
+      "pass": true,
+      "evidence": "winRate() computes `rate: won + lost > 0 ? won/(won+lost) : null` from CLOSED_BY_OWNER, and renderSummary renders '... Tỷ lệ thắng (Quý 4/2026) 57,8% (26 thắng / 45 đã chốt)' with `wr.rate == null ? '—' : formatPercent(wr.rate)` guarding the no-closed-deals case."
+    },
+    {
+      "item": "The by-salesperson table ends in a totals row whose deal count, pipeline value and weighted value equal the sum of its rows and match the overall totals of the stage breakdown",
+      "pass": true,
+      "evidence": "Default state.groupBy='owner' groups the table by salesperson; renderGrandTotal() sums the same filtered `deals` array used by each owner group and by renderChart(), e.g. '#grandTotalRow' → 'Tổng (34 cơ hội)' / 57.970.000.000 ₫ / 30.470.736.071 ₫, matching summaryLine's totals computed from the identical filtered set."
+    },
+    {
+      "item": "The period can be set to this quarter, next quarter or a custom range, the page says which date it applies to (expected close date), and the results can also be narrowed to one salesperson or team",
+      "pass": false,
+      "evidence": "PERIODS = [quarter ('Quý này'), prevQuarter ('Quý trước' = previous quarter, not next), month, all, custom ('Tùy chọn')] — there is no 'next quarter' option, only a previous-quarter one. summaryLine does state 'dự kiến chốt trong Quý 4/2026' (expected close date) and #ownerFilterBtn narrows to one salesperson, but no 'next quarter' preset exists and there is no team-level filter."
+    },
+    {
+      "item": "Every money value shows its currency (one currency for the whole report) with thousands separators and lines up by digit within its column, and any abbreviated headline figure (such as \"1.2M\") has the full amount available in the table or a title attribute",
+      "pass": true,
+      "evidence": "formatMoney() = `nfInt.format(Math.round(v)) + ' ₫'` used everywhere (e.g. 'Pipeline 57.970.000.000 ₫'); all numeric cells use the `tabular-nums` class and audit.json reports numericCells.misaligned:0, nonTabular:0; no abbreviated figures (e.g. '1.2M') appear anywhere, so no title-attribute fallback is needed."
+    },
+    {
+      "item": "Open deals whose expected close date has already passed are flagged with words (such as \"Close date passed\"), not colour alone, and the number of such deals is shown per salesperson",
+      "pass": false,
+      "evidence": "dueLabel() returns text 'Quá hạn N ngày' (overdue N days) rendered in dueCell(), satisfying the word-flag requirement, but groupHeaderRow() only shows `(${g.items.length})` total deal count per salesperson group — there is no separate overdue-deal count shown per salesperson anywhere (chart, table group header, or summary)."
+    },
+    {
+      "item": "Each stage and salesperson figure drills down to the deals behind it (deal, account, owner, value, stage, close date) through a link or button that is keyboard-focusable and has a descriptive accessible name",
+      "pass": false,
+      "evidence": "#chartBars bars are plain `<div>` elements with no click handler, button, link, or tabindex — stage figures in 'Pipeline theo giai đoạn' have no drill-down at all. Salesperson group headers do use a focusable `<button data-toggle-group>` with aria-expanded to expand/collapse rows already in the table, but since the stage breakdown has zero interactivity, the 'each stage and salesperson figure' requirement fails overall."
+    },
+    {
+      "item": "When the filters match no deals, the page says so, names the active filters and offers to clear them; a loading indicator and a failed-load message with a retry action are also present",
+      "pass": true,
+      "evidence": "emptyRow('Không có cơ hội nào khớp với bộ lọc này.', ..., 'Xóa bộ lọc', clearAllFilters) shows the empty message plus a clear-filters action, while #chipsRow (still rendered via renderChips()) names each active filter alongside it; skeletonRows() + 'Đang tải báo cáo…' cover loading, and errorRow() shows 'Không thể tải báo cáo pipeline' with a '#retryBtn' retry action."
+    },
+    {
+      "item": "Export (CSV or Excel) produces the deal-level rows for the current filters, and its label or confirmation states the scope (such as \"Export 42 deals · Q4 2026\")",
+      "pass": true,
+      "evidence": "#confirmExport builds `rows = applyFilters().map(d => [id, name, customer, owner, stage, probability, value, weighted, expectedClose])` as one CSV row per deal, and #exportScope reads 'Xuất N cơ hội đang mở khớp với bộ lọc hiện tại (Quý 4/2026 ...)' before export, matching the toast 'Đã xuất N cơ hội vào pipeline-ban-hang-2026-Q4.csv' afterward."
+    }
+  ],
+  "tells": [],
+  "notes": "No listed template tells were observed: no gradients/glass/oversized radii (radii:[4,6] per audit.json), no emoji icons (all inline SVG), no uppercase tracked section labels, no KPI icon tiles or delta pills, sidebar is slate-50/blue-700 (not navy/indigo), and owner initials avatars are used only for real salespeople. The two biggest functional gaps are the stage-breakdown chart (sorted by value, no probability/weighted figures, non-interactive) and the missing 'next quarter' period preset (a 'previous quarter' preset exists instead).",
+  "blind": true
+}

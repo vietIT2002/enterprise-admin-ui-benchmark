@@ -1,0 +1,60 @@
+{
+  "brief": "26-sales-pipeline-report",
+  "run": 1,
+  "items": [
+    {
+      "item": "The stage breakdown lists stages in pipeline order (not alphabetical), each with its win probability, and each stage's weighted value equals its open value × that probability, with the weighted total equal to the sum of the stages",
+      "pass": false,
+      "evidence": "renderRows('byStageBody', groupBy(openDeals,'stage'), STAGE_ORDER) does render stages in pipeline order (Prospecting → Qualification → Needs Analysis → Proposal → Negotiation), but the '#byStageBody' table only has columns Stage/Deals/Pipeline Value/Weighted — no win-probability column is rendered anywhere in the stage breakdown (confirmed in screenshot: headers are 'STAGE DEALS PIPELINE VALUE WEIGHTED'). Weighted is also summed per-deal from randomized individual probabilities (`weighted(d)=d.value*(d.probability/100)`), not stage-value × a single displayed stage probability."
+    },
+    {
+      "item": "Win rate is computed over closed deals only, won ÷ (won + lost), with the counts shown beside it (such as \"38% · 19 of 50 closed\"), and a salesperson with no closed deals shows \"—\" instead of 0% or NaN",
+      "pass": false,
+      "evidence": "The global KPI does this correctly: `winRate = closedQ.length ? (won.length/closedQ.length)*100 : 0` with `kpiWinRate` showing '—' and 'No closed deals yet' when closedQ.length is 0 (script lines 366-377; screenshot shows '43% / 10 won / 13 lost'). But this is a single filtered-wide figure, not a per-salesperson value — the by-salesperson table (#bySalespersonBody) has no win-rate column at all, so there is no case where an individual salesperson's row shows '—' for zero closed deals."
+    },
+    {
+      "item": "The by-salesperson table ends in a totals row whose deal count, pipeline value and weighted value equal the sum of its rows and match the overall totals of the stage breakdown",
+      "pass": false,
+      "evidence": "`renderRows()` (script lines 398-423) only appends one `<tr>` per group and never appends a totals row; '#bySalespersonBody' and '#byStageBody' both end at the last data row, as visible in full.png (table ends with 'Elena Rodriguez' / 'Negotiation' rows, no totals line)."
+    },
+    {
+      "item": "The period can be set to this quarter, next quarter or a custom range, the page says which date it applies to (expected close date), and the results can also be narrowed to one salesperson or team",
+      "pass": false,
+      "evidence": "The header only prints a hardcoded `QUARTER_LABEL = 'Q4 2026'` (line 176, 'Open deals by salesperson & stage · Q4 2026 · Generated Nov 7, 2026') with no UI control to change it — there is no quarter/date-range selector in the filters bar (#filterSalesperson, #filterStage, #filterSearch, #filterIncludeClosed only). Salesperson narrowing exists (#filterSalesperson) but there is no team filter, and nothing in the UI states the quarter window is based on 'expected close date'."
+    },
+    {
+      "item": "Every money value shows its currency (one currency for the whole report) with thousands separators and lines up by digit within its column, and any abbreviated headline figure (such as \"1.2M\") has the full amount available in the table or a title attribute",
+      "pass": false,
+      "evidence": "`fmtCurrency` uses `Intl.NumberFormat('en-US',{style:'currency',currency:'USD'})` everywhere, giving one currency with separators (e.g. '$5,296,000') and no abbreviated headline figures needing a title attribute. However audit.json's 'tabular-nums' rule fails on all 240 numeric cells (e.g. 'tbody#bySalespersonBody > tr:nth-of-type(1) > td.px-5.py-3:nth-of-type(2)': actual 'normal', expected 'tabular-nums'), so digits do not reliably line up within a column."
+    },
+    {
+      "item": "Open deals whose expected close date has already passed are flagged with words (such as \"Close date passed\"), not colour alone, and the number of such deals is shown per salesperson",
+      "pass": false,
+      "evidence": "No such flag exists in the markup, script, or screenshots — there is no 'overdue'/'Close date passed' text or per-salesperson overdue count anywhere; deal rows just show the raw close date (e.g. 'Jan 7, 2027') with no overdue state logic in the code at all."
+    },
+    {
+      "item": "Each stage and salesperson figure drills down to the deals behind it (deal, account, owner, value, stage, close date) through a link or button that is keyboard-focusable and has a descriptive accessible name",
+      "pass": false,
+      "evidence": "`renderRows()` builds plain `<tr><td>...</td></tr>` markup with no `<a>`/`<button>` or click handlers attached to the salesperson/stage breakdown rows (script lines 410-422); only the detail-table column headers (`th[data-sort]`) have click listeners, which sort rather than drill down."
+    },
+    {
+      "item": "When the filters match no deals, the page says so, names the active filters and offers to clear them; a loading indicator and a failed-load message with a retry action are also present",
+      "pass": false,
+      "evidence": "`<div id=\"emptyState\" class=\"hidden ...\">No deals match the current filters.</div>` (line 151) is a static string that never names which filters are active and contains no inline 'clear filters' action (the unrelated 'Reset filters' link sits in the filter bar, not tied to this message). There is no loading spinner/skeleton and no failed-load/retry UI anywhere in the markup or script — data is generated synchronously with `generateDeals()`, so no async/error states exist."
+    },
+    {
+      "item": "Export (CSV or Excel) produces the deal-level rows for the current filters, and its label or confirmation states the scope (such as \"Export 42 deals · Q4 2026\")",
+      "pass": false,
+      "evidence": "`exportCsv()` correctly exports `sortDeals(getFilteredDeals())` as deal-level CSV rows honoring current filters (lines 495-521), but the button text is a static 'Export CSV' (line 25) with no dynamic deal count or quarter, and there is no post-export confirmation message stating scope."
+    }
+  ],
+  "tells": [
+    "initials-avatar-non-person",
+    "tracked-uppercase-labels",
+    "rainbow-status",
+    "decorative-chart",
+    "oversized-radius"
+  ],
+  "notes": "Evidence for tells: initials-avatar-non-person — the 'SP' square badge next to the title (`<div class=\"h-9 w-9 rounded-lg bg-indigo-600 ... \">SP</div>`) is an app logo, not a person's initials, used in an avatar-style tile. tracked-uppercase-labels — all five KPI captions and both breakdown/table headers use `uppercase tracking-wide`/`uppercase` classes (e.g. 'OPEN PIPELINE VALUE', 'SALESPERSON'), flagged by audit.json's uppercase-text rule (20 instances). rainbow-status — stage badges cycle through seven distinct hues (slate/sky/amber/violet/orange/emerald/rose) via STAGE_COLORS purely for categorical distinction. decorative-chart — each breakdown row has a thin indigo bar (`style=\"width:'+pct+'%'\"`) scaled to the group's share of the max value, duplicating the adjacent numeric value without added information. oversized-radius — breakdown/KPI/filter cards use `rounded-xl` (12px), exceeding the audit's recommended ≤8px ceiling (flagged directly in audit.json's radius-scale violation). Functional review relied on page.html logic plus first.png/full.png; no server or network calls exist (fully client-side mock data), so loading/error-state absence is a structural gap, not a missed timing window.",
+  "blind": true
+}

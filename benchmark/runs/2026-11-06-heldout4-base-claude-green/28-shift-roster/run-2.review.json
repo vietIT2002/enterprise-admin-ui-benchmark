@@ -1,0 +1,54 @@
+{
+  "brief": "28-shift-roster",
+  "run": 2,
+  "items": [
+    {
+      "item": "The grid header names the week with its date range (such as \"Week 45 · 2–8 Nov 2026\"), every day column shows the weekday and date, and controls move to the previous, next and current week",
+      "pass": true,
+      "evidence": "el.rangeHeading shows '02/11/2026 – 08/11/2026' (updateRangeHeading()); each <th> in renderGridHead() renders WEEKDAY_SHORT[d] + fmtDate(date) e.g. 'T2 · 02/11/2026'; #btnToday, #btnPrevWeek ('‹'), #btnNextWeek ('›') all wired to shift state.weekStart."
+    },
+    {
+      "item": "Each shift shows its start and end time in one consistent 24-hour format and the role or station (such as \"07:00–15:00 · Cashier\"), and a shift that ends after midnight is marked as ending the next day",
+      "pass": false,
+      "evidence": "shiftCellHtml() renders shift-type label (e.g. 'Ca sáng') on one line and '06:00–14:00' on a second line — never 'time · role/station' in one line, and role/department is only shown once per employee row, not per shift. The night shift (SHIFT_TYPES.night: start 22:00, end 06:00) is rendered as plain '22:00–06:00' with no next-day indicator anywhere in shiftCellHtml() or its aria-label."
+    },
+    {
+      "item": "Each staff row shows the week's scheduled hours against contracted hours (such as \"36 / 40 h\"), the scheduled figure equals that person's shifts less unpaid breaks, and anyone over or under contract is flagged in words",
+      "pass": false,
+      "evidence": "EMPLOYEES objects (id, name, role, dept, code, initials, color) carry no contracted-hours field, and no row in renderGridBody()/identity markup displays any hours total or over/under-contract flag."
+    },
+    {
+      "item": "A footer row shows, for each day, the staff count or hours scheduled against the required cover, and days below the requirement are marked in text (such as \"Short 1\")",
+      "pass": true,
+      "evidence": "renderGridFoot(): <tfoot> row 'Đã xếp ca / Tổng NV' shows e.g. '7/8', and when scheduled < total*MIN_COVERAGE_RATIO it adds amber text 'Thiếu nhân sự' (visible on CN column '4/8 · Thiếu nhân sự' in screenshot)."
+    },
+    {
+      "item": "The sample data contains at least one rule conflict, such as overlapping shifts for one person or less than 11 hours' rest between a closing and the next opening shift, shown on the affected cell with a written reason",
+      "pass": false,
+      "evidence": "BASE_TYPE data has instances of <11h rest (e.g. e3 afternoon 14:00–22:00 Thu then morning 06:00–14:00 Fri = 8h rest) but there is no conflict-detection code anywhere in the script, no cell styling/badge for conflicts, and no written reason is ever rendered."
+    },
+    {
+      "item": "Approved leave, days off and public holidays appear as labelled cells (such as \"Annual leave\", \"Day off\") that look different from an empty, unscheduled cell",
+      "pass": false,
+      "evidence": "SHIFT_TYPES only defines morning/afternoon/night/off ('Nghỉ'); 'Nghỉ' is visually distinct from the dashed '+ Thêm ca' empty cell, but there is no separate 'Annual leave' or 'public holiday' category anywhere in SHIFT_TYPES, BASE_TYPE, or the legend — only a single generic day-off type exists."
+    },
+    {
+      "item": "The week's status (Draft or Published) is shown, and publishing goes through a confirmation that names the week and the number of unresolved conflicts or warnings",
+      "pass": false,
+      "evidence": "Per-shift draft/published state surfaces via draftBanner text ('Có 16 ca chưa công bố...') and list-view badges, but there is no single week-level Draft/Published status label. el.btnPublish's click handler calls publishWeek(key) and shows a toast directly — openConfirm() is never invoked for publishing, so there is no confirmation dialog at all, let alone one naming the week or conflict count."
+    },
+    {
+      "item": "The grid is a <table> with staff names as row headers and days as column headers, and each shift or empty cell is keyboard-reachable with an accessible name that includes the person and the date (such as \"Add shift, Lan Pham, Tue 3 Nov\")",
+      "pass": true,
+      "evidence": "<table id=\"rosterTable\">; renderGridBody() emits '<th scope=\"row\">' per employee name; renderGridHead() emits '<th scope=\"col\">' per day. shiftCellHtml() buttons carry aria-label e.g. 'Nguyễn Thị Lan, chưa xếp ca, Thứ Hai 02/11/2026. Nhấn để thêm ca.' and arrow-key navigation is wired via rosterTbody keydown handler."
+    },
+    {
+      "item": "A week with no shifts yet shows a message with a way to start (such as \"Copy last week\"), and a loading state and a load error with a retry button exist",
+      "pass": true,
+      "evidence": "renderEmptyWeek() shows 'Chưa có lịch cho tuần này' plus a button labelled 'Sao chép lịch tuần trước' or 'Bắt đầu xếp lịch' (reachable via ?state=empty); renderSkeleton() provides pulsing skeleton rows (?state=loading); renderError() shows 'Không thể tải lịch phân ca' with a '#btnRetryLoad Thử lại' retry button (?state=error)."
+    }
+  ],
+  "tells": [],
+  "notes": "Page is in Vietnamese (lang=\"vi\"); checklist examples translated conceptually. No stylistic template tells were found — no gradients, glass, uppercase tracked labels, emoji icons, KPI tiles, promo cards, or oversized radii (radii are 4–6px per audit.json). Shift-type color coding (blue/amber/violet) is functional and has an explicit legend, not a gratuitous rainbow-status pattern. Main gaps are functional: no per-shift role/station + midnight-crossing marker, no contracted-hours tracking, no conflict detection, no leave/holiday cell types, and no publish confirmation dialog despite the UI otherwise using openConfirm() for the destructive delete-shift and copy-week-overwrite actions.",
+  "blind": true
+}

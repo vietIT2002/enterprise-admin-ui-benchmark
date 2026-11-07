@@ -1,0 +1,57 @@
+{
+  "brief": "27-delivery-note-print",
+  "run": 1,
+  "items": [
+    {
+      "item": "The header shows the delivery note number, issue date, source sales order or transfer number and dispatching warehouse, each with a visible label, and every date on the note uses one unambiguous format (such as 06 Nov 2026)",
+      "pass": false,
+      "evidence": "Header table has 'Delivery Note No.' (DN-2026-04871), 'Date of Dispatch' (07 Nov 2026, unambiguous format, and the only date on the page), and 'Order Reference' (PO-55214-A), but there is no 'Dispatching Warehouse' field anywhere in the header — the only warehouse mention is 'Warehouse 3, Riverside Industrial Estate' buried inside the Sender address block with no field label."
+    },
+    {
+      "item": "Sender (company name, address, tax ID), recipient (customer name, delivery address, contact person and phone) and carrier (carrier name, vehicle plate or driver name) appear in three separately labelled blocks",
+      "pass": false,
+      "evidence": "Info is scattered across five labelled boxes instead of three: 'SENDER / DISPATCHED FROM' (h3.text-xs.font-bold, no tax ID — VAT Reg No. GB 745 2291 06 only appears in the unrelated page header), 'CUSTOMER / BILL TO' (name only), a separate 'DELIVERY ADDRESS' box (address + Contact: M. Osei — +44 113 244 8820), and separate 'CARRIER' and 'DRIVER' boxes in the shipping strip."
+    },
+    {
+      "item": "The goods are in a real <table> with column headers in <thead>, giving per line: line number, item code, description, unit of measure, quantity ordered, quantity delivered and lot or serial number, with quantities right-aligned",
+      "pass": true,
+      "evidence": "<table class=\"w-full border-collapse\"><thead><tr>...<th>#</th><th>SKU / Item Code</th><th>Description</th><th class=\"text-right\">Qty Ordered</th><th class=\"text-right\">Qty Shipped</th><th>Unit</th><th>Batch / Lot</th></tr></thead> with matching <td class=\"text-right\"> cells for both quantity columns in every row."
+    },
+    {
+      "item": "A line delivered short of the ordered quantity states the outstanding amount in words (such as \"Backorder: 4 pcs\") rather than by colour alone",
+      "pass": true,
+      "evidence": "Row 3 (500 ordered / 480 shipped) has no colour coding at all, but the note below the table reads: 'Note: Item 3 (Corrugated Shipping Box) shipped at 480 of 480 units confirmed in stock; remaining 20 units on backorder, to follow on DN-2026-04889.' — a textual statement of the outstanding quantity."
+    },
+    {
+      "item": "A footer gives the total quantity delivered, the number of packages and the gross weight with its unit, and the quantity total equals the sum of the lines",
+      "pass": false,
+      "evidence": "<tfoot> gives 'Total Line Items: 5', ordered total 706 and shipped total 686 (120+60+480+24+2=686, correct sum). Package count ('14 cartons / 2 pallets') appears only in a separate 'NO. OF PACKAGES' box above the table, not in a footer total. No gross weight or weight unit appears anywhere on the page."
+    },
+    {
+      "item": "Signature boxes are provided for the warehouse keeper (issued by), the driver or carrier and the receiver, each with room for printed name, signature and date, plus a remarks area for the condition of the goods on receipt",
+      "pass": false,
+      "evidence": "Only two signature boxes exist: 'DISPATCHED BY' and 'RECEIVED BY (CUSTOMER)', each with Signature/Printed Name/Date/Time fields, and the receiver box includes 'Condition of Goods on Receipt (notes)'. There is no third signature box for the driver/carrier."
+    },
+    {
+      "item": "A Print control that is a real <button> starts printing, and an @media print stylesheet hides the app navigation and on-screen controls, sets page margins and keeps the signature block from splitting across pages",
+      "pass": false,
+      "evidence": "<button onclick=\"window.print()\">Print / Save as PDF</button> is a real button, and `@media print{ .no-print{display:none!important} .page{box-shadow:none!important;margin:0!important} @page{size:A4;margin:12mm} }` hides the nav bar and sets margins, but there is no `break-inside: avoid` (or equivalent) rule anywhere protecting the signature grid from splitting across a page boundary."
+    },
+    {
+      "item": "The note's status (such as Draft, Dispatched, Delivered or Cancelled) is shown in words next to its number, and a draft or cancelled note prints with a visible \"DRAFT\" or \"CANCELLED\" mark so it cannot pass as a valid dispatch document",
+      "pass": false,
+      "evidence": "No status field exists anywhere on the page — the header table only lists Delivery Note No., Date of Dispatch, Order Reference and Route/Load No.; there is no Draft/Dispatched/Delivered/Cancelled label or watermark."
+    },
+    {
+      "item": "A loading state is present, and a note that fails to load or does not exist shows a message with Retry and a link back to the delivery note list, never an empty template with blank fields",
+      "pass": false,
+      "evidence": "The page is a static print template with all data hard-coded in markup; the only script is a Ctrl/Cmd+P keydown handler calling window.print(). There is no fetch/loading logic, no error state, no Retry control and no link back to a delivery note list."
+    }
+  ],
+  "tells": [
+    "tracked-uppercase-labels",
+    "initials-avatar-non-person"
+  ],
+  "notes": "This is a static, hard-coded print-preview mockup with no data-loading, error, or status logic implemented. Primary structural gaps: no dispatching-warehouse field, no gross weight, no driver/carrier signature box, no status/DRAFT-CANCELLED marking, and the print stylesheet doesn't protect the signature block from page-break splitting. The 'NH' logo tile (rounded-md bg-slate-800 with initials) is a company logo, not a person, but visually reads as an initials-avatar tell.",
+  "blind": true
+}

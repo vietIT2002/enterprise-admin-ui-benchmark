@@ -1,0 +1,1112 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Shift roster · Northside Market</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+  [hidden] { display: none !important; }
+  *:focus-visible { outline: 2px solid #1d4ed8; outline-offset: 2px; }
+  .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0; }
+  table { border-collapse: collapse; }
+  @media print { #topbar, #toolbar, #chipsRow, #legend, #attentionBanner, .no-print { display: none !important; } }
+</style>
+</head>
+<body class="min-h-screen bg-slate-50 text-slate-900 antialiased">
+
+<div class="flex min-h-screen flex-col">
+  <!-- Utility bar -->
+  <header id="topbar" class="flex h-12 shrink-0 items-center justify-between border-b border-slate-200 bg-white px-4">
+    <div class="flex items-center gap-2 text-sm font-semibold text-slate-800">
+      <svg class="size-4 text-blue-700" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M3 9.5 12 3l9 6.5V20a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1V9.5Z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg>
+      Northside Market
+      <span class="text-slate-300">·</span>
+      <span class="font-normal text-slate-500">Store #0148</span>
+    </div>
+    <div class="flex items-center gap-3">
+      <span class="text-sm text-slate-600">Manager</span>
+      <span class="flex h-8 w-8 items-center justify-center rounded-full bg-blue-700 text-xs font-semibold text-white" title="Priya Shah" aria-hidden="true">PS</span>
+    </div>
+  </header>
+
+  <main class="mx-auto w-full max-w-[1440px] flex-1 px-6 py-6">
+    <!-- Page header -->
+    <div class="mb-4">
+      <div class="flex flex-wrap items-center justify-between gap-3">
+        <h1 class="text-xl font-semibold text-slate-900">Shift roster</h1>
+        <div id="headerActions" class="flex items-center gap-2"></div>
+      </div>
+      <div class="mt-1 flex flex-wrap items-center gap-3 text-sm">
+        <span id="statusBadge"></span>
+        <span id="auditStamp" class="text-slate-500"></span>
+      </div>
+    </div>
+
+    <!-- Toolbar -->
+    <div id="toolbar" class="mb-3 flex flex-wrap items-center gap-3 border-b border-slate-200 pb-3">
+      <button id="btnToday" type="button" class="h-8 rounded-md border border-slate-300 bg-white px-3 text-sm font-medium text-slate-700 hover:bg-slate-50">Today</button>
+      <div class="flex items-center gap-1">
+        <button id="btnPrev" type="button" aria-label="Previous week" class="flex h-8 w-8 items-center justify-center rounded-md border border-slate-300 bg-white text-slate-600 hover:bg-slate-50">
+          <svg class="size-4" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M15 6l-6 6 6 6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </button>
+        <button id="btnNext" type="button" aria-label="Next week" class="flex h-8 w-8 items-center justify-center rounded-md border border-slate-300 bg-white text-slate-600 hover:bg-slate-50">
+          <svg class="size-4" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M9 6l6 6-6 6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </button>
+      </div>
+      <h2 id="rangeHeading" class="text-base font-semibold text-slate-900"></h2>
+
+      <div role="group" aria-label="View" class="ml-1 inline-flex rounded-md border border-slate-300 bg-white p-0.5">
+        <button type="button" data-view="grid" aria-pressed="true" class="view-btn h-7 rounded px-3 text-sm font-medium">Grid</button>
+        <button type="button" data-view="list" aria-pressed="false" class="view-btn h-7 rounded px-3 text-sm font-medium">List</button>
+      </div>
+
+      <div class="ml-auto flex flex-wrap items-center gap-2">
+        <label for="searchStaff" class="sr-only">Search staff</label>
+        <input id="searchStaff" type="search" placeholder="Search staff" class="h-8 w-48 rounded-md border border-slate-300 px-3 text-sm placeholder:text-slate-400" />
+        <label for="filterRole" class="sr-only">Filter by role</label>
+        <select id="filterRole" class="h-8 rounded-md border border-slate-300 bg-white px-2 text-sm text-slate-700">
+          <option value="all">All roles</option>
+          <option value="Management">Management</option>
+          <option value="Sales">Sales</option>
+          <option value="Cashier">Cashier</option>
+          <option value="Stock">Stock</option>
+        </select>
+      </div>
+    </div>
+
+    <!-- Applied filter chips -->
+    <div id="chipsRow" class="mb-3 flex flex-wrap items-center gap-2" hidden></div>
+
+    <!-- Needs-attention / unpublished-changes banners -->
+    <div id="attentionBanner"></div>
+
+    <!-- Result count -->
+    <p id="resultCount" role="status" class="mb-2 text-sm text-slate-600"></p>
+
+    <!-- Legend -->
+    <div id="legend" class="mb-3 flex flex-wrap items-center gap-4 text-xs text-slate-600"></div>
+
+    <!-- Grid region -->
+    <div id="gridRegion"></div>
+
+    <!-- List region -->
+    <div id="listRegion" hidden></div>
+  </main>
+</div>
+
+<!-- Toast region -->
+<div id="toastRegion" role="status" aria-live="polite" class="fixed top-4 right-4 z-[60] flex w-80 flex-col gap-2"></div>
+
+<!-- Shift edit/add dialog -->
+<div id="shiftOverlay" class="fixed inset-0 z-50 hidden items-center justify-center bg-black/40 p-4" aria-hidden="true">
+  <div id="shiftDialog" role="dialog" aria-modal="true" aria-labelledby="shiftDialogTitle" class="w-full max-w-md rounded-lg bg-white shadow-lg">
+    <div class="flex items-center justify-between border-b border-slate-200 px-5 py-4">
+      <h2 id="shiftDialogTitle" class="text-base font-semibold text-slate-900">Edit shift</h2>
+      <button id="btnCloseShift" type="button" aria-label="Close dialog" class="flex h-8 w-8 items-center justify-center rounded-md text-slate-500 hover:bg-slate-100">
+        <svg class="size-4" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+      </button>
+    </div>
+
+    <div id="shiftDialogBody" class="space-y-4 px-5 py-4">
+      <div id="sfStaffStatic" class="space-y-1">
+        <span class="block text-sm font-medium text-slate-700">Staff</span>
+        <p id="sfStaffText" class="text-sm text-slate-900"></p>
+      </div>
+      <div id="sfStaffSelectWrap" class="space-y-1" hidden>
+        <label for="sfStaffSelect" class="block text-sm font-medium text-slate-700">Staff</label>
+        <select id="sfStaffSelect" class="h-8 w-full max-w-xs rounded-md border border-slate-300 px-2 text-sm"></select>
+      </div>
+
+      <div id="sfDayStatic" class="space-y-1">
+        <span class="block text-sm font-medium text-slate-700">Day</span>
+        <p id="sfDayText" class="text-sm text-slate-900"></p>
+      </div>
+      <div id="sfDaySelectWrap" class="space-y-1" hidden>
+        <label for="sfDaySelect" class="block text-sm font-medium text-slate-700">Day</label>
+        <select id="sfDaySelect" class="h-8 w-full max-w-xs rounded-md border border-slate-300 px-2 text-sm"></select>
+      </div>
+
+      <div class="space-y-1">
+        <label for="sfStart" class="block text-sm font-medium text-slate-700">Start time <span aria-hidden="true">*</span></label>
+        <input id="sfStart" type="time" class="h-8 w-40 rounded-md border border-slate-300 px-2 text-sm" aria-required="true" />
+        <p id="sfStartErr" class="hidden text-sm text-red-700"></p>
+      </div>
+
+      <div class="space-y-1">
+        <label for="sfEnd" class="block text-sm font-medium text-slate-700">End time <span aria-hidden="true">*</span></label>
+        <input id="sfEnd" type="time" class="h-8 w-40 rounded-md border border-slate-300 px-2 text-sm" aria-required="true" />
+        <p id="sfEndErr" class="hidden text-sm text-red-700"></p>
+      </div>
+
+      <div class="space-y-1">
+        <label for="sfDuty" class="block text-sm font-medium text-slate-700">Duty</label>
+        <select id="sfDuty" class="h-8 w-56 rounded-md border border-slate-300 px-2 text-sm">
+          <option>Manager on duty</option>
+          <option>Floor</option>
+          <option>Till</option>
+          <option>Stock</option>
+        </select>
+      </div>
+
+      <div class="space-y-1">
+        <label for="sfBreak" class="block text-sm font-medium text-slate-700">Break</label>
+        <select id="sfBreak" class="h-8 w-56 rounded-md border border-slate-300 px-2 text-sm">
+          <option value="0">No break</option>
+          <option value="15">15 min</option>
+          <option value="30" selected>30 min</option>
+          <option value="60">60 min</option>
+        </select>
+      </div>
+
+      <div class="space-y-1">
+        <label for="sfNotes" class="block text-sm font-medium text-slate-700">Notes</label>
+        <textarea id="sfNotes" rows="2" class="w-full rounded-md border border-slate-300 px-2 py-1.5 text-sm" placeholder="Visible to the staff member"></textarea>
+      </div>
+    </div>
+
+    <!-- Normal footer -->
+    <div id="shiftFooterNormal" class="flex items-center justify-end gap-3 border-t border-slate-200 px-5 py-3">
+      <button id="btnDeleteShift" type="button" class="mr-auto text-sm font-medium text-red-700 hover:text-red-800" hidden>Remove shift</button>
+      <button id="btnCancelShift" type="button" class="h-8 rounded-md border border-slate-300 bg-white px-3 text-sm font-medium text-slate-700 hover:bg-slate-50">Cancel</button>
+      <button id="btnSaveShift" type="button" class="h-8 rounded-md bg-blue-700 px-3 text-sm font-medium text-white hover:bg-blue-800">Save shift</button>
+    </div>
+
+    <!-- Discard-changes footer -->
+    <div id="shiftFooterDiscard" class="flex items-center justify-end gap-3 border-t border-slate-200 bg-amber-50 px-5 py-3" hidden>
+      <p class="mr-auto text-sm text-amber-800">Discard unsaved changes?</p>
+      <button id="btnKeepEditing" type="button" class="h-8 rounded-md border border-slate-300 bg-white px-3 text-sm font-medium text-slate-700 hover:bg-slate-50">Keep editing</button>
+      <button id="btnDiscardShift" type="button" class="h-8 rounded-md bg-red-700 px-3 text-sm font-medium text-white hover:bg-red-800">Discard</button>
+    </div>
+
+    <!-- Remove-shift confirm footer -->
+    <div id="shiftFooterRemove" class="flex items-center justify-end gap-3 border-t border-slate-200 bg-red-50 px-5 py-3" hidden>
+      <p id="sfRemoveText" class="mr-auto text-sm text-red-800"></p>
+      <button id="btnKeepShift" type="button" class="h-8 rounded-md border border-slate-300 bg-white px-3 text-sm font-medium text-slate-700 hover:bg-slate-50">Keep shift</button>
+      <button id="btnConfirmRemove" type="button" class="h-8 rounded-md bg-red-700 px-3 text-sm font-medium text-white hover:bg-red-800">Remove shift</button>
+    </div>
+  </div>
+</div>
+
+<!-- Publish confirm dialog -->
+<div id="publishOverlay" class="fixed inset-0 z-50 hidden items-center justify-center bg-black/40 p-4" aria-hidden="true">
+  <div id="publishDialog" role="dialog" aria-modal="true" aria-labelledby="publishDialogTitle" class="w-full max-w-md rounded-lg bg-white shadow-lg">
+    <div class="border-b border-slate-200 px-5 py-4">
+      <h2 id="publishDialogTitle" class="text-base font-semibold text-slate-900"></h2>
+    </div>
+    <div class="space-y-3 px-5 py-4">
+      <p id="publishDialogBody" class="text-sm text-slate-700"></p>
+      <p id="publishDialogWarning" class="hidden rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800"></p>
+    </div>
+    <div class="flex items-center justify-end gap-3 border-t border-slate-200 px-5 py-3">
+      <button id="btnCancelPublish" type="button" class="h-8 rounded-md border border-slate-300 bg-white px-3 text-sm font-medium text-slate-700 hover:bg-slate-50">Cancel</button>
+      <button id="btnConfirmPublish" type="button" class="h-8 rounded-md bg-blue-700 px-3 text-sm font-medium text-white hover:bg-blue-800">Publish week</button>
+    </div>
+  </div>
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  /* ---------- constants & helpers ---------- */
+  var MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+  var MONTHS_SHORT = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  var DOW_SHORT = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+  var DOW_LONG = ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'];
+  var TODAY = new Date(2026, 10, 7); // Sat 7 Nov 2026
+
+  var TONE = {
+    neutral: 'bg-slate-100 text-slate-700',
+    info: 'bg-blue-50 text-blue-800',
+    success: 'bg-green-50 text-green-800',
+    warning: 'bg-amber-50 text-amber-800',
+    danger: 'bg-red-50 text-red-800'
+  };
+
+  function escapeHtml(s) {
+    return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+    });
+  }
+
+  function badge(tone, text) {
+    return '<span class="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ' + TONE[tone] + '">' + escapeHtml(text) + '</span>';
+  }
+
+  function addDays(d, n) { var r = new Date(d); r.setDate(r.getDate() + n); return r; }
+  function sameDate(a, b) { return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate(); }
+  function dowIndex(d) { return (d.getDay() + 6) % 7; } // 0=Mon..6=Sun
+
+  function fmtRange(monday) {
+    var sunday = addDays(monday, 6);
+    if (monday.getMonth() === sunday.getMonth()) {
+      return monday.getDate() + '–' + sunday.getDate() + ' ' + MONTHS[monday.getMonth()] + ' ' + monday.getFullYear();
+    }
+    return monday.getDate() + ' ' + MONTHS[monday.getMonth()] + ' – ' + sunday.getDate() + ' ' + MONTHS[sunday.getMonth()] + ' ' + sunday.getFullYear();
+  }
+  function fmtFull(d) { return DOW_LONG[dowIndex(d)] + ' ' + d.getDate() + ' ' + MONTHS[d.getMonth()] + ' ' + d.getFullYear(); }
+  function fmtShortDate(d) { return DOW_SHORT[dowIndex(d)] + ' ' + d.getDate() + ' ' + MONTHS_SHORT[d.getMonth()]; }
+  function fmtAuditDate(d) { return d.getDate() + ' ' + MONTHS[d.getMonth()] + ' ' + d.getFullYear() + ', ' + String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0'); }
+  function toMinutes(hhmm) { var p = hhmm.split(':').map(Number); return p[0] * 60 + p[1]; }
+  function shiftHours(s) { return (toMinutes(s.end) - toMinutes(s.start)) / 60; }
+  function fmtHours(h) { return (Math.round(h * 10) / 10).toFixed(1) + 'h'; }
+
+  /* ---------- mock data ---------- */
+  var STAFF = [
+    { id: 'priya', name: 'Priya Shah', role: 'Store manager', category: 'Management', initials: 'PS' },
+    { id: 'daniel', name: 'Daniel Osei', role: 'Assistant manager', category: 'Management', initials: 'DO' },
+    { id: 'maria', name: 'Maria Lopez', role: 'Senior sales associate', category: 'Sales', initials: 'ML' },
+    { id: 'tom', name: 'Tom Becker', role: 'Sales associate', category: 'Sales', initials: 'TB' },
+    { id: 'aisha', name: 'Aisha Rahman', role: 'Cashier', category: 'Cashier', initials: 'AR' },
+    { id: 'liam', name: 'Liam Chen', role: 'Stock associate', category: 'Stock', initials: 'LC' },
+    { id: 'sofia', name: 'Sofia Petrov', role: 'Sales associate · Part-time', category: 'Sales', initials: 'SP' }
+  ];
+  function staffById(id) { return STAFF.filter(function (s) { return s.id === id; })[0]; }
+
+  function basePattern() {
+    return [
+      { staffId: 'priya', dow: 0, start: '08:00', end: '16:00', duty: 'Manager on duty' },
+      { staffId: 'priya', dow: 2, start: '08:00', end: '16:00', duty: 'Manager on duty' },
+      { staffId: 'priya', dow: 3, start: '13:00', end: '21:00', duty: 'Manager on duty' },
+      { staffId: 'priya', dow: 4, start: '08:00', end: '16:00', duty: 'Manager on duty' },
+      { staffId: 'priya', dow: 5, start: '08:00', end: '16:00', duty: 'Manager on duty' },
+
+      { staffId: 'daniel', dow: 0, start: '13:00', end: '21:00', duty: 'Manager on duty' },
+      { staffId: 'daniel', dow: 1, start: '08:00', end: '16:00', duty: 'Manager on duty' },
+      { staffId: 'daniel', dow: 3, start: '08:00', end: '16:00', duty: 'Manager on duty' },
+      { staffId: 'daniel', dow: 4, start: '13:00', end: '21:00', duty: 'Manager on duty' },
+      { staffId: 'daniel', dow: 5, start: '09:00', end: '17:00', duty: 'Floor' },
+      { staffId: 'daniel', dow: 6, start: '10:00', end: '18:00', duty: 'Manager on duty' },
+
+      { staffId: 'maria', dow: 0, start: '09:00', end: '17:00', duty: 'Floor' },
+      { staffId: 'maria', dow: 1, start: '13:00', end: '21:00', duty: 'Floor' },
+      { staffId: 'maria', dow: 3, start: '09:00', end: '17:00', duty: 'Floor' },
+      { staffId: 'maria', dow: 4, start: '09:00', end: '17:00', duty: 'Floor' },
+      { staffId: 'maria', dow: 5, start: '10:00', end: '18:00', duty: 'Floor' },
+
+      { staffId: 'tom', dow: 1, start: '09:00', end: '17:00', duty: 'Floor' },
+      { staffId: 'tom', dow: 2, start: '09:00', end: '17:00', duty: 'Floor' },
+      { staffId: 'tom', dow: 4, start: '09:00', end: '17:00', duty: 'Floor' },
+      { staffId: 'tom', dow: 5, start: '08:00', end: '16:00', duty: 'Till' },
+      { staffId: 'tom', dow: 6, start: '10:00', end: '18:00', duty: 'Floor' },
+
+      { staffId: 'aisha', dow: 0, start: '08:00', end: '14:00', duty: 'Till' },
+      { staffId: 'aisha', dow: 1, start: '08:00', end: '14:00', duty: 'Till' },
+      { staffId: 'aisha', dow: 2, start: '13:00', end: '21:00', duty: 'Till' },
+      { staffId: 'aisha', dow: 3, start: '08:00', end: '14:00', duty: 'Till' },
+      { staffId: 'aisha', dow: 4, start: '14:00', end: '21:00', duty: 'Till' },
+      { staffId: 'aisha', dow: 5, start: '12:00', end: '20:00', duty: 'Till' },
+      { staffId: 'aisha', dow: 6, start: '10:00', end: '18:00', duty: 'Till' },
+
+      { staffId: 'liam', dow: 0, start: '10:00', end: '18:00', duty: 'Stock' },
+      { staffId: 'liam', dow: 2, start: '10:00', end: '18:00', duty: 'Stock' },
+      { staffId: 'liam', dow: 4, start: '10:00', end: '18:00', duty: 'Stock' },
+      { staffId: 'liam', dow: 5, start: '09:00', end: '17:00', duty: 'Stock' },
+
+      { staffId: 'sofia', dow: 1, start: '16:00', end: '21:00', duty: 'Till' },
+      { staffId: 'sofia', dow: 3, start: '09:00', end: '17:00', duty: 'Till' },
+      { staffId: 'sofia', dow: 4, start: '16:00', end: '21:00', duty: 'Till' },
+      { staffId: 'sofia', dow: 5, start: '13:00', end: '21:00', duty: 'Till' }
+    ];
+  }
+
+  function cloneShifts(arr) { return arr.map(function (s) { return Object.assign({}, s); }); }
+
+  // Week offsets relative to the week containing TODAY: -1 previous, 0 current, 1 next (default view)
+  var WEEKS = {
+    '-1': {
+      monday: new Date(2026, 9, 26), // Mon 26 Oct 2026
+      status: 'published',
+      publishedBy: 'Priya Shah',
+      publishedAt: new Date(2026, 9, 23, 17, 0),
+      shifts: cloneShifts(basePattern()),
+      offRequests: [],
+      unfilled: [],
+      editedKeys: {}
+    },
+    '0': {
+      monday: new Date(2026, 10, 2), // Mon 2 Nov 2026
+      status: 'published',
+      publishedBy: 'Priya Shah',
+      publishedAt: new Date(2026, 9, 30, 17, 0),
+      shifts: cloneShifts(basePattern()),
+      offRequests: [],
+      unfilled: [],
+      editedKeys: {}
+    },
+    '1': {
+      monday: new Date(2026, 10, 9), // Mon 9 Nov 2026
+      status: 'draft',
+      lastEditedBy: 'Priya Shah',
+      lastEditedAt: new Date(2026, 10, 6, 18, 42),
+      publishedBy: null,
+      publishedAt: null,
+      shifts: cloneShifts(basePattern()).filter(function (s) {
+        return !(s.staffId === 'sofia' && (s.dow === 3 || s.dow === 5));
+      }),
+      offRequests: [{ staffId: 'sofia', dow: 3 }],
+      unfilled: [{ staffId: 'sofia', dow: 5, start: '13:00', end: '21:00', duty: 'Till' }],
+      editedKeys: {}
+    }
+  };
+
+  /* ---------- app state ---------- */
+  var params = new URLSearchParams(location.search);
+  var forcedState = params.get('state'); // 'empty' | 'error' | 'loading' | null
+  var state = {
+    weekOffset: params.get('week') != null ? parseInt(params.get('week'), 10) : 1,
+    view: params.get('view') === 'list' ? 'list' : 'grid',
+    search: params.get('q') || '',
+    roleFilter: params.get('role') || 'all'
+  };
+  if (!WEEKS[String(state.weekOffset)]) state.weekOffset = 1;
+
+  var dialogState = { mode: null, staffId: null, dow: null, initial: null };
+  var lastRemoved = null; // for undo
+
+  function currentWeek() { return WEEKS[String(state.weekOffset)]; }
+
+  function syncUrl() {
+    var p = new URLSearchParams();
+    if (forcedState) p.set('state', forcedState);
+    p.set('week', String(state.weekOffset));
+    p.set('view', state.view);
+    if (state.search) p.set('q', state.search);
+    if (state.roleFilter !== 'all') p.set('role', state.roleFilter);
+    history.replaceState(null, '', '?' + p.toString());
+  }
+
+  /* ---------- DOM refs ---------- */
+  var $ = function (id) { return document.getElementById(id); };
+  var headerActions = $('headerActions');
+  var statusBadge = $('statusBadge');
+  var auditStamp = $('auditStamp');
+  var rangeHeading = $('rangeHeading');
+  var chipsRow = $('chipsRow');
+  var attentionBanner = $('attentionBanner');
+  var resultCount = $('resultCount');
+  var legend = $('legend');
+  var gridRegion = $('gridRegion');
+  var listRegion = $('listRegion');
+  var toastRegion = $('toastRegion');
+
+  /* ---------- toasts ---------- */
+  function showToast(message, opts) {
+    opts = opts || {};
+    var el = document.createElement('div');
+    el.className = 'flex items-start gap-3 rounded-md border border-slate-200 bg-white px-4 py-3 text-sm text-slate-800 shadow-lg';
+    el.innerHTML = '<span class="flex-1">' + escapeHtml(message) + '</span>';
+    if (opts.actionLabel) {
+      var actionBtn = document.createElement('button');
+      actionBtn.className = 'font-medium text-blue-700 hover:text-blue-800';
+      actionBtn.textContent = opts.actionLabel;
+      actionBtn.addEventListener('click', function () {
+        if (opts.onAction) opts.onAction();
+        remove();
+      });
+      el.appendChild(actionBtn);
+    }
+    var closeBtn = document.createElement('button');
+    closeBtn.setAttribute('aria-label', 'Dismiss notification');
+    closeBtn.className = 'text-slate-400 hover:text-slate-600';
+    closeBtn.innerHTML = '&times;';
+    closeBtn.addEventListener('click', function () { remove(); });
+    el.appendChild(closeBtn);
+    toastRegion.appendChild(el);
+
+    var duration = opts.actionLabel ? 10000 : 5000;
+    var timer = setTimeout(remove, duration);
+    el.addEventListener('mouseenter', function () { clearTimeout(timer); });
+    el.addEventListener('mouseleave', function () { timer = setTimeout(remove, duration); });
+    function remove() { if (el.parentNode) el.parentNode.removeChild(el); }
+  }
+
+  /* ---------- modal helpers ---------- */
+  function openOverlay(overlay, focusEl) {
+    overlay.classList.remove('hidden');
+    overlay.classList.add('flex');
+    overlay.setAttribute('aria-hidden', 'false');
+    document.addEventListener('keydown', escHandler);
+    setTimeout(function () { if (focusEl) focusEl.focus(); }, 0);
+  }
+  function closeOverlay(overlay) {
+    overlay.classList.add('hidden');
+    overlay.classList.remove('flex');
+    overlay.setAttribute('aria-hidden', 'true');
+    document.removeEventListener('keydown', escHandler);
+  }
+  function trapTab(container, e) {
+    var focusables = container.querySelectorAll('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])');
+    focusables = Array.prototype.filter.call(focusables, function (el) { return !el.disabled && el.offsetParent !== null; });
+    if (!focusables.length) return;
+    var first = focusables[0], last = focusables[focusables.length - 1];
+    if (e.key === 'Tab') {
+      if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+      else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+    }
+  }
+  function escHandler(e) {
+    if (e.key !== 'Escape') return;
+    if (!shiftOverlay.classList.contains('hidden')) { e.preventDefault(); requestCloseShiftDialog(); }
+    else if (!publishOverlay.classList.contains('hidden')) { e.preventDefault(); closeOverlay(publishOverlay); }
+  }
+
+  /* ========================================================= */
+  /* Shift dialog                                               */
+  /* ========================================================= */
+  var shiftOverlay = $('shiftOverlay');
+  var sfStaffStatic = $('sfStaffStatic'), sfStaffSelectWrap = $('sfStaffSelectWrap');
+  var sfDayStatic = $('sfDayStatic'), sfDaySelectWrap = $('sfDaySelectWrap');
+  var sfStaffText = $('sfStaffText'), sfDayText = $('sfDayText');
+  var sfStaffSelect = $('sfStaffSelect'), sfDaySelect = $('sfDaySelect');
+  var sfStart = $('sfStart'), sfEnd = $('sfEnd'), sfDuty = $('sfDuty'), sfBreak = $('sfBreak'), sfNotes = $('sfNotes');
+  var sfStartErr = $('sfStartErr'), sfEndErr = $('sfEndErr');
+  var footerNormal = $('shiftFooterNormal'), footerDiscard = $('shiftFooterDiscard'), footerRemove = $('shiftFooterRemove');
+  var btnDeleteShift = $('btnDeleteShift');
+
+  shiftOverlay.addEventListener('keydown', function (e) { trapTab($('shiftDialog'), e); });
+  shiftOverlay.addEventListener('mousedown', function (e) { if (e.target === shiftOverlay) requestCloseShiftDialog(); });
+  $('btnCloseShift').addEventListener('click', requestCloseShiftDialog);
+  $('btnCancelShift').addEventListener('click', requestCloseShiftDialog);
+  $('btnKeepEditing').addEventListener('click', function () { setShiftFooter('normal'); sfStart.focus(); });
+  $('btnDiscardShift').addEventListener('click', function () { closeOverlay(shiftOverlay); });
+  function getCurrentSelection() {
+    return {
+      staffId: sfStaffSelectWrap.hidden ? dialogState.staffId : sfStaffSelect.value,
+      dow: sfDaySelectWrap.hidden ? dialogState.dow : parseInt(sfDaySelect.value, 10)
+    };
+  }
+
+  function refreshGeneralFields() {
+    var week = currentWeek();
+    var sel = getCurrentSelection();
+    var existing = week.shifts.filter(function (s) { return s.staffId === sel.staffId && s.dow === sel.dow; })[0];
+    var unfilled = (week.unfilled || []).filter(function (u) { return u.staffId === sel.staffId && u.dow === sel.dow; })[0];
+    sfStart.value = existing ? existing.start : (unfilled ? unfilled.start : '09:00');
+    sfEnd.value = existing ? existing.end : (unfilled ? unfilled.end : '17:00');
+    sfDuty.value = existing ? existing.duty : (unfilled ? unfilled.duty : 'Floor');
+    $('shiftDialogTitle').textContent = existing ? 'Edit shift' : 'Add shift';
+    btnDeleteShift.hidden = !existing;
+    dialogState.initial = { start: sfStart.value, end: sfEnd.value, duty: sfDuty.value, brk: sfBreak.value, notes: sfNotes.value, staffId: sel.staffId, dow: sel.dow };
+  }
+  sfStaffSelect.addEventListener('change', refreshGeneralFields);
+  sfDaySelect.addEventListener('change', refreshGeneralFields);
+
+  btnDeleteShift.addEventListener('click', function () {
+    var sel = getCurrentSelection();
+    var staff = staffById(sel.staffId);
+    var dayDate = addDays(currentWeek().monday, sel.dow);
+    $('sfRemoveText').textContent = 'Remove this shift for ' + staff.name + ' on ' + fmtFull(dayDate) + '? ' + staff.name.split(' ')[0] + ' will show as off that day.';
+    setShiftFooter('remove');
+  });
+  $('btnKeepShift').addEventListener('click', function () { setShiftFooter('normal'); });
+  $('btnConfirmRemove').addEventListener('click', function () {
+    var week = currentWeek();
+    var sel = getCurrentSelection();
+    var idx = -1;
+    week.shifts.forEach(function (s, i) { if (s.staffId === sel.staffId && s.dow === sel.dow) idx = i; });
+    if (idx >= 0) {
+      lastRemoved = { week: state.weekOffset, shift: week.shifts[idx] };
+      week.shifts.splice(idx, 1);
+      markEditedIfPublished(sel.staffId, sel.dow);
+      closeOverlay(shiftOverlay);
+      renderAll();
+      var staff = staffById(sel.staffId);
+      var dayDate = addDays(week.monday, sel.dow);
+      showToast('Shift removed for ' + staff.name + ', ' + fmtShortDate(dayDate), {
+        actionLabel: 'Undo',
+        onAction: function () {
+          if (lastRemoved) { WEEKS[String(lastRemoved.week)].shifts.push(lastRemoved.shift); lastRemoved = null; renderAll(); showToast('Shift restored for ' + staff.name + ', ' + fmtShortDate(dayDate)); }
+        }
+      });
+    }
+  });
+
+  function setShiftFooter(which) {
+    footerNormal.hidden = which !== 'normal';
+    footerDiscard.hidden = which !== 'discard';
+    footerRemove.hidden = which !== 'remove';
+  }
+
+  function isShiftDirty() {
+    var sel = getCurrentSelection();
+    var current = { start: sfStart.value, end: sfEnd.value, duty: sfDuty.value, brk: sfBreak.value, notes: sfNotes.value, staffId: sel.staffId, dow: sel.dow };
+    return JSON.stringify(current) !== JSON.stringify(dialogState.initial);
+  }
+  function requestCloseShiftDialog() {
+    if (isShiftDirty()) { setShiftFooter('discard'); $('btnKeepEditing').focus(); }
+    else closeOverlay(shiftOverlay);
+  }
+
+  function populateStaffSelect() {
+    sfStaffSelect.innerHTML = STAFF.map(function (s) { return '<option value="' + s.id + '">' + escapeHtml(s.name) + '</option>'; }).join('');
+  }
+  function populateDaySelect(monday) {
+    sfDaySelect.innerHTML = DOW_SHORT.map(function (_, i) {
+      var d = addDays(monday, i);
+      return '<option value="' + i + '">' + escapeHtml(fmtFull(d)) + '</option>';
+    }).join('');
+  }
+
+  function openShiftDialog(mode, staffId, dow) {
+    var week = currentWeek();
+    dialogState.mode = mode; // 'contextual' | 'general'
+    dialogState.staffId = staffId;
+    dialogState.dow = dow;
+    setShiftFooter('normal');
+    sfStartErr.classList.add('hidden'); sfEndErr.classList.add('hidden');
+    sfStart.removeAttribute('aria-invalid'); sfEnd.removeAttribute('aria-invalid');
+    sfBreak.value = '30';
+    sfNotes.value = '';
+
+    if (mode === 'general') {
+      sfStaffStatic.hidden = true; sfStaffSelectWrap.hidden = false;
+      sfDayStatic.hidden = true; sfDaySelectWrap.hidden = false;
+      populateStaffSelect(); populateDaySelect(week.monday);
+      sfStaffSelect.value = staffId; sfDaySelect.value = String(dow);
+      refreshGeneralFields();
+    } else {
+      sfStaffStatic.hidden = false; sfStaffSelectWrap.hidden = true;
+      sfDayStatic.hidden = false; sfDaySelectWrap.hidden = true;
+      var staff = staffById(staffId);
+      var dayDate = addDays(week.monday, dow);
+      sfStaffText.textContent = staff.name + ' · ' + staff.role;
+      sfDayText.textContent = fmtFull(dayDate);
+      var existing = week.shifts.filter(function (s) { return s.staffId === staffId && s.dow === dow; })[0];
+      var unfilled = (week.unfilled || []).filter(function (u) { return u.staffId === staffId && u.dow === dow; })[0];
+      $('shiftDialogTitle').textContent = existing ? 'Edit shift' : 'Add shift';
+      btnDeleteShift.hidden = !existing;
+      sfStart.value = existing ? existing.start : (unfilled ? unfilled.start : '09:00');
+      sfEnd.value = existing ? existing.end : (unfilled ? unfilled.end : '17:00');
+      sfDuty.value = existing ? existing.duty : (unfilled ? unfilled.duty : 'Floor');
+      dialogState.initial = { start: sfStart.value, end: sfEnd.value, duty: sfDuty.value, brk: sfBreak.value, notes: sfNotes.value, staffId: staffId, dow: dow };
+    }
+
+    openOverlay(shiftOverlay, sfStart);
+  }
+
+  function validateShiftField(which) {
+    var ok = true;
+    if (which === 'start' || which === 'both') {
+      if (!sfStart.value) { sfStartErr.textContent = 'Enter a start time.'; sfStartErr.classList.remove('hidden'); sfStart.setAttribute('aria-invalid', 'true'); ok = false; }
+      else { sfStartErr.classList.add('hidden'); sfStart.removeAttribute('aria-invalid'); }
+    }
+    if (which === 'end' || which === 'both') {
+      if (!sfEnd.value) { sfEndErr.textContent = 'Enter an end time.'; sfEndErr.classList.remove('hidden'); sfEnd.setAttribute('aria-invalid', 'true'); ok = false; }
+      else if (sfStart.value && toMinutes(sfEnd.value) <= toMinutes(sfStart.value)) { sfEndErr.textContent = 'End time must be after the start time.'; sfEndErr.classList.remove('hidden'); sfEnd.setAttribute('aria-invalid', 'true'); ok = false; }
+      else { sfEndErr.classList.add('hidden'); sfEnd.removeAttribute('aria-invalid'); }
+    }
+    return ok;
+  }
+  sfStart.addEventListener('blur', function () { validateShiftField('start'); if (sfEnd.value) validateShiftField('end'); });
+  sfEnd.addEventListener('blur', function () { validateShiftField('end'); });
+
+  function markEditedIfPublished(staffId, dow) {
+    var week = currentWeek();
+    if (week.status === 'published' || week.status === 'published-edited') {
+      week.status = 'published-edited';
+      week.lastEditedBy = 'Priya Shah';
+      week.lastEditedAt = new Date();
+      week.editedKeys[staffId + ':' + dow] = true;
+    }
+  }
+
+  $('btnSaveShift').addEventListener('click', function () {
+    var okStart = validateShiftField('start');
+    var okEnd = validateShiftField('end');
+    if (!okStart || !okEnd) { (okStart ? sfEnd : sfStart).focus(); return; }
+
+    var week = currentWeek();
+    var staffId = sfStaffSelectWrap.hidden ? dialogState.staffId : sfStaffSelect.value;
+    var dow = sfDaySelectWrap.hidden ? dialogState.dow : parseInt(sfDaySelect.value, 10);
+
+    week.shifts = week.shifts.filter(function (s) { return !(s.staffId === staffId && s.dow === dow); });
+    week.offRequests = (week.offRequests || []).filter(function (o) { return !(o.staffId === staffId && o.dow === dow); });
+    week.unfilled = (week.unfilled || []).filter(function (u) { return !(u.staffId === staffId && u.dow === dow); });
+    week.shifts.push({ staffId: staffId, dow: dow, start: sfStart.value, end: sfEnd.value, duty: sfDuty.value, breakMins: parseInt(sfBreak.value, 10), notes: sfNotes.value });
+
+    markEditedIfPublished(staffId, dow);
+
+    closeOverlay(shiftOverlay);
+    renderAll();
+    var staff = staffById(staffId);
+    var dayDate = addDays(week.monday, dow);
+    showToast('Shift saved for ' + staff.name + ', ' + fmtShortDate(dayDate));
+  });
+
+  /* ========================================================= */
+  /* Publish dialog                                              */
+  /* ========================================================= */
+  var publishOverlay = $('publishOverlay');
+  publishOverlay.addEventListener('keydown', function (e) { trapTab($('publishDialog'), e); });
+  publishOverlay.addEventListener('mousedown', function (e) { if (e.target === publishOverlay) closeOverlay(publishOverlay); });
+  $('btnCancelPublish').addEventListener('click', function () { closeOverlay(publishOverlay); });
+  $('btnConfirmPublish').addEventListener('click', function () {
+    var week = currentWeek();
+    week.status = 'published';
+    week.publishedBy = 'Priya Shah';
+    week.publishedAt = new Date();
+    week.editedKeys = {};
+    closeOverlay(publishOverlay);
+    renderAll();
+    showToast('Week of ' + fmtShortDate(week.monday) + ' published');
+  });
+
+  function openPublishDialog() {
+    var week = currentWeek();
+    var staffCount = STAFF.length;
+    var range = fmtRange(week.monday);
+    $('publishDialogTitle').textContent = (week.status === 'draft' ? 'Publish ' : 'Republish ') + range + '?';
+    $('publishDialogBody').textContent = 'All ' + staffCount + ' staff will be notified of their shifts for ' + range + '.';
+    var unfilledCount = (week.unfilled || []).length;
+    var warn = $('publishDialogWarning');
+    if (unfilledCount > 0) {
+      warn.textContent = unfilledCount + ' shift' + (unfilledCount > 1 ? 's are' : ' is') + ' still unfilled. You can publish now and fill it later.';
+      warn.classList.remove('hidden');
+    } else { warn.classList.add('hidden'); }
+    openOverlay(publishOverlay, $('btnCancelPublish'));
+  }
+
+  /* ========================================================= */
+  /* Rendering                                                   */
+  /* ========================================================= */
+  function filteredStaff() {
+    var q = state.search.trim().toLowerCase();
+    return STAFF.filter(function (s) {
+      if (state.roleFilter !== 'all' && s.category !== state.roleFilter) return false;
+      if (q && s.name.toLowerCase().indexOf(q) === -1) return false;
+      return true;
+    });
+  }
+
+  function renderHeaderActions() {
+    var week = currentWeek();
+    var html = '';
+    if (week.status === 'draft' || week.status === 'published-edited') {
+      html += '<button id="btnAddShift" type="button" class="h-8 rounded-md border border-slate-300 bg-white px-3 text-sm font-medium text-slate-700 hover:bg-slate-50">Add shift</button>';
+      html += overflowMenuHtml();
+      html += '<button id="btnPublish" type="button" class="h-8 rounded-md bg-blue-700 px-3 text-sm font-medium text-white hover:bg-blue-800">' + (week.status === 'draft' ? 'Publish week' : 'Republish week') + '</button>';
+    } else {
+      html += overflowMenuHtml();
+      html += '<button id="btnAddShift" type="button" class="h-8 rounded-md bg-blue-700 px-3 text-sm font-medium text-white hover:bg-blue-800">Add shift</button>';
+    }
+    headerActions.innerHTML = html;
+    var add = $('btnAddShift');
+    if (add) add.addEventListener('click', function () { openShiftDialog('general', STAFF[0].id, 0); });
+    var pub = $('btnPublish');
+    if (pub) pub.addEventListener('click', openPublishDialog);
+    wireOverflowMenu();
+  }
+
+  function overflowMenuHtml() {
+    return '' +
+      '<div class="relative">' +
+      '<button id="btnOverflow" type="button" aria-haspopup="true" aria-expanded="false" aria-label="More actions for this week’s roster" class="flex h-8 w-8 items-center justify-center rounded-md border border-slate-300 bg-white text-slate-600 hover:bg-slate-50">' +
+      '<svg class="size-4" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="5" cy="12" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="19" cy="12" r="1.6"/></svg>' +
+      '</button>' +
+      '<div id="overflowMenu" role="menu" class="absolute right-0 top-9 z-20 hidden w-48 rounded-md border border-slate-200 bg-white py-1 shadow-lg">' +
+      '<button role="menuitem" id="miExport" class="block w-full px-3 py-2 text-left text-sm text-slate-700 hover:bg-slate-50">Export roster (CSV)</button>' +
+      '<button role="menuitem" id="miPrint" class="block w-full px-3 py-2 text-left text-sm text-slate-700 hover:bg-slate-50">Print roster</button>' +
+      '</div></div>';
+  }
+  function wireOverflowMenu() {
+    var btn = $('btnOverflow'), menu = $('overflowMenu');
+    if (!btn) return;
+    btn.addEventListener('click', function (e) {
+      e.stopPropagation();
+      var open = menu.classList.contains('hidden');
+      menu.classList.toggle('hidden');
+      btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+    });
+    $('miExport').addEventListener('click', exportCsv);
+    $('miPrint').addEventListener('click', function () { window.print(); });
+  }
+  // Registered once: closes any open overflow menu when clicking outside it.
+  document.addEventListener('click', function (e) {
+    var menu = $('overflowMenu'), btn = $('btnOverflow');
+    if (!menu || !btn || menu.classList.contains('hidden')) return;
+    if (!menu.contains(e.target) && e.target !== btn && !btn.contains(e.target)) {
+      menu.classList.add('hidden');
+      btn.setAttribute('aria-expanded', 'false');
+    }
+  });
+
+  function exportCsv() {
+    var week = currentWeek();
+    var staffList = filteredStaff();
+    var rows = [['Staff', 'Role', 'Day', 'Date', 'Start', 'End', 'Duty', 'Status']];
+    staffList.forEach(function (staff) {
+      for (var dow = 0; dow < 7; dow++) {
+        var shift = week.shifts.filter(function (s) { return s.staffId === staff.id && s.dow === dow; })[0];
+        var day = addDays(week.monday, dow);
+        if (shift) {
+          var isPending = week.status === 'draft' || (week.status === 'published-edited' && week.editedKeys[staff.id + ':' + dow]);
+          rows.push([staff.name, staff.role, DOW_LONG[dow], fmtAuditDate(day).split(',')[0], shift.start, shift.end, shift.duty, isPending ? 'Pending' : 'Published']);
+        }
+      }
+    });
+    var csv = rows.map(function (r) { return r.map(function (c) { return '"' + String(c).replace(/"/g, '""') + '"'; }).join(','); }).join('\n');
+    var blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement('a');
+    a.href = url; a.download = 'shift-roster-' + fmtRange(week.monday).replace(/\s+/g, '-') + '.csv';
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    showToast('Exported ' + staffList.length + ' staff · ' + (rows.length - 1) + ' shifts');
+  }
+
+  function renderStatusMeta() {
+    var week = currentWeek();
+    if (week.status === 'draft') {
+      statusBadge.innerHTML = badge('neutral', 'Draft');
+      auditStamp.textContent = 'Last changed by ' + week.lastEditedBy + ' · ' + fmtAuditDate(week.lastEditedAt);
+    } else if (week.status === 'published') {
+      statusBadge.innerHTML = badge('success', 'Published');
+      auditStamp.textContent = 'Published by ' + week.publishedBy + ' · ' + fmtAuditDate(week.publishedAt);
+    } else {
+      statusBadge.innerHTML = badge('warning', 'Published · Edited');
+      auditStamp.textContent = 'Edited by ' + week.lastEditedBy + ' · ' + fmtAuditDate(week.lastEditedAt) + ' · Published ' + fmtAuditDate(week.publishedAt);
+    }
+  }
+
+  function renderBanners() {
+    var week = currentWeek();
+    var html = '';
+    if (week.status === 'published-edited') {
+      html += '<div role="status" class="mb-3 flex flex-wrap items-center gap-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">' +
+        '<svg class="size-4 shrink-0" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M12 9v4m0 4h.01M10.3 3.9 2.6 17a1 1 0 0 0 .86 1.5h17.1a1 1 0 0 0 .86-1.5L13.7 3.9a1 1 0 0 0-1.73 0Z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg>' +
+        '<span>This week has unpublished changes. Republish to notify staff.</span>' +
+        '<button type="button" id="btnBannerPublish" class="ml-auto font-medium underline underline-offset-2">Republish week</button></div>';
+    }
+    var unfilled = (week.unfilled || []).filter(function (u) { return filteredStaff().some(function (s) { return s.id === u.staffId; }); });
+    if (unfilled.length) {
+      var u = unfilled[0];
+      var staff = staffById(u.staffId);
+      var day = addDays(week.monday, u.dow);
+      html += '<div role="status" class="mb-3 flex flex-wrap items-center gap-2 rounded-md border border-blue-200 bg-blue-50 px-3 py-2 text-sm text-blue-800">' +
+        '<svg class="size-4 shrink-0" viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="1.5"/><path d="M12 8v4l2.5 2.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>' +
+        '<span>' + unfilled.length + ' shift' + (unfilled.length > 1 ? 's' : '') + ' need' + (unfilled.length > 1 ? '' : 's') + ' attention: ' + DOW_LONG[u.dow] + ' ' + u.duty.toLowerCase() + ' shift for ' + staff.name + ' is unfilled.</span>' +
+        '<button type="button" id="btnBannerUnfilled" class="ml-auto font-medium underline underline-offset-2">View</button></div>';
+    }
+    attentionBanner.innerHTML = html;
+    var bp = $('btnBannerPublish'); if (bp) bp.addEventListener('click', openPublishDialog);
+    var bu = $('btnBannerUnfilled'); if (bu) bu.addEventListener('click', function () {
+      var el = document.querySelector('[data-focus-target="' + u.staffId + '-' + u.dow + '"]');
+      if (el) { el.scrollIntoView({ block: 'center' }); el.focus(); }
+    });
+  }
+
+  function renderLegend() {
+    legend.innerHTML = '' +
+      '<span class="flex items-center gap-1.5"><span class="h-3 w-3 rounded-full bg-blue-700" aria-hidden="true"></span>Today</span>' +
+      '<span class="flex items-center gap-1.5"><span class="h-3 w-3 rounded border border-slate-300 bg-slate-50" aria-hidden="true"></span>Weekend</span>' +
+      '<span class="flex items-center gap-1.5"><span class="h-3 w-3 rounded border border-dashed border-slate-400 bg-white" aria-hidden="true"></span>Pending shift</span>' +
+      '<span class="flex items-center gap-1.5"><span class="h-3 w-3 rounded border border-dashed border-amber-400 bg-amber-50" aria-hidden="true"></span>Unfilled</span>';
+  }
+
+  function renderChipsAndCount() {
+    var chips = [];
+    if (state.search.trim()) chips.push({ key: 'q', label: 'Search: "' + state.search.trim() + '"' });
+    if (state.roleFilter !== 'all') chips.push({ key: 'role', label: 'Role: ' + state.roleFilter });
+    if (chips.length) {
+      chipsRow.hidden = false;
+      chipsRow.innerHTML = chips.map(function (c) {
+        return '<span class="inline-flex items-center gap-1 rounded-full border border-slate-300 bg-white px-2.5 py-1 text-xs text-slate-700">' + escapeHtml(c.label) +
+          '<button type="button" data-chip="' + c.key + '" aria-label="Remove filter ' + escapeHtml(c.label) + '" class="text-slate-400 hover:text-slate-600">&times;</button></span>';
+      }).join('') + '<button type="button" id="btnClearChips" class="text-xs font-medium text-blue-700 hover:text-blue-800">Clear all</button>';
+      Array.prototype.forEach.call(chipsRow.querySelectorAll('[data-chip]'), function (b) {
+        b.addEventListener('click', function () {
+          if (b.dataset.chip === 'q') { state.search = ''; $('searchStaff').value = ''; }
+          if (b.dataset.chip === 'role') { state.roleFilter = 'all'; $('filterRole').value = 'all'; }
+          renderAll();
+        });
+      });
+      $('btnClearChips').addEventListener('click', function () { state.search = ''; state.roleFilter = 'all'; $('searchStaff').value = ''; $('filterRole').value = 'all'; renderAll(); });
+    } else { chipsRow.hidden = true; chipsRow.innerHTML = ''; }
+
+    var week = currentWeek();
+    var staffList = filteredStaff();
+    var totalShifts = 0;
+    week.shifts.forEach(function (s) { if (staffList.some(function (st) { return st.id === s.staffId; })) totalShifts++; });
+    var unfilledCount = (week.unfilled || []).filter(function (u) { return staffList.some(function (st) { return st.id === u.staffId; }); }).length;
+    var parts = [];
+    if (chips.length) parts.push(staffList.length + ' of ' + STAFF.length + ' staff match');
+    else parts.push(staffList.length + ' staff');
+    parts.push(totalShifts + ' shift' + (totalShifts === 1 ? '' : 's') + ' scheduled');
+    if (unfilledCount) parts.push(unfilledCount + ' unfilled');
+    resultCount.textContent = parts.join(' · ');
+  }
+
+  function cellHtml(staff, dow, week) {
+    var shift = week.shifts.filter(function (s) { return s.staffId === staff.id && s.dow === dow; })[0];
+    var offRequest = (week.offRequests || []).filter(function (o) { return o.staffId === staff.id && o.dow === dow; })[0];
+    var unfilled = (week.unfilled || []).filter(function (u) { return u.staffId === staff.id && u.dow === dow; })[0];
+    var day = addDays(week.monday, dow);
+    var focusKey = staff.id + '-' + dow;
+
+    if (shift) {
+      var isPending = week.status === 'draft';
+      var isUpdated = week.status === 'published-edited' && week.editedKeys[staff.id + ':' + dow];
+      var borderCls = (isPending || isUpdated) ? 'border-dashed ' + (isUpdated ? 'border-amber-400' : 'border-slate-400') : 'border-slate-300';
+      var tag = isPending ? badge('info', 'Pending') : (isUpdated ? badge('warning', 'Updated') : '');
+      var a11yStatus = isPending ? ', pending' : (isUpdated ? ', updated, not yet republished' : '');
+      return '<button type="button" data-focus-target="' + focusKey + '" data-action="edit" data-staff="' + staff.id + '" data-dow="' + dow + '" ' +
+        'aria-label="' + escapeHtml(staff.name) + ', ' + escapeHtml(fmtFull(day)) + ', ' + shift.start + ' to ' + shift.end + ', ' + escapeHtml(shift.duty) + a11yStatus + '" ' +
+        'class="flex h-16 w-full flex-col items-center justify-center gap-0.5 rounded-md border ' + borderCls + ' bg-white px-1 text-center hover:border-blue-400 hover:shadow-sm">' +
+        '<span class="text-xs font-semibold text-slate-800">' + shift.start + '–' + shift.end + '</span>' +
+        '<span class="text-[11px] text-slate-500">' + escapeHtml(shift.duty) + '</span>' +
+        (tag ? '<span class="mt-0.5">' + tag + '</span>' : '') +
+        '</button>';
+    }
+    if (unfilled) {
+      return '<div class="flex h-16 flex-col items-center justify-center gap-1 rounded-md border border-dashed border-amber-400 bg-amber-50 px-1 text-center">' +
+        '<span class="text-xs font-medium text-amber-800">Unfilled</span>' +
+        '<button type="button" data-focus-target="' + focusKey + '" data-action="assign" data-staff="' + staff.id + '" data-dow="' + dow + '" ' +
+        'aria-label="Assign shift for ' + escapeHtml(staff.name) + ', ' + escapeHtml(fmtFull(day)) + ', ' + unfilled.start + ' to ' + unfilled.end + ', ' + escapeHtml(unfilled.duty) + '" ' +
+        'class="rounded text-xs font-medium text-amber-800 underline underline-offset-2 hover:text-amber-900">Assign</button></div>';
+    }
+    if (offRequest) {
+      return '<div class="flex h-16 flex-col items-center justify-center gap-0.5 rounded-md border border-slate-200 bg-slate-50 px-1 text-center" title="' + escapeHtml(staff.name) + ' requested ' + escapeHtml(fmtFull(day)) + ' off · Approved">' +
+        '<span class="text-xs font-medium text-slate-600">Time off</span>' +
+        '<span class="text-[11px] text-slate-400">Approved</span></div>';
+    }
+    return '<div class="flex h-16 flex-col items-center justify-center gap-1">' +
+      '<span class="text-xs text-slate-400">Off</span>' +
+      '<button type="button" data-focus-target="' + focusKey + '" data-action="add" data-staff="' + staff.id + '" data-dow="' + dow + '" ' +
+      'aria-label="Add shift for ' + escapeHtml(staff.name) + ', ' + escapeHtml(fmtFull(day)) + '" ' +
+      'class="flex h-6 w-6 items-center justify-center rounded text-slate-400 hover:bg-blue-50 hover:text-blue-700">+</button></div>';
+  }
+
+  function renderGrid() {
+    var week = currentWeek();
+    var staffList = filteredStaff();
+
+    if (staffList.length === 0) {
+      gridRegion.innerHTML = '<div class="flex flex-col items-center gap-3 rounded-md border border-slate-200 bg-white px-6 py-12 text-center">' +
+        '<p class="text-base font-medium text-slate-900">No staff match these filters</p>' +
+        '<button type="button" id="btnClearNoResults" class="h-8 rounded-md border border-slate-300 bg-white px-3 text-sm font-medium text-slate-700 hover:bg-slate-50">Clear filters</button></div>';
+      $('btnClearNoResults').addEventListener('click', function () { state.search = ''; state.roleFilter = 'all'; $('searchStaff').value = ''; $('filterRole').value = 'all'; renderAll(); });
+      return;
+    }
+
+    var headerCells = '';
+    for (var dow = 0; dow < 7; dow++) {
+      var day = addDays(week.monday, dow);
+      var isToday = sameDate(day, TODAY);
+      var isWeekend = dow >= 5;
+      headerCells += '<th scope="col" ' + (isToday ? 'aria-current="date" ' : '') + 'class="min-w-[116px] px-2 py-2 text-center font-medium ' + (isWeekend ? 'bg-slate-50' : '') + '">' +
+        '<div class="text-xs text-slate-500">' + DOW_SHORT[dow] + '</div>' +
+        '<div class="flex items-center justify-center gap-1 text-sm ' + (isToday ? 'font-semibold text-blue-700' : 'text-slate-700') + '">' +
+        (isToday ? '<span class="h-2 w-2 rounded-full bg-blue-700" aria-hidden="true"></span>' : '') +
+        day.getDate() + ' ' + MONTHS_SHORT[day.getMonth()] + '</div>' +
+        (isToday ? '<div class="text-[11px] text-blue-700">Today</div>' : '') +
+        '</th>';
+    }
+
+    var bodyRows = staffList.map(function (staff) {
+      var totalHours = week.shifts.filter(function (s) { return s.staffId === staff.id; }).reduce(function (sum, s) { return sum + shiftHours(s); }, 0);
+      var dayCells = '';
+      for (var dow = 0; dow < 7; dow++) {
+        var isWeekend = dow >= 5;
+        dayCells += '<td class="border-t border-slate-100 p-1.5 align-middle ' + (isWeekend ? 'bg-slate-50' : '') + '">' + cellHtml(staff, dow, week) + '</td>';
+      }
+      return '<tr>' +
+        '<th scope="row" class="sticky left-0 z-10 min-w-[200px] border-t border-slate-100 bg-white px-3 py-2 text-left align-middle">' +
+        '<div class="flex items-center gap-2">' +
+        '<span class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-slate-100 text-xs font-semibold text-slate-700">' + staff.initials + '</span>' +
+        '<span class="flex flex-col"><span class="font-medium text-slate-900">' + escapeHtml(staff.name) + '</span><span class="text-xs text-slate-500">' + escapeHtml(staff.role) + '</span></span>' +
+        '</div></th>' +
+        dayCells +
+        '<td class="min-w-[90px] border-t border-slate-100 px-3 py-2 text-right font-medium tabular-nums text-slate-700">' + fmtHours(totalHours) + '</td>' +
+        '</tr>';
+    }).join('');
+
+    var footerCells = '';
+    var grandTotal = 0;
+    for (var d2 = 0; d2 < 7; d2++) {
+      var workingCount = staffList.filter(function (st) { return week.shifts.some(function (s) { return s.staffId === st.id && s.dow === d2; }); }).length;
+      footerCells += '<td class="border-t border-slate-200 px-2 py-2 text-center text-xs tabular-nums text-slate-600">' + workingCount + ' of ' + staffList.length + '</td>';
+    }
+    staffList.forEach(function (staff) {
+      week.shifts.filter(function (s) { return s.staffId === staff.id; }).forEach(function (s) { grandTotal += shiftHours(s); });
+    });
+    footerCells += '<td class="border-t border-slate-200 px-3 py-2 text-right text-xs font-semibold tabular-nums text-slate-700">' + fmtHours(grandTotal) + '</td>';
+
+    gridRegion.innerHTML = '<div class="overflow-x-auto rounded-md border border-slate-200 bg-white">' +
+      '<table class="w-full text-sm" aria-label="Shift roster for the week of ' + escapeHtml(fmtRange(week.monday)) + '">' +
+      '<thead><tr>' +
+      '<th scope="col" class="sticky left-0 z-20 min-w-[200px] bg-slate-50 px-3 py-2 text-left font-medium text-slate-600">Staff</th>' +
+      headerCells +
+      '<th scope="col" class="min-w-[90px] px-3 py-2 text-right font-medium text-slate-600">Total (hrs)</th>' +
+      '</tr></thead>' +
+      '<tbody>' + bodyRows + '</tbody>' +
+      '<tfoot><tr class="bg-slate-50">' +
+      '<th scope="row" class="sticky left-0 z-10 bg-slate-50 px-3 py-2 text-left text-xs font-medium text-slate-600 border-t border-slate-200">Working</th>' +
+      footerCells +
+      '</tr></tfoot>' +
+      '</table></div>';
+
+    Array.prototype.forEach.call(gridRegion.querySelectorAll('[data-action]'), function (el) {
+      el.addEventListener('click', function () {
+        var action = el.dataset.action, staffId = el.dataset.staff, dow = parseInt(el.dataset.dow, 10);
+        if (action === 'edit' || action === 'assign' || action === 'add') openShiftDialog('contextual', staffId, dow);
+      });
+    });
+  }
+
+  function renderList() {
+    var week = currentWeek();
+    var staffList = filteredStaff();
+    if (staffList.length === 0) {
+      listRegion.innerHTML = '<div class="flex flex-col items-center gap-3 rounded-md border border-slate-200 bg-white px-6 py-12 text-center">' +
+        '<p class="text-base font-medium text-slate-900">No staff match these filters</p>' +
+        '<button type="button" id="btnClearNoResults2" class="h-8 rounded-md border border-slate-300 bg-white px-3 text-sm font-medium text-slate-700 hover:bg-slate-50">Clear filters</button></div>';
+      $('btnClearNoResults2').addEventListener('click', function () { state.search = ''; state.roleFilter = 'all'; $('searchStaff').value = ''; $('filterRole').value = 'all'; renderAll(); });
+      return;
+    }
+    var rows = '';
+    var any = false;
+    for (var dow = 0; dow < 7; dow++) {
+      var day = addDays(week.monday, dow);
+      var dayEntries = [];
+      staffList.forEach(function (staff) {
+        var shift = week.shifts.filter(function (s) { return s.staffId === staff.id && s.dow === dow; })[0];
+        var offRequest = (week.offRequests || []).filter(function (o) { return o.staffId === staff.id && o.dow === dow; })[0];
+        var unfilled = (week.unfilled || []).filter(function (u) { return u.staffId === staff.id && u.dow === dow; })[0];
+        if (shift) dayEntries.push({ staff: staff, type: 'shift', shift: shift });
+        else if (unfilled) dayEntries.push({ staff: staff, type: 'unfilled', shift: unfilled });
+        else if (offRequest) dayEntries.push({ staff: staff, type: 'timeoff' });
+      });
+      if (!dayEntries.length) continue;
+      any = true;
+      rows += '<tr class="bg-slate-50"><th scope="colgroup" colspan="5" class="px-3 py-1.5 text-left text-xs font-semibold text-slate-600">' + escapeHtml(fmtFull(day)) + (sameDate(day, TODAY) ? ' · Today' : '') + '</th></tr>';
+      dayEntries.forEach(function (e) {
+        var statusText, statusTone;
+        if (e.type === 'unfilled') { statusText = 'Unfilled'; statusTone = 'warning'; }
+        else if (e.type === 'timeoff') { statusText = 'Time off · Approved'; statusTone = 'neutral'; }
+        else if (week.status === 'draft') { statusText = 'Pending'; statusTone = 'info'; }
+        else if (week.status === 'published-edited' && week.editedKeys[e.staff.id + ':' + dow]) { statusText = 'Updated'; statusTone = 'warning'; }
+        else { statusText = 'Published'; statusTone = 'success'; }
+        rows += '<tr class="border-t border-slate-100">' +
+          '<td class="px-3 py-2 text-slate-700">' + escapeHtml(e.staff.name) + '</td>' +
+          '<td class="px-3 py-2 text-slate-500">' + escapeHtml(e.staff.role) + '</td>' +
+          '<td class="px-3 py-2 tabular-nums text-slate-700">' + (e.shift ? e.shift.start + '–' + e.shift.end : '—') + '</td>' +
+          '<td class="px-3 py-2 text-slate-500">' + (e.shift ? escapeHtml(e.shift.duty) : '—') + '</td>' +
+          '<td class="px-3 py-2">' + badge(statusTone, statusText) + '</td>' +
+          '</tr>';
+      });
+    }
+    if (!any) {
+      listRegion.innerHTML = '<div class="flex flex-col items-center gap-2 rounded-md border border-slate-200 bg-white px-6 py-12 text-center">' +
+        '<p class="text-base font-medium text-slate-900">No shifts yet</p>' +
+        '<p class="max-w-sm text-sm text-slate-500">Shifts you add for this week will appear here, grouped by day.</p></div>';
+      return;
+    }
+    listRegion.innerHTML = '<div class="overflow-x-auto rounded-md border border-slate-200 bg-white">' +
+      '<table class="w-full text-sm" aria-label="Shift list for the week of ' + escapeHtml(fmtRange(week.monday)) + '">' +
+      '<thead><tr class="text-left text-xs font-medium text-slate-600">' +
+      '<th scope="col" class="px-3 py-2">Staff</th><th scope="col" class="px-3 py-2">Role</th><th scope="col" class="px-3 py-2">Time</th><th scope="col" class="px-3 py-2">Duty</th><th scope="col" class="px-3 py-2">Status</th>' +
+      '</tr></thead><tbody>' + rows + '</tbody></table></div>';
+  }
+
+  function renderSkeleton() {
+    var rows = '';
+    for (var r = 0; r < 7; r++) {
+      var cells = '';
+      for (var c = 0; c < 8; c++) cells += '<td class="border-t border-slate-100 p-1.5"><div class="h-16 w-full animate-pulse rounded-md bg-slate-100 motion-reduce:animate-none"></div></td>';
+      rows += '<tr><td class="border-t border-slate-100 p-1.5"><div class="h-8 w-40 animate-pulse rounded bg-slate-100 motion-reduce:animate-none"></div></td>' + cells + '</tr>';
+    }
+    gridRegion.setAttribute('aria-busy', 'true');
+    gridRegion.innerHTML = '<div class="overflow-x-auto rounded-md border border-slate-200 bg-white"><table class="w-full text-sm" aria-hidden="true"><tbody>' + rows + '</tbody></table></div>';
+  }
+
+  function renderErrorState() {
+    gridRegion.removeAttribute('aria-busy');
+    gridRegion.innerHTML = '<div role="alert" class="flex flex-col items-center gap-3 rounded-md border border-red-200 bg-red-50 px-6 py-12 text-center">' +
+      '<p class="text-base font-medium text-red-900">Couldn’t load the roster</p>' +
+      '<p class="max-w-sm text-sm text-red-700">Check your connection and try again.</p>' +
+      '<button type="button" id="btnRetry" class="h-8 rounded-md border border-red-300 bg-white px-3 text-sm font-medium text-red-800 hover:bg-red-50">Retry</button></div>';
+    $('btnRetry').addEventListener('click', function () { forcedState = null; init(); });
+  }
+
+  function renderEmptyRoster() {
+    gridRegion.removeAttribute('aria-busy');
+    gridRegion.innerHTML = '<div class="flex flex-col items-center gap-3 rounded-md border border-slate-200 bg-white px-6 py-12 text-center">' +
+      '<p class="text-base font-medium text-slate-900">No staff yet</p>' +
+      '<p class="max-w-sm text-sm text-slate-500">Add team members to start building this week’s roster.</p>' +
+      '<button type="button" id="btnAddStaffEmpty" class="h-8 rounded-md bg-blue-700 px-3 text-sm font-medium text-white hover:bg-blue-800">Add staff member</button></div>';
+    $('btnAddStaffEmpty').addEventListener('click', function () { showToast('Staff management isn’t part of this preview.'); });
+  }
+
+  function renderShell() {
+    var week = currentWeek();
+    rangeHeading.textContent = fmtRange(week.monday);
+    renderHeaderActions();
+    renderStatusMeta();
+    renderLegend();
+  }
+
+  function renderAll() {
+    renderShell();
+    renderBanners();
+    renderChipsAndCount();
+
+    gridRegion.hidden = state.view !== 'grid';
+    listRegion.hidden = state.view !== 'list';
+    if (state.view === 'grid') { gridRegion.removeAttribute('aria-busy'); renderGrid(); }
+    else renderList();
+
+    syncUrl();
+  }
+
+  /* ---------- toolbar wiring ---------- */
+  $('btnToday').addEventListener('click', function () { state.weekOffset = 0; renderAll(); });
+  $('btnPrev').addEventListener('click', function () { if (WEEKS[String(state.weekOffset - 1)]) { state.weekOffset -= 1; renderAll(); } });
+  $('btnNext').addEventListener('click', function () { if (WEEKS[String(state.weekOffset + 1)]) { state.weekOffset += 1; renderAll(); } });
+
+  Array.prototype.forEach.call(document.querySelectorAll('.view-btn'), function (btn) {
+    btn.addEventListener('click', function () {
+      state.view = btn.dataset.view;
+      Array.prototype.forEach.call(document.querySelectorAll('.view-btn'), function (b) {
+        var active = b === btn;
+        b.setAttribute('aria-pressed', active ? 'true' : 'false');
+        b.className = 'view-btn h-7 rounded px-3 text-sm font-medium ' + (active ? 'bg-blue-700 text-white' : 'text-slate-600 hover:bg-slate-100');
+      });
+      renderAll();
+    });
+  });
+  // initialize view button styling
+  Array.prototype.forEach.call(document.querySelectorAll('.view-btn'), function (b) {
+    var active = b.dataset.view === state.view;
+    b.setAttribute('aria-pressed', active ? 'true' : 'false');
+    b.className = 'view-btn h-7 rounded px-3 text-sm font-medium ' + (active ? 'bg-blue-700 text-white' : 'text-slate-600 hover:bg-slate-100');
+  });
+
+  var searchInput = $('searchStaff');
+  searchInput.value = state.search;
+  searchInput.addEventListener('input', function () { state.search = searchInput.value; renderAll(); });
+
+  var roleSelect = $('filterRole');
+  roleSelect.value = state.roleFilter;
+  roleSelect.addEventListener('change', function () { state.roleFilter = roleSelect.value; renderAll(); });
+
+  /* ---------- boot ---------- */
+  function init() {
+    renderShell();
+    chipsRow.hidden = true; chipsRow.innerHTML = '';
+    attentionBanner.innerHTML = '';
+    resultCount.textContent = '';
+    gridRegion.hidden = false;
+    listRegion.hidden = true;
+    renderSkeleton();
+    if (forcedState === 'loading') { gridRegion.setAttribute('aria-busy', 'true'); return; }
+    if (forcedState === 'error') { setTimeout(renderErrorState, 400); return; }
+    if (forcedState === 'empty') { setTimeout(renderEmptyRoster, 400); return; }
+    setTimeout(renderAll, 500);
+  }
+  init();
+})();
+</script>
+</body>
+</html>

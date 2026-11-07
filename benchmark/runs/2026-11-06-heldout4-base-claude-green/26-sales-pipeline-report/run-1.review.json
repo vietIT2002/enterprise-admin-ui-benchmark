@@ -1,0 +1,54 @@
+{
+  "brief": "26-sales-pipeline-report",
+  "run": 1,
+  "items": [
+    {
+      "item": "The stage breakdown lists stages in pipeline order (not alphabetical), each with its win probability, and each stage's weighted value equals its open value × that probability, with the weighted total equal to the sum of the stages",
+      "pass": false,
+      "evidence": "Grouping by stage (buildGroups sorts by STAGE_ORDER, correct pipeline order) and subtotalRow()/groupHeaderRow() show pipeline value and weighted forecast per stage, but no single 'win probability' is ever surfaced for a stage — groupHeaderRow() only shows historical 'Win rate (Q4 2026)' from closed deals, and subtotalRow()'s Probability column is hard-coded to '—'. Per-deal probability varies randomly within a stage (e.g. three 'Qualification' rows show 12%, 9%, 7%), so there is no single stage probability that open value could be multiplied by."
+    },
+    {
+      "item": "Win rate is computed over closed deals only, won ÷ (won + lost), with the counts shown beside it (such as \"38% · 19 of 50 closed\"), and a salesperson with no closed deals shows \"—\" instead of 0% or NaN",
+      "pass": false,
+      "evidence": "winRateOf() correctly computes won/(won+lost) over CLOSED_DEALS only and returns null (rendered as '—', e.g. groupHeaderRow: g.winRate == null ? '—' : pctFmt(...)) when there are no closed deals. However neither renderSummaryLine() ('Win rate (Q4 2026) 52.4%') nor groupHeaderRow() ('Win rate (Q4 2026): 71.4%') ever shows the underlying won/lost counts beside the percentage."
+    },
+    {
+      "item": "The by-salesperson table ends in a totals row whose deal count, pipeline value and weighted value equal the sum of its rows and match the overall totals of the stage breakdown",
+      "pass": true,
+      "evidence": "renderFoot() sums totalCount/totalPipeline/totalWeighted by reduce over groups, matching the per-group subtotalRow() figures (e.g. Total · 37 open deals / $4,717,000 / $1,677,595 in full.png equals the sum of all 8 rep subtotals). Totals are computed from the same open-deal set regardless of groupBy, so switching to 'By stage' grouping yields identical totals."
+    },
+    {
+      "item": "The period can be set to this quarter, next quarter or a custom range, the page says which date it applies to (expected close date), and the results can also be narrowed to one salesperson or team",
+      "pass": false,
+      "evidence": "#periodSelect options are only 'This quarter', 'Last quarter', 'This year', 'Custom range' — there is no 'next quarter' option (periodRange() only maps to Q4_2026, Q3_2026, YEAR_2026, or custom). Filtering by one salesperson (repFilterPanel/#repCheckboxes) and by team/region (regionSelect inside #moreFiltersPanel) both work, and getFilteredOpenDeals() does filter by expectedCloseDate, but no visible label ever tells the user the period applies to the expected close date (only the generic 'open deals in the selected period' caption and the 'Expected close' table column)."
+    },
+    {
+      "item": "Every money value shows its currency (one currency for the whole report) with thousands separators and lines up by digit within its column, and any abbreviated headline figure (such as \"1.2M\") has the full amount available in the table or a title attribute",
+      "pass": true,
+      "evidence": "money() = Intl.NumberFormat('en-US',{style:'currency',currency:'USD'}) is used for every dollar figure (chart, summary line, table cells, subtotal/total rows), all tabular-nums aligned (audit.json numericCells.misaligned: 0). No abbreviated figures (e.g. '1.2M') appear anywhere — all totals are printed in full, e.g. 'Pipeline value $4,717,000'."
+    },
+    {
+      "item": "Open deals whose expected close date has already passed are flagged with words (such as \"Close date passed\"), not colour alone, and the number of such deals is shown per salesperson",
+      "pass": false,
+      "evidence": "dueText() renders 'overdue by N days' in red bold text for passed dates (e.g. '10/27/2026 · overdue by 11 days'), satisfying the words-not-colour-alone requirement. But no per-salesperson count of overdue deals exists anywhere — groupHeaderRow() only shows '· N open deals' and win rate, with no overdue tally."
+    },
+    {
+      "item": "Each stage and salesperson figure drills down to the deals behind it (deal, account, owner, value, stage, close date) through a link or button that is keyboard-focusable and has a descriptive accessible name",
+      "pass": true,
+      "evidence": "Each group header is a focusable <button data-collapse=\"...\" aria-expanded=\"...\"> (bindCollapseHandlers()) with descriptive text like 'Priya Patel · 7 open deals', which toggles visibility of the underlying deal rows containing deal, account, stage/rep, amount, probability, weighted value and expected close date columns. Toggling between 'By salesperson' and 'By stage' group-by buttons exposes the same drill-down for stage figures."
+    },
+    {
+      "item": "When the filters match no deals, the page says so, names the active filters and offers to clear them; a loading indicator and a failed-load message with a retry action are also present",
+      "pass": true,
+      "evidence": "messageRow('No open deals match these filters.', 'Clear filters', ...) fires when getFilteredOpenDeals() is empty, with the active filters still listed as removable chips in #chipsRow (renderChips()) above the table. showSkeleton() provides an animate-pulse loading state (also triggered by #refreshBtn and ?state=loading), and showErrorState() shows 'Couldn't load the pipeline report. Check your connection and try again.' with a 'Retry' button that re-invokes loadData()."
+    },
+    {
+      "item": "Export (CSV or Excel) produces the deal-level rows for the current filters, and its label or confirmation states the scope (such as \"Export 42 deals · Q4 2026\")",
+      "pass": true,
+      "evidence": "exportCsv() builds one row per filtered open deal (id, name, account, rep, stage, amount, probability, weighted value, close date) via getFilteredOpenDeals(range), respecting all active filters, and showToast() confirms with 'Exported 37 deals · sales-pipeline-q4-2026.csv', stating both the count and period scope. The button label itself ('Export CSV') does not state scope, only the post-export toast does."
+    }
+  ],
+  "tells": [],
+  "notes": "No template tells from the listed set were found: no greeting-header, kpi-icon-tiles, delta-pill-without-period, initials-avatar-non-person, gradient, glass, tracked-uppercase-labels, emoji-icon, sidebar-promo-card, card-in-card, hover-lift, oversized-radius, or navy-sidebar-indigo-accent (radii are small/consistent at 4-6px per audit.json, no gradient/backdrop-blur classes present, no sidebar exists at all). Stage badges (TONE_CLASSES) use color tied to a meaningful tone taxonomy (neutral/info/success/warning), not an indiscriminate rainbow, so rainbow-status was not flagged. The horizontal bar chart reflects real filtered pipeline values proportionally (not decorative filler), so decorative-chart was not flagged. Outstanding accessibility issue from audit.json: text-contrast violations (21) on slate-300/slate-400 breadcrumb separators and signed-in-as text, actual contrast as low as 1.48:1 against a 4.5:1 requirement.",
+  "blind": true
+}

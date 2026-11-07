@@ -1,0 +1,1012 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ticket hỗ trợ · Helpdesk</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+  [hidden] { display: none !important; }
+  html, body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; }
+  :root { --header-h: 7.5rem; }
+  .board-scroll::-webkit-scrollbar, .col-scroll::-webkit-scrollbar { width: 8px; height: 8px; }
+  .board-scroll::-webkit-scrollbar-thumb, .col-scroll::-webkit-scrollbar-thumb { background-color: #cbd5e1; border-radius: 9999px; }
+  .board-scroll::-webkit-scrollbar-track, .col-scroll::-webkit-scrollbar-track { background: transparent; }
+  @keyframes toast-in { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+  .animate-toast-in { animation: toast-in .15s ease-out; }
+  @media (prefers-reduced-motion: reduce) { .animate-pulse { animation: none; } }
+</style>
+</head>
+<body class="h-full bg-slate-50 text-slate-900 text-sm">
+<div id="live-region" role="status" aria-live="polite" class="sr-only"></div>
+<div id="app" class="flex h-screen flex-col"></div>
+<div id="layer-root"></div>
+
+<script>
+(function () {
+  "use strict";
+
+  /* ---------------------------------------------------------------- */
+  /* Reference data                                                    */
+  /* ---------------------------------------------------------------- */
+
+  var NOW = Date.now();
+  var CURRENT_USER = "u1";
+
+  var ASSIGNEES = {
+    u1: { name: "Nguyễn Văn An", color: "bg-blue-100 text-blue-700" },
+    u2: { name: "Trần Thị Bích", color: "bg-violet-100 text-violet-700" },
+    u3: { name: "Lê Hoàng Nam", color: "bg-teal-100 text-teal-700" },
+    u4: { name: "Phạm Thu Hà", color: "bg-rose-100 text-rose-700" }
+  };
+
+  var STATUSES = [
+    { id: "new", label: "Mới", limit: null },
+    { id: "in_progress", label: "Đang xử lý", limit: 8 },
+    { id: "waiting", label: "Chờ phản hồi", limit: null },
+    { id: "resolved", label: "Đã giải quyết", limit: null },
+    { id: "closed", label: "Đã đóng", limit: null, collapsible: true }
+  ];
+  function statusLabel(id) { for (var i = 0; i < STATUSES.length; i++) if (STATUSES[i].id === id) return STATUSES[i].label; return id; }
+
+  var PRIORITY = {
+    urgent: { label: "Khẩn cấp", order: 0, badge: "bg-red-50 text-red-700 ring-1 ring-inset ring-red-600/20" },
+    high: { label: "Cao", order: 1, badge: "bg-amber-50 text-amber-800 ring-1 ring-inset ring-amber-600/20" },
+    medium: { label: "Trung bình", order: 2, badge: "bg-blue-50 text-blue-700 ring-1 ring-inset ring-blue-600/20" },
+    low: { label: "Thấp", order: 3, badge: "bg-slate-100 text-slate-700 ring-1 ring-inset ring-slate-600/20" }
+  };
+
+  var TYPES = ["Lỗi hệ thống", "Yêu cầu hỗ trợ", "Câu hỏi", "Khác"];
+
+  /* ---------------------------------------------------------------- */
+  /* Icons (lucide-style, 16px)                                        */
+  /* ---------------------------------------------------------------- */
+
+  var ICONS = {
+    plus: '<path d="M5 12h14M12 5v14"/>',
+    search: '<circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>',
+    chevronDown: '<polyline points="6 9 12 15 18 9"/>',
+    chevronRight: '<polyline points="9 18 15 12 9 6"/>',
+    more: '<circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/>',
+    x: '<line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>',
+    check: '<polyline points="20 6 9 17 4 12"/>',
+    alert: '<path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>',
+    building: '<rect x="4" y="2" width="16" height="20" rx="1"/><path d="M9 22v-4h6v4"/><path d="M8 6h.01M12 6h.01M16 6h.01M8 10h.01M12 10h.01M16 10h.01M8 14h.01M12 14h.01M16 14h.01"/>',
+    user: '<circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 4-6 8-6s8 2 8 6"/>',
+    columns: '<rect x="3" y="4" width="6" height="16" rx="1"/><rect x="10" y="4" width="4" height="10" rx="1"/><rect x="15" y="4" width="6" height="13" rx="1"/>',
+    list: '<line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/>',
+    filter: '<polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/>',
+    clock: '<circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>',
+    download: '<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>'
+  };
+  function icon(name, cls) {
+    return '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="' + (cls || "w-4 h-4") + '" aria-hidden="true">' + ICONS[name] + "</svg>";
+  }
+
+  /* ---------------------------------------------------------------- */
+  /* Mock data                                                          */
+  /* ---------------------------------------------------------------- */
+
+  var RAW_TICKETS = [
+    { id: "HD-1052", title: "Không thể đăng nhập sau khi đổi mật khẩu", customer: "Công ty TNHH Minh Phát", priority: "urgent", status: "new", assignee: null, type: "Lỗi hệ thống", createdH: -1, dueH: 3 },
+    { id: "HD-1051", title: "Yêu cầu cấp lại tài khoản quản trị cho nhân viên mới", customer: "Trường Đại học Kinh tế Quốc dân", priority: "high", status: "new", assignee: null, type: "Yêu cầu hỗ trợ", createdH: -2, dueH: 20 },
+    { id: "HD-1049", title: "Hỏi về chính sách gia hạn hợp đồng dịch vụ hỗ trợ", customer: "Công ty CP Đầu tư Thăng Long", priority: "low", status: "new", assignee: null, type: "Câu hỏi", createdH: -4, dueH: 48 },
+    { id: "HD-1047", title: "Giao diện báo cáo hiển thị sai số liệu doanh thu quý", customer: "Ngân hàng TMCP Việt Thịnh", priority: "high", status: "new", assignee: "u2", type: "Lỗi hệ thống", createdH: -5, dueH: 8 },
+
+    { id: "HD-1044", title: "Hệ thống thanh toán bị treo khi xử lý đơn hàng lớn", customer: "Siêu thị điện máy Hòa Bình", priority: "urgent", status: "in_progress", assignee: "u1", type: "Lỗi hệ thống", createdH: -10, dueH: -2 },
+    { id: "HD-1043", title: "Không in được hóa đơn điện tử cho khách lẻ", customer: "Chuỗi cà phê Thức Giấc", priority: "high", status: "in_progress", assignee: "u1", type: "Lỗi hệ thống", createdH: -20, dueH: 5 },
+    { id: "HD-1041", title: "Yêu cầu tích hợp API vận chuyển với đối tác mới", customer: "Công ty TNHH Logistics Hải Âu", priority: "medium", status: "in_progress", assignee: "u3", type: "Yêu cầu hỗ trợ", createdH: -30, dueH: 30 },
+    { id: "HD-1040", title: "Dữ liệu bệnh nhân bị trùng lặp trên hệ thống hồ sơ", customer: "Bệnh viện Đa khoa An Khang", priority: "urgent", status: "in_progress", assignee: "u2", type: "Lỗi hệ thống", createdH: -15, dueH: -10 },
+    { id: "HD-1038", title: "Lỗi đồng bộ tồn kho giữa hai chi nhánh bán hàng", customer: "Công ty TNHH Thương mại Phú Quý", priority: "high", status: "in_progress", assignee: "u3", type: "Lỗi hệ thống", createdH: -40, dueH: 12 },
+    { id: "HD-1036", title: "Yêu cầu thêm trường dữ liệu tùy chỉnh cho đơn hàng", customer: "Công ty CP Dệt may Sông Hồng", priority: "low", status: "in_progress", assignee: "u4", type: "Yêu cầu hỗ trợ", createdH: -50, dueH: 70 },
+    { id: "HD-1035", title: "Email thông báo gửi chậm hơn 24 giờ so với quy định", customer: "Trường Đại học Kinh tế Quốc dân", priority: "medium", status: "in_progress", assignee: "u1", type: "Lỗi hệ thống", createdH: -25, dueH: 2 },
+    { id: "HD-1033", title: "Lỗi hiển thị font tiếng Việt trên báo cáo xuất PDF", customer: "Ngân hàng TMCP Việt Thịnh", priority: "low", status: "in_progress", assignee: "u4", type: "Lỗi hệ thống", createdH: -60, dueH: 90 },
+    { id: "HD-1031", title: "Không thể xuất báo cáo tồn kho cuối tháng", customer: "Công ty TNHH Thương mại Phú Quý", priority: "high", status: "in_progress", assignee: "u2", type: "Lỗi hệ thống", createdH: -18, dueH: -1 },
+
+    { id: "HD-1029", title: "Chờ khách xác nhận lại thông tin tài khoản ngân hàng", customer: "Ngân hàng TMCP Việt Thịnh", priority: "medium", status: "waiting", assignee: "u2", type: "Yêu cầu hỗ trợ", createdH: -70, dueH: 15 },
+    { id: "HD-1027", title: "Chờ khách gửi ảnh chụp màn hình báo lỗi", customer: "Siêu thị điện máy Hòa Bình", priority: "low", status: "waiting", assignee: "u3", type: "Lỗi hệ thống", createdH: -80, dueH: 40 },
+    { id: "HD-1024", title: "Chờ phản hồi về phương án nâng cấp gói dịch vụ", customer: "Công ty CP Đầu tư Thăng Long", priority: "medium", status: "waiting", assignee: "u1", type: "Câu hỏi", createdH: -90, dueH: 25 },
+    { id: "HD-1022", title: "Chờ khách xác nhận đóng ticket sau khi khắc phục", customer: "Bệnh viện Đa khoa An Khang", priority: "high", status: "waiting", assignee: "u4", type: "Lỗi hệ thống", createdH: -100, dueH: -5 },
+
+    { id: "HD-1018", title: "Khắc phục lỗi treo máy chủ vào giờ cao điểm", customer: "Công ty TNHH Logistics Hải Âu", priority: "urgent", status: "resolved", assignee: "u1", type: "Lỗi hệ thống", createdH: -150, dueH: -20, resolvedH: -22 },
+    { id: "HD-1015", title: "Khắc phục lỗi đồng bộ dữ liệu khách hàng VIP", customer: "Công ty CP Dệt may Sông Hồng", priority: "high", status: "resolved", assignee: "u3", type: "Lỗi hệ thống", createdH: -200, dueH: -30, resolvedH: -25 },
+    { id: "HD-1012", title: "Hướng dẫn cấu hình lại máy in hóa đơn nhiệt", customer: "Chuỗi cà phê Thức Giấc", priority: "low", status: "resolved", assignee: "u4", type: "Câu hỏi", createdH: -250, dueH: 10, resolvedH: -5 },
+    { id: "HD-1010", title: "Sửa lỗi hiển thị sai đơn giá trên hóa đơn bán lẻ", customer: "Công ty TNHH Minh Phát", priority: "medium", status: "resolved", assignee: "u2", type: "Lỗi hệ thống", createdH: -300, dueH: -60, resolvedH: -50 },
+
+    { id: "HD-1005", title: "Hướng dẫn sử dụng tính năng báo cáo mới", customer: "Trường Đại học Kinh tế Quốc dân", priority: "low", status: "closed", assignee: "u1", type: "Yêu cầu hỗ trợ", createdH: -400, dueH: -100, resolvedH: -110 },
+    { id: "HD-1003", title: "Khắc phục lỗi mất kết nối máy POS tại quầy", customer: "Siêu thị điện máy Hòa Bình", priority: "high", status: "closed", assignee: "u3", type: "Lỗi hệ thống", createdH: -450, dueH: -200, resolvedH: -210 },
+    { id: "HD-0998", title: "Đóng ticket trùng lặp với yêu cầu HD-0997", customer: "Công ty CP Đầu tư Thăng Long", priority: "low", status: "closed", assignee: null, type: "Khác", createdH: -500, dueH: -300, resolvedH: -310 },
+    { id: "HD-0995", title: "Cập nhật thông tin liên hệ khách hàng doanh nghiệp", customer: "Ngân hàng TMCP Việt Thịnh", priority: "low", status: "closed", assignee: "u4", type: "Yêu cầu hỗ trợ", createdH: -520, dueH: -350, resolvedH: -340 },
+    { id: "HD-0990", title: "Khắc phục lỗi tính sai thuế VAT trên đơn hàng", customer: "Bệnh viện Đa khoa An Khang", priority: "urgent", status: "closed", assignee: "u2", type: "Lỗi hệ thống", createdH: -600, dueH: -400, resolvedH: -405 },
+    { id: "HD-0985", title: "Hướng dẫn khôi phục dữ liệu bị xóa nhầm", customer: "Công ty TNHH Logistics Hải Âu", priority: "medium", status: "closed", assignee: "u3", type: "Yêu cầu hỗ trợ", createdH: -650, dueH: -450, resolvedH: -460 }
+  ];
+
+  function materialize(raw) {
+    return raw.map(function (t) {
+      var createdAt = NOW + t.createdH * 3600000;
+      var dueAt = NOW + t.dueH * 3600000;
+      var resolvedAt = typeof t.resolvedH === "number" ? NOW + t.resolvedH * 3600000 : null;
+      var assigneeName = t.assignee ? ASSIGNEES[t.assignee].name : null;
+      return {
+        id: t.id,
+        title: t.title,
+        customer: t.customer,
+        priority: t.priority,
+        status: t.status,
+        assignee: t.assignee,
+        type: t.type,
+        createdAt: createdAt,
+        dueAt: dueAt,
+        resolvedAt: resolvedAt,
+        resolutionNote: resolvedAt ? "Đã xác định nguyên nhân và khắc phục. Đã thông báo kết quả xử lý cho khách hàng " + t.customer + "." : null,
+        description: "Khách hàng " + t.customer + " báo cáo: “" + t.title + "”. Vui lòng kiểm tra và xử lý theo đúng SLA đã cam kết, cập nhật tiến độ thường xuyên cho khách hàng.",
+        activity: buildActivity(t, createdAt, assigneeName, resolvedAt)
+      };
+    });
+  }
+
+  function buildActivity(t, createdAt, assigneeName, resolvedAt) {
+    var acts = [{ who: "Hệ thống", action: "Ticket được tạo từ email khách hàng", at: createdAt }];
+    if (assigneeName) acts.push({ who: assigneeName, action: "Nhận xử lý ticket", at: createdAt + 1800000 });
+    else acts.push({ who: "Hệ thống", action: "Chưa phân công người xử lý", at: createdAt + 1800000 });
+    if (resolvedAt) acts.push({ who: assigneeName || "Hệ thống", action: t.status === "closed" ? "Đóng ticket" : "Đánh dấu đã giải quyết", at: resolvedAt });
+    return acts;
+  }
+
+  var nextTicketNum = 1053;
+
+  /* ---------------------------------------------------------------- */
+  /* State                                                              */
+  /* ---------------------------------------------------------------- */
+
+  var qs = new URLSearchParams(location.search);
+  var stateParam = qs.get("state");
+
+  var state = {
+    tickets: materialize(RAW_TICKETS),
+    pageState: stateParam === "empty" ? "empty" : stateParam === "error" ? "error" : "loading",
+    view: qs.get("view") === "list" ? "list" : "board",
+    openTicketId: qs.get("ticket") || null,
+    closedCollapsed: true,
+    filters: { search: "", priority: "all", assignee: "all", type: "all", onlyMine: false },
+    undo: null,
+    menu: null /* { ticketId, x, y } */
+  };
+
+  if (state.pageState === "loading" && stateParam !== "loading") {
+    setTimeout(function () {
+      state.pageState = "ready";
+      render();
+    }, 500);
+  }
+
+  /* ---------------------------------------------------------------- */
+  /* Helpers                                                            */
+  /* ---------------------------------------------------------------- */
+
+  function pad(n) { return n < 10 ? "0" + n : "" + n; }
+  function fmtDate(ts) { var d = new Date(ts); return pad(d.getDate()) + "/" + pad(d.getMonth() + 1) + "/" + d.getFullYear(); }
+  function fmtTime(ts) { var d = new Date(ts); return pad(d.getHours()) + ":" + pad(d.getMinutes()); }
+  function fmtDateTime(ts) { return fmtDate(ts) + " " + fmtTime(ts); }
+  function esc(s) { var d = document.createElement("div"); d.textContent = s == null ? "" : s; return d.innerHTML; }
+
+  function initials(name) {
+    var parts = name.trim().split(/\s+/);
+    if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+    return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+  }
+
+  function slaInfo(t) {
+    var active = t.status !== "resolved" && t.status !== "closed";
+    if (active) {
+      var diff = t.dueAt - NOW;
+      var abs = Math.abs(diff);
+      var overdue = diff < 0;
+      var rel;
+      if (abs < 3600000) rel = (overdue ? "quá hạn " : "còn ") + Math.max(1, Math.round(abs / 60000)) + " phút";
+      else if (abs < 86400000) rel = (overdue ? "quá hạn " : "còn ") + Math.round(abs / 3600000) + " giờ";
+      else rel = (overdue ? "quá hạn " : "còn ") + Math.round(abs / 86400000) + " ngày";
+      return { overdue: overdue, text: "Hạn " + fmtDateTime(t.dueAt) + " · " + rel, badge: overdue ? rel.charAt(0).toUpperCase() + rel.slice(1) : null };
+    }
+    var met = t.resolvedAt <= t.dueAt;
+    var lateBy = t.resolvedAt - t.dueAt;
+    var lateTxt = lateBy < 86400000 ? Math.round(lateBy / 3600000) + " giờ" : Math.round(lateBy / 86400000) + " ngày";
+    return {
+      overdue: !met,
+      text: "Hạn " + fmtDateTime(t.dueAt) + (met ? " · đáp ứng SLA" : " · trễ SLA " + lateTxt),
+      badge: null
+    };
+  }
+
+  function byId(id) { for (var i = 0; i < state.tickets.length; i++) if (state.tickets[i].id === id) return state.tickets[i]; return null; }
+
+  function announce(msg) {
+    var el = document.getElementById("live-region");
+    el.textContent = "";
+    setTimeout(function () { el.textContent = msg; }, 30);
+  }
+
+  function pushURL() {
+    var p = new URLSearchParams();
+    if (state.view === "list") p.set("view", "list");
+    if (state.openTicketId) p.set("ticket", state.openTicketId);
+    var s = p.toString();
+    history.pushState({}, "", s ? "?" + s : location.pathname);
+  }
+
+  window.addEventListener("popstate", function () {
+    var p = new URLSearchParams(location.search);
+    state.view = p.get("view") === "list" ? "list" : "board";
+    state.openTicketId = p.get("ticket") || null;
+    render();
+  });
+
+  /* ---------------------------------------------------------------- */
+  /* Filtering / sorting                                                */
+  /* ---------------------------------------------------------------- */
+
+  function matchesFilters(t) {
+    var f = state.filters;
+    if (f.onlyMine && t.assignee !== CURRENT_USER) return false;
+    if (!f.onlyMine && f.assignee !== "all") {
+      if (f.assignee === "unassigned" ? t.assignee !== null : t.assignee !== f.assignee) return false;
+    }
+    if (f.priority !== "all" && t.priority !== f.priority) return false;
+    if (f.type !== "all" && t.type !== f.type) return false;
+    if (f.search) {
+      var q = f.search.toLowerCase();
+      var hay = (t.id + " " + t.title + " " + t.customer).toLowerCase();
+      if (hay.indexOf(q) === -1) return false;
+    }
+    return true;
+  }
+
+  function filteredTickets() { return state.tickets.filter(matchesFilters); }
+
+  function sortForColumn(list) {
+    return list.slice().sort(function (a, b) {
+      var p = PRIORITY[a.priority].order - PRIORITY[b.priority].order;
+      if (p !== 0) return p;
+      return a.dueAt - b.dueAt;
+    });
+  }
+
+  function sortForList(list) {
+    function group(t) {
+      if (t.status === "resolved" || t.status === "closed") return 3;
+      if (t.dueAt < NOW) return 0;
+      if (t.dueAt - NOW < 86400000) return 1;
+      return 2;
+    }
+    return list.slice().sort(function (a, b) {
+      var ga = group(a), gb = group(b);
+      if (ga !== gb) return ga - gb;
+      if (ga === 3) return (b.resolvedAt || 0) - (a.resolvedAt || 0);
+      return a.dueAt - b.dueAt;
+    });
+  }
+
+  function hasActiveFilters() {
+    var f = state.filters;
+    return !!(f.search || f.priority !== "all" || f.type !== "all" || f.onlyMine || f.assignee !== "all");
+  }
+
+  /* ---------------------------------------------------------------- */
+  /* Rendering                                                          */
+  /* ---------------------------------------------------------------- */
+
+  function render() {
+    var app = document.getElementById("app");
+    app.innerHTML = renderHeader() + renderToolbar() + renderBody();
+    document.getElementById("layer-root").innerHTML = renderLayers();
+    restoreFocusables();
+  }
+
+  function restoreFocusables() {
+    var s = document.getElementById("search-input");
+    if (s && document.activeElement !== s && state._focusSearch) {
+      s.focus();
+      s.setSelectionRange(s.value.length, s.value.length);
+      state._focusSearch = false;
+    }
+  }
+
+  function renderHeader() {
+    var total = state.tickets.length;
+    return (
+      '<header class="shrink-0 border-b border-slate-200 bg-white px-6 py-4">' +
+        '<div class="flex items-center justify-between gap-4">' +
+          '<div>' +
+            '<h1 class="text-xl font-semibold text-slate-900">Ticket hỗ trợ</h1>' +
+            '<p class="mt-0.5 text-xs text-slate-500">' + total + " ticket · Cập nhật " + fmtTime(NOW) + '</p>' +
+          '</div>' +
+          '<button type="button" data-action="open-create" class="inline-flex h-8 items-center gap-1.5 rounded-md bg-blue-700 px-3 text-sm font-medium text-white hover:bg-blue-800 focus:outline-none focus:ring-2 focus:ring-blue-700 focus:ring-offset-2">' +
+            icon("plus", "w-4 h-4") + "Tạo ticket" +
+          "</button>" +
+        "</div>" +
+      "</header>"
+    );
+  }
+
+  function renderToolbar() {
+    var f = state.filters;
+    var chips = [];
+    if (f.search) chips.push(chip("search", "Tìm: “" + esc(f.search) + "”"));
+    if (f.onlyMine) chips.push(chip("onlyMine", "Giao cho tôi"));
+    if (!f.onlyMine && f.assignee !== "all") chips.push(chip("assignee", "Người phụ trách: " + (f.assignee === "unassigned" ? "Chưa phân công" : ASSIGNEES[f.assignee].name)));
+    if (f.priority !== "all") chips.push(chip("priority", "Mức ưu tiên: " + PRIORITY[f.priority].label));
+    if (f.type !== "all") chips.push(chip("type", "Loại: " + f.type));
+
+    function chip(key, label) {
+      return '<span class="inline-flex items-center gap-1 rounded-full bg-slate-100 pl-2.5 pr-1.5 py-1 text-xs font-medium text-slate-700">' +
+        label +
+        '<button type="button" data-action="clear-chip" data-key="' + key + '" aria-label="Xóa bộ lọc ' + esc(label) + '" class="rounded-full p-0.5 hover:bg-slate-200">' + icon("x", "w-3 h-3") + "</button>" +
+      "</span>";
+    }
+
+    var assigneeOptions = '<option value="all">Tất cả người phụ trách</option><option value="unassigned">Chưa phân công</option>';
+    Object.keys(ASSIGNEES).forEach(function (k) { assigneeOptions += '<option value="' + k + '"' + (f.assignee === k ? " selected" : "") + ">" + ASSIGNEES[k].name + "</option>"; });
+
+    var priorityOptions = '<option value="all">Tất cả mức ưu tiên</option>';
+    Object.keys(PRIORITY).forEach(function (k) { priorityOptions += '<option value="' + k + '"' + (f.priority === k ? " selected" : "") + ">" + PRIORITY[k].label + "</option>"; });
+
+    var typeOptions = '<option value="all">Tất cả loại</option>';
+    TYPES.forEach(function (t) { typeOptions += '<option value="' + t + '"' + (f.type === t ? " selected" : "") + ">" + t + "</option>"; });
+
+    return (
+      '<div class="shrink-0 border-b border-slate-200 bg-white px-6 py-3">' +
+        '<div class="flex flex-wrap items-center gap-2">' +
+          '<div class="relative">' +
+            '<span class="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400">' + icon("search", "w-4 h-4") + "</span>" +
+            '<input id="search-input" type="text" value="' + esc(f.search) + '" placeholder="Tìm theo mã, tiêu đề, khách hàng" aria-label="Tìm ticket" class="h-8 w-64 rounded-md border border-slate-300 bg-white pl-8 pr-3 text-sm placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-700 focus:border-blue-700">' +
+          "</div>" +
+          '<select data-action="filter-priority" aria-label="Lọc theo mức ưu tiên" class="h-8 rounded-md border border-slate-300 bg-white px-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-700">' + priorityOptions + "</select>" +
+          '<select data-action="filter-assignee" aria-label="Lọc theo người phụ trách" ' + (f.onlyMine ? "disabled" : "") + ' class="h-8 rounded-md border border-slate-300 bg-white px-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-700 disabled:bg-slate-100 disabled:text-slate-400">' + assigneeOptions + "</select>" +
+          '<select data-action="filter-type" aria-label="Lọc theo loại" class="h-8 rounded-md border border-slate-300 bg-white px-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-700">' + typeOptions + "</select>" +
+          '<label class="inline-flex h-8 items-center gap-1.5 rounded-md border border-slate-300 bg-white px-2.5 text-sm font-medium text-slate-700 cursor-pointer">' +
+            '<input type="checkbox" data-action="toggle-mine" ' + (f.onlyMine ? "checked" : "") + ' class="h-3.5 w-3.5 rounded border-slate-400 text-blue-700 focus:ring-blue-700">' +
+            "Giao cho tôi" +
+          "</label>" +
+          (hasActiveFilters() ? '<button type="button" data-action="clear-all-filters" class="h-8 rounded-md px-2 text-sm font-medium text-blue-700 hover:bg-blue-50">Xóa tất cả</button>' : "") +
+          '<div class="ml-auto flex items-center gap-1 rounded-md border border-slate-300 bg-slate-50 p-0.5">' +
+            viewBtn("board", "columns", "Bảng") +
+            viewBtn("list", "list", "Danh sách") +
+          "</div>" +
+        "</div>" +
+        (chips.length ? '<div class="mt-2 flex flex-wrap items-center gap-1.5">' + chips.join("") + "</div>" : "") +
+      "</div>"
+    );
+
+    function viewBtn(id, iconName, label) {
+      var active = state.view === id;
+      return '<button type="button" data-action="set-view" data-view="' + id + '" aria-pressed="' + active + '" class="inline-flex h-7 items-center gap-1.5 rounded px-2.5 text-sm font-medium ' + (active ? "bg-white text-blue-700 shadow-sm ring-1 ring-slate-200" : "text-slate-600 hover:text-slate-900") + '">' + icon(iconName, "w-3.5 h-3.5") + label + "</button>";
+    }
+  }
+
+  function renderBody() {
+    if (state.pageState === "loading") return renderLoading();
+    if (state.pageState === "error") return renderError();
+    if (state.pageState === "empty") return renderGlobalEmpty();
+    return state.view === "list" ? renderListView() : renderBoardView();
+  }
+
+  function renderLoading() {
+    if (state.view === "list") {
+      var rows = "";
+      for (var r = 0; r < 8; r++) rows += '<tr class="h-10" aria-hidden="true"><td colspan="7" class="px-3"><div class="h-4 w-full animate-pulse rounded bg-slate-200"></div></td></tr>';
+      return '<div class="flex-1 overflow-auto px-6 py-4" aria-busy="true"><table class="w-full"><tbody>' + rows + "</tbody></table></div>";
+    }
+    var cols = STATUSES.map(function (col) {
+      var cards = "";
+      for (var i = 0; i < 3; i++) cards += '<div class="mb-2 h-28 animate-pulse rounded-md border border-slate-200 bg-white"></div>';
+      return '<section class="flex w-[300px] shrink-0 flex-col rounded-md border border-slate-200 bg-slate-50" aria-hidden="true">' +
+        '<div class="px-3 py-2"><div class="h-4 w-24 animate-pulse rounded bg-slate-200"></div></div>' +
+        '<div class="flex-1 px-2 pb-2">' + cards + "</div>" +
+      "</section>";
+    }).join("");
+    return '<div class="min-h-0 flex-1 overflow-x-auto px-6 py-4" aria-busy="true"><div class="flex h-full gap-3">' + cols + "</div></div>";
+  }
+
+  function renderError() {
+    return (
+      '<div class="flex flex-1 items-center justify-center p-6">' +
+        '<div class="flex max-w-sm flex-col items-center text-center">' +
+          '<div class="mb-3 flex h-10 w-10 items-center justify-center rounded-full bg-red-50 text-red-600">' + icon("alert", "w-5 h-5") + "</div>" +
+          '<p class="text-sm font-medium text-slate-900">Không thể tải danh sách ticket.</p>' +
+          '<p class="mt-1 text-sm text-slate-500">Vui lòng kiểm tra kết nối và thử lại.</p>' +
+          '<button type="button" data-action="retry" class="mt-4 h-8 rounded-md border border-slate-300 bg-white px-3 text-sm font-medium text-slate-700 hover:bg-slate-50">Thử lại</button>' +
+        "</div>" +
+      "</div>"
+    );
+  }
+
+  function renderGlobalEmpty() {
+    return (
+      '<div class="flex flex-1 items-center justify-center p-6">' +
+        '<div class="flex max-w-sm flex-col items-center text-center">' +
+          '<p class="text-sm font-medium text-slate-900">Chưa có ticket nào</p>' +
+          '<p class="mt-1 text-sm text-slate-500">Ticket hỗ trợ từ khách hàng sẽ xuất hiện ở đây.</p>' +
+          '<button type="button" data-action="open-create" class="mt-4 inline-flex h-8 items-center gap-1.5 rounded-md bg-blue-700 px-3 text-sm font-medium text-white hover:bg-blue-800">' + icon("plus", "w-4 h-4") + "Tạo ticket</button>" +
+        "</div>" +
+      "</div>"
+    );
+  }
+
+  function renderBoardView() {
+    var filtered = filteredTickets();
+    if (filtered.length === 0) {
+      return (
+        '<div class="flex flex-1 items-center justify-center p-6">' +
+          '<div class="flex max-w-sm flex-col items-center text-center">' +
+            '<p class="text-sm font-medium text-slate-900">Không có ticket khớp với bộ lọc hiện tại</p>' +
+            '<button type="button" data-action="clear-all-filters" class="mt-4 h-8 rounded-md border border-slate-300 bg-white px-3 text-sm font-medium text-slate-700 hover:bg-slate-50">Xóa bộ lọc</button>' +
+          "</div>" +
+        "</div>"
+      );
+    }
+
+    var cols = STATUSES.map(function (col) {
+      var items = sortForColumn(filtered.filter(function (t) { return t.status === col.id; }));
+      var collapsed = col.collapsible && state.closedCollapsed;
+
+      if (collapsed) {
+        return (
+          '<section aria-label="' + col.label + ", " + items.length + ' ticket, đã thu gọn" class="flex w-16 shrink-0 flex-col items-center rounded-md border border-slate-200 bg-slate-50 pt-3">' +
+            '<button type="button" data-action="toggle-closed" aria-label="Mở rộng cột ' + col.label + ", " + items.length + ' ticket" class="flex flex-col items-center gap-2 rounded p-1 hover:bg-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-700">' +
+              '<span class="rounded-full bg-slate-200 px-2 py-0.5 text-xs font-semibold tabular-nums text-slate-700">' + items.length + "</span>" +
+              '<span class="text-xs font-medium text-slate-600" style="writing-mode: vertical-rl; transform: rotate(180deg);">' + col.label + "</span>" +
+            "</button>" +
+          "</section>"
+        );
+      }
+
+      var countLabel = String(items.length);
+      var overLimit = col.limit && items.length > col.limit;
+      if (col.limit) countLabel = items.length + " / " + col.limit;
+
+      var headerRight = overLimit
+        ? '<span class="tabular-nums text-xs font-semibold text-amber-700">' + countLabel + " · Vượt giới hạn</span>"
+        : '<span class="tabular-nums text-xs font-medium text-slate-500">' + countLabel + "</span>";
+
+      var collapseBtn = col.collapsible
+        ? '<button type="button" data-action="toggle-closed" aria-label="Thu gọn cột ' + col.label + '" class="rounded p-0.5 text-slate-400 hover:bg-slate-200 hover:text-slate-600">' + icon("chevronRight", "w-3.5 h-3.5") + "</button>"
+        : "";
+
+      var body = items.length
+        ? '<ol class="col-scroll min-h-0 flex-1 space-y-2 overflow-y-auto px-2 pb-2" role="list">' + items.map(renderCard).join("") + "</ol>"
+        : '<div class="flex-1 px-3 py-6 text-center text-xs text-slate-500">Không có ticket nào ở trạng thái "' + col.label + '".</div>';
+
+      return (
+        '<section aria-labelledby="col-' + col.id + '" class="flex w-[300px] shrink-0 flex-col rounded-md border border-slate-200 bg-slate-50">' +
+          '<h2 id="col-' + col.id + '" class="sticky top-0 z-10 flex items-center justify-between gap-2 rounded-t-md bg-slate-50 px-3 py-2 text-sm font-medium text-slate-900">' +
+            '<span class="flex items-center gap-1.5">' + esc(col.label) + collapseBtn + "</span>" +
+            headerRight +
+          "</h2>" +
+          body +
+        "</section>"
+      );
+    }).join("");
+
+    return (
+      '<div class="board-scroll min-h-0 flex-1 overflow-x-auto px-6 py-4" role="region" aria-label="Bảng ticket hỗ trợ">' +
+        '<div class="flex h-full gap-3">' + cols + "</div>" +
+      "</div>"
+    );
+  }
+
+  function renderCard(t) {
+    var sla = slaInfo(t);
+    var pr = PRIORITY[t.priority];
+    var assigneeHtml = t.assignee
+      ? '<span class="inline-flex items-center gap-1.5 text-xs text-slate-600"><span class="flex h-5 w-5 items-center justify-center rounded-full text-[10px] font-semibold ' + ASSIGNEES[t.assignee].color + '">' + initials(ASSIGNEES[t.assignee].name) + "</span>" + ASSIGNEES[t.assignee].name.split(" ").slice(-1)[0] + "</span>"
+      : '<span class="text-xs text-slate-500">Chưa phân công</span>';
+
+    var accessibleName = t.id + ": " + t.title + ", khách hàng " + t.customer + ", mức ưu tiên " + pr.label;
+
+    return (
+      '<li role="listitem">' +
+        '<div class="group relative rounded-md border border-slate-200 bg-white p-2.5 hover:border-slate-300">' +
+          '<button type="button" data-action="open-ticket" data-id="' + t.id + '" aria-label="' + esc(accessibleName) + '" title="' + esc(t.title) + '" class="block w-full text-left focus:outline-none">' +
+            '<div class="flex items-center justify-between gap-2">' +
+              '<span class="text-xs font-medium text-slate-500">' + t.id + "</span>" +
+              '<span class="rounded-full px-2 py-0.5 text-[11px] font-medium ' + pr.badge + '">' + pr.label + "</span>" +
+            "</div>" +
+            '<p class="mt-1.5 line-clamp-2 text-sm font-medium text-slate-900">' + esc(t.title) + "</p>" +
+            '<p class="mt-1.5 flex items-center gap-1 truncate text-xs text-slate-500">' + icon("building", "w-3.5 h-3.5 shrink-0") + '<span class="truncate">' + esc(t.customer) + "</span></p>" +
+            '<div class="mt-1.5 flex items-center justify-between gap-2">' +
+              assigneeHtml +
+              '<span class="text-xs ' + (sla.overdue ? "font-medium text-red-700" : "text-slate-500") + '">' + (sla.overdue ? "Quá hạn" : (function () { var d = new Date(t.dueAt); return "Hạn " + pad(d.getDate()) + "/" + pad(d.getMonth() + 1); })()) + "</span>" +
+            "</div>" +
+          "</button>" +
+          (sla.badge ? '<div class="mt-1.5 inline-flex items-center gap-1 rounded-full bg-red-50 px-2 py-0.5 text-[11px] font-medium text-red-700">' + icon("alert", "w-3 h-3") + sla.badge + " SLA</div>" : "") +
+          '<button type="button" data-action="open-menu" data-id="' + t.id + '" aria-haspopup="menu" aria-label="Hành động cho ' + t.id + '" class="absolute right-1.5 top-1.5 rounded p-1 text-slate-400 opacity-0 hover:bg-slate-100 hover:text-slate-600 focus:opacity-100 group-hover:opacity-100">' + icon("more", "w-4 h-4") + "</button>" +
+        "</div>" +
+      "</li>"
+    );
+  }
+
+  function renderListView() {
+    var filtered = sortForList(filteredTickets());
+    var header = (
+      '<tr class="border-b border-slate-200 text-left text-xs font-medium text-slate-500">' +
+        '<th class="px-3 py-2">Mã</th><th class="px-3 py-2">Tiêu đề</th><th class="px-3 py-2">Khách hàng</th>' +
+        '<th class="px-3 py-2">Trạng thái</th><th class="px-3 py-2">Mức ưu tiên</th><th class="px-3 py-2">Người phụ trách</th><th class="px-3 py-2">Hạn SLA</th>' +
+      "</tr>"
+    );
+
+    var rows;
+    if (filtered.length === 0) {
+      rows = '<tr><td colspan="7" class="px-3 py-10 text-center">' +
+        '<p class="text-sm font-medium text-slate-900">Không có ticket khớp với bộ lọc hiện tại</p>' +
+        '<button type="button" data-action="clear-all-filters" class="mt-3 h-8 rounded-md border border-slate-300 bg-white px-3 text-sm font-medium text-slate-700 hover:bg-slate-50">Xóa bộ lọc</button>' +
+      "</td></tr>";
+    } else {
+      rows = filtered.map(function (t) {
+        var sla = slaInfo(t);
+        var pr = PRIORITY[t.priority];
+        var accessibleName = t.id + ": " + t.title;
+        return (
+          '<tr class="h-10 border-b border-slate-100 hover:bg-slate-50">' +
+            '<td class="px-3 py-2"><button type="button" data-action="open-ticket" data-id="' + t.id + '" aria-label="' + esc(accessibleName) + '" class="font-medium text-blue-700 hover:underline focus:outline-none focus:ring-2 focus:ring-blue-700 rounded">' + t.id + "</button></td>" +
+            '<td class="px-3 py-2 max-w-xs truncate text-slate-900" title="' + esc(t.title) + '">' + esc(t.title) + "</td>" +
+            '<td class="px-3 py-2 max-w-[160px] truncate text-slate-600">' + esc(t.customer) + "</td>" +
+            '<td class="px-3 py-2 text-slate-600">' + statusLabel(t.status) + "</td>" +
+            '<td class="px-3 py-2"><span class="rounded-full px-2 py-0.5 text-[11px] font-medium ' + pr.badge + '">' + pr.label + "</span></td>" +
+            '<td class="px-3 py-2 text-slate-600">' + (t.assignee ? ASSIGNEES[t.assignee].name : '<span class="text-slate-500">Chưa phân công</span>') + "</td>" +
+            '<td class="px-3 py-2 ' + (sla.overdue ? "font-medium text-red-700" : "text-slate-600") + ' tabular-nums">' + sla.text + "</td>" +
+          "</tr>"
+        );
+      }).join("");
+    }
+
+    return (
+      '<div class="min-h-0 flex-1 overflow-auto px-6 py-4">' +
+        '<div class="mb-2 flex items-center justify-between">' +
+          '<p class="text-xs text-slate-500" role="status">' + filtered.length + " ticket" + (hasActiveFilters() ? " (đã lọc từ " + state.tickets.length + ")" : "") + "</p>" +
+          '<button type="button" data-action="export-csv" class="inline-flex h-8 items-center gap-1.5 rounded-md border border-slate-300 bg-white px-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50">' + icon("download", "w-3.5 h-3.5") + "Xuất CSV</button>" +
+        "</div>" +
+        '<div class="overflow-hidden rounded-md border border-slate-200 bg-white">' +
+          '<table class="w-full text-sm"><thead>' + header + "</thead><tbody>" + rows + "</tbody></table>" +
+        "</div>" +
+      "</div>"
+    );
+  }
+
+  /* ---------------------------------------------------------------- */
+  /* Layers: menu, panel, dialogs, toasts                              */
+  /* ---------------------------------------------------------------- */
+
+  function renderLayers() {
+    var html = "";
+    if (state.menu) html += renderMoveMenu(state.menu);
+    if (state.openTicketId && byId(state.openTicketId)) html += renderPanel(byId(state.openTicketId));
+    if (state.createOpen) html += renderCreateDialog();
+    if (state.transitionDialog) html += renderTransitionDialog(state.transitionDialog);
+    if (state.undo) html += renderUndoToast(state.undo);
+    return html;
+  }
+
+  function renderMoveMenu(menu) {
+    var t = byId(menu.ticketId);
+    if (!t) return "";
+    var items = STATUSES.filter(function (c) { return c.id !== t.status; }).map(function (c) {
+      var blocked = c.id === "in_progress" && !t.assignee;
+      if (blocked) {
+        return '<div role="menuitem" aria-disabled="true" title="Cần phân công người xử lý trước khi chuyển sang Đang xử lý." class="flex cursor-not-allowed items-center justify-between px-3 py-1.5 text-sm text-slate-400">' + c.label + '<span class="text-[11px]">Cần người phụ trách</span></div>';
+      }
+      return '<button type="button" role="menuitem" data-action="move-ticket" data-id="' + t.id + '" data-to="' + c.id + '" class="block w-full px-3 py-1.5 text-left text-sm text-slate-700 hover:bg-slate-100">' + c.label + "</button>";
+    }).join("");
+
+    var top = menu.y, left = menu.x;
+    return (
+      '<div data-action="menu-backdrop" class="fixed inset-0 z-40"></div>' +
+      '<div role="menu" aria-label="Chuyển ' + t.id + ' đến trạng thái khác" style="top:' + top + "px; left:" + left + 'px;" class="fixed z-50 w-56 rounded-md border border-slate-200 bg-white py-1 shadow-lg">' +
+        '<div class="px-3 py-1 text-xs font-medium text-slate-500">Chuyển đến</div>' +
+        items +
+      "</div>"
+    );
+  }
+
+  function renderPanel(t) {
+    var sla = slaInfo(t);
+    var pr = PRIORITY[t.priority];
+    var statusOptions = STATUSES.map(function (c) { return '<option value="' + c.id + '"' + (c.id === t.status ? " selected" : "") + ">" + c.label + "</option>"; }).join("");
+    var assigneeOptions = '<option value="">Chưa phân công</option>' + Object.keys(ASSIGNEES).map(function (k) { return '<option value="' + k + '"' + (t.assignee === k ? " selected" : "") + ">" + ASSIGNEES[k].name + "</option>"; }).join("");
+
+    var activity = t.activity.slice().reverse().map(function (a) {
+      return '<li class="relative pl-4"><span class="absolute left-0 top-1.5 h-1.5 w-1.5 rounded-full bg-slate-300"></span><p class="text-sm text-slate-900">' + esc(a.action) + '</p><p class="text-xs text-slate-500">' + esc(a.who) + " · " + fmtDateTime(a.at) + "</p></li>";
+    }).join("");
+
+    return (
+      '<div data-action="panel-backdrop" class="fixed inset-0 z-40 bg-slate-900/10"></div>' +
+      '<aside role="dialog" aria-label="Chi tiết ticket ' + t.id + '" class="fixed inset-y-0 right-0 z-50 flex w-full max-w-[540px] flex-col border-l border-slate-200 bg-white shadow-xl">' +
+        '<div class="flex items-start justify-between gap-3 border-b border-slate-200 px-5 py-4">' +
+          '<div>' +
+            '<p class="text-xs font-medium text-slate-500">' + t.id + "</p>" +
+            '<h2 class="mt-0.5 text-base font-semibold text-slate-900">' + esc(t.title) + "</h2>" +
+          "</div>" +
+          '<button type="button" data-action="close-panel" aria-label="Đóng chi tiết ticket" class="shrink-0 rounded p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-600">' + icon("x", "w-4 h-4") + "</button>" +
+        "</div>" +
+        '<div class="flex-1 overflow-y-auto px-5 py-4">' +
+          '<div class="grid grid-cols-2 gap-4">' +
+            field("Trạng thái", '<select data-action="panel-status" aria-label="Trạng thái" class="h-8 w-full rounded-md border border-slate-300 bg-white px-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-700">' + statusOptions + "</select>") +
+            field("Mức ưu tiên", '<span class="inline-flex rounded-full px-2 py-0.5 text-[11px] font-medium ' + pr.badge + '">' + pr.label + "</span>") +
+            field("Khách hàng", '<p class="text-sm text-slate-900">' + esc(t.customer) + "</p>") +
+            field("Loại", '<p class="text-sm text-slate-900">' + esc(t.type) + "</p>") +
+            field("Người phụ trách", '<select data-action="panel-assignee" aria-label="Người phụ trách" class="h-8 w-full rounded-md border border-slate-300 bg-white px-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-700">' + assigneeOptions + "</select>") +
+            field("Ngày tạo", '<p class="text-sm text-slate-900">' + fmtDateTime(t.createdAt) + "</p>") +
+          "</div>" +
+          '<div class="mt-4 rounded-md ' + (sla.overdue ? "bg-red-50" : "bg-slate-50") + ' px-3 py-2">' +
+            '<p class="text-xs font-medium ' + (sla.overdue ? "text-red-700" : "text-slate-500") + '">SLA</p>' +
+            '<p class="mt-0.5 text-sm ' + (sla.overdue ? "font-medium text-red-700" : "text-slate-900") + '">' + sla.text + "</p>" +
+          "</div>" +
+          '<div class="mt-4">' +
+            '<p class="text-xs font-medium text-slate-500">Mô tả</p>' +
+            '<p class="mt-1 text-sm text-slate-700">' + esc(t.description) + "</p>" +
+          "</div>" +
+          (t.resolutionNote ? '<div class="mt-4 rounded-md border border-slate-200 bg-white px-3 py-2"><p class="text-xs font-medium text-slate-500">Ghi chú xử lý</p><p class="mt-1 text-sm text-slate-700">' + esc(t.resolutionNote) + "</p></div>" : "") +
+          '<div class="mt-5">' +
+            '<p class="text-xs font-medium text-slate-500">Lịch sử hoạt động</p>' +
+            '<ol class="mt-2 space-y-3 border-l border-slate-200 pl-0">' + activity + "</ol>" +
+          "</div>" +
+        "</div>" +
+      "</aside>"
+    );
+
+    function field(label, valueHtml) {
+      return '<div><p class="text-xs font-medium text-slate-500 mb-1">' + label + "</p>" + valueHtml + "</div>";
+    }
+  }
+
+  function renderCreateDialog() {
+    var err = state.createErrors || {};
+    var d = state.createDraft || {};
+    var assigneeOptions = '<option value="">Chưa phân công</option>' + Object.keys(ASSIGNEES).map(function (k) { return '<option value="' + k + '"' + (d.assignee === k ? " selected" : "") + ">" + ASSIGNEES[k].name + "</option>"; }).join("");
+    var priorityOptions = Object.keys(PRIORITY).map(function (k) { return '<option value="' + k + '"' + (d.priority === k ? " selected" : "") + ">" + PRIORITY[k].label + "</option>"; }).join("");
+    var typeOptions = TYPES.map(function (t) { return '<option value="' + t + '"' + (d.type === t ? " selected" : "") + ">" + t + "</option>"; }).join("");
+    var errorKeys = Object.keys(err);
+
+    return (
+      '<div data-action="create-backdrop" class="fixed inset-0 z-40 flex items-center justify-center bg-slate-900/30 p-4">' +
+        '<div role="dialog" aria-modal="true" aria-label="Tạo ticket mới" class="w-full max-w-md rounded-lg bg-white shadow-xl">' +
+          '<div class="flex items-center justify-between border-b border-slate-200 px-5 py-3">' +
+            '<h2 class="text-base font-semibold text-slate-900">Tạo ticket</h2>' +
+            '<button type="button" data-action="close-create" aria-label="Đóng" class="rounded p-1 text-slate-400 hover:bg-slate-100">' + icon("x", "w-4 h-4") + "</button>" +
+          "</div>" +
+          '<div class="max-h-[70vh] overflow-y-auto px-5 py-4 space-y-3">' +
+            (errorKeys.length ? '<div role="alert" class="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700"><p class="font-medium">Vui lòng kiểm tra lại thông tin:</p><ul class="mt-1 list-disc pl-4">' + errorKeys.map(function (k) { return "<li>" + err[k] + "</li>"; }).join("") + "</ul></div>" : "") +
+            formField("customer", "Khách hàng", '<input id="field-customer" type="text" data-field="customer" value="' + esc(d.customer || "") + '" class="h-8 w-full rounded-md border px-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-700 ' + (err.customer ? "border-red-500" : "border-slate-300") + '">', true) +
+            formField("title", "Tiêu đề", '<input id="field-title" type="text" data-field="title" value="' + esc(d.title || "") + '" class="h-8 w-full rounded-md border px-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-700 ' + (err.title ? "border-red-500" : "border-slate-300") + '">', true) +
+            formField("priority", "Mức ưu tiên", '<select id="field-priority" data-field="priority" class="h-8 w-full rounded-md border border-slate-300 px-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-700">' + priorityOptions + "</select>", true) +
+            formField("type", "Loại", '<select id="field-type" data-field="type" class="h-8 w-full rounded-md border border-slate-300 px-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-700">' + typeOptions + "</select>", false) +
+            formField("assignee", "Người phụ trách", '<select id="field-assignee" data-field="assignee" class="h-8 w-full rounded-md border border-slate-300 px-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-700">' + assigneeOptions + "</select>", false) +
+          "</div>" +
+          '<div class="sticky bottom-0 flex justify-end gap-2 border-t border-slate-200 bg-white px-5 py-3">' +
+            '<button type="button" data-action="close-create" class="h-8 rounded-md border border-slate-300 bg-white px-3 text-sm font-medium text-slate-700 hover:bg-slate-50">Hủy</button>' +
+            '<button type="button" data-action="submit-create" class="h-8 rounded-md bg-blue-700 px-3 text-sm font-medium text-white hover:bg-blue-800">Tạo ticket</button>' +
+          "</div>" +
+        "</div>" +
+      "</div>"
+    );
+
+    function formField(key, label, inputHtml, required) {
+      return '<div><label for="field-' + key + '" class="block text-sm font-medium text-slate-700 mb-1">' + label + (required ? ' <span class="text-red-600">*</span>' : "") + "</label>" + inputHtml + (err[key] ? '<p class="mt-1 text-xs text-red-600">' + err[key] + "</p>" : "") + "</div>";
+    }
+  }
+
+  function renderTransitionDialog(td) {
+    var t = byId(td.ticketId);
+    if (!t) return "";
+    return (
+      '<div data-action="transition-backdrop" class="fixed inset-0 z-40 flex items-center justify-center bg-slate-900/30 p-4">' +
+        '<div role="dialog" aria-modal="true" aria-label="Chuyển ' + t.id + ' sang Đã giải quyết" class="w-full max-w-sm rounded-lg bg-white shadow-xl">' +
+          '<div class="px-5 py-4">' +
+            '<h2 class="text-base font-semibold text-slate-900">Chuyển ' + t.id + ' sang Đã giải quyết</h2>' +
+            '<p class="mt-1 text-sm text-slate-500">Nhập ghi chú xử lý trước khi chuyển trạng thái.</p>' +
+            '<label for="resolution-note" class="mt-3 block text-sm font-medium text-slate-700 mb-1">Ghi chú xử lý <span class="text-red-600">*</span></label>' +
+            '<textarea id="resolution-note" rows="3" class="w-full rounded-md border ' + (td.error ? "border-red-500" : "border-slate-300") + ' px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-700">' + esc(td.note || "") + "</textarea>" +
+            (td.error ? '<p class="mt-1 text-xs text-red-600">' + td.error + "</p>" : "") +
+          "</div>" +
+          '<div class="flex justify-end gap-2 border-t border-slate-200 px-5 py-3">' +
+            '<button type="button" data-action="cancel-transition" class="h-8 rounded-md border border-slate-300 bg-white px-3 text-sm font-medium text-slate-700 hover:bg-slate-50">Hủy</button>' +
+            '<button type="button" data-action="confirm-transition" class="h-8 rounded-md bg-blue-700 px-3 text-sm font-medium text-white hover:bg-blue-800">Xác nhận chuyển</button>' +
+          "</div>" +
+        "</div>" +
+      "</div>"
+    );
+  }
+
+  function renderUndoToast(u) {
+    return (
+      '<div class="fixed bottom-4 right-4 z-50 animate-toast-in">' +
+        '<div role="status" class="flex items-center gap-3 rounded-md bg-slate-900 px-4 py-2.5 text-sm text-white shadow-lg">' +
+          '<span>' + esc(u.message) + "</span>" +
+          '<button type="button" data-action="undo-move" class="font-medium text-blue-300 hover:text-blue-200">Hoàn tác</button>' +
+        "</div>" +
+      "</div>"
+    );
+  }
+
+  /* ---------------------------------------------------------------- */
+  /* Actions                                                            */
+  /* ---------------------------------------------------------------- */
+
+  var undoTimer = null;
+
+  function moveTicket(id, to, opts) {
+    var t = byId(id);
+    if (!t) return;
+    opts = opts || {};
+    var from = t.status;
+    t.status = to;
+    if (to === "resolved" || to === "closed") {
+      t.resolvedAt = NOW;
+      if (opts.note) t.resolutionNote = opts.note;
+    }
+
+    var col = null;
+    for (var i = 0; i < STATUSES.length; i++) if (STATUSES[i].id === to) col = STATUSES[i];
+    var overLimitTxt = "";
+    if (col && col.limit) {
+      var count = state.tickets.filter(function (x) { return x.status === to; }).length;
+      if (count > col.limit) overLimitTxt = " · Đã vượt giới hạn " + count + "/" + col.limit;
+    }
+
+    announce(t.id + " đã chuyển sang " + statusLabel(to) + "." + overLimitTxt);
+
+    clearTimeout(undoTimer);
+    state.undo = { message: t.id + " đã chuyển sang " + statusLabel(to) + overLimitTxt, ticketId: id, from: from };
+    undoTimer = setTimeout(function () { state.undo = null; render(); }, 5000);
+
+    render();
+  }
+
+  function undoMove() {
+    if (!state.undo) return;
+    var t = byId(state.undo.ticketId);
+    if (t) {
+      t.status = state.undo.from;
+      announce(t.id + " đã được hoàn tác về " + statusLabel(state.undo.from) + ".");
+    }
+    clearTimeout(undoTimer);
+    state.undo = null;
+    render();
+  }
+
+  function downloadCSV() {
+    var rows = sortForList(filteredTickets());
+    var header = ["Mã", "Tiêu đề", "Khách hàng", "Trạng thái", "Mức ưu tiên", "Người phụ trách", "Hạn SLA"];
+    var lines = [header.join(",")];
+    rows.forEach(function (t) {
+      var cells = [
+        t.id, t.title, t.customer, statusLabel(t.status), PRIORITY[t.priority].label,
+        t.assignee ? ASSIGNEES[t.assignee].name : "Chưa phân công", fmtDateTime(t.dueAt)
+      ].map(function (c) { return '"' + String(c).replace(/"/g, '""') + '"'; });
+      lines.push(cells.join(","));
+    });
+    var blob = new Blob(["﻿" + lines.join("\r\n")], { type: "text/csv;charset=utf-8;" });
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement("a");
+    a.href = url;
+    a.download = "ticket-ho-tro.csv";
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    announce("Đã xuất " + rows.length + " ticket ra tệp CSV.");
+  }
+
+  /* ---------------------------------------------------------------- */
+  /* Event delegation                                                   */
+  /* ---------------------------------------------------------------- */
+
+  document.addEventListener("click", function (e) {
+    var el = e.target.closest("[data-action]");
+    if (!el) return;
+    var action = el.getAttribute("data-action");
+
+    switch (action) {
+      case "open-create":
+        state.createOpen = true;
+        state.createDraft = { priority: "medium", type: TYPES[0] };
+        state.createErrors = null;
+        render();
+        setTimeout(function () { var f = document.getElementById("field-customer"); if (f) f.focus(); }, 0);
+        break;
+      case "close-create":
+        state.createOpen = false;
+        state.createErrors = null;
+        render();
+        break;
+      case "create-backdrop":
+        if (e.target === el) { state.createOpen = false; state.createErrors = null; render(); }
+        break;
+      case "submit-create": {
+        var d = state.createDraft || {};
+        var errors = {};
+        if (!d.customer || !d.customer.trim()) errors.customer = "Vui lòng nhập tên khách hàng.";
+        if (!d.title || !d.title.trim()) errors.title = "Vui lòng nhập tiêu đề ticket.";
+        if (!d.priority) errors.priority = "Vui lòng chọn mức ưu tiên.";
+        if (Object.keys(errors).length) {
+          state.createErrors = errors;
+          render();
+          var firstKey = Object.keys(errors)[0];
+          var firstField = document.getElementById("field-" + firstKey);
+          if (firstField) firstField.focus();
+          return;
+        }
+        var newId = "HD-" + (nextTicketNum++);
+        var createdAt = NOW;
+        var dueAt = NOW + 24 * 3600000;
+        var newTicket = {
+          id: newId, title: d.title.trim(), customer: d.customer.trim(), priority: d.priority,
+          status: "new", assignee: d.assignee || null, type: d.type || TYPES[0],
+          createdAt: createdAt, dueAt: dueAt, resolvedAt: null, resolutionNote: null,
+          description: "Khách hàng " + d.customer.trim() + " báo cáo: “" + d.title.trim() + "”.",
+          activity: [{ who: "Hệ thống", action: "Ticket được tạo", at: createdAt }]
+        };
+        state.tickets.unshift(newTicket);
+        state.createOpen = false;
+        state.createErrors = null;
+        announce("Đã tạo ticket " + newId + ".");
+        render();
+        break;
+      }
+      case "set-view":
+        state.view = el.getAttribute("data-view");
+        pushURL();
+        render();
+        break;
+      case "clear-chip": {
+        var key = el.getAttribute("data-key");
+        if (key === "search") { state.filters.search = ""; }
+        else if (key === "onlyMine") { state.filters.onlyMine = false; }
+        else state.filters[key] = "all";
+        render();
+        break;
+      }
+      case "clear-all-filters":
+        state.filters = { search: "", priority: "all", assignee: "all", type: "all", onlyMine: false };
+        render();
+        break;
+      case "open-menu": {
+        var id = el.getAttribute("data-id");
+        if (state.menu && state.menu.ticketId === id) { state.menu = null; render(); break; }
+        var rect = el.getBoundingClientRect();
+        var x = Math.min(rect.left, window.innerWidth - 240);
+        var y = Math.min(rect.bottom + 4, window.innerHeight - 200);
+        state.menu = { ticketId: id, x: x, y: y };
+        render();
+        break;
+      }
+      case "menu-backdrop":
+        state.menu = null;
+        render();
+        break;
+      case "move-ticket": {
+        var mid = el.getAttribute("data-id");
+        var to = el.getAttribute("data-to");
+        state.menu = null;
+        if (to === "resolved") {
+          state.transitionDialog = { ticketId: mid, note: "", error: null };
+          render();
+          setTimeout(function () { var n = document.getElementById("resolution-note"); if (n) n.focus(); }, 0);
+        } else {
+          moveTicket(mid, to);
+        }
+        break;
+      }
+      case "transition-backdrop":
+        if (e.target === el) { state.transitionDialog = null; render(); }
+        break;
+      case "cancel-transition":
+        state.transitionDialog = null;
+        render();
+        break;
+      case "confirm-transition": {
+        var noteEl = document.getElementById("resolution-note");
+        var noteVal = noteEl ? noteEl.value.trim() : "";
+        if (!noteVal) {
+          state.transitionDialog.error = "Vui lòng nhập ghi chú xử lý.";
+          render();
+          var ne = document.getElementById("resolution-note"); if (ne) ne.focus();
+          break;
+        }
+        var tdId = state.transitionDialog.ticketId;
+        state.transitionDialog = null;
+        moveTicket(tdId, "resolved", { note: noteVal });
+        break;
+      }
+      case "undo-move":
+        undoMove();
+        break;
+      case "open-ticket":
+        state.openTicketId = el.getAttribute("data-id");
+        pushURL();
+        render();
+        break;
+      case "close-panel":
+        state.openTicketId = null;
+        pushURL();
+        render();
+        break;
+      case "panel-backdrop":
+        if (e.target === el) { state.openTicketId = null; pushURL(); render(); }
+        break;
+      case "toggle-closed":
+        state.closedCollapsed = !state.closedCollapsed;
+        render();
+        break;
+      case "retry":
+        state.pageState = "loading";
+        render();
+        setTimeout(function () { state.pageState = "ready"; render(); }, 500);
+        break;
+      case "export-csv":
+        downloadCSV();
+        break;
+      default:
+        break;
+    }
+  });
+
+  document.addEventListener("keydown", function (e) {
+    if (e.key !== "Escape") return;
+    if (state.transitionDialog) { state.transitionDialog = null; render(); return; }
+    if (state.createOpen) { state.createOpen = false; state.createErrors = null; render(); return; }
+    if (state.menu) { state.menu = null; render(); return; }
+    if (state.openTicketId) { state.openTicketId = null; pushURL(); render(); return; }
+  });
+
+  document.addEventListener("input", function (e) {
+    if (e.target.id === "search-input") {
+      state.filters.search = e.target.value;
+      state._focusSearch = true;
+      render();
+    }
+    if (e.target.matches("[data-field]")) {
+      state.createDraft = state.createDraft || {};
+      state.createDraft[e.target.getAttribute("data-field")] = e.target.value;
+    }
+  });
+
+  document.addEventListener("change", function (e) {
+    var t = e.target;
+    if (t.getAttribute("data-action") === "filter-priority") { state.filters.priority = t.value; render(); }
+    else if (t.getAttribute("data-action") === "filter-assignee") { state.filters.assignee = t.value; render(); }
+    else if (t.getAttribute("data-action") === "filter-type") { state.filters.type = t.value; render(); }
+    else if (t.getAttribute("data-action") === "toggle-mine") { state.filters.onlyMine = t.checked; render(); }
+    else if (t.matches("[data-field]")) { state.createDraft = state.createDraft || {}; state.createDraft[t.getAttribute("data-field")] = t.value; }
+    else if (t.getAttribute("data-action") === "panel-status") {
+      var pid = state.openTicketId;
+      var to = t.value;
+      var pidTicket = byId(pid);
+      if (to === "in_progress" && !pidTicket.assignee) {
+        announce("Không thể chuyển " + pid + " sang Đang xử lý: cần phân công người xử lý trước.");
+        render();
+      } else if (to === "resolved" && pidTicket.status !== "resolved") {
+        state.transitionDialog = { ticketId: pid, note: "", error: null };
+        render();
+        setTimeout(function () { var n = document.getElementById("resolution-note"); if (n) n.focus(); }, 0);
+      } else {
+        moveTicket(pid, to);
+      }
+    } else if (t.getAttribute("data-action") === "panel-assignee") {
+      var tk = byId(state.openTicketId);
+      if (tk) {
+        tk.assignee = t.value || null;
+        announce("Đã " + (t.value ? "phân công " + ASSIGNEES[t.value].name : "bỏ phân công") + " cho " + tk.id + ".");
+        render();
+      }
+    }
+  });
+
+  /* ---------------------------------------------------------------- */
+  /* Boot                                                               */
+  /* ---------------------------------------------------------------- */
+
+  render();
+})();
+</script>
+</body>
+</html>

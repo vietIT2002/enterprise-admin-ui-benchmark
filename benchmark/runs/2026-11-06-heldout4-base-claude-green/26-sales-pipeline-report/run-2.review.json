@@ -1,0 +1,54 @@
+{
+  "brief": "26-sales-pipeline-report",
+  "run": 2,
+  "items": [
+    {
+      "item": "The stage breakdown lists stages in pipeline order (not alphabetical), each with its win probability, and each stage's weighted value equals its open value × that probability, with the weighted total equal to the sum of the stages",
+      "pass": false,
+      "evidence": "renderChart() sorts stages by value descending: `var sorted = STAGES.slice().sort(function (a, b) { return totals[b.key] - totals[a.key]; });` — screenshot shows order Đề xuất, Đàm phán, Xác định nhu cầu, Tiếp cận (value-desc), not pipeline order (Tiếp cận→Xác định nhu cầu→Đề xuất→Đàm phán). Neither the bar chart nor its 'Hiện dạng bảng' table (cols: Giai đoạn, Giá trị pipeline, Tỷ trọng) shows a per-stage win probability or a per-stage weighted value at all."
+    },
+    {
+      "item": "Win rate is computed over closed deals only, won ÷ (won + lost), with the counts shown beside it (such as \"38% · 19 of 50 closed\"), and a salesperson with no closed deals shows \"—\" instead of 0% or NaN",
+      "pass": false,
+      "evidence": "winRateOf() correctly computes won/(won+lost) and returns null (rendered as '—') when total is 0. But neither the KPI tile ('Tỷ lệ thắng quý' → '35,2%' with delta '-1,4 điểm vs quý trước') nor the per-rep group header ('· Tỷ lệ thắng quý 25%') ever shows the won/lost counts beside the percentage."
+    },
+    {
+      "item": "The by-salesperson table ends in a totals row whose deal count, pipeline value and weighted value equal the sum of its rows and match the overall totals of the stage breakdown",
+      "pass": false,
+      "evidence": "tfoot in renderTableBodyAndFoot() renders 'Tổng | formatAmount(grandValue) | — | formatAmount(grandWeighted) | —' — no total deal-count cell at all (confirmed in full.png: 'Tổng  33.080.000.000  —  15.290.300.000  —'). Also can't match stage-breakdown totals since the stage breakdown never displays a weighted value (see item 1)."
+    },
+    {
+      "item": "The period can be set to this quarter, next quarter or a custom range, the page says which date it applies to (expected close date), and the results can also be narrowed to one salesperson or team",
+      "pass": false,
+      "evidence": "#quarterSelect only offers 3 fixed quarters (2026-Q3, 2026-Q4 'hiện tại', 2027-Q1) with no custom-range input. Nothing in the UI states the period filters on expected close date (matchesQuarter() filters opp.expectedClose internally, but subtitle only says 'Số tiền bằng VND, chỉ gồm cơ hội đang mở'). Narrowing is per-individual salesperson only (#repCheckboxes over REPS) — there is no team-level filter."
+    },
+    {
+      "item": "Every money value shows its currency (one currency for the whole report) with thousands separators and lines up by digit within its column, and any abbreviated headline figure (such as \"1.2M\") has the full amount available in the table or a title attribute",
+      "pass": true,
+      "evidence": "Single currency (VND/₫) throughout: stated in subtitle, KPI tiles use formatMoney() (style:'currency',currency:'VND'), table columns labeled 'Giá trị (₫)'/'Dự báo có trọng số (₫)', filter chips show '₫'. Intl.NumberFormat('vi-VN') gives thousands separators; tabular-nums class applied to all numeric cells (audit.json numericCells.misaligned=0, nonTabular=0). No headline figure is abbreviated (e.g. '33.080.000.000 ₫' shown in full), so the abbreviation clause is vacuously satisfied."
+    },
+    {
+      "item": "Open deals whose expected close date has already passed are flagged with words (such as \"Close date passed\"), not colour alone, and the number of such deals is shown per salesperson",
+      "pass": false,
+      "evidence": "dateCell() renders 'Quá hạn N ngày' in red text for overdue rows (word-based flag, not colour-only) — e.g. full.png row 'Quá hạn 3 ngày'. But no per-salesperson overdue count exists anywhere; group headers only show '(N cơ hội · Tỷ lệ thắng quý X%)', with no overdue tally."
+    },
+    {
+      "item": "Each stage and salesperson figure drills down to the deals behind it (deal, account, owner, value, stage, close date) through a link or button that is keyboard-focusable and has a descriptive accessible name",
+      "pass": false,
+      "evidence": "Per-salesperson group rows do drill down via a real <button data-toggle-group> with aria-expanded, expanding to show deal rows (name, customer, stage, value, close date). But the stage breakdown chart ('Pipeline theo giai đoạn' section) renders bars inside a single `<div role=\"img\" aria-label=\"Biểu đồ cột ngang...\">` wrapper with no buttons or links on individual stage bars — clicking a stage bar does nothing."
+    },
+    {
+      "item": "When the filters match no deals, the page says so, names the active filters and offers to clear them; a loading indicator and a failed-load message with a retry action are also present",
+      "pass": true,
+      "evidence": "Filtered-empty state (renderTableBodyAndFoot): 'Không có cơ hội nào khớp với bộ lọc hiện tại' plus a 'Xoá bộ lọc' button (#clearFiltersBtn → clearAllFilters), shown alongside the persistent #chipsRow naming each active filter. renderSkeleton() shows shimmering skeleton rows as a loading indicator. renderError() shows 'Không thể tải dữ liệu pipeline bán hàng.' with role=alert and a '#retryBtn' (Thử lại) that calls boot() again."
+    },
+    {
+      "item": "Export (CSV or Excel) produces the deal-level rows for the current filters, and its label or confirmation states the scope (such as \"Export 42 deals · Q4 2026\")",
+      "pass": false,
+      "evidence": "exportCsv() correctly exports getFiltered() deal-level rows with id/name/customer/rep/stage/value/probability/weighted/close-date columns. But the trigger button (#btnExport) is static text 'Xuất CSV' with no deal count or quarter, and there is no confirmation message after export stating the scope."
+    }
+  ],
+  "tells": [],
+  "notes": "No notable template tells observed: no greeting header, no icon-stuffed KPI tiles, deltas already include their comparison period ('vs quý trước'), no avatars, no gradients/glass chrome (skeleton shimmer is a loading affordance, not decoration), no uppercase tracked labels, no emoji icons (all SVG), stage badges are uniform slate (no rainbow status), no sidebar, radii stay small (2px/6px per audit.json), hover states are plain background tints (no lift/scale), chart is data-accurate rather than decorative. The page is functionally dense and mostly fails on breadth/completeness of specific acceptance behaviors (stage order+probability+weighted value, win-rate counts, totals-row deal count, custom date range, team filter, per-rep overdue count, stage drill-down, export scope messaging) rather than on surface-level template styling.",
+  "blind": true
+}

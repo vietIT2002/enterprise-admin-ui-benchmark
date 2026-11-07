@@ -1,0 +1,54 @@
+{
+  "brief": "27-delivery-note-print",
+  "run": 1,
+  "items": [
+    {
+      "item": "The header shows the delivery note number, issue date, source sales order or transfer number and dispatching warehouse, each with a visible label, and every date on the note uses one unambiguous format (such as 06 Nov 2026)",
+      "pass": false,
+      "evidence": "Identity block (lines 73-81) has labelled Number/Order ref./Issue date/Delivery date, but 'Dispatch warehouse' only appears later in the separate 'Shipment details' section, not the header. More decisively, dates are rendered as '07/11/2026' and '09/11/2026' (ambiguous DD/MM vs MM/DD numeric slash format), not an unambiguous format like '06 Nov 2026'."
+    },
+    {
+      "item": "Sender (company name, address, tax ID), recipient (customer name, delivery address, contact person and phone) and carrier (carrier name, vehicle plate or driver name) appear in three separately labelled blocks",
+      "pass": false,
+      "evidence": "Recipient is clearly labelled ('Customer' / 'Deliver to' under h2 'Parties'). Carrier data (Carrier, Vehicle plate, Driver) is present but merged into the 'Shipment details' block alongside unrelated Incoterms/Freight fields rather than its own labelled block. The sender block (Harborline Distribution Co., address, Tax ID at lines 67-72) has no heading/label at all (e.g. 'Sender' or 'Shipped from') — it is just unlabelled text above the title."
+    },
+    {
+      "item": "The goods are in a real <table> with column headers in <thead>, giving per line: line number, item code, description, unit of measure, quantity ordered, quantity delivered and lot or serial number, with quantities right-aligned",
+      "pass": false,
+      "evidence": "`<table id=\"goodsTable\">` with `<thead>` columns No./SKU/Description/Unit/Qty ordered/Qty shipped/Notes (lines 122-132); qty cells use `text-right tabular-nums`. However there is no lot or serial number column — the last column is a free-text 'Notes' field ('—', '2 back-ordered'), not a lot/serial identifier."
+    },
+    {
+      "item": "A line delivered short of the ordered quantity states the outstanding amount in words (such as \"Backorder: 4 pcs\")",
+      "pass": true,
+      "evidence": "Row for PKG-20045 (qtyOrdered 30, qtyShipped 28) shows Notes text '2 back-ordered' (script line 203), a textual statement of the shortfall, not a colour-only indicator."
+    },
+    {
+      "item": "A footer gives the total quantity delivered, the number of packages and the gross weight with its unit, and the quantity total equals the sum of the lines",
+      "pass": false,
+      "evidence": "`<tfoot>` totals Qty ordered=117 and Qty shipped=115 (#totalOrdered/#totalShipped), which correctly equal the sum of the six lines (20+40+15+28+2+10=115). But the only package/weight mention is the line '6 line items · 115 units shipped on 6 pallets' (#packageSummary) — there is no gross weight or weight unit anywhere on the note."
+    },
+    {
+      "item": "Signature boxes are provided for the warehouse keeper (issued by), the driver or carrier and the receiver, each with room for printed name, signature and date, plus a remarks area for the condition of the goods on receipt",
+      "pass": true,
+      "evidence": "Three `.sig-block` divs: 'Issued by — Harborline Distribution', 'Carrier / Driver', 'Received by — Customer' (lines 161-187), each with a `.sig-box`, 'Name: ____' and 'Date: ____' lines; the receiver block adds 'Condition on receipt: ☐ Good ☐ Damaged ☐ Shortage'."
+    },
+    {
+      "item": "A Print control that is a real <button> starts printing, and an @media print stylesheet hides the app navigation and on-screen controls, sets page margins and keeps the signature block from splitting across pages",
+      "pass": true,
+      "evidence": "`<button type=\"button\" id=\"printBtn\">Print</button>` wired to `printDocument()` → `window.print()` (lines 54-56, 232-236). `@media print` hides `.no-print` (the screen header with breadcrumb/buttons), `@page { size: A4; margin: 14mm 12mm 16mm; }` sets margins, and `.sig-block { break-inside: avoid; }` keeps signatures from splitting."
+    },
+    {
+      "item": "The note's status (such as Draft, Dispatched, Delivered or Cancelled) is shown in words next to its number, and a draft or cancelled note prints with a visible \"DRAFT\" or \"CANCELLED\" mark",
+      "pass": false,
+      "evidence": "Status pill 'In transit' sits next to the H1 number on screen (line 48), but it lives inside `<header class=\"no-print\">`, which is hidden by `@media print { .no-print { display: none !important; } }` — so no status appears on the printed document at all. There is also no script logic that renders a DRAFT/CANCELLED watermark for those states; status is a static hardcoded string."
+    },
+    {
+      "item": "A loading state is present, and a note that fails to load or does not exist shows a message with Retry and a link back to the delivery note list, never an empty template with blank fields",
+      "pass": false,
+      "evidence": "The script (lines 198-237) only renders a hardcoded `goods` array synchronously; there is no loading indicator, no fetch/error branch, and no Retry control or 'back to list' link anywhere in the markup or script."
+    }
+  ],
+  "tells": [],
+  "notes": "No classic template tells (greeting-header, kpi-icon-tiles, gradient, glass, emoji-icon, rainbow-status, sidebar-promo-card, decorative-chart, hover-lift, oversized-radius, navy-sidebar-indigo-accent, etc.) were observed — the page is a plain, print-oriented document layout. Minor audit-only issues not in the checklist: the line-number column isn't right-aligned/tabular, phone numbers aren't tel: links, and the sheet uses a drop shadow instead of a pure border (audit.json rules numeric-align, contact-link, surface-shadow).",
+  "blind": true
+}

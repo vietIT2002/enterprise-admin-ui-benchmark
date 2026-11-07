@@ -1,0 +1,733 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Accounts receivable aging</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+  [hidden] { display: none !important; }
+  :focus-visible { outline: 2px solid #1d4ed8; outline-offset: 2px; }
+  .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0; }
+
+  @page { size: A4 landscape; margin: 12mm; }
+  @media print {
+    html, body { background: #fff; }
+    .no-print, [role="status"] { display: none !important; }
+    .print-area { max-width: none !important; margin: 0 !important; padding: 0 !important; }
+    .table-scroll { max-height: none !important; overflow: visible !important; }
+    thead th, tfoot td, .sticky-col { position: static !important; }
+    table { border-collapse: collapse; width: 100%; }
+    thead { display: table-header-group; }
+    tfoot { display: table-row-group; }
+    tr { break-inside: avoid; }
+    h1, h2 { break-after: avoid; }
+    * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  }
+</style>
+</head>
+<body class="bg-slate-50 text-slate-900 text-sm">
+  <p id="liveStatus" role="status" class="sr-only"></p>
+  <div id="toast" role="status" class="sr-only"></div>
+
+  <main class="print-area mx-auto max-w-[1440px] px-6 py-6">
+
+    <!-- Page header -->
+    <div class="flex flex-wrap items-start justify-between gap-4 mb-5">
+      <div>
+        <h1 id="pageTitle" class="text-2xl font-semibold text-slate-900">Accounts receivable aging · As of 11/06/2026</h1>
+        <p id="basisLine" class="mt-1 text-sm text-slate-600">Amounts in USD, outstanding balances only (no tax) · Updated <time datetime="2026-11-06T08:45:00-05:00">11/06/2026 08:45 AM</time></p>
+      </div>
+      <div class="no-print flex items-center gap-2">
+        <button type="button" id="printBtn" class="h-8 inline-flex items-center rounded-md border border-slate-300 bg-white px-3 text-sm font-medium text-slate-700 hover:bg-slate-50">Print</button>
+        <button type="button" id="exportBtn" class="h-8 inline-flex items-center rounded-md bg-blue-700 px-3 text-sm font-medium text-white hover:bg-blue-800">Export 0 customers</button>
+      </div>
+    </div>
+
+    <!-- Filter bar -->
+    <div class="no-print flex flex-wrap items-end gap-3 mb-2">
+      <div class="flex flex-col gap-1">
+        <label for="searchInput" class="block text-sm font-medium text-slate-700">Search</label>
+        <div class="relative">
+          <svg aria-hidden="true" class="pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 size-4 text-slate-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
+          <input id="searchInput" type="text" aria-label="Search customers by name or code" placeholder="Search customer name or code" class="h-8 w-72 rounded-md border border-slate-300 bg-white pl-8 pr-8 text-sm placeholder:text-slate-400" />
+          <button type="button" id="clearSearchBtn" hidden aria-label="Clear search" class="absolute right-1 top-1/2 -translate-y-1/2 inline-flex size-6 items-center justify-center rounded-full hover:bg-slate-100">
+            <svg aria-hidden="true" class="size-4 text-slate-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18M6 6l12 12"/></svg>
+          </button>
+        </div>
+      </div>
+
+      <div class="flex flex-col gap-1">
+        <label for="asOfSelect" class="block text-sm font-medium text-slate-700">As of</label>
+        <div class="flex items-center gap-2">
+          <select id="asOfSelect" class="h-8 rounded-md border border-slate-300 bg-white px-2 text-sm">
+            <option value="today">Today (11/06/2026)</option>
+            <option value="endLastMonth">End of last month (10/31/2026)</option>
+            <option value="endLastQuarter">End of last quarter (09/30/2026)</option>
+            <option value="custom">Custom date…</option>
+          </select>
+          <input id="asOfCustomInput" type="date" hidden aria-label="Custom as-of date" value="2026-11-06" class="h-8 rounded-md border border-slate-300 bg-white px-2 text-sm" />
+        </div>
+      </div>
+
+      <div class="flex flex-col gap-1">
+        <span id="statusGroupLabel" class="block text-sm font-medium text-slate-700">Status</span>
+        <div role="group" aria-labelledby="statusGroupLabel" class="inline-flex h-8 rounded-md border border-slate-300 bg-white p-0.5">
+          <button type="button" data-status="all" aria-pressed="true" class="status-seg-btn rounded px-2.5 text-sm font-medium text-slate-700">All</button>
+          <button type="button" data-status="overdue" aria-pressed="false" class="status-seg-btn rounded px-2.5 text-sm font-medium text-slate-700">Overdue only</button>
+          <button type="button" data-status="current" aria-pressed="false" class="status-seg-btn rounded px-2.5 text-sm font-medium text-slate-700">Current only</button>
+        </div>
+      </div>
+
+      <div class="relative">
+        <button type="button" id="moreFiltersBtn" aria-expanded="false" aria-controls="moreFiltersPanel" class="h-8 inline-flex items-center gap-1 rounded-md border border-slate-300 bg-white px-3 text-sm font-medium text-slate-700 hover:bg-slate-50">
+          More filters
+          <svg aria-hidden="true" class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m6 9 6 6 6-6"/></svg>
+        </button>
+        <div id="moreFiltersPanel" hidden class="absolute left-0 z-20 mt-2 w-80 rounded-lg border border-slate-200 bg-white p-4 shadow-lg">
+          <div class="flex flex-col gap-3">
+            <div>
+              <label for="minBalanceInput" class="block text-sm font-medium text-slate-700">Minimum total due ($)</label>
+              <input id="minBalanceInput" type="number" step="100" placeholder="e.g. 1000" class="mt-1 h-8 w-full rounded-md border border-slate-300 px-2 text-sm" />
+            </div>
+            <div>
+              <label for="bucketFilterSelect" class="block text-sm font-medium text-slate-700">Has balance in bucket</label>
+              <select id="bucketFilterSelect" class="mt-1 h-8 w-full rounded-md border border-slate-300 bg-white px-2 text-sm">
+                <option value="any">Any</option>
+                <option value="current">Current</option>
+                <option value="d1_30">1–30 days</option>
+                <option value="d31_60">31–60 days</option>
+                <option value="d61_90">61–90 days</option>
+                <option value="d90plus">90+ days</option>
+              </select>
+            </div>
+          </div>
+          <div class="mt-4 flex justify-between border-t border-slate-200 pt-3">
+            <button type="button" id="moreFiltersReset" class="text-sm font-medium text-slate-600 hover:underline">Reset</button>
+            <button type="button" id="moreFiltersApply" class="h-8 rounded-md bg-blue-700 px-3 text-sm font-medium text-white hover:bg-blue-800">Apply</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Applied chips -->
+    <div id="chipsRow" class="no-print flex flex-wrap items-center gap-2 py-2"></div>
+
+    <!-- Summary line -->
+    <p id="summaryLine" class="mb-2 text-sm font-medium text-slate-700"></p>
+
+    <!-- Table region -->
+    <div class="rounded-md border border-slate-200 bg-white">
+      <div id="tableScroll" class="table-scroll max-h-[560px] overflow-auto">
+        <table class="w-full border-collapse text-sm" aria-label="Accounts receivable aging by customer">
+          <thead id="tableHead" class="sticky top-0 z-10 bg-slate-50">
+            <!-- rendered by JS -->
+          </thead>
+          <tbody id="tableBody">
+            <!-- rendered by JS -->
+          </tbody>
+          <tfoot id="tableFoot" class="sticky bottom-0 bg-white font-medium">
+            <!-- rendered by JS -->
+          </tfoot>
+        </table>
+      </div>
+    </div>
+
+  </main>
+
+<script>
+(function () {
+  "use strict";
+
+  // ---------- Constants & formatting ----------
+  var TODAY_ISO = "2026-11-06";
+  var nfPlain = new Intl.NumberFormat("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  var nfMoney = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" });
+  var dfShort = new Intl.DateTimeFormat("en-US", { month: "2-digit", day: "2-digit", year: "numeric", timeZone: "UTC" });
+
+  function fmtNum(v) { return nfPlain.format(v); }
+  function fmtMoney(v) { return nfMoney.format(v); }
+  function fmtDate(iso) { return dfShort.format(new Date(iso + "T00:00:00Z")); }
+
+  function addDays(iso, delta) {
+    var d = new Date(iso + "T00:00:00Z");
+    d.setUTCDate(d.getUTCDate() + delta);
+    return d.toISOString().slice(0, 10);
+  }
+  function daysBetween(aIso, bIso) {
+    var a = new Date(aIso + "T00:00:00Z"), b = new Date(bIso + "T00:00:00Z");
+    return Math.round((a - b) / 86400000);
+  }
+  function daysWords(daysPastDue) {
+    if (daysPastDue > 0) return "Overdue by " + daysPastDue + (daysPastDue === 1 ? " day" : " days");
+    if (daysPastDue === 0) return "Due today";
+    var until = -daysPastDue;
+    return "Due in " + until + (until === 1 ? " day" : " days");
+  }
+
+  var BUCKET_KEYS = ["current", "d1_30", "d31_60", "d61_90", "d90plus"];
+  var BUCKET_LABELS = { current: "Current", d1_30: "1–30 days", d31_60: "31–60 days", d61_90: "61–90 days", d90plus: "90+ days" };
+  var SEVERITY = { current: 0, d1_30: 1, d31_60: 2, d61_90: 3, d90plus: 4 };
+  var TONE = { current: "neutral", d1_30: "warning", d31_60: "warning", d61_90: "danger", d90plus: "danger" };
+  var TONE_CLASS = {
+    neutral: "bg-slate-100 text-slate-700",
+    warning: "bg-amber-50 text-amber-800",
+    danger: "bg-red-50 text-red-700"
+  };
+
+  function bucketFor(daysPastDue) {
+    if (daysPastDue <= 0) return "current";
+    if (daysPastDue <= 30) return "d1_30";
+    if (daysPastDue <= 60) return "d31_60";
+    if (daysPastDue <= 90) return "d61_90";
+    return "d90plus";
+  }
+
+  // ---------- Mock data ----------
+  // offsets are days from TODAY_ISO; due dates are fixed calendar dates computed once,
+  // so changing the "as of" filter re-ages the same invoices against a different date.
+  var RAW_CUSTOMERS = [
+    { code: "CUST-1001", name: "Acme Industrial Supply", invoices: [[-150, 4200], [-10, 3100], [20, 1500]] },
+    { code: "CUST-1002", name: "Blue Ridge Logistics", invoices: [[-200, 9800], [-75, 2200]] },
+    { code: "CUST-1003", name: "Summit Retail Group", invoices: [[15, 6400], [45, 2100]] },
+    { code: "CUST-1004", name: "Harborview Manufacturing", invoices: [[-45, 12500], [-5, 3400]] },
+    { code: "CUST-1005", name: "Pinnacle Office Solutions", invoices: [[-300, 1800]] },
+    { code: "CUST-1006", name: "Cascade Foods Distribution", invoices: [[10, 5200], [-20, 1100], [-55, 900]] },
+    { code: "CUST-1007", name: "Meridian Health Partners", invoices: [[-95, 15800]] },
+    { code: "CUST-1008", name: "Northgate Construction Co.", invoices: [[30, 22000], [60, 8000]] },
+    { code: "CUST-1009", name: "Clearwater Analytics", invoices: [[-15, 640]] },
+    { code: "CUST-1010", name: "Redstone Hardware", invoices: [[-70, 3300], [-40, 1200], [-12, 800]] },
+    { code: "CUST-1011", name: "Evergreen Packaging", invoices: [[5, 4100]] },
+    { code: "CUST-1012", name: "Lakeside Automotive Parts", invoices: [[-85, 2750], [-100, 1900]] },
+    { code: "CUST-1013", name: "Union Square Media", invoices: [[-28, 1450]] },
+    { code: "CUST-1014", name: "Granite State Steel", invoices: [[-62, 17600], [-35, 5200], [10, 3000]] },
+    { code: "CUST-1015", name: "Brightline Technologies", invoices: [[-3, 980]] },
+    { code: "CUST-1016", name: "Oakwood Furniture Co.", invoices: [[-130, 6700]] },
+    { code: "CUST-1017", name: "Silverline Freight", invoices: [[8, 2300], [-18, 1750]] },
+    { code: "CUST-1018", name: "Prairie Grain Cooperative", invoices: [[-50, 9400]] },
+    { code: "CUST-1019", name: "Monarch Textiles", invoices: [[12, -850]] },
+    { code: "CUST-1020", name: "Ironwood Equipment Rental", invoices: [[-18, 3600], [-48, 2900], [-82, 1500], [-110, 700]] },
+    { code: "CUST-1021", name: "Coastal Marine Supply", invoices: [[22, 4400]] },
+    { code: "CUST-1022", name: "Falcon Aerospace Components", invoices: [[-6, 28500]] }
+  ];
+
+  var customers = RAW_CUSTOMERS.map(function (c, ci) {
+    var invoices = c.invoices.map(function (pair, ii) {
+      var dueIso = addDays(TODAY_ISO, pair[0]);
+      var invoiceIso = addDays(dueIso, -30);
+      return {
+        no: "INV-2026-" + (1000 + ci * 10 + ii),
+        invoiceDate: invoiceIso,
+        dueDate: dueIso,
+        amount: pair[1]
+      };
+    });
+    return { id: "c" + ci, code: c.code, name: c.name, invoices: invoices };
+  });
+
+  // ---------- State ----------
+  var state = {
+    q: "",
+    status: "all",
+    asOfPreset: "today",
+    asOfCustom: "2026-11-06",
+    minBalance: null,
+    bucketFilter: "any",
+    sortCol: null,
+    sortDir: null,
+    pageState: new URLSearchParams(location.search).get("state"),
+    firstLoadDone: false,
+    expanded: {}
+  };
+
+  function resolvedAsOf() {
+    if (state.asOfPreset === "today") return "2026-11-06";
+    if (state.asOfPreset === "endLastMonth") return "2026-10-31";
+    if (state.asOfPreset === "endLastQuarter") return "2026-09-30";
+    return state.asOfCustom;
+  }
+
+  // ---------- Compute rows for a given as-of date ----------
+  function computeRows(asOf) {
+    return customers.map(function (c) {
+      var buckets = { current: 0, d1_30: 0, d31_60: 0, d61_90: 0, d90plus: 0 };
+      var invoiceRows = c.invoices.map(function (inv) {
+        var dpd = daysBetween(asOf, inv.dueDate);
+        var bucket = bucketFor(dpd);
+        buckets[bucket] += inv.amount;
+        return { no: inv.no, invoiceDate: inv.invoiceDate, dueDate: inv.dueDate, amount: inv.amount, daysPastDue: dpd, bucket: bucket };
+      });
+      var total = BUCKET_KEYS.reduce(function (sum, k) { return sum + buckets[k]; }, 0);
+
+      var worst = "current";
+      var hasOverdue = false;
+      ["d90plus", "d61_90", "d31_60", "d1_30"].some(function (k) {
+        if (Math.abs(buckets[k]) > 0.004) { worst = k; hasOverdue = true; return true; }
+        return false;
+      });
+
+      var status;
+      if (total < -0.004) status = { label: "Credit balance", tone: "neutral" };
+      else if (worst === "current") status = { label: "Current", tone: "neutral" };
+      else status = { label: "Overdue " + BUCKET_LABELS[worst], tone: TONE[worst] };
+
+      return {
+        id: c.id, code: c.code, name: c.name,
+        buckets: buckets, total: total, severity: SEVERITY[worst],
+        hasOverdue: hasOverdue, status: status, invoices: invoiceRows
+      };
+    });
+  }
+
+  // ---------- Filtering ----------
+  function applyFilters(rows) {
+    var q = state.q.trim().toLowerCase();
+    return rows.filter(function (r) {
+      if (q && r.name.toLowerCase().indexOf(q) === -1 && r.code.toLowerCase().indexOf(q) === -1) return false;
+      if (state.status === "overdue" && !r.hasOverdue) return false;
+      if (state.status === "current" && r.hasOverdue) return false;
+      if (state.minBalance != null && r.total < state.minBalance) return false;
+      if (state.bucketFilter !== "any" && Math.abs(r.buckets[state.bucketFilter]) <= 0.004) return false;
+      return true;
+    });
+  }
+
+  function sortRows(rows) {
+    var sorted = rows.slice();
+    sorted.sort(function (a, b) {
+      if (!state.sortCol) {
+        if (b.severity !== a.severity) return b.severity - a.severity;
+        return b.total - a.total;
+      }
+      var va, vb;
+      if (state.sortCol === "name") { va = a.name.toLowerCase(); vb = b.name.toLowerCase(); }
+      else if (state.sortCol === "code") { va = a.code; vb = b.code; }
+      else if (state.sortCol === "total") { va = a.total; vb = b.total; }
+      else if (state.sortCol === "status") { va = a.severity; vb = b.severity; }
+      else { va = a.buckets[state.sortCol]; vb = b.buckets[state.sortCol]; }
+      var cmp = typeof va === "string" ? va.localeCompare(vb) : va - vb;
+      return state.sortDir === "asc" ? cmp : -cmp;
+    });
+    return sorted;
+  }
+
+  // ---------- Columns ----------
+  var COLUMNS = [
+    { key: "name", label: "Customer", align: "left", sortable: true },
+    { key: "code", label: "Code", align: "left", sortable: true },
+    { key: "current", label: "Current", align: "right", sortable: true },
+    { key: "d1_30", label: "1–30 days", align: "right", sortable: true },
+    { key: "d31_60", label: "31–60 days", align: "right", sortable: true },
+    { key: "d61_90", label: "61–90 days", align: "right", sortable: true },
+    { key: "d90plus", label: "90+ days", align: "right", sortable: true },
+    { key: "total", label: "Total due (USD)", align: "right", sortable: true },
+    { key: "status", label: "Status", align: "left", sortable: true }
+  ];
+
+  function renderHead() {
+    var thead = document.getElementById("tableHead");
+    var html = "<tr>";
+    COLUMNS.forEach(function (col) {
+      var isSorted = state.sortCol === col.key;
+      var ariaSort = isSorted ? (state.sortDir === "asc" ? "ascending" : "descending") : null;
+      var thClass = "h-10 px-3 text-xs font-medium text-slate-600 border-b border-slate-200 " + (col.align === "right" ? "text-right" : "text-left");
+      var btnClass = "inline-flex items-center gap-1 text-xs font-medium text-slate-600 hover:text-slate-900" + (col.align === "right" ? " flex-row-reverse text-right" : "");
+      var icon = isSorted
+        ? '<svg aria-hidden="true" class="size-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">' + (state.sortDir === "asc" ? '<path d="m6 15 6-6 6 6"/>' : '<path d="m6 9 6 6 6-6"/>') + "</svg>"
+        : '<svg aria-hidden="true" class="size-3.5 opacity-0 group-hover:opacity-40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="m6 9 6 6 6-6"/></svg>';
+      html += "<th scope=\"col\" class=\"" + thClass + "\"" + (ariaSort ? " aria-sort=\"" + ariaSort + "\"" : "") + ">";
+      if (col.sortable) {
+        html += "<button type=\"button\" class=\"sort-btn group " + btnClass + "\" data-col=\"" + col.key + "\">" + col.label + icon + "</button>";
+      } else {
+        html += col.label;
+      }
+      html += "</th>";
+    });
+    html += "</tr>";
+    thead.innerHTML = html;
+  }
+
+  function badgeHtml(status) {
+    return '<span class="inline-flex h-6 items-center whitespace-nowrap rounded-full px-2 text-xs leading-5 font-medium ' + TONE_CLASS[status.tone] + '">' + status.label + "</span>";
+  }
+
+  function invoiceDetailHtml(row) {
+    var rowsHtml = row.invoices.map(function (inv) {
+      return "<tr>" +
+        "<td class=\"h-10 px-3 text-left\">" + inv.no + "</td>" +
+        "<td class=\"h-10 px-3 text-left\"><time datetime=\"" + inv.invoiceDate + "\">" + fmtDate(inv.invoiceDate) + "</time></td>" +
+        "<td class=\"h-10 px-3 text-left\"><time datetime=\"" + inv.dueDate + "\">" + fmtDate(inv.dueDate) + "</time> &middot; " + daysWords(inv.daysPastDue) + "</td>" +
+        "<td class=\"h-10 px-3 text-right tabular-nums\">" + fmtMoney(inv.amount) + "</td>" +
+        "</tr>";
+    }).join("");
+    return "<div class=\"m-3 overflow-hidden rounded-md border border-slate-200\">" +
+      "<table class=\"w-full text-sm\">" +
+      "<caption class=\"sr-only\">Open invoices for " + row.name + "</caption>" +
+      "<thead class=\"bg-slate-50\"><tr>" +
+      "<th scope=\"col\" class=\"h-9 px-3 text-left text-xs font-medium text-slate-600\">Invoice no.</th>" +
+      "<th scope=\"col\" class=\"h-9 px-3 text-left text-xs font-medium text-slate-600\">Invoice date</th>" +
+      "<th scope=\"col\" class=\"h-9 px-3 text-left text-xs font-medium text-slate-600\">Due date</th>" +
+      "<th scope=\"col\" class=\"h-9 px-3 text-right text-xs font-medium text-slate-600\">Amount (USD)</th>" +
+      "</tr></thead><tbody class=\"divide-y divide-slate-100 bg-white\">" + rowsHtml + "</tbody></table></div>";
+  }
+
+  function rowHtml(row) {
+    var expanded = !!state.expanded[row.id];
+    var detailId = "detail-" + row.id;
+    var cells =
+      "<td class=\"sticky-col sticky left-0 z-[1] h-10 px-3 bg-white border-b border-slate-100\">" +
+      "<button type=\"button\" class=\"expand-btn inline-flex items-center gap-1.5 text-left font-medium text-slate-900 hover:text-blue-700\" aria-expanded=\"" + expanded + "\" aria-controls=\"" + detailId + "\" data-id=\"" + row.id + "\">" +
+      "<svg aria-hidden=\"true\" class=\"size-4 shrink-0 transition-transform " + (expanded ? "rotate-90" : "") + "\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\"><path d=\"m9 6 6 6-6 6\"/></svg>" +
+      "<span>" + row.name + "</span>" +
+      "</button></td>" +
+      "<td class=\"h-10 px-3 border-b border-slate-100 text-slate-600\">" + row.code + "</td>" +
+      "<td class=\"h-10 px-3 border-b border-slate-100 text-right tabular-nums\">" + fmtNum(row.buckets.current) + "</td>" +
+      "<td class=\"h-10 px-3 border-b border-slate-100 text-right tabular-nums\">" + fmtNum(row.buckets.d1_30) + "</td>" +
+      "<td class=\"h-10 px-3 border-b border-slate-100 text-right tabular-nums\">" + fmtNum(row.buckets.d31_60) + "</td>" +
+      "<td class=\"h-10 px-3 border-b border-slate-100 text-right tabular-nums\">" + fmtNum(row.buckets.d61_90) + "</td>" +
+      "<td class=\"h-10 px-3 border-b border-slate-100 text-right tabular-nums\">" + fmtNum(row.buckets.d90plus) + "</td>" +
+      "<td class=\"h-10 px-3 border-b border-slate-100 text-right tabular-nums font-medium\">" + fmtMoney(row.total) + "</td>" +
+      "<td class=\"h-10 px-3 border-b border-slate-100\">" + badgeHtml(row.status) + "</td>";
+
+    var mainRow = "<tr class=\"hover:bg-slate-50\">" + cells + "</tr>";
+    var detailRow = "<tr id=\"" + detailId + "\"" + (expanded ? "" : " hidden") + "><td colspan=\"" + COLUMNS.length + "\" class=\"bg-slate-50/60 p-0\">" + invoiceDetailHtml(row) + "</td></tr>";
+    return mainRow + detailRow;
+  }
+
+  function renderFoot(rows) {
+    var tfoot = document.getElementById("tableFoot");
+    var sums = { current: 0, d1_30: 0, d31_60: 0, d61_90: 0, d90plus: 0, total: 0 };
+    rows.forEach(function (r) {
+      BUCKET_KEYS.forEach(function (k) { sums[k] += r.buckets[k]; });
+      sums.total += r.total;
+    });
+    tfoot.innerHTML =
+      "<tr>" +
+      "<td class=\"sticky left-0 z-[1] h-10 px-3 bg-white border-t-2 border-slate-300\" colspan=\"2\">Total (" + rows.length + (rows.length === 1 ? " customer" : " customers") + ")</td>" +
+      "<td class=\"h-10 px-3 bg-white border-t-2 border-slate-300 text-right tabular-nums\">" + fmtNum(sums.current) + "</td>" +
+      "<td class=\"h-10 px-3 bg-white border-t-2 border-slate-300 text-right tabular-nums\">" + fmtNum(sums.d1_30) + "</td>" +
+      "<td class=\"h-10 px-3 bg-white border-t-2 border-slate-300 text-right tabular-nums\">" + fmtNum(sums.d31_60) + "</td>" +
+      "<td class=\"h-10 px-3 bg-white border-t-2 border-slate-300 text-right tabular-nums\">" + fmtNum(sums.d61_90) + "</td>" +
+      "<td class=\"h-10 px-3 bg-white border-t-2 border-slate-300 text-right tabular-nums\">" + fmtNum(sums.d90plus) + "</td>" +
+      "<td class=\"h-10 px-3 bg-white border-t-2 border-slate-300 text-right tabular-nums\">" + fmtMoney(sums.total) + "</td>" +
+      "<td class=\"h-10 px-3 bg-white border-t-2 border-slate-300\"></td>" +
+      "</tr>";
+  }
+
+  function skeletonRows() {
+    var html = "";
+    for (var i = 0; i < 8; i++) {
+      html += "<tr>" + COLUMNS.map(function () {
+        return "<td class=\"h-10 px-3 border-b border-slate-100\"><div class=\"h-3.5 w-20 animate-pulse rounded bg-slate-200\"></div></td>";
+      }).join("") + "</tr>";
+    }
+    return html;
+  }
+
+  function emptyStateRow(message, showClear) {
+    return "<tr><td colspan=\"" + COLUMNS.length + "\" class=\"px-3 py-10 text-center\">" +
+      "<p class=\"text-sm text-slate-600\">" + message + "</p>" +
+      (showClear ? "<button type=\"button\" id=\"clearFiltersBtn\" class=\"mt-3 text-sm font-medium text-blue-700 hover:underline\">Clear filters</button>" : "") +
+      "</td></tr>";
+  }
+
+  function errorStateRow() {
+    return "<tr><td colspan=\"" + COLUMNS.length + "\" class=\"px-3 py-10 text-center\">" +
+      "<p class=\"text-sm text-slate-600\">Couldn't load the aging report.</p>" +
+      "<button type=\"button\" id=\"retryBtn\" class=\"mt-3 inline-flex items-center rounded-md border border-slate-300 bg-white px-3 h-8 text-sm font-medium text-slate-700 hover:bg-slate-50\">Retry</button>" +
+      "</td></tr>";
+  }
+
+  // ---------- Chips ----------
+  function renderChips() {
+    var chips = [];
+    if (state.q) chips.push({ key: "q", label: "Search: " + state.q });
+    if (state.status !== "all") chips.push({ key: "status", label: "Status: " + (state.status === "overdue" ? "Overdue only" : "Current only") });
+    if (state.asOfPreset !== "today") chips.push({ key: "asOf", label: "As of: " + fmtDate(resolvedAsOf()) });
+    if (state.minBalance != null) chips.push({ key: "minBalance", label: "Min balance: " + fmtMoney(state.minBalance) });
+    if (state.bucketFilter !== "any") chips.push({ key: "bucket", label: "Bucket: " + BUCKET_LABELS[state.bucketFilter] });
+
+    var row = document.getElementById("chipsRow");
+    if (chips.length === 0) { row.innerHTML = ""; return; }
+    var html = chips.map(function (c) {
+      return "<span class=\"inline-flex h-6 items-center gap-1 rounded-full border border-slate-300 bg-white pl-2 pr-1 text-xs font-medium text-slate-700\">" +
+        c.label +
+        "<button type=\"button\" class=\"chip-remove inline-flex size-6 items-center justify-center rounded-full hover:bg-slate-100\" aria-label=\"Remove filter " + c.label + "\" data-key=\"" + c.key + "\">" +
+        "<svg aria-hidden=\"true\" class=\"size-3.5\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\"><path d=\"M18 6 6 18M6 6l12 12\"/></svg>" +
+        "</button></span>";
+    }).join("");
+    html += "<button type=\"button\" id=\"clearAllBtn\" class=\"text-sm font-medium text-blue-700 hover:underline\">Clear all</button>";
+    row.innerHTML = html;
+  }
+
+  function removeChip(key) {
+    if (key === "q") state.q = "", document.getElementById("searchInput").value = "";
+    if (key === "status") setStatus("all");
+    if (key === "asOf") { state.asOfPreset = "today"; document.getElementById("asOfSelect").value = "today"; document.getElementById("asOfCustomInput").hidden = true; }
+    if (key === "minBalance") { state.minBalance = null; document.getElementById("minBalanceInput").value = ""; }
+    if (key === "bucket") { state.bucketFilter = "any"; document.getElementById("bucketFilterSelect").value = "any"; }
+    render();
+  }
+
+  function clearAll() {
+    state.q = ""; document.getElementById("searchInput").value = "";
+    state.minBalance = null; document.getElementById("minBalanceInput").value = "";
+    state.bucketFilter = "any"; document.getElementById("bucketFilterSelect").value = "any";
+    state.asOfPreset = "today"; document.getElementById("asOfSelect").value = "today"; document.getElementById("asOfCustomInput").hidden = true;
+    setStatus("all");
+    render();
+  }
+
+  function setStatus(val) {
+    state.status = val;
+    document.querySelectorAll(".status-seg-btn").forEach(function (btn) {
+      var on = btn.getAttribute("data-status") === val;
+      btn.setAttribute("aria-pressed", String(on));
+      btn.className = "status-seg-btn rounded px-2.5 text-sm font-medium " + (on ? "bg-blue-700 text-white" : "text-slate-700 hover:bg-slate-100");
+    });
+  }
+
+  // ---------- Export ----------
+  function exportCsv(rows) {
+    var header = ["Customer", "Code", "Current", "1-30 days", "31-60 days", "61-90 days", "90+ days", "Total due (USD)", "Status"];
+    var lines = [header.join(",")];
+    rows.forEach(function (r) {
+      var cols = [
+        '"' + r.name.replace(/"/g, '""') + '"',
+        r.code,
+        r.buckets.current.toFixed(2),
+        r.buckets.d1_30.toFixed(2),
+        r.buckets.d31_60.toFixed(2),
+        r.buckets.d61_90.toFixed(2),
+        r.buckets.d90plus.toFixed(2),
+        r.total.toFixed(2),
+        '"' + r.status.label + '"'
+      ];
+      lines.push(cols.join(","));
+    });
+    var csv = "﻿" + lines.join("\r\n");
+    var blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement("a");
+    a.href = url;
+    a.download = "ar-aging-" + resolvedAsOf() + ".csv";
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    showToast(rows.length + (rows.length === 1 ? " customer" : " customers") + " exported to CSV");
+  }
+
+  var toastTimer = null;
+  function showToast(msg) {
+    var el = document.getElementById("toast");
+    el.textContent = msg;
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(function () { el.textContent = ""; }, 4000);
+  }
+
+  // ---------- Main render ----------
+  var lastVisibleRows = [];
+
+  function render() {
+    document.getElementById("pageTitle").textContent = "Accounts receivable aging · As of " + fmtDate(resolvedAsOf());
+    renderHead();
+    renderChips();
+
+    var moreCount = (state.minBalance != null ? 1 : 0) + (state.bucketFilter !== "any" ? 1 : 0);
+    document.getElementById("moreFiltersBtn").firstChild.textContent = moreCount > 0 ? "More filters (" + moreCount + ") " : "More filters ";
+
+    var tbody = document.getElementById("tableBody");
+    var tfoot = document.getElementById("tableFoot");
+    var liveStatus = document.getElementById("liveStatus");
+    var summaryLine = document.getElementById("summaryLine");
+
+    if (state.pageState === "loading") {
+      tbody.innerHTML = skeletonRows();
+      tfoot.innerHTML = "";
+      summaryLine.textContent = "Loading accounts receivable aging…";
+      document.getElementById("exportBtn").textContent = "Export 0 customers";
+      return;
+    }
+
+    if (state.pageState === "error") {
+      tbody.innerHTML = errorStateRow();
+      tfoot.innerHTML = "";
+      summaryLine.textContent = "";
+      liveStatus.textContent = "Couldn't load the aging report.";
+      document.getElementById("exportBtn").textContent = "Export 0 customers";
+      wireErrorRetry();
+      return;
+    }
+
+    if (state.pageState === "empty") {
+      tbody.innerHTML = emptyStateRow("No outstanding invoices. All customer accounts are paid in full.", false);
+      tfoot.innerHTML = "";
+      summaryLine.textContent = "0 customers · Total outstanding " + fmtMoney(0);
+      liveStatus.textContent = "No customers have an outstanding balance.";
+      document.getElementById("exportBtn").textContent = "Export 0 customers";
+      return;
+    }
+
+    if (!state.firstLoadDone) {
+      tbody.innerHTML = skeletonRows();
+      tfoot.innerHTML = "";
+      summaryLine.textContent = "Loading accounts receivable aging…";
+      setTimeout(function () { state.firstLoadDone = true; render(); }, 500);
+      return;
+    }
+
+    var asOf = resolvedAsOf();
+    var allRows = computeRows(asOf);
+    var filtered = applyFilters(allRows);
+    var visible = sortRows(filtered);
+    lastVisibleRows = visible;
+
+    var overdueCount = filtered.filter(function (r) { return r.hasOverdue; }).length;
+    var totalOutstanding = filtered.reduce(function (s, r) { return s + r.total; }, 0);
+
+    document.getElementById("exportBtn").textContent = "Export " + visible.length + (visible.length === 1 ? " customer" : " customers");
+
+    if (visible.length === 0) {
+      var isUnfiltered = state.q === "" && state.status === "all" && state.minBalance == null && state.bucketFilter === "any";
+      if (isUnfiltered) {
+        tbody.innerHTML = emptyStateRow("No customers have an outstanding balance.", false);
+      } else {
+        var msg = state.q ? "No customers match “" + state.q + "”." : "No customers match these filters.";
+        tbody.innerHTML = emptyStateRow(msg, true);
+      }
+      tfoot.innerHTML = "";
+      summaryLine.textContent = "0 of " + allRows.length + " customers";
+      liveStatus.textContent = "No customers match.";
+      wireClearFilters();
+      return;
+    }
+
+    tbody.innerHTML = visible.map(rowHtml).join("");
+    renderFoot(visible);
+
+    summaryLine.textContent = visible.length + " of " + allRows.length + " customers · Total outstanding " + fmtMoney(totalOutstanding) + " · " + overdueCount + " overdue";
+    liveStatus.textContent = visible.length + (visible.length === 1 ? " customer matches" : " customers match");
+
+    wireRowHandlers();
+  }
+
+  function wireClearFilters() {
+    var btn = document.getElementById("clearFiltersBtn");
+    if (btn) btn.addEventListener("click", clearAll);
+  }
+  function wireErrorRetry() {
+    var btn = document.getElementById("retryBtn");
+    if (btn) btn.addEventListener("click", function () {
+      state.pageState = null;
+      var url = new URL(location.href);
+      url.searchParams.delete("state");
+      history.replaceState(null, "", url);
+      state.firstLoadDone = false;
+      render();
+    });
+  }
+  function wireRowHandlers() {
+    document.querySelectorAll(".expand-btn").forEach(function (btn) {
+      btn.addEventListener("click", function () {
+        var id = btn.getAttribute("data-id");
+        state.expanded[id] = !state.expanded[id];
+        render();
+      });
+    });
+  }
+
+  // ---------- Event wiring ----------
+  var searchDebounce = null;
+  document.getElementById("searchInput").addEventListener("input", function (e) {
+    var val = e.target.value;
+    document.getElementById("clearSearchBtn").hidden = val.length === 0;
+    clearTimeout(searchDebounce);
+    searchDebounce = setTimeout(function () { state.q = val; render(); }, 300);
+  });
+  document.getElementById("clearSearchBtn").addEventListener("click", function () {
+    document.getElementById("searchInput").value = "";
+    document.getElementById("clearSearchBtn").hidden = true;
+    state.q = "";
+    render();
+  });
+
+  document.querySelectorAll(".status-seg-btn").forEach(function (btn) {
+    btn.addEventListener("click", function () { setStatus(btn.getAttribute("data-status")); render(); });
+  });
+  setStatus("all");
+
+  document.getElementById("asOfSelect").addEventListener("change", function (e) {
+    state.asOfPreset = e.target.value;
+    document.getElementById("asOfCustomInput").hidden = e.target.value !== "custom";
+    render();
+  });
+  document.getElementById("asOfCustomInput").addEventListener("change", function (e) {
+    state.asOfCustom = e.target.value || "2026-11-06";
+    render();
+  });
+
+  var moreBtn = document.getElementById("moreFiltersBtn");
+  var morePanel = document.getElementById("moreFiltersPanel");
+  moreBtn.addEventListener("click", function () {
+    var open = morePanel.hidden;
+    morePanel.hidden = !open;
+    moreBtn.setAttribute("aria-expanded", String(open));
+  });
+  document.addEventListener("click", function (e) {
+    if (!morePanel.hidden && !morePanel.contains(e.target) && e.target !== moreBtn && !moreBtn.contains(e.target)) {
+      morePanel.hidden = true;
+      moreBtn.setAttribute("aria-expanded", "false");
+    }
+  });
+  document.addEventListener("keydown", function (e) {
+    if (e.key === "Escape" && !morePanel.hidden) {
+      morePanel.hidden = true;
+      moreBtn.setAttribute("aria-expanded", "false");
+      moreBtn.focus();
+    }
+  });
+  document.getElementById("moreFiltersApply").addEventListener("click", function () {
+    var minVal = document.getElementById("minBalanceInput").value;
+    state.minBalance = minVal === "" ? null : Number(minVal);
+    state.bucketFilter = document.getElementById("bucketFilterSelect").value;
+    morePanel.hidden = true;
+    moreBtn.setAttribute("aria-expanded", "false");
+    moreBtn.focus();
+    render();
+  });
+  document.getElementById("moreFiltersReset").addEventListener("click", function () {
+    document.getElementById("minBalanceInput").value = "";
+    document.getElementById("bucketFilterSelect").value = "any";
+    state.minBalance = null;
+    state.bucketFilter = "any";
+    render();
+  });
+
+  document.getElementById("chipsRow").addEventListener("click", function (e) {
+    var removeBtn = e.target.closest(".chip-remove");
+    if (removeBtn) { removeChip(removeBtn.getAttribute("data-key")); return; }
+    if (e.target.id === "clearAllBtn") clearAll();
+  });
+
+  document.getElementById("tableHead").addEventListener("click", function (e) {
+    var btn = e.target.closest(".sort-btn");
+    if (!btn) return;
+    var col = btn.getAttribute("data-col");
+    if (state.sortCol !== col) { state.sortCol = col; state.sortDir = "asc"; }
+    else if (state.sortDir === "asc") { state.sortDir = "desc"; }
+    else { state.sortCol = null; state.sortDir = null; }
+    render();
+  });
+
+  document.getElementById("exportBtn").addEventListener("click", function () {
+    if (lastVisibleRows.length > 0) exportCsv(lastVisibleRows);
+  });
+  document.getElementById("printBtn").addEventListener("click", function () { window.print(); });
+
+  // ---------- Init ----------
+  render();
+})();
+</script>
+</body>
+</html>

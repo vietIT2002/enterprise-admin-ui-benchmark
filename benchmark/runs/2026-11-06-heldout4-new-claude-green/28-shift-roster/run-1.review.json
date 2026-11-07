@@ -1,0 +1,56 @@
+{
+  "brief": "28-shift-roster",
+  "run": 1,
+  "items": [
+    {
+      "item": "The grid header names the week with its date range (such as \"Week 45 · 2–8 Nov 2026\"), every day column shows the weekday and date, and controls move to the previous, next and current week",
+      "pass": true,
+      "evidence": "h2#rangeHeading renders fmtRange(week.monday) e.g. '9–15 November 2026'; each <th scope=\"col\"> shows DOW_SHORT + 'date MMM' (e.g. 'Mon 9 Nov'); #btnPrev/#btnNext (aria-label 'Previous/Next week') shift state.weekOffset, #btnToday resets weekOffset to 0. No literal 'Week 45' numbering is shown, but that is only the example format, not a separate requirement."
+    },
+    {
+      "item": "Each shift shows its start and end time in one consistent 24-hour format and the role or station (such as \"07:00–15:00 · Cashier\"), and a shift that ends after midnight is marked as ending the next day",
+      "pass": false,
+      "evidence": "cellHtml renders '<span>'+shift.start+'–'+shift.end+'</span>' (e.g. '08:00–16:00') plus duty text ('Floor','Till','Stock','Manager on duty') — consistent 24h format is satisfied, but there is no overnight handling anywhere: shiftHours() computes (toMinutes(end)-toMinutes(start))/60 with no wrap-around logic, no sample shift has end<start, and a grep for 'overnight/next day' logic found nothing, so a shift ending after midnight cannot be marked as such."
+    },
+    {
+      "item": "Each staff row shows the week's scheduled hours against contracted hours (such as \"36 / 40 h\"), the scheduled figure equals that person's shifts less unpaid breaks, and anyone over or under contract is flagged in words",
+      "pass": false,
+      "evidence": "Row total cell only shows fmtHours(totalHours) e.g. '40.0h' (page.html:908-921) — a single number, not 'X / Y h'. STAFF objects (lines 256-264) have no contracted-hours field, totalHours sums shiftHours() with no break deduction (breakMins is stored on edited shifts but never subtracted), and no over/under-contract text appears anywhere."
+    },
+    {
+      "item": "A footer row shows, for each day, the staff count or hours scheduled against the required cover, and days below the requirement are marked in text (such as \"Short 1\")",
+      "pass": false,
+      "evidence": "<tfoot> 'Working' row shows workingCount + ' of ' + staffList.length (e.g. 'Sat 14 Nov → 6 of 7', visible in full.png) — a raw staff count, not compared against any required-cover number, and no 'Short' text; grep for 'required cover'/'Short' found no matches."
+    },
+    {
+      "item": "The sample data contains at least one rule conflict, such as overlapping shifts for one person or less than 11 hours' rest between a closing and the next opening shift, shown on the affected cell with a written reason",
+      "pass": false,
+      "evidence": "basePattern() (page.html:267-312) assigns at most one shift per staffId/dow (no overlaps), and a manual check of back-to-back shifts (e.g. Daniel Fri 13:00–21:00 → Sat 10:00–18:00 = 13h rest) shows no <11h gaps. There is no conflict-detection code at all — grep for 'conflict|overlap|rest' across the script returned no matches."
+    },
+    {
+      "item": "Approved leave, days off and public holidays appear as labelled cells (such as \"Annual leave\", \"Day off\") that look different from an empty, unscheduled cell",
+      "pass": false,
+      "evidence": "Only one category exists: offRequests render 'Time off' / 'Approved' (cellHtml, page.html:869-872). An ordinary non-working day renders the same generic empty cell ('Off' + '+' add button, page.html:874-878) used for any unscheduled slot, so 'day off' is not visually distinguished from a blank cell, and public holidays are not modeled anywhere in the data or markup."
+    },
+    {
+      "item": "The week's status (Draft or Published) is shown, and publishing goes through a confirmation that names the week and the number of unresolved conflicts or warnings",
+      "pass": true,
+      "evidence": "statusBadge shows badge('neutral','Draft') / badge('success','Published') / badge('warning','Published · Edited') (renderStatusMeta). openPublishDialog() sets the dialog title to '(Publish/Republish) ' + fmtRange(week.monday) + '?' and shows a warning line counting unresolved unfilled shifts, e.g. '1 shift is still unfilled. You can publish now and fill it later.'"
+    },
+    {
+      "item": "The grid is a <table> with staff names as row headers and days as column headers, and each shift or empty cell is keyboard-reachable with an accessible name that includes the person and the date (such as \"Add shift, Lan Pham, Tue 3 Nov\")",
+      "pass": true,
+      "evidence": "renderGrid builds a <table aria-label=\"Shift roster for the week of ...\"> with <th scope=\"row\"> staff name cells and <th scope=\"col\"> day cells. Every cell control is a real <button> with aria-label including name+date+time, e.g. 'Assign shift for Sofia Petrov, Saturday 14 November 2026, 13:00 to 21:00, Till' and 'Add shift for Tom Becker, Monday 9 November 2026' (cellHtml, page.html:854-878)."
+    },
+    {
+      "item": "A week with no shifts yet shows a message with a way to start (such as \"Copy last week\"), and a loading state and a load error with a retry button exist",
+      "pass": false,
+      "evidence": "renderList's empty branch only shows text 'No shifts yet' / 'Shifts you add for this week will appear here, grouped by day.' (page.html:1000-1004) with no actionable button like 'Copy last week'. Loading (renderSkeleton, animate-pulse rows) and error states do exist and pass individually — renderErrorState shows 'Couldn’t load the roster' with #btnRetry calling init() again — but the missing start-action means the item as a whole fails."
+    }
+  ],
+  "tells": [
+    "hover-lift — scheduled-shift buttons use 'hover:border-blue-400 hover:shadow-sm' (cellHtml, page.html:856), a subtle lift/shadow-on-hover affordance on an otherwise flat enterprise table"
+  ],
+  "notes": "Overall this is a fairly restrained, data-dense enterprise grid (no gradients, no glass, no emoji icons, no KPI tiles, semantic not rainbow status colors, modest 4–6px radii per audit.json) — most checklist failures are missing domain features (contracted hours, required cover, conflict detection, holiday/day-off distinction, empty-week CTA) rather than template-tell cosmetics. audit.json separately flags real text-contrast failures (e.g. 1.48:1 on the topbar '·' separator) and 12px body text below the 13–14px baseline.",
+  "blind": true
+}

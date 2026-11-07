@@ -1,0 +1,54 @@
+{
+  "brief": "27-delivery-note-print",
+  "run": 1,
+  "items": [
+    {
+      "item": "The header shows the delivery note number, issue date, source sales order or transfer number and dispatching warehouse, each with a visible label, and every date on the note uses one unambiguous format (such as 06 Nov 2026)",
+      "pass": false,
+      "evidence": "Header table has labelled rows for 'Delivery note no.', 'Sales order ref.', 'Issue date', 'Delivery date', and the dispatching warehouse appears as plain text ('Warehouse WH-04 — Portland DC') under the 'Shipped from' block rather than a dedicated labelled field. Dates are rendered as '11/07/2026' (MM/DD/YYYY), an ambiguous format explicitly flagged by the page itself: 'Format: U.S. English · Dates MM/DD/YYYY' — this directly violates the unambiguous-date-format requirement."
+    },
+    {
+      "item": "Sender (company name, address, tax ID), recipient (customer name, delivery address, contact person and phone) and carrier (carrier name, vehicle plate or driver name) appear in three separately labelled blocks",
+      "pass": true,
+      "evidence": "'Shipped from' block: 'Northbridge Distribution Co.', full address, 'EIN: 93-1047625'. 'Deliver to' block: 'Cascade Builders Supply LLC — Jobsite 12', address, 'Attn: Marcus Webb, Site Foreman', phone. Shipment-details section: labelled 'Carrier' (Swift Freight Logistics), 'Vehicle / plate no.' (TRK-2291), 'Driver' (Carlos Jiménez)."
+    },
+    {
+      "item": "The goods are in a real <table> with column headers in <thead>, giving per line: line number, item code, description, unit of measure, quantity ordered, quantity delivered and lot or serial number, with quantities right-aligned",
+      "pass": false,
+      "evidence": "<table class=\"w-full border-collapse text-sm\"> has a <thead> with No., Item code, Description, Unit, Qty ordered, Qty shipped, Packages, Notes (text-right on quantity columns). There is no lot or serial number column anywhere in the table."
+    },
+    {
+      "item": "A line delivered short of the ordered quantity states the outstanding amount in words (such as \"Backorder: 4 pcs\") rather than by colour alone",
+      "pass": true,
+      "evidence": "Row 3 (PMP-3302): Qty ordered 12, Qty shipped 10, Notes cell text '2 backordered — to follow' (class text-amber-800, but conveyed in words, not colour alone)."
+    },
+    {
+      "item": "A footer gives the total quantity delivered, the number of packages and the gross weight with its unit, and the quantity total equals the sum of the lines",
+      "pass": false,
+      "evidence": "<tfoot> Total row shows '—' for both Qty ordered and Qty shipped columns (aria-label=\"Not applicable — mixed units\"), only Packages is totalled (23). No total quantity delivered figure exists, and gross weight is never shown anywhere on the page."
+    },
+    {
+      "item": "Signature boxes are provided for the warehouse keeper (issued by), the driver or carrier and the receiver, each with room for printed name, signature and date, plus a remarks area for the condition of the goods on receipt",
+      "pass": false,
+      "evidence": "Three signature blocks exist: 'Prepared by (warehouse)', 'Delivered by (carrier)', 'Received by (customer)', each with Name/Signature line/Date. But there is no remarks/comments area to record condition of goods — only a fixed boilerplate sentence 'Goods received in full / in part (circle one), in good condition unless noted above.' with no blank space to write notes."
+    },
+    {
+      "item": "A Print control that is a real <button> starts printing, and an @media print stylesheet hides the app navigation and on-screen controls, sets page margins and keeps the signature block from splitting across pages",
+      "pass": true,
+      "evidence": "<button type=\"button\" onclick=\"window.print()\">Print</button>. @media print rule: 'nav, aside, header.app-header, .page-actions, .no-print, [role=\"status\"], .toast { display: none !important; }', '@page { size: A4; margin: 14mm 12mm 16mm; }', and 'tr, .totals, .parties, .signatures { break-inside: avoid; }' applied to the <section class=\"signatures\">."
+    },
+    {
+      "item": "The note's status (such as Draft, Dispatched, Delivered or Cancelled) is shown in words next to its number, and a draft or cancelled note prints with a visible \"DRAFT\" or \"CANCELLED\" mark so it cannot pass as a valid dispatch document",
+      "pass": false,
+      "evidence": "Status badge '#statusBadge' showing 'Partially shipped' sits next to the note number, but only inside '<header class=\"app-header no-print\">', which is hidden in print (display:none). The printable '.sheet' contains no status indicator at all, and there is no script/markup for a DRAFT or CANCELLED watermark — markDelivered() only changes the on-screen badge text/colour."
+    },
+    {
+      "item": "A loading state is present, and a note that fails to load or does not exist shows a message with Retry and a link back to the delivery note list, never an empty template with blank fields",
+      "pass": false,
+      "evidence": "The page is static markup with all delivery-note data hardcoded directly in the HTML; there is no loading indicator, no error state, and no Retry/back-to-list affordance anywhere in the markup or script."
+    }
+  ],
+  "tells": [],
+  "notes": "Page is a clean, print-focused document layout with no dashboard-style decoration (no gradients, glass, KPI tiles, avatars, or uppercase tracked labels — the author even explicitly overrode uppercase/tracking on the first section heading, 'style=\"text-transform:none\"'). Two structural gaps drive most failures: no lot/serial-number column and no gross-weight total, plus the date format is explicitly ambiguous (MM/DD/YYYY) and status/draft-cancelled marking never reaches the printable sheet. No loading/error state exists since the page renders one hardcoded note.",
+  "blind": true
+}
