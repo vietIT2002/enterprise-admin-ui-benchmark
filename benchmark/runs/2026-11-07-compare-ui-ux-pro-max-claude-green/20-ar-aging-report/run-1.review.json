@@ -1,0 +1,59 @@
+{
+  "brief": "20-ar-aging-report",
+  "run": 1,
+  "items": [
+    {
+      "item": "Balances are split into Current (not yet due) and past-due buckets of 1–30, 31–60, 61–90 and over 90 days, with no gaps or overlaps between ranges, and the page states whether days are counted from the due date or the invoice date",
+      "pass": false,
+      "evidence": "bucketKeyForDays(days) in the script correctly buckets days<=0 current, <=30 b1_30, <=60 b31_60, <=90 b61_90, >90 b90plus (no gaps/overlaps), and daysOverdue() computes from dueDate. But no UI text anywhere states this methodology — the only date text is '<p id=\"asOfLabel\">As of November 7, 2026</p>'; nothing says 'days past due date' or similar."
+    },
+    {
+      "item": "Each customer's row total equals the sum of its buckets, and a grand-total row, set apart from the customer rows, equals the sum of every bucket column and of the total column",
+      "pass": true,
+      "evidence": "c.totals.total is accumulated as the sum of all bucket additions per invoice (line 253), and the separate <tfoot id=\"tableFoot\" class=\"border-t-2 border-slate-200 bg-slate-50 font-semibold\"> row ('Total (25 customers)') sums sums.current..sums.total across all filtered customers, visually set apart below tbody."
+    },
+    {
+      "item": "An as-of date control is present, and the heading or a summary line states the as-of date, the currency, the total receivable and the total overdue (such as \"As of 31 Oct 2026 · VND\")",
+      "pass": false,
+      "evidence": "The as-of date is a hardcoded constant (var ASOF = d(2026, 11, 7);) rendered as static text '<p id=\"asOfLabel\">As of November 7, 2026</p>' — there is no date-picker or other control to change it. The heading/summary line also never states currency (no 'USD'/'$' label text) nor combines total receivable and total overdue into one statement; those figures only appear scattered across separate KPI cards."
+    },
+    {
+      "item": "Money columns are right-aligned with fixed-width digits, thousand separators and one decimal convention, and credit balances such as overpayments carry a leading minus or brackets instead of being signalled by red text alone",
+      "pass": false,
+      "evidence": "Money cells use 'text-right align-top tabular' with fmtMoney (Intl.NumberFormat currency, 2 decimals, thousands separators) — audit.json confirms numericCells.misaligned:0, nonTabular:0. However no credit/overpayment handling exists anywhere: RAW_INVOICES contains only positive amounts and there is no formatting branch for negative values, so the required minus/brackets convention for credits is not implemented or demonstrated."
+    },
+    {
+      "item": "Users can search by customer name or code, filter by at least one of salesperson, customer group or branch, and restrict the list to customers with overdue balances, with the number of customers shown",
+      "pass": false,
+      "evidence": "searchInput filters by customer name/contact/invoice # (getFiltered, line 416-428) and #overdueToggle restricts to overdue customers (filterState.overdueOnly), and resultsCount shows 'Showing 25 of 25 customers'. But there is no salesperson, customer group, or branch filter anywhere — the only other filters are #bucketFilter (aging bucket) and #minBalance (amount threshold), neither of which qualifies."
+    },
+    {
+      "item": "Each customer row expands, through a keyboard-operable control such as a button with aria-expanded, into its open invoices (invoice number, invoice date, due date, days overdue, open amount), and those amounts add up to the customer's row",
+      "pass": true,
+      "evidence": "'<button type=\"button\" data-expand=... aria-expanded=\"' + isOpen + '\" aria-controls=\"' + rowId + '\">' toggles a detail row containing a table with Invoice #, Invoice Date, Due Date, an aging badge stating e.g. 'N days overdue', and right-aligned Amount; invoice amounts are the same values summed into c.totals, so they reconcile to the row total by construction."
+    },
+    {
+      "item": "Clicking a column header re-orders the customers and the header in use carries aria-sort; by default customers are ordered by their over-90 amount (or total balance), largest first",
+      "pass": true,
+      "evidence": "var sortState = { key: \"total\", dir: \"desc\" } sets the default order to total balance descending (screenshot shows Crestview $24,900 > Ridgeline $24,750 > Timberline $19,000 ...), each <button data-sort> re-sorts on click, and renderHeader sets aria-sort=\"ascending\"/\"descending\" on the active column, aria-sort=\"none\" on other sortable columns."
+    },
+    {
+      "item": "An Excel or CSV export is offered, and an @media print style removes navigation, filters and buttons while keeping the as-of date, column headings and grand total on paper",
+      "pass": false,
+      "evidence": "'#exportBtn' builds and downloads a CSV via Blob/URL.createObjectURL — export is implemented. But the entire <style> block only contains ':focus-visible', '.tabular' and a prefers-reduced-motion rule; there is no @media print rule at all, so Print (window.print() on #printBtn) would print the header, filters and buttons as-is."
+    },
+    {
+      "item": "Filters that leave no balances show a message saying so instead of an empty grid or a row of zeros, and both a loading state and an error state with a retry action are built in",
+      "pass": false,
+      "evidence": "'<div id=\"emptyState\" class=\"hidden flex-col...\"><p>No customers match your filters</p>...<button id=\"emptyClearBtn\">Clear filters</button>' is shown when filtered.length===0 — that half passes. But there is no loading state (data is synchronous mock data rendered immediately; the only pre-render artifact is a throwaway aria-label 'Loading distribution' on #distBar that is overwritten before paint) and no error state or retry button exists anywhere in the markup or script."
+    }
+  ],
+  "tells": [
+    "kpi-icon-tiles",
+    "tracked-uppercase-labels",
+    "card-in-card",
+    "oversized-radius"
+  ],
+  "notes": "KPI cards use a small top-right svg icon per card plus a colored top accent stripe (kpi-icon-tiles); table and section headers use 'uppercase tracking-wide' classes (tracked-uppercase-labels, also flagged by audit.json's uppercase-text violation on the 'Invoices' header); the expanded invoice-detail panel renders a bordered/rounded white table nested inside the already-bordered table section card (card-in-card); audit.json flags a 12px KPI card radius against an 8px max (oversized-radius / radius-scale violation). Status badges use a green→amber→orange→red→dark-red severity ramp tied to aging buckets, which is semantically meaningful rather than an arbitrary rainbow, so it was not flagged as rainbow-status. No sidebar exists, so navy-sidebar-indigo-accent and sidebar-promo-card do not apply; no gradients, glass/backdrop-blur, greeting header, avatars, emoji icons, decorative-only charts, or hover-lift effects were observed.",
+  "blind": true
+}

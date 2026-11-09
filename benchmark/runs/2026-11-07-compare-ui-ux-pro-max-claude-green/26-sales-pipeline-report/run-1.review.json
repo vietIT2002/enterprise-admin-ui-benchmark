@@ -1,0 +1,57 @@
+{
+  "brief": "26-sales-pipeline-report",
+  "run": 1,
+  "items": [
+    {
+      "item": "The stage breakdown lists stages in pipeline order (not alphabetical), each with its win probability, and each stage's weighted value equals its open value × that probability, with the weighted total equal to the sum of the stages",
+      "pass": false,
+      "evidence": "renderFunnel() (page.html) iterates OPEN_STAGES in correct pipeline order (Qualification→Discovery→Proposal→Negotiation) and each row's innerHTML includes only stage.label, deal count '(38)' and fmtMoney(row.value) e.g. 'Qualification (38) ... $1.37M' — stage.prob (win probability) and a per-stage weighted value are never rendered anywhere in the funnel, matrix, or elsewhere, so there is no visible stage-level probability or weighted-value breakdown to check against a weighted total."
+    },
+    {
+      "item": "Win rate is computed over closed deals only, won ÷ (won + lost), with the counts shown beside it (such as \"38% · 19 of 50 closed\"), and a salesperson with no closed deals shows \"—\" instead of 0% or NaN",
+      "pass": true,
+      "evidence": "computeKpis(): 'var winRate = (won + lost) > 0 ? (won / (won + lost)) * 100 : null;' using only closed.filter(status==='closed_won'/'closed_lost'); renderKpis sets kpiWinRateDetail to '25 won / 47 lost' (visible in screenshot) and kpiWinRate to '—' when winRate is null; same null→'—' pattern used in renderRepChart ('no closed deals') and renderMatrix ('<span class=\"text-slate-400\">—</span>')."
+    },
+    {
+      "item": "The by-salesperson table ends in a totals row whose deal count, pipeline value and weighted value equal the sum of its rows and match the overall totals of the stage breakdown",
+      "pass": false,
+      "evidence": "renderMatrix() tfoot row computes totalPipeline/totalWeighted as reduce sums of the row values (fmtMoneyFull), which do match — but the totals row has no overall 'deal count' figure at all; the columns array is only [rep, stage columns, pipeline, weighted, winRate], so per-stage counts appear in parentheses but there is no single total deal-count value in the footer row."
+    },
+    {
+      "item": "The period can be set to this quarter, next quarter or a custom range, the page says which date it applies to (expected close date), and the results can also be narrowed to one salesperson or team",
+      "pass": false,
+      "evidence": "quarterSelect is populated only from the fixed QUARTERS array ('Q1 2026'…'Q4 2026'), not labeled 'This quarter'/'Next quarter', and there is no custom date-range control anywhere in the filters section; resultSummary only says 'Showing 107 of 107 open deals for Q4 2026.' without naming 'expected close date' as the basis. Salesperson narrowing exists (repDropdown checkboxes) but there is no team/region filter, only individual salespeople."
+    },
+    {
+      "item": "Every money value shows its currency (one currency for the whole report) with thousands separators and lines up by digit within its column, and any abbreviated headline figure (such as \"1.2M\") has the full amount available in the table or a title attribute",
+      "pass": false,
+      "evidence": "All values use '$' consistently via fmtMoney/fmtMoneyFull with toLocaleString thousands separators, but audit.json reports a 'numeric-align' error on 450 cells ('not right-aligned: $1,147,400' etc.) — money cells are left-aligned so digits don't line up by place value. Additionally fmtMoney abbreviates to e.g. '$1.37M', '$2.22M' in the stage funnel (visible in first.png) with no title attribute and no corresponding full-value figure elsewhere in the table."
+    },
+    {
+      "item": "Open deals whose expected close date has already passed are flagged with words (such as \"Close date passed\"), not colour alone, and the number of such deals is shown per salesperson",
+      "pass": false,
+      "evidence": "renderDealsTable() adds a red text badge with the word 'overdue' next to the date for rows where row.overdue is true, satisfying the word-flag requirement — but no per-salesperson overdue count exists anywhere: renderRepChart() and renderMatrix() only compute weighted/pipeline/winRate per rep, with no overdue tally."
+    },
+    {
+      "item": "Each stage and salesperson figure drills down to the deals behind it (deal, account, owner, value, stage, close date) through a link or button that is keyboard-focusable and has a descriptive accessible name",
+      "pass": false,
+      "evidence": "renderFunnel() and renderRepChart() build plain <div> elements inside containers with role=\"img\" (non-interactive), and renderMatrix() builds plain <td> cells with no click handlers for rows/cells — only the <th> column headers are clickable (for sorting only, via th.addEventListener('click', ...)), so no stage or salesperson figure offers a drilldown link/button."
+    },
+    {
+      "item": "When the filters match no deals, the page says so, names the active filters and offers to clear them; a loading indicator and a failed-load message with a retry action are also present",
+      "pass": false,
+      "evidence": "#emptyState shows generic text 'No deals match your filters' / 'Try widening the value range or clearing a filter.' plus a Reset filters button — but it never names which filters are active (e.g. quarter/rep/stage/value range), and there is no loading spinner or failed-load/retry UI anywhere in the markup or script (data is generated synchronously with no async/error path)."
+    },
+    {
+      "item": "Export (CSV or Excel) produces the deal-level rows for the current filters, and its label or confirmation states the scope (such as \"Export 42 deals · Q4 2026\")",
+      "pass": false,
+      "evidence": "exportCsv(window.__lastFilteredOpen) correctly writes one row per currently-filtered open deal, but the trigger button's label is the static 'Export CSV' (id=\"exportCsvBtn\") with no deal count or period, and there is no post-export confirmation message stating scope."
+    }
+  ],
+  "tells": [
+    "kpi-icon-tiles",
+    "oversized-radius"
+  ],
+  "notes": "KPI row is five bordered/shadowed cards each with a small stroke icon + label + big number (kpi-icon-tiles). Cards and the filter panel use 'rounded-xl' (12px), which audit.json flags as a radius-scale violation (oversized-radius) exceeding the 8px max for cards. No sidebar, greeting header, avatars, gradients, glass/blur, uppercase tracked labels, or emoji icons were found. Audit also independently flags numeric-align (450 cells), text-contrast (208 instances, e.g. slate-400 secondary text), table-above-fold (main table starts at 1265px, below the 900px first viewport), and table-row-two-line (all 115 matrix rows stack two lines) — relevant to items 1 and 5 above but otherwise outside the checklist's scope.",
+  "blind": true
+}

@@ -1,0 +1,476 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Người dùng · NimbusOps Admin</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+  [hidden] { display: none !important; }
+  .tnum { font-variant-numeric: tabular-nums; }
+  @media print {
+    aside, nav, button, input, select, [data-no-print] { display: none !important; }
+    main { padding: 0 !important; }
+  }
+</style>
+</head>
+<body class="bg-white text-sm text-slate-900 antialiased">
+<div class="flex min-h-screen">
+  <aside class="w-56 shrink-0 border-r border-slate-200 bg-slate-50">
+    <div class="flex h-12 items-center px-4 font-semibold">NimbusOps Admin</div>
+    <nav aria-label="Điều hướng chính" class="px-2 pb-4">
+      <p class="px-2 pb-1 pt-3 text-xs font-medium text-slate-600">Quản trị hệ thống</p>
+      <a href="#" aria-current="page" class="flex h-8 items-center rounded bg-slate-200 px-2 font-medium">Người dùng</a>
+      <a href="#" class="flex h-8 items-center rounded px-2 text-slate-700 hover:bg-slate-100">Vai trò &amp; phân quyền</a>
+      <a href="#" class="flex h-8 items-center rounded px-2 text-slate-700 hover:bg-slate-100">Nhật ký hoạt động</a>
+      <p class="px-2 pb-1 pt-3 text-xs font-medium text-slate-600">Hệ thống</p>
+      <a href="#" class="flex h-8 items-center rounded px-2 text-slate-700 hover:bg-slate-100">Cấu hình chung</a>
+      <a href="#" class="flex h-8 items-center rounded px-2 text-slate-700 hover:bg-slate-100">Tích hợp</a>
+    </nav>
+  </aside>
+
+  <main class="min-w-0 flex-1 px-6 py-4">
+    <header class="flex items-center justify-between gap-4">
+      <h1 class="text-xl font-semibold">Người dùng</h1>
+      <div class="flex items-center gap-2">
+        <button type="button" id="btn-export" class="h-8 rounded border border-slate-300 bg-white px-3 hover:bg-slate-50">Xuất <span id="export-count" class="tnum">0</span> người dùng</button>
+        <button type="button" id="btn-invite" class="h-8 rounded bg-blue-700 px-3 font-medium text-white hover:bg-blue-800">Mời người dùng</button>
+      </div>
+    </header>
+
+    <div class="mt-3 flex gap-1 border-b border-slate-200" role="group" aria-label="Trạng thái" id="tabs"></div>
+
+    <div class="mt-3 flex flex-wrap items-center gap-2">
+      <input type="search" id="q" aria-label="Tìm người dùng theo tên hoặc email" placeholder="Tìm theo tên hoặc email" class="h-8 w-72 rounded border border-slate-300 px-2">
+      <label class="sr-only" for="f-role">Vai trò</label>
+      <select id="f-role" class="h-8 rounded border border-slate-300 bg-white px-2">
+        <option value="">Tất cả vai trò</option>
+      </select>
+      <div id="chips" class="flex flex-wrap items-center gap-1"></div>
+    </div>
+
+    <p class="mt-3 text-slate-600" data-result-count role="status" aria-live="polite"><span id="result-count" class="tnum">0</span> người dùng</p>
+
+    <div id="bulk" hidden class="mt-2 flex h-10 items-center gap-3 rounded-md border border-blue-200 bg-blue-50 px-3" role="region" aria-label="Hành động hàng loạt">
+      <span><span id="bulk-count" class="tnum">0</span> đã chọn</span>
+      <button type="button" id="bulk-all" class="text-blue-700 underline">Chọn tất cả <span id="bulk-all-count" class="tnum">0</span> kết quả</button>
+      <button type="button" id="bulk-reset" class="h-8 rounded border border-blue-300 bg-white px-3 hover:bg-blue-100">Đặt lại mật khẩu</button>
+      <button type="button" id="bulk-disable" class="h-8 rounded border border-red-300 bg-white px-3 text-red-700 hover:bg-red-50">Vô hiệu hóa</button>
+      <button type="button" id="bulk-clear" class="ml-auto text-blue-700 underline">Bỏ chọn</button>
+    </div>
+
+    <section data-region="users" class="mt-2" aria-label="Người dùng">
+      <div data-state="ready" class="overflow-x-auto rounded-md border border-slate-200">
+        <table class="w-full border-collapse">
+          <caption class="sr-only">Danh sách người dùng</caption>
+          <thead class="bg-slate-50 text-slate-700">
+            <tr class="h-10 border-b border-slate-200">
+              <th scope="col" class="w-10 px-3 text-left"><input type="checkbox" id="select-page" class="h-4 w-4" aria-label="Chọn tất cả người dùng trên trang này"></th>
+              <th scope="col" class="px-3 text-left font-medium" data-col="name"><button type="button" data-sort="name">Họ tên</button></th>
+              <th scope="col" class="px-3 text-left font-medium">Email</th>
+              <th scope="col" class="px-3 text-left font-medium">Vai trò</th>
+              <th scope="col" class="px-3 text-left font-medium">Trạng thái</th>
+              <th scope="col" class="px-3 text-left font-medium" data-col="lastLogin"><button type="button" data-sort="lastLogin">Lần đăng nhập gần nhất</button></th>
+              <th scope="col" class="w-64 px-3"><span class="sr-only">Thao tác</span></th>
+            </tr>
+          </thead>
+          <tbody id="rows"></tbody>
+        </table>
+      </div>
+      <div data-state="empty" hidden class="rounded-md border border-dashed border-slate-300 px-6 py-10 text-center">
+        <p class="font-medium" id="empty-title">Không có người dùng nào khớp với bộ lọc này</p>
+        <p class="mt-1 text-slate-600" id="empty-text">Hãy thử từ khóa khác hoặc xóa bộ lọc.</p>
+        <button type="button" id="empty-action" class="mt-3 h-8 rounded border border-slate-300 bg-white px-3 hover:bg-slate-50">Xóa bộ lọc</button>
+      </div>
+      <div data-state="loading" aria-busy="true" hidden class="rounded-md border border-slate-200" aria-label="Đang tải người dùng">
+        <div class="h-10 border-b border-slate-200 bg-slate-50"></div>
+        <div id="skeleton"></div>
+      </div>
+      <div data-state="error" hidden class="rounded-md border border-red-200 bg-red-50 px-4 py-3 text-red-800" role="alert">
+        <p class="font-medium">Không thể tải danh sách người dùng.</p>
+        <p class="mt-1">Kiểm tra kết nối mạng rồi thử lại.</p>
+        <button type="button" id="retry" class="mt-2 h-8 rounded border border-red-300 bg-white px-3 text-red-800 hover:bg-red-100">Thử lại</button>
+      </div>
+
+      <div id="pager" class="mt-2 flex items-center justify-end gap-3 text-slate-700">
+        <label for="page-size">Số dòng / trang</label>
+        <select id="page-size" class="h-8 rounded border border-slate-300 bg-white px-2"><option>20</option><option>50</option><option>100</option></select>
+        <span id="page-range" class="tnum"></span>
+        <button type="button" id="prev" class="h-8 w-8 rounded border border-slate-300 bg-white" aria-label="Trang trước">‹</button>
+        <button type="button" id="next" class="h-8 w-8 rounded border border-slate-300 bg-white" aria-label="Trang sau">›</button>
+      </div>
+    </section>
+  </main>
+</div>
+
+<div id="backdrop" hidden class="fixed inset-0 z-30 bg-slate-900/40"></div>
+
+<div id="confirm" role="alertdialog" aria-modal="true" aria-labelledby="confirm-title" aria-describedby="confirm-text" hidden class="fixed left-1/2 top-24 z-40 w-[440px] -translate-x-1/2 rounded-lg border border-slate-200 bg-white p-5 shadow-lg">
+  <h2 id="confirm-title" class="text-base font-semibold"></h2>
+  <p id="confirm-text" class="mt-2 text-slate-700"></p>
+  <div class="mt-4 flex justify-end gap-2">
+    <button type="button" id="confirm-cancel" class="h-8 rounded border border-slate-300 bg-white px-3 hover:bg-slate-50">Hủy</button>
+    <button type="button" id="confirm-ok" class="h-8 rounded bg-red-700 px-3 font-medium text-white hover:bg-red-800"></button>
+  </div>
+</div>
+
+<div id="invite-backdrop" hidden class="fixed inset-0 z-30 bg-slate-900/40"></div>
+<div id="invite-dialog" role="dialog" aria-modal="true" aria-labelledby="invite-title" hidden class="fixed left-1/2 top-20 z-40 w-[440px] -translate-x-1/2 rounded-lg border border-slate-200 bg-white p-5 shadow-lg">
+  <h2 id="invite-title" class="text-base font-semibold">Mời người dùng mới</h2>
+  <p class="mt-1 text-slate-600">Một email mời sẽ được gửi để họ tạo mật khẩu và đăng nhập.</p>
+  <form id="invite-form" class="mt-4" novalidate>
+    <div>
+      <label for="invite-email" class="block font-medium text-slate-900">Email <span aria-hidden="true">*</span></label>
+      <input type="email" id="invite-email" required aria-describedby="invite-email-error" class="mt-1 h-8 w-full rounded border border-slate-300 px-2">
+      <p id="invite-email-error" class="mt-1 hidden text-red-700" role="alert"></p>
+    </div>
+    <div class="mt-3">
+      <label for="invite-role" class="block font-medium text-slate-900">Vai trò <span aria-hidden="true">*</span></label>
+      <select id="invite-role" required aria-describedby="invite-role-error" class="mt-1 h-8 w-full rounded border border-slate-300 bg-white px-2"></select>
+      <p id="invite-role-error" class="mt-1 hidden text-red-700" role="alert"></p>
+    </div>
+    <div class="mt-5 flex justify-end gap-2">
+      <button type="button" id="invite-cancel" class="h-8 rounded border border-slate-300 bg-white px-3 hover:bg-slate-50">Hủy</button>
+      <button type="submit" id="invite-submit" class="h-8 rounded bg-blue-700 px-3 font-medium text-white hover:bg-blue-800">Gửi lời mời</button>
+    </div>
+  </form>
+</div>
+
+<div id="toast" role="status" aria-live="polite" class="fixed bottom-4 right-4 z-50"></div>
+
+<script>
+  const LOCALE = 'vi-VN';
+  const TIME_ZONE = 'Asia/Ho_Chi_Minh';
+  const fmtCount = (n) => new Intl.NumberFormat(LOCALE).format(n);
+  const dtf = (opts) => new Intl.DateTimeFormat(LOCALE, { ...opts, timeZone: TIME_ZONE });
+  function formatDateTime(iso) {
+    const d = new Date(iso);
+    return dtf({ day: '2-digit', month: '2-digit', year: 'numeric' }).format(d) + ' ' + dtf({ hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).format(d);
+  }
+  const rtf = new Intl.RelativeTimeFormat(LOCALE, { numeric: 'auto' });
+  function formatRelative(iso) {
+    const s = (new Date(iso).getTime() - Date.now()) / 1000;
+    const a = Math.abs(s);
+    const [n, unit] = a < 60 ? [0, 'second'] : a < 3600 ? [s / 60, 'minute'] : a < 86400 ? [s / 3600, 'hour'] : [s / 86400, 'day'];
+    return rtf.format(Math.round(n), unit);
+  }
+  const foldVi = (s) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/đ/g, 'd').replace(/Đ/g, 'D').toLowerCase();
+
+  // ---- Mock data ----
+  const ROLES = ['Quản trị viên', 'Quản lý', 'Biên tập viên', 'Nhân viên', 'Chỉ xem'];
+  const NAMES = [
+    ['Nguyễn Văn An', 'an.nguyen'], ['Trần Thị Bình', 'binh.tran'], ['Lê Hoàng Dũng', 'dung.le'],
+    ['Phạm Thị Hoa', 'hoa.pham'], ['Hoàng Văn Hùng', 'hung.hoang'], ['Vũ Thị Lan', 'lan.vu'],
+    ['Đặng Minh Khôi', 'khoi.dang'], ['Bùi Thị Mai', 'mai.bui'], ['Đỗ Văn Nam', 'nam.do'],
+    ['Ngô Thị Nga', 'nga.ngo'], ['Dương Văn Phúc', 'phuc.duong'], ['Trịnh Thị Quỳnh', 'quynh.trinh'],
+    ['Lý Văn Sơn', 'son.ly'], ['Phan Thị Thu', 'thu.phan'], ['Mai Văn Tùng', 'tung.mai'],
+    ['Đinh Thị Vân', 'van.dinh'], ['Nguyễn Minh Khang', 'khang.nguyen'], ['Trần Thị Thanh', 'thanh.tran'],
+    ['Lê Văn Đạt', 'dat.le'], ['Phạm Thị Yến', 'yen.pham'],
+  ];
+  function initialsOf(name) {
+    const parts = name.split(' ');
+    return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+  }
+  function daysAgoIso(days, hour, minute) {
+    const d = new Date(Date.UTC(2026, 10, 7, hour - 7, minute));
+    d.setUTCDate(d.getUTCDate() - days);
+    return d.toISOString();
+  }
+  let users = Array.from({ length: 32 }, (_, i) => {
+    const [name, emailBase] = NAMES[i % NAMES.length];
+    const dup = Math.floor(i / NAMES.length);
+    const email = emailBase + (dup ? dup + 1 : '') + '@nimbusops.vn';
+    const role = ROLES[i % ROLES.length];
+    let status = 'active';
+    if (i > 2 && i % 9 === 0) status = 'invited';
+    else if (i > 2 && i % 7 === 0) status = 'disabled';
+    const lastLogin = status === 'invited' ? null : daysAgoIso((i * 3) % 29, 8 + (i % 10), (i * 7) % 60);
+    return { id: 'U-' + (2001 + i), name, email, role, status, lastLogin };
+  });
+
+  const STATUS_LABEL = { active: 'Hoạt động', invited: 'Đang chờ xác nhận', disabled: 'Đã khóa' };
+  const TONE = { active: 'bg-green-50 text-green-800', invited: 'bg-blue-50 text-blue-800', disabled: 'bg-slate-100 text-slate-700' };
+  const AVATAR_BG = ['bg-blue-100 text-blue-700', 'bg-amber-100 text-amber-700', 'bg-violet-100 text-violet-700', 'bg-teal-100 text-teal-700', 'bg-rose-100 text-rose-700'];
+
+  const params = new URLSearchParams(location.search);
+  const forced = params.get('state');
+  const ui = { tab: params.get('status') || 'Tất cả', q: params.get('q') || '', role: params.get('role') || '', sort: params.get('sort') || 'name', dir: params.get('dir') || 'asc', page: 1, size: 20, selected: new Set(), allMatching: false };
+  if (forced === 'empty') users = [];
+
+  const $ = (id) => document.getElementById(id);
+  const announce = (html) => { $('toast').innerHTML = `<div class="flex items-center gap-3 rounded-md border border-slate-200 bg-white px-4 py-3 shadow-md">${html}</div>`; clearTimeout(announce.t); announce.t = setTimeout(() => ($('toast').innerHTML = ''), 6000); };
+  const show = (state) => document.querySelectorAll('[data-region="users"] [data-state]').forEach((e) => (e.hidden = e.dataset.state !== state));
+
+  function matching() {
+    const q = foldVi(ui.q.trim());
+    return users.filter((u) => (ui.tab === 'Tất cả' || STATUS_LABEL[u.status] === ui.tab) && (!ui.role || u.role === ui.role) && (!q || foldVi(u.name + ' ' + u.email).includes(q)));
+  }
+  function sorted(list) {
+    const k = ui.sort, dir = ui.dir === 'asc' ? 1 : -1;
+    return [...list].sort((a, b) => {
+      if (k === 'lastLogin') {
+        const av = a.lastLogin ? new Date(a.lastLogin).getTime() : -Infinity;
+        const bv = b.lastLogin ? new Date(b.lastLogin).getTime() : -Infinity;
+        return (av - bv) * dir;
+      }
+      return a.name.localeCompare(b.name, 'vi') * dir;
+    });
+  }
+  function syncUrl() {
+    const p = new URLSearchParams();
+    if (ui.tab !== 'Tất cả') p.set('status', ui.tab);
+    if (ui.q) p.set('q', ui.q);
+    if (ui.role) p.set('role', ui.role);
+    if (ui.sort !== 'name' || ui.dir !== 'asc') { p.set('sort', ui.sort); p.set('dir', ui.dir); }
+    if (forced) p.set('state', forced);
+    history.replaceState(null, '', p.toString() ? '?' + p : location.pathname);
+  }
+
+  function renderTabs() {
+    const statuses = ['Tất cả', ...Object.values(STATUS_LABEL)];
+    const counts = Object.fromEntries(statuses.map((s) => [s, s === 'Tất cả' ? users.length : users.filter((u) => STATUS_LABEL[u.status] === s).length]));
+    $('tabs').innerHTML = statuses.map((s) => `<button type="button" data-tab="${s}" aria-pressed="${ui.tab === s}" class="h-9 border-b-2 px-3 ${ui.tab === s ? 'border-blue-700 font-medium text-slate-900' : 'border-transparent text-slate-700 hover:text-slate-900'}">${s} <span class="tnum text-slate-600">${fmtCount(counts[s])}</span></button>`).join('');
+  }
+  function renderChips() {
+    const chips = [];
+    if (ui.q) chips.push(['q', `Tìm kiếm: ${ui.q}`]);
+    if (ui.role) chips.push(['role', `Vai trò: ${ui.role}`]);
+    $('chips').innerHTML = chips.map(([k, t]) => `<span class="inline-flex h-6 items-center gap-1 rounded-full bg-slate-100 pl-2 pr-1 text-slate-700">${t}<button type="button" data-chip="${k}" class="h-6 w-6 rounded-full hover:bg-slate-200" aria-label="Bỏ bộ lọc ${t}">×</button></span>`).join('') + (chips.length ? '<button type="button" id="clear-all" class="h-6 px-2 text-blue-700 underline">Xóa bộ lọc</button>' : '');
+  }
+
+  function rowActionsHtml(u) {
+    if (u.status === 'active') {
+      return `<button type="button" data-act="reset" data-id="${u.id}" class="h-8 rounded px-2 text-blue-700 hover:bg-blue-50" aria-label="Đặt lại mật khẩu cho ${u.name}">Đặt lại mật khẩu</button>
+        <button type="button" data-act="disable" data-id="${u.id}" class="h-8 rounded px-2 text-red-700 hover:bg-red-50" aria-label="Vô hiệu hóa tài khoản của ${u.name}">Vô hiệu hóa tài khoản</button>`;
+    }
+    if (u.status === 'disabled') {
+      return `<button type="button" data-act="enable" data-id="${u.id}" class="h-8 rounded px-2 text-blue-700 hover:bg-blue-50" aria-label="Kích hoạt lại tài khoản của ${u.name}">Kích hoạt tài khoản</button>`;
+    }
+    return `<button type="button" data-act="resend" data-id="${u.id}" class="h-8 rounded px-2 text-blue-700 hover:bg-blue-50" aria-label="Gửi lại lời mời tới ${u.name}">Gửi lại lời mời</button>
+      <button type="button" data-act="revoke" data-id="${u.id}" class="h-8 rounded px-2 text-red-700 hover:bg-red-50" aria-label="Thu hồi lời mời tới ${u.name}">Thu hồi lời mời</button>`;
+  }
+
+  function render() {
+    syncUrl();
+    renderTabs();
+    renderChips();
+    const list = sorted(matching());
+    $('result-count').textContent = fmtCount(list.length);
+    const selectedCount = ui.allMatching ? list.length : ui.selected.size;
+    $('btn-export').innerHTML = selectedCount ? `Xuất <span class="tnum">${fmtCount(selectedCount)}</span> đã chọn` : `Xuất <span id="export-count" class="tnum">${fmtCount(list.length)}</span> người dùng`;
+    $('bulk').hidden = !selectedCount;
+    $('bulk-count').textContent = fmtCount(selectedCount);
+    $('bulk-all-count').textContent = fmtCount(list.length);
+    $('bulk-all').hidden = ui.allMatching || list.length <= ui.size;
+
+    document.querySelectorAll('th[data-col]').forEach((th) => th.setAttribute('aria-sort', th.dataset.col === ui.sort ? (ui.dir === 'asc' ? 'ascending' : 'descending') : 'none'));
+
+    if (!list.length) {
+      const firstUse = users.length === 0;
+      $('empty-title').textContent = firstUse ? 'Chưa có người dùng nào' : `Không có người dùng nào khớp với bộ lọc này${ui.q ? ` ("${ui.q}")` : ''}`;
+      $('empty-text').textContent = firstUse ? 'Người dùng sẽ xuất hiện ở đây khi bạn mời họ vào hệ thống.' : 'Hãy thử từ khóa khác, đổi vai trò hoặc xóa bộ lọc.';
+      $('empty-action').textContent = firstUse ? 'Mời người dùng' : 'Xóa bộ lọc';
+      show('empty');
+      $('pager').hidden = true;
+      return;
+    }
+    show('ready');
+    $('pager').hidden = false;
+    const pages = Math.max(1, Math.ceil(list.length / ui.size));
+    ui.page = Math.min(ui.page, pages);
+    const start = (ui.page - 1) * ui.size;
+    const rows = list.slice(start, start + ui.size);
+    $('page-range').textContent = `${fmtCount(start + 1)}–${fmtCount(start + rows.length)} / ${fmtCount(list.length)}`;
+    $('prev').disabled = ui.page === 1;
+    $('next').disabled = ui.page === pages;
+    $('rows').innerHTML = rows.map((u, i) => {
+      const avatar = AVATAR_BG[i % AVATAR_BG.length];
+      const lastLogin = u.lastLogin
+        ? `<time datetime="${u.lastLogin}" class="tnum">${formatDateTime(u.lastLogin)} · ${formatRelative(u.lastLogin)}</time>`
+        : `<span class="text-slate-600">Chưa đăng nhập</span>`;
+      return `<tr class="h-10 border-b border-slate-200 last:border-0 hover:bg-slate-50">
+        <td class="px-3"><input type="checkbox" class="h-4 w-4" data-select="${u.id}" ${ui.allMatching || ui.selected.has(u.id) ? 'checked' : ''} aria-label="Chọn ${u.name}"></td>
+        <td class="px-3"><div class="flex items-center gap-2"><span class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs font-medium ${avatar}" aria-hidden="true">${initialsOf(u.name)}</span><span class="font-medium text-slate-900">${u.name}</span></div></td>
+        <td class="whitespace-nowrap px-3"><a href="mailto:${u.email}" class="text-blue-700 hover:underline">${u.email}</a></td>
+        <td class="whitespace-nowrap px-3 text-slate-700">${u.role}</td>
+        <td class="px-3"><span class="inline-flex h-6 items-center whitespace-nowrap rounded-full px-2 text-xs font-medium leading-5 ${TONE[u.status]}">${STATUS_LABEL[u.status]}</span></td>
+        <td class="whitespace-nowrap px-3 text-slate-700">${lastLogin}</td>
+        <td class="px-3 text-right"><div class="flex items-center justify-end gap-1">${rowActionsHtml(u)}</div></td>
+      </tr>`;
+    }).join('');
+    const ids = rows.map((u) => u.id);
+    const onPage = ids.filter((id) => ui.allMatching || ui.selected.has(id)).length;
+    $('select-page').checked = onPage === ids.length;
+    $('select-page').indeterminate = onPage > 0 && onPage < ids.length;
+  }
+
+  // ---- Confirmation dialog (generic) ----
+  function openConfirm({ title, text, okLabel, onConfirm }) {
+    $('confirm-title').textContent = title;
+    $('confirm-text').textContent = text;
+    $('confirm-ok').textContent = okLabel;
+    $('backdrop').hidden = $('confirm').hidden = false;
+    $('confirm-cancel').focus();
+    $('confirm-ok').onclick = () => { closeConfirm(); onConfirm(); };
+  }
+  function closeConfirm() { $('backdrop').hidden = $('confirm').hidden = true; }
+  $('confirm-cancel').addEventListener('click', closeConfirm);
+
+  function setStatus(id, status) {
+    const u = users.find((x) => x.id === id);
+    u.status = status;
+    render();
+  }
+
+  function handleRowAction(act, id) {
+    const u = users.find((x) => x.id === id);
+    if (act === 'reset') {
+      announce(`<span>Đã gửi email đặt lại mật khẩu tới ${u.email}.</span>`);
+    } else if (act === 'enable') {
+      const prev = u.status;
+      setStatus(id, 'active');
+      announce(`<span>Đã kích hoạt lại tài khoản của ${u.name}.</span><button type="button" id="undo" class="font-medium text-blue-700 underline">Hoàn tác</button>`);
+      $('undo').onclick = () => { setStatus(id, prev); announce(`<span>Đã khôi phục trạng thái trước đó của ${u.name}.</span>`); };
+    } else if (act === 'resend') {
+      announce(`<span>Đã gửi lại lời mời tới ${u.email}.</span>`);
+    } else if (act === 'disable') {
+      openConfirm({
+        title: `Vô hiệu hóa tài khoản của ${u.name}?`,
+        text: `Họ sẽ không thể đăng nhập cho đến khi được kích hoạt lại. Email: ${u.email}.`,
+        okLabel: 'Vô hiệu hóa tài khoản',
+        onConfirm: () => { setStatus(id, 'disabled'); announce(`<span>Đã vô hiệu hóa tài khoản của ${u.name}.</span>`); },
+      });
+    } else if (act === 'revoke') {
+      openConfirm({
+        title: `Thu hồi lời mời tới ${u.email}?`,
+        text: `Lời mời này sẽ không còn sử dụng được nữa.`,
+        okLabel: 'Thu hồi lời mời',
+        onConfirm: () => { users = users.filter((x) => x.id !== id); ui.selected.delete(id); render(); announce(`<span>Đã thu hồi lời mời tới ${u.email}.</span>`); },
+      });
+    }
+  }
+
+  // ---- Events ----
+  $('tabs').addEventListener('click', (e) => { const b = e.target.closest('[data-tab]'); if (b) { ui.tab = b.dataset.tab; ui.page = 1; render(); } });
+  let qTimer;
+  $('q').addEventListener('input', (e) => { clearTimeout(qTimer); qTimer = setTimeout(() => { ui.q = e.target.value; ui.page = 1; ui.allMatching = false; render(); }, 250); });
+  $('f-role').addEventListener('change', (e) => { ui.role = e.target.value; ui.page = 1; render(); });
+  $('chips').addEventListener('click', (e) => {
+    const c = e.target.closest('[data-chip]');
+    if (c) { ui[c.dataset.chip] = ''; if (c.dataset.chip === 'q') $('q').value = ''; if (c.dataset.chip === 'role') $('f-role').value = ''; render(); }
+    if (e.target.id === 'clear-all') clearFilters();
+  });
+  function clearFilters() { ui.q = ''; ui.role = ''; ui.tab = 'Tất cả'; $('q').value = ''; $('f-role').value = ''; render(); $('q').focus(); }
+  $('empty-action').addEventListener('click', () => (users.length ? clearFilters() : $('btn-invite').click()));
+  document.querySelector('thead').addEventListener('click', (e) => {
+    const b = e.target.closest('[data-sort]');
+    if (!b) return;
+    ui.dir = ui.sort === b.dataset.sort && ui.dir === 'asc' ? 'desc' : 'asc';
+    ui.sort = b.dataset.sort;
+    render();
+  });
+  $('select-page').addEventListener('change', (e) => {
+    document.querySelectorAll('[data-select]').forEach((c) => (e.target.checked ? ui.selected.add(c.dataset.select) : ui.selected.delete(c.dataset.select)));
+    if (!e.target.checked) ui.allMatching = false;
+    render();
+  });
+  $('rows').addEventListener('change', (e) => { const c = e.target.closest('[data-select]'); if (c) { c.checked ? ui.selected.add(c.dataset.select) : ui.selected.delete(c.dataset.select); ui.allMatching = false; render(); } });
+  $('rows').addEventListener('click', (e) => { const b = e.target.closest('[data-act]'); if (b) handleRowAction(b.dataset.act, b.dataset.id); });
+  $('bulk-all').addEventListener('click', () => { ui.allMatching = true; render(); });
+  $('bulk-clear').addEventListener('click', () => { ui.selected.clear(); ui.allMatching = false; render(); });
+  $('page-size').addEventListener('change', (e) => { ui.size = Number(e.target.value); ui.page = 1; render(); });
+  $('prev').addEventListener('click', () => { ui.page--; render(); });
+  $('next').addEventListener('click', () => { ui.page++; render(); });
+  $('btn-export').addEventListener('click', () => announce(`<span>Đã bắt đầu xuất: ${$('btn-export').textContent.replace('Xuất ', '')}.</span>`));
+  $('retry').addEventListener('click', () => { location.search = ''; });
+
+  function selectedUsers() {
+    if (ui.allMatching) return sorted(matching());
+    return users.filter((u) => ui.selected.has(u.id));
+  }
+  $('bulk-disable').addEventListener('click', () => {
+    const sel = selectedUsers();
+    openConfirm({
+      title: `Vô hiệu hóa ${fmtCount(sel.length)} tài khoản đã chọn?`,
+      text: `Họ sẽ không thể đăng nhập cho đến khi được kích hoạt lại.`,
+      okLabel: `Vô hiệu hóa ${fmtCount(sel.length)} tài khoản`,
+      onConfirm: () => { sel.forEach((u) => (u.status = 'disabled')); ui.selected.clear(); ui.allMatching = false; render(); announce(`<span>${fmtCount(sel.length)} tài khoản đã được vô hiệu hóa.</span>`); },
+    });
+  });
+  $('bulk-reset').addEventListener('click', () => {
+    const sel = selectedUsers();
+    const eligible = sel.filter((u) => u.status !== 'invited');
+    const skipped = sel.length - eligible.length;
+    if (!eligible.length) { announce(`<span>Không có tài khoản nào đủ điều kiện: người dùng đang chờ xác nhận chưa có mật khẩu.</span>`); return; }
+    announce(`<span>Đã gửi email đặt lại mật khẩu tới ${fmtCount(eligible.length)} người dùng.${skipped ? ` Bỏ qua ${fmtCount(skipped)} người đang chờ xác nhận.` : ''}</span>`);
+    ui.selected.clear(); ui.allMatching = false; render();
+  });
+
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape') { closeConfirm(); closeInvite(); } });
+
+  // ---- Invite dialog ----
+  $('invite-role').innerHTML = ROLES.map((r) => `<option value="${r}">${r}</option>`).join('');
+  $('f-role').innerHTML += ROLES.map((r) => `<option value="${r}">${r}</option>`).join('');
+
+  function openInvite() {
+    $('invite-form').reset();
+    $('invite-email-error').classList.add('hidden');
+    $('invite-role-error').classList.add('hidden');
+    $('invite-email').setAttribute('aria-invalid', 'false');
+    $('invite-backdrop').hidden = $('invite-dialog').hidden = false;
+    $('invite-email').focus();
+  }
+  function closeInvite() {
+    if (!$('invite-dialog').hidden && $('invite-email').value.trim() && !confirm('Đóng mà không gửi lời mời? Thông tin đã nhập sẽ không được lưu.')) return;
+    $('invite-backdrop').hidden = $('invite-dialog').hidden = true;
+  }
+  $('btn-invite').addEventListener('click', openInvite);
+  $('invite-cancel').addEventListener('click', closeInvite);
+
+  const EMAIL_RE = /^[\w.+-]+@[\w-]+(\.[\w-]+)+$/;
+  $('invite-form').addEventListener('submit', (e) => {
+    e.preventDefault();
+    const email = $('invite-email').value.trim();
+    const role = $('invite-role').value;
+    let firstInvalid = null;
+    if (!email || !EMAIL_RE.test(email)) {
+      $('invite-email-error').textContent = !email ? 'Nhập email người dùng.' : 'Nhập một địa chỉ email hợp lệ.';
+      $('invite-email-error').classList.remove('hidden');
+      $('invite-email').setAttribute('aria-invalid', 'true');
+      firstInvalid = firstInvalid || $('invite-email');
+    } else {
+      $('invite-email-error').classList.add('hidden');
+      $('invite-email').setAttribute('aria-invalid', 'false');
+    }
+    if (!role) {
+      $('invite-role-error').textContent = 'Chọn một vai trò.';
+      $('invite-role-error').classList.remove('hidden');
+      firstInvalid = firstInvalid || $('invite-role');
+    } else {
+      $('invite-role-error').classList.add('hidden');
+    }
+    if (firstInvalid) { firstInvalid.focus(); return; }
+    if (users.some((u) => u.email.toLowerCase() === email.toLowerCase())) {
+      $('invite-email-error').textContent = 'Email này đã có trong hệ thống.';
+      $('invite-email-error').classList.remove('hidden');
+      $('invite-email').setAttribute('aria-invalid', 'true');
+      $('invite-email').focus();
+      return;
+    }
+    const name = email.split('@')[0].replace(/[._]+/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
+    users.unshift({ id: 'U-' + (2000 + users.length + Math.floor(Math.random() * 900)), name, email, role, status: 'invited', lastLogin: null });
+    $('invite-backdrop').hidden = $('invite-dialog').hidden = true;
+    ui.page = 1;
+    render();
+    announce(`<span>Đã gửi lời mời tới ${email}.</span>`);
+  });
+
+  // ---- Initial render ----
+  $('skeleton').innerHTML = Array.from({ length: 8 }, () => '<div class="flex h-10 items-center gap-4 border-b border-slate-200 px-3"><div class="h-6 w-6 rounded-full bg-slate-200"></div><div class="h-3 w-32 rounded bg-slate-200"></div><div class="h-3 w-40 rounded bg-slate-200"></div><div class="ml-auto h-3 w-24 rounded bg-slate-200"></div></div>').join('');
+  $('q').value = ui.q;
+  $('f-role').value = ui.role;
+  if (forced === 'loading' || forced === 'error') { show(forced); $('pager').hidden = true; renderTabs(); $('result-count').textContent = '—'; }
+  else render();
+</script>
+</body>
+</html>

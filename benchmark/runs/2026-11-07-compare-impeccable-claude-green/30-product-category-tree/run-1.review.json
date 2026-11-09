@@ -1,0 +1,57 @@
+{
+  "brief": "30-product-category-tree",
+  "run": 1,
+  "items": [
+    {
+      "item": "Each category in the tree shows a product count, the page states whether counts include subcategories, and in the sample data every parent's total equals its own products plus the totals of its children",
+      "pass": false,
+      "evidence": "Tree pills show totalCount(node) which recursively sums direct + children (page.html:297-301, 422), so parent totals mathematically equal own+children in the sample data (e.g. Electronics 1,245 = Computers&Laptops 496+Mobile 389+Audio 298+Cameras 62). But nowhere does the UI state whether the displayed number includes subcategories — no text near the count pill, subtitle ('49 categories · 9,701 products'), or detail panel ('496 products') clarifies this; a grep for 'includ'/'subcategor...count' finds nothing."
+    },
+    {
+      "item": "The tree exposes its structure to screen readers (role=\"tree\" and \"treeitem\", or nested lists) with aria-expanded on parent nodes and the selected node marked, and nodes can be expanded, collapsed and selected from the keyboard",
+      "pass": false,
+      "evidence": "#treeContainer is built from plain nested <div>/<button> markup with no role=\"tree\"/\"treeitem\" and no <ul>/<li> nesting (renderList, page.html:403-430). Expand state is tracked with a custom data-open attribute, not aria-expanded, and selection uses data-selected, not aria-selected. The expand/collapse chevron is a <span data-chev> nested inside the row <button>; the click handler only toggles expansion when the click target is literally the chevron (page.html:818-830), so pressing Enter/Space on the focused row button only selects — there is no keyboard path to expand or collapse a node."
+    },
+    {
+      "item": "Searching by name keeps the ancestors of each matching category visible and expanded so its place in the hierarchy is clear, and a search with no matches says so",
+      "pass": true,
+      "evidence": "matchesSearch() recursively checks a node's own name and all descendants (page.html:364-368), and renderList skips a node only if `!matchesSearch(node,q)`, so ancestors of a match stay in the list; `isOpen = q ? true : state.expanded.has(node.id)` forces every visible node open while searching (page.html:409). Empty results render '\" No categories match \"<query>\"\" / Try a different search term.' (page.html:433-437)."
+    },
+    {
+      "item": "The detail panel shows the selected category's full path (such as \"Home › Kitchen › Cookware\"), name, URL slug, parent, visibility status, product count with a link to those products, and the last modified date and user",
+      "pass": false,
+      "evidence": "Breadcrumb path (path.map → '#detailsContainer .flex.items-center...crumbs', page.html:470-473), #fieldName, #fieldSlug, #fieldParent, status pill (meta.pill) and a 'View N products in this category' button (page.html:546-547, only shows a toast, not a real link) and 'Updated <relative date>' (page.html:543) are all present. However no 'last modified by' user is ever rendered or stored — the data model only has createdAt/updatedAt (page.html:196-197), no updatedBy/author field anywhere in the file."
+    },
+    {
+      "item": "Hidden or inactive categories are marked in the tree with a text label or icon (such as \"Hidden\"), not only by greying out",
+      "pass": false,
+      "evidence": "The only distinguishing mark for draft/hidden rows is the color of a 6px status dot (bg-amber-500 / bg-slate-400 vs bg-emerald-500, STATUS_META page.html:347-351) with the label only available via a `title` hover tooltip (page.html:420); row text color/weight is otherwise identical to active rows. There is no inline text badge or distinct icon (e.g. an eye-off glyph or 'Hidden' chip) visible in the tree itself, as seen for 'Beauty & Personal Care' and 'Toys & Games' in full.png."
+    },
+    {
+      "item": "Deleting a category that still has products or subcategories is blocked or requires choosing where to move them, and the confirmation names the category and the counts affected",
+      "pass": false,
+      "evidence": "deleteCategory(id) (page.html:790-803) unconditionally splices the node (and its entire children subtree) out of DATA regardless of product/subcategory counts — there is no block and no 'move children' prompt. The only safeguard is the two-click arm pattern on #btnDelete ('Click again to confirm delete', page.html:735-750), a generic button-level confirm that names nothing and shows no counts, not a dialog naming the category or stating affected product/subcategory totals."
+    },
+    {
+      "item": "A category can be given a new parent without drag-and-drop (a parent picker or \"Move to…\" action), and the picker excludes the category itself and its own descendants",
+      "pass": true,
+      "evidence": "#fieldParent is a <select> populated from flattenAll(DATA) (page.html:487-493) while filtering out `excludeIds = [node.id].concat(collectDescendantIds(node))` (page.html:475, 489), so the category itself and all its descendants are excluded from the picker; choosing a new value and saving calls reparent() (page.html:724-725, 753-775)."
+    },
+    {
+      "item": "Selecting another category while the detail form has unsaved edits asks to save or discard first",
+      "pass": false,
+      "evidence": "selectCategory(id) (page.html:805-815) is invoked directly from tree-row clicks, breadcrumb clicks, and subcategory-row clicks with no check of state.dirty; it immediately reassigns state.selectedId and re-renders, silently discarding any unsaved field edits with no save/discard prompt."
+    },
+    {
+      "item": "With nothing selected the detail panel shows a prompt instead of blank fields, a catalogue with no categories offers to create the first one, and the tree has loading and load-error-with-retry states",
+      "pass": false,
+      "evidence": "renderDetails() does show a 'No category selected / Choose a category from the tree...' prompt when state.selectedId is falsy (page.html:454-461) — but DATA is hardcoded and never empty, and renderTree()'s only empty-state branch is the search-no-results message keyed off state.search (page.html:433-437), which would misleadingly read 'No categories match \"\"' rather than offering to create the first category. There is no loading spinner/skeleton for the tree and no load-error state with a retry action anywhere in the script — rendering is synchronous from static DATA with no async/error path at all."
+    }
+  ],
+  "tells": [
+    "oversized-radius",
+    "navy-sidebar-indigo-accent"
+  ],
+  "notes": "oversized-radius: audit.json flags radius-scale (label#imageDrop at 12px vs ≤8px budget, and 4 distinct radii 4/6/8/12px in use vs the ≤3 rule); the empty-state icon box also uses rounded-2xl (16px, page.html:457). navy-sidebar-indigo-accent: the icon rail is bg-slate-900 with an indigo-500 logo badge and indigo-500/15+indigo-400 active-state highlight (page.html:50-64). No greeting-header, kpi-icon-tiles, delta-pill-without-period, gradient, glass, tracked-uppercase-labels, emoji-icon, rainbow-status, sidebar-promo-card, decorative-chart, card-in-card, hover-lift, or non-person initials avatar were found (avatar 'PN' is tied to a real named user via title=\"Priya Nair\").",
+  "blind": true
+}

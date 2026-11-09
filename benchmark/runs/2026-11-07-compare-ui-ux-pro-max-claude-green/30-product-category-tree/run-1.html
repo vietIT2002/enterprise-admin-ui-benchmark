@@ -1,0 +1,965 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Product Categories · Catalog Admin</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+  tailwind.config = {
+    theme: {
+      extend: {
+        fontFamily: { sans: ['Inter', 'ui-sans-serif', 'system-ui', 'sans-serif'] },
+      },
+    },
+  };
+</script>
+<style>
+  html, body { overflow-x: hidden; }
+  * { scrollbar-width: thin; scrollbar-color: #cbd5e1 transparent; }
+  *::-webkit-scrollbar { width: 8px; height: 8px; }
+  *::-webkit-scrollbar-thumb { background-color: #cbd5e1; border-radius: 9999px; }
+  *::-webkit-scrollbar-track { background: transparent; }
+
+  @keyframes fade-in { from { opacity: 0; } to { opacity: 1; } }
+  @keyframes scale-in { from { opacity: 0; transform: scale(.96) translateY(4px); } to { opacity: 1; transform: scale(1) translateY(0); } }
+  @keyframes toast-in { from { opacity: 0; transform: translateX(16px); } to { opacity: 1; transform: translateX(0); } }
+  .anim-fade-in { animation: fade-in .15s ease-out; }
+  .anim-scale-in { animation: scale-in .16s cubic-bezier(.16,1,.3,1); }
+  .anim-toast-in { animation: toast-in .2s cubic-bezier(.16,1,.3,1); }
+
+  @media (prefers-reduced-motion: reduce) {
+    .anim-fade-in, .anim-scale-in, .anim-toast-in, .chevron-icon, .tree-row { animation: none !important; transition: none !important; }
+  }
+
+  mark { background-color: #fde68a; color: inherit; border-radius: 2px; padding: 0 1px; }
+  .chevron-icon { transition: transform .15s ease; }
+  .tree-row { transition: background-color .12s ease, color .12s ease; }
+</style>
+</head>
+<body class="h-screen flex bg-slate-50 text-slate-900 font-sans antialiased text-[15px]">
+
+<!-- Icon rail navigation -->
+<nav aria-label="Primary" class="flex flex-col items-center gap-1 w-16 shrink-0 bg-slate-900 py-4">
+  <a href="#" aria-label="Catalog Admin home" class="mb-4 flex h-10 w-10 items-center justify-center rounded-xl bg-indigo-500 text-white font-bold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-900">
+    C
+  </a>
+
+  <button type="button" title="Dashboard" aria-label="Dashboard" class="flex h-11 w-11 items-center justify-center rounded-lg text-slate-400 hover:bg-slate-800 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400">
+    <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/></svg>
+  </button>
+  <button type="button" title="Orders" aria-label="Orders" class="flex h-11 w-11 items-center justify-center rounded-lg text-slate-400 hover:bg-slate-800 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400">
+    <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 7h18l-1.5 11a2 2 0 0 1-2 1.7H6.5a2 2 0 0 1-2-1.7L3 7Z"/><path d="M8 7V5a4 4 0 0 1 8 0v2"/></svg>
+  </button>
+  <button type="button" title="Products" aria-label="Products" class="flex h-11 w-11 items-center justify-center rounded-lg text-slate-400 hover:bg-slate-800 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400">
+    <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M21 8 12 3 3 8l9 5 9-5Z"/><path d="M3 8v8l9 5 9-5V8"/><path d="M12 13v8"/></svg>
+  </button>
+  <button type="button" title="Categories" aria-label="Categories (current page)" aria-current="page" class="flex h-11 w-11 items-center justify-center rounded-lg bg-indigo-500/15 text-indigo-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400">
+    <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 4h6v6H4V4Z"/><path d="M14 4h6v6h-6V4Z"/><path d="M14 14h6v6h-6v-6Z"/><path d="M4 14h6v6H4v-6Z"/></svg>
+  </button>
+  <button type="button" title="Customers" aria-label="Customers" class="flex h-11 w-11 items-center justify-center rounded-lg text-slate-400 hover:bg-slate-800 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400">
+    <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="8" r="3.2"/><path d="M5 20c0-3.3 3.1-6 7-6s7 2.7 7 6"/></svg>
+  </button>
+  <button type="button" title="Marketing" aria-label="Marketing" class="flex h-11 w-11 items-center justify-center rounded-lg text-slate-400 hover:bg-slate-800 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400">
+    <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 11v2a2 2 0 0 0 2 2h1l3 5h2l-1-5h4l5 3V6l-5 3H9L6 7H5a2 2 0 0 0-2 2v2Z"/></svg>
+  </button>
+  <button type="button" title="Analytics" aria-label="Analytics" class="flex h-11 w-11 items-center justify-center rounded-lg text-slate-400 hover:bg-slate-800 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400">
+    <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 19V10"/><path d="M11 19V5"/><path d="M18 19v-7"/><path d="M3 19h18"/></svg>
+  </button>
+
+  <div class="mt-auto flex flex-col items-center gap-1">
+    <button type="button" title="Settings" aria-label="Settings" class="flex h-11 w-11 items-center justify-center rounded-lg text-slate-400 hover:bg-slate-800 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400">
+      <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.6 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.6a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1Z"/></svg>
+    </button>
+  </div>
+</nav>
+
+<!-- Main application area -->
+<div class="flex min-w-0 flex-1 flex-col overflow-hidden">
+
+  <!-- Topbar -->
+  <header class="flex h-16 shrink-0 items-center justify-between gap-4 border-b border-slate-200 bg-white px-4 sm:px-6">
+    <div class="min-w-0">
+      <nav aria-label="Breadcrumb" class="text-xs font-medium text-slate-400">
+        <ol class="flex items-center gap-1.5">
+          <li>Catalog</li>
+          <li aria-hidden="true">/</li>
+          <li class="text-slate-500">Categories</li>
+        </ol>
+      </nav>
+      <div class="flex items-baseline gap-2">
+        <h1 class="truncate text-lg font-bold text-slate-900 sm:text-xl">Product Categories</h1>
+        <p id="headerStats" class="hidden shrink-0 text-sm text-slate-500 sm:block">&nbsp;</p>
+      </div>
+    </div>
+
+    <div class="flex items-center gap-2 sm:gap-3">
+      <button type="button" aria-label="Notifications" class="relative flex h-10 w-10 items-center justify-center rounded-lg text-slate-500 hover:bg-slate-100 hover:text-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500">
+        <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M18 8a6 6 0 1 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9Z"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg>
+        <span class="absolute right-2 top-2 h-1.5 w-1.5 rounded-full bg-rose-500"></span>
+      </button>
+      <div class="h-8 w-px bg-slate-200"></div>
+      <button type="button" class="flex items-center gap-2 rounded-lg py-1.5 pl-1.5 pr-2.5 hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500">
+        <span class="flex h-8 w-8 items-center justify-center rounded-full bg-indigo-100 text-sm font-semibold text-indigo-700">AM</span>
+        <span class="hidden text-left sm:block">
+          <span class="block text-sm font-semibold leading-tight text-slate-700">Alex Morgan</span>
+          <span class="block text-xs leading-tight text-slate-400">Catalog Manager</span>
+        </span>
+        <svg class="hidden h-4 w-4 text-slate-400 sm:block" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m6 9 6 6 6-6"/></svg>
+      </button>
+    </div>
+  </header>
+
+  <!-- Content -->
+  <main class="flex-1 overflow-y-auto lg:overflow-hidden">
+    <div class="h-full p-4 sm:p-6">
+      <div class="grid h-full grid-cols-1 gap-5 lg:h-full lg:grid-cols-[400px_1fr] lg:gap-6">
+
+        <!-- Tree panel -->
+        <section aria-labelledby="treePanelTitle" class="flex min-h-0 flex-col rounded-xl border border-slate-200 bg-white shadow-sm lg:h-full">
+          <div class="shrink-0 border-b border-slate-200 p-4">
+            <div class="flex items-center justify-between gap-2">
+              <h2 id="treePanelTitle" class="text-sm font-bold uppercase tracking-wide text-slate-500">Category Tree</h2>
+              <button type="button" id="addRootBtn" class="flex h-9 items-center gap-1.5 rounded-lg bg-indigo-600 px-3 text-sm font-semibold text-white hover:bg-indigo-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2">
+                <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M12 5v14M5 12h14"/></svg>
+                <span>Add Category</span>
+              </button>
+            </div>
+
+            <div class="mt-3 relative">
+              <svg class="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
+              <input id="treeSearch" type="search" placeholder="Search categories…" aria-label="Search categories"
+                class="h-10 w-full rounded-lg border border-slate-300 bg-slate-50 pl-9 pr-9 text-sm placeholder:text-slate-400 focus:border-indigo-500 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/30">
+              <button id="clearSearchBtn" type="button" aria-label="Clear search" class="absolute right-2 top-1/2 hidden h-6 w-6 -translate-y-1/2 items-center justify-center rounded text-slate-400 hover:bg-slate-200 hover:text-slate-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500">
+                <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M6 6l12 12M18 6 6 18"/></svg>
+              </button>
+            </div>
+
+            <div class="mt-3 flex items-center justify-between gap-2">
+              <div id="statusFilters" class="flex items-center gap-1.5" role="group" aria-label="Filter by status"></div>
+              <div class="flex items-center gap-1 text-xs font-medium text-slate-500">
+                <button type="button" id="expandAllBtn" class="rounded px-1.5 py-1 hover:bg-slate-100 hover:text-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500">Expand all</button>
+                <span class="text-slate-300" aria-hidden="true">|</span>
+                <button type="button" id="collapseAllBtn" class="rounded px-1.5 py-1 hover:bg-slate-100 hover:text-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500">Collapse all</button>
+              </div>
+            </div>
+          </div>
+
+          <div id="treeScroll" class="min-h-0 flex-1 overflow-y-auto p-2">
+            <ul id="categoryTree" role="tree" aria-label="Product categories"></ul>
+            <div id="treeEmptyState" class="hidden flex-col items-center gap-2 px-6 py-12 text-center">
+              <svg class="h-9 w-9 text-slate-300" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
+              <p class="text-sm font-medium text-slate-600">No categories match your filters</p>
+              <p class="text-xs text-slate-400">Try a different search term or clear the status filter.</p>
+            </div>
+          </div>
+        </section>
+
+        <!-- Detail panel -->
+        <section aria-labelledby="detailPanelTitle" class="flex min-h-0 flex-col rounded-xl border border-slate-200 bg-white shadow-sm lg:h-full lg:overflow-y-auto">
+          <h2 id="detailPanelTitle" class="sr-only">Category details</h2>
+          <div id="detailContent"></div>
+        </section>
+
+      </div>
+    </div>
+  </main>
+</div>
+
+<!-- Add Category modal -->
+<div id="addModal" class="fixed inset-0 z-40 hidden items-center justify-center bg-slate-900/50 p-4" role="presentation">
+  <div role="dialog" aria-modal="true" aria-labelledby="addModalTitle" id="addModalDialog" class="anim-scale-in w-full max-w-md rounded-xl bg-white p-6 shadow-xl">
+    <div class="flex items-start justify-between gap-2">
+      <h3 id="addModalTitle" class="text-lg font-bold text-slate-900">Add Category</h3>
+      <button type="button" id="addModalCloseBtn" aria-label="Close dialog" class="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-slate-400 hover:bg-slate-100 hover:text-slate-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500">
+        <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M6 6l12 12M18 6 6 18"/></svg>
+      </button>
+    </div>
+    <p id="addModalParentHint" class="mt-1 text-sm text-slate-500"></p>
+
+    <form id="addForm" class="mt-4 space-y-4" novalidate>
+      <div>
+        <label for="addNameInput" class="mb-1 block text-sm font-semibold text-slate-700">Category name <span class="text-rose-500">*</span></label>
+        <input id="addNameInput" name="name" type="text" required maxlength="60" aria-describedby="addNameError addSlugPreview"
+          class="h-10 w-full rounded-lg border border-slate-300 px-3 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/30">
+        <p id="addSlugPreview" class="mt-1 truncate text-xs text-slate-400">URL: /categories/&hairsp;</p>
+        <p id="addNameError" class="mt-1 hidden text-sm text-rose-600" role="alert">Enter a category name (at least 2 characters).</p>
+      </div>
+      <div>
+        <label for="addStatusSelect" class="mb-1 block text-sm font-semibold text-slate-700">Status</label>
+        <select id="addStatusSelect" name="status" class="h-10 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/30">
+          <option value="active" selected>Active</option>
+          <option value="draft">Draft</option>
+          <option value="hidden">Hidden</option>
+        </select>
+      </div>
+      <div>
+        <label for="addDescInput" class="mb-1 block text-sm font-semibold text-slate-700">Description <span class="font-normal text-slate-400">(optional)</span></label>
+        <textarea id="addDescInput" name="description" rows="2" maxlength="200"
+          class="w-full resize-none rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/30"></textarea>
+      </div>
+      <div class="flex items-center justify-end gap-2 pt-2">
+        <button type="button" id="addCancelBtn" class="h-10 rounded-lg px-4 text-sm font-semibold text-slate-600 hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500">Cancel</button>
+        <button type="submit" class="h-10 rounded-lg bg-indigo-600 px-4 text-sm font-semibold text-white hover:bg-indigo-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2">Create category</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Delete confirmation modal -->
+<div id="deleteModal" class="fixed inset-0 z-40 hidden items-center justify-center bg-slate-900/50 p-4" role="presentation">
+  <div role="dialog" aria-modal="true" aria-labelledby="deleteModalTitle" aria-describedby="deleteModalDesc" id="deleteModalDialog" class="anim-scale-in w-full max-w-md rounded-xl bg-white p-6 shadow-xl">
+    <div class="flex items-start gap-3">
+      <span class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-rose-100 text-rose-600">
+        <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 9v4m0 4h.01M10.3 3.9 2.6 17a2 2 0 0 0 1.7 3h15.4a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z"/></svg>
+      </span>
+      <div class="min-w-0">
+        <h3 id="deleteModalTitle" class="text-lg font-bold text-slate-900">Delete category?</h3>
+        <p id="deleteModalDesc" class="mt-1 text-sm text-slate-500"></p>
+      </div>
+    </div>
+    <div class="mt-5 flex items-center justify-end gap-2">
+      <button type="button" id="deleteCancelBtn" class="h-10 rounded-lg px-4 text-sm font-semibold text-slate-600 hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500">Cancel</button>
+      <button type="button" id="deleteConfirmBtn" class="h-10 rounded-lg bg-rose-600 px-4 text-sm font-semibold text-white hover:bg-rose-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-500 focus-visible:ring-offset-2">Delete category</button>
+    </div>
+  </div>
+</div>
+
+<!-- Toasts -->
+<div id="toastContainer" aria-live="polite" aria-atomic="true" class="fixed bottom-4 right-4 z-50 flex w-full max-w-sm flex-col gap-2"></div>
+
+<script>
+(function () {
+  "use strict";
+
+  /* ---------------------------------------------------------------------
+   * Mock data
+   * ------------------------------------------------------------------- */
+  var categories = [
+    { id: "electronics", name: "Electronics", status: "active", description: "Consumer electronics including computers, phones, audio and cameras.", count: 0, children: [
+      { id: "computers-laptops", name: "Computers & Laptops", status: "active", description: "Laptops, desktops, monitors and computer accessories.", count: 0, children: [
+        { id: "laptops", name: "Laptops", status: "active", description: "Windows, macOS and Chromebook laptops for home and business.", count: 342, children: [] },
+        { id: "desktops", name: "Desktops", status: "active", description: "Pre-built and custom desktop towers.", count: 128, children: [] },
+        { id: "monitors", name: "Monitors", status: "active", description: "LCD, OLED and ultrawide monitors.", count: 97, children: [] },
+        { id: "computer-accessories", name: "Computer Accessories", status: "active", description: "Keyboards, mice, webcams and docking stations.", count: 215, children: [] }
+      ] },
+      { id: "mobile-tablets", name: "Mobile Phones & Tablets", status: "active", description: "Smartphones, tablets and related accessories.", count: 0, children: [
+        { id: "smartphones", name: "Smartphones", status: "active", description: "Unlocked and carrier smartphones.", count: 489, children: [] },
+        { id: "tablets", name: "Tablets", status: "active", description: "Tablets for work, school and entertainment.", count: 156, children: [] },
+        { id: "phone-accessories", name: "Phone Accessories", status: "active", description: "Cases, chargers and screen protectors.", count: 378, children: [] }
+      ] },
+      { id: "audio-headphones", name: "Audio & Headphones", status: "active", description: "Headphones, speakers and soundbars.", count: 0, children: [
+        { id: "headphones", name: "Headphones", status: "active", description: "Over-ear, on-ear and in-ear headphones.", count: 234, children: [] },
+        { id: "speakers", name: "Speakers", status: "active", description: "Bluetooth and smart speakers.", count: 112, children: [] },
+        { id: "soundbars", name: "Soundbars", status: "active", description: "Home theater soundbars and subwoofers.", count: 45, children: [] }
+      ] },
+      { id: "cameras-photography", name: "Cameras & Photography", status: "active", description: "Digital cameras, lenses and tripods.", count: 189, children: [] }
+    ] },
+    { id: "clothing-apparel", name: "Clothing & Apparel", status: "active", description: "Apparel for men, women and kids.", count: 0, children: [
+      { id: "mens-clothing", name: "Men's Clothing", status: "active", description: "Everyday and formal wear for men.", count: 0, children: [
+        { id: "mens-shirts", name: "Shirts & T-Shirts", status: "active", description: "Casual and dress shirts.", count: 567, children: [] },
+        { id: "mens-pants", name: "Pants & Jeans", status: "active", description: "Chinos, jeans and trousers.", count: 423, children: [] },
+        { id: "mens-outerwear", name: "Outerwear", status: "active", description: "Jackets and coats.", count: 198, children: [] }
+      ] },
+      { id: "womens-clothing", name: "Women's Clothing", status: "active", description: "Everyday and formal wear for women.", count: 0, children: [
+        { id: "womens-dresses", name: "Dresses", status: "active", description: "Casual, formal and occasion dresses.", count: 612, children: [] },
+        { id: "womens-tops", name: "Tops & Blouses", status: "active", description: "Blouses, tees and knitwear.", count: 534, children: [] },
+        { id: "womens-outerwear", name: "Outerwear", status: "active", description: "Jackets and coats.", count: 276, children: [] }
+      ] },
+      { id: "kids-clothing", name: "Kids' Clothing", status: "active", description: "Apparel for infants, toddlers and kids.", count: 389, children: [] },
+      { id: "shoes-footwear", name: "Shoes & Footwear", status: "active", description: "Sneakers, boots and sandals.", count: 445, children: [] }
+    ] },
+    { id: "home-garden", name: "Home & Garden", status: "active", description: "Furniture, décor and outdoor living.", count: 0, children: [
+      { id: "furniture", name: "Furniture", status: "active", description: "Furniture for every room.", count: 0, children: [
+        { id: "living-room", name: "Living Room", status: "active", description: "Sofas, coffee tables and TV stands.", count: 234, children: [] },
+        { id: "bedroom", name: "Bedroom", status: "active", description: "Beds, dressers and nightstands.", count: 187, children: [] },
+        { id: "home-office", name: "Office", status: "active", description: "Desks, chairs and storage.", count: 156, children: [] }
+      ] },
+      { id: "kitchen-dining", name: "Kitchen & Dining", status: "active", description: "Cookware, dinnerware and small appliances.", count: 398, children: [] },
+      { id: "home-decor", name: "Home Décor", status: "active", description: "Rugs, lighting and wall art.", count: 267, children: [] },
+      { id: "garden-outdoor", name: "Garden & Outdoor", status: "active", description: "Patio furniture and garden tools.", count: 189, children: [] }
+    ] },
+    { id: "sports-outdoors", name: "Sports & Outdoors", status: "active", description: "Gear for fitness and outdoor activities.", count: 0, children: [
+      { id: "exercise-fitness", name: "Exercise & Fitness", status: "active", description: "Home gym equipment and accessories.", count: 312, children: [] },
+      { id: "camping-hiking", name: "Camping & Hiking", status: "draft", description: "Tents, backpacks and hiking gear. Pending merchandising review.", count: 178, children: [] },
+      { id: "cycling", name: "Cycling", status: "active", description: "Bikes, helmets and cycling accessories.", count: 145, children: [] },
+      { id: "team-sports", name: "Team Sports", status: "active", description: "Equipment for soccer, basketball and more.", count: 98, children: [] }
+    ] },
+    { id: "beauty-personal-care", name: "Beauty & Personal Care", status: "active", description: "Skincare, makeup and hair care.", count: 0, children: [
+      { id: "skincare", name: "Skincare", status: "active", description: "Cleansers, moisturizers and treatments.", count: 289, children: [] },
+      { id: "makeup", name: "Makeup", status: "active", description: "Face, eye and lip products.", count: 234, children: [] },
+      { id: "hair-care", name: "Hair Care", status: "active", description: "Shampoo, styling and treatments.", count: 198, children: [] }
+    ] },
+    { id: "toys-kids-baby", name: "Toys, Kids & Baby", status: "active", description: "Toys, games and baby essentials.", count: 456, children: [] },
+    { id: "books-media", name: "Books & Media", status: "hidden", description: "Books, movies and music. Hidden while the catalog is migrated.", count: 178, children: [] }
+  ];
+
+  var STATUS_META = {
+    active: { label: "Active", dot: "bg-emerald-500", badge: "bg-emerald-50 text-emerald-700 ring-emerald-600/20" },
+    draft: { label: "Draft", dot: "bg-amber-500", badge: "bg-amber-50 text-amber-700 ring-amber-600/20" },
+    hidden: { label: "Hidden", dot: "bg-slate-400", badge: "bg-slate-100 text-slate-600 ring-slate-500/20" }
+  };
+
+  /* ---------------------------------------------------------------------
+   * State
+   * ------------------------------------------------------------------- */
+  var state = {
+    selectedId: "computers-laptops",
+    expanded: new Set(["electronics", "computers-laptops"]),
+    query: "",
+    statusFilter: "all",
+    activeTab: "details",
+    addParentId: null,
+    deleteTargetId: null,
+    lastFocusedEl: null
+  };
+
+  /* ---------------------------------------------------------------------
+   * Helpers
+   * ------------------------------------------------------------------- */
+  function escapeHtml(str) {
+    return String(str).replace(/[&<>"']/g, function (c) {
+      return ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c];
+    });
+  }
+
+  function slugify(str) {
+    return String(str).toLowerCase().trim().replace(/[^a-z0-9]+/g, "-").replace(/(^-+|-+$)/g, "") || "category";
+  }
+
+  function uniqueId(base) {
+    var ids = flattenIds(categories);
+    if (ids.indexOf(base) === -1) return base;
+    var n = 2;
+    while (ids.indexOf(base + "-" + n) !== -1) n++;
+    return base + "-" + n;
+  }
+
+  function flattenIds(nodes) {
+    var out = [];
+    (function walk(list) {
+      list.forEach(function (n) { out.push(n.id); if (n.children.length) walk(n.children); });
+    })(nodes);
+    return out;
+  }
+
+  function totalProductCount(node) {
+    var sum = node.count;
+    node.children.forEach(function (c) { sum += totalProductCount(c); });
+    return sum;
+  }
+
+  function countAllCategories(nodes) {
+    var n = 0;
+    nodes.forEach(function (node) { n += 1 + countAllCategories(node.children); });
+    return n;
+  }
+
+  function sumAllProducts(nodes) {
+    var n = 0;
+    nodes.forEach(function (node) { n += totalProductCount(node); });
+    return n;
+  }
+
+  // Returns { node, parent, siblings, path } or null
+  function locate(id, nodes, parent, path) {
+    nodes = nodes || categories;
+    path = path || [];
+    for (var i = 0; i < nodes.length; i++) {
+      var node = nodes[i];
+      var nextPath = path.concat([node]);
+      if (node.id === id) return { node: node, parent: parent, siblings: nodes, path: nextPath };
+      if (node.children.length) {
+        var found = locate(id, node.children, node, nextPath);
+        if (found) return found;
+      }
+    }
+    return null;
+  }
+
+  function countDescendants(node) {
+    var n = 0;
+    node.children.forEach(function (c) { n += 1 + countDescendants(c); });
+    return n;
+  }
+
+  function isDescendantOf(ancestorId, candidateId) {
+    var loc = locate(ancestorId);
+    if (!loc) return false;
+    return !!locate(candidateId, loc.node.children);
+  }
+
+  /* ---------------------------------------------------------------------
+   * Filtering (search + status)
+   * ------------------------------------------------------------------- */
+  function buildFiltered(nodes) {
+    var isFiltering = !!state.query || state.statusFilter !== "all";
+    return nodes.map(function (node) {
+      var childResults = buildFiltered(node.children).filter(Boolean);
+      var selfPass = (!state.query || node.name.toLowerCase().indexOf(state.query) !== -1) &&
+        (state.statusFilter === "all" || node.status === state.statusFilter);
+      var show = selfPass || childResults.length > 0;
+      if (!show) return null;
+      return { node: node, children: childResults, selfPass: selfPass, forceExpand: isFiltering && childResults.length > 0 };
+    }).filter(Boolean);
+  }
+
+  function highlightMatch(name) {
+    if (!state.query) return escapeHtml(name);
+    var idx = name.toLowerCase().indexOf(state.query);
+    if (idx === -1) return escapeHtml(name);
+    return escapeHtml(name.slice(0, idx)) + "<mark>" + escapeHtml(name.slice(idx, idx + state.query.length)) + "</mark>" + escapeHtml(name.slice(idx + state.query.length));
+  }
+
+  /* ---------------------------------------------------------------------
+   * Rendering: tree
+   * ------------------------------------------------------------------- */
+  function renderTreeRow(entry, level) {
+    var node = entry.node;
+    var hasChildren = node.children.length > 0;
+    var isExpanded = entry.forceExpand || state.expanded.has(node.id);
+    var isSelected = node.id === state.selectedId;
+    var meta = STATUS_META[node.status];
+    var total = totalProductCount(node);
+
+    var rowClasses = "tree-row group flex items-center gap-1 rounded-lg pr-2 py-1.5 " +
+      (isSelected ? "bg-indigo-50" : "hover:bg-slate-100");
+
+    var toggleHtml = hasChildren
+      ? '<button type="button" data-action="toggle" data-id="' + node.id + '" aria-label="' + (isExpanded ? "Collapse" : "Expand") + " " + escapeHtml(node.name) + '" class="flex h-6 w-6 shrink-0 items-center justify-center rounded text-slate-400 hover:bg-slate-200 hover:text-slate-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500">' +
+        '<svg class="chevron-icon h-3.5 w-3.5" style="transform: rotate(' + (isExpanded ? "90" : "0") + 'deg)" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="m9 6 6 6-6 6"/></svg></button>'
+      : '<span class="h-6 w-6 shrink-0" aria-hidden="true"></span>';
+
+    var icon = hasChildren
+      ? '<svg class="h-4 w-4 shrink-0 text-slate-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7Z"/></svg>'
+      : '<svg class="h-4 w-4 shrink-0 text-slate-300" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M20.6 12.6 13 20.2a2 2 0 0 1-2.8 0L3.8 13.8a2 2 0 0 1 0-2.8L11.4 3.4a2 2 0 0 1 1.4-.6H18a2 2 0 0 1 2 2v5.8a2 2 0 0 1-.6 1.4Z"/><circle cx="16.5" cy="7.5" r="1.2" fill="currentColor" stroke="none"/></svg>';
+
+    var dot = node.status !== "active"
+      ? '<span class="h-1.5 w-1.5 shrink-0 rounded-full ' + meta.dot + '" title="' + meta.label + '" aria-label="' + meta.label + '"></span>'
+      : "";
+
+    var html = '<li role="treeitem" aria-level="' + level + '" aria-selected="' + isSelected + '"' + (hasChildren ? ' aria-expanded="' + isExpanded + '"' : '') + ' data-id="' + node.id + '">' +
+      '<div class="' + rowClasses + '" style="padding-left:' + (level - 1) * 18 + 'px">' +
+        toggleHtml +
+        '<button type="button" data-action="select" data-id="' + node.id + '" class="flex min-w-0 flex-1 items-center gap-2 rounded px-1 py-0.5 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500">' +
+          icon +
+          '<span class="truncate text-sm ' + (isSelected ? "font-semibold text-indigo-700" : "text-slate-700") + '">' + highlightMatch(node.name) + "</span>" +
+          dot +
+        "</button>" +
+        '<span class="shrink-0 rounded-full px-2 py-0.5 text-xs font-medium tabular-nums ' + (isSelected ? "bg-indigo-100 text-indigo-700" : "bg-slate-100 text-slate-500") + '">' + total.toLocaleString() + "</span>" +
+      "</div>";
+
+    if (hasChildren && isExpanded) {
+      html += '<ul role="group">' + entry.children.map(function (c) { return renderTreeRow(c, level + 1); }).join("") + "</ul>";
+    }
+    html += "</li>";
+    return html;
+  }
+
+  function renderStatusFilters() {
+    var counts = { all: countAllCategories(categories), active: 0, draft: 0, hidden: 0 };
+    (function walk(nodes) {
+      nodes.forEach(function (n) { counts[n.status] = (counts[n.status] || 0) + 1; walk(n.children); });
+    })(categories);
+
+    var options = [
+      { key: "all", label: "All" },
+      { key: "active", label: "Active" },
+      { key: "draft", label: "Draft" },
+      { key: "hidden", label: "Hidden" }
+    ];
+    var container = document.getElementById("statusFilters");
+    container.innerHTML = options.map(function (opt) {
+      var pressed = state.statusFilter === opt.key;
+      return '<button type="button" data-filter="' + opt.key + '" aria-pressed="' + pressed + '" class="rounded-full border px-2.5 py-1 text-xs font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 ' +
+        (pressed ? "border-indigo-600 bg-indigo-600 text-white" : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50") + '">' +
+        opt.label + ' <span class="' + (pressed ? "text-indigo-100" : "text-slate-400") + '">' + counts[opt.key] + "</span></button>";
+    }).join("");
+  }
+
+  function renderTree() {
+    var filtered = buildFiltered(categories);
+    var treeEl = document.getElementById("categoryTree");
+    var emptyEl = document.getElementById("treeEmptyState");
+    if (filtered.length === 0) {
+      treeEl.innerHTML = "";
+      emptyEl.classList.remove("hidden");
+      emptyEl.classList.add("flex");
+    } else {
+      emptyEl.classList.add("hidden");
+      emptyEl.classList.remove("flex");
+      treeEl.innerHTML = filtered.map(function (entry) { return renderTreeRow(entry, 1); }).join("");
+    }
+    renderStatusFilters();
+  }
+
+  /* ---------------------------------------------------------------------
+   * Rendering: header stats
+   * ------------------------------------------------------------------- */
+  function renderHeaderStats() {
+    var totalCats = countAllCategories(categories);
+    var totalProducts = sumAllProducts(categories);
+    document.getElementById("headerStats").textContent = totalCats.toLocaleString() + " categories · " + totalProducts.toLocaleString() + " products";
+  }
+
+  /* ---------------------------------------------------------------------
+   * Rendering: detail panel
+   * ------------------------------------------------------------------- */
+  function renderDetail() {
+    var container = document.getElementById("detailContent");
+    var loc = state.selectedId ? locate(state.selectedId) : null;
+
+    if (!loc) {
+      container.innerHTML =
+        '<div class="flex h-full flex-col items-center justify-center gap-2 p-12 text-center">' +
+          '<svg class="h-10 w-10 text-slate-300" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7Z"/></svg>' +
+          '<p class="text-sm font-medium text-slate-600">No category selected</p>' +
+          '<p class="text-xs text-slate-400">Choose a category from the tree to view and edit its details.</p>' +
+        "</div>";
+      return;
+    }
+
+    var node = loc.node, path = loc.path, parent = loc.parent;
+    var meta = STATUS_META[node.status];
+    var total = totalProductCount(node);
+
+    var breadcrumbHtml = path.map(function (n, i) {
+      var isLast = i === path.length - 1;
+      var sep = i > 0 ? '<svg class="h-3.5 w-3.5 text-slate-300" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m9 6 6 6-6 6"/></svg>' : "";
+      if (isLast) return sep + '<span class="font-semibold text-slate-600">' + escapeHtml(n.name) + "</span>";
+      return sep + '<button type="button" data-action="select" data-id="' + n.id + '" class="rounded px-1 text-slate-400 hover:text-indigo-600 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500">' + escapeHtml(n.name) + "</button>";
+    }).join("");
+
+    var subcatRows = node.children.map(function (c) {
+      var cMeta = STATUS_META[c.status];
+      var cTotal = totalProductCount(c);
+      return '<tr class="border-b border-slate-100 last:border-0">' +
+        '<td class="py-2.5 pr-3"><button type="button" data-action="select" data-id="' + c.id + '" class="flex items-center gap-2 rounded text-left font-medium text-slate-700 hover:text-indigo-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500">' +
+          '<svg class="h-4 w-4 shrink-0 text-slate-300" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7Z"/></svg>' +
+          "<span>" + escapeHtml(c.name) + "</span></button></td>" +
+        '<td class="py-2.5 pr-3 text-slate-400">/' + escapeHtml(c.id) + "</td>" +
+        '<td class="py-2.5 pr-3"><span class="inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-xs font-medium ring-1 ring-inset ' + cMeta.badge + '"><span class="h-1.5 w-1.5 rounded-full ' + cMeta.dot + '"></span>' + cMeta.label + "</span></td>" +
+        '<td class="py-2.5 pr-3 tabular-nums text-slate-600">' + cTotal.toLocaleString() + "</td>" +
+        '<td class="py-2.5 text-right"><button type="button" data-action="delete" data-id="' + c.id + '" aria-label="Delete ' + escapeHtml(c.name) + '" class="rounded p-1.5 text-slate-400 hover:bg-rose-50 hover:text-rose-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-500">' +
+          '<svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 7h16M9 7V5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2m2 0-.8 12.1a2 2 0 0 1-2 1.9H9.8a2 2 0 0 1-2-1.9L7 7"/></svg>' +
+        "</button></td></tr>";
+    }).join("");
+
+    container.innerHTML =
+      '<div class="p-5 sm:p-6">' +
+        '<nav aria-label="Breadcrumb" class="mb-3 flex items-center gap-1 overflow-x-auto text-sm">' + breadcrumbHtml + "</nav>" +
+
+        '<div class="flex flex-wrap items-start justify-between gap-3">' +
+          '<div class="min-w-0">' +
+            '<div class="flex flex-wrap items-center gap-2.5">' +
+              '<h3 class="text-xl font-bold text-slate-900 sm:text-2xl">' + escapeHtml(node.name) + "</h3>" +
+              '<span class="inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-semibold ring-1 ring-inset ' + meta.badge + '"><span class="h-1.5 w-1.5 rounded-full ' + meta.dot + '"></span>' + meta.label + "</span>" +
+            "</div>" +
+            '<p class="mt-1 text-sm text-slate-400">/categories/' + escapeHtml(node.id) + "</p>" +
+          "</div>" +
+          '<div class="flex shrink-0 flex-wrap items-center gap-2">' +
+            '<button type="button" data-action="view-products" class="flex h-9 items-center gap-1.5 rounded-lg border border-slate-200 px-3 text-sm font-semibold text-slate-600 hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500">' +
+              "View products</button>" +
+            '<button type="button" data-action="add-sub" class="flex h-9 items-center gap-1.5 rounded-lg border border-indigo-200 bg-indigo-50 px-3 text-sm font-semibold text-indigo-700 hover:bg-indigo-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500">' +
+              '<svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M12 5v14M5 12h14"/></svg>Add subcategory</button>' +
+            '<button type="button" data-action="delete" data-id="' + node.id + '" class="flex h-9 items-center gap-1.5 rounded-lg border border-rose-200 px-3 text-sm font-semibold text-rose-600 hover:bg-rose-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-500">' +
+              "Delete</button>" +
+          "</div>" +
+        "</div>" +
+
+        '<div class="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-4">' +
+          statCard("Direct products", node.count.toLocaleString(), "box") +
+          statCard("Total incl. subcategories", total.toLocaleString(), "layers") +
+          statCard("Subcategories", String(node.children.length), "folder") +
+          statCard("Parent category", parent ? parent.name : "Top level", "arrow") +
+        "</div>" +
+
+        '<div class="mt-6 border-b border-slate-200">' +
+          '<nav class="flex gap-5" role="tablist" aria-label="Category sections">' +
+            tabButton("details", "Details") +
+            tabButton("subcategories", "Subcategories (" + node.children.length + ")") +
+          "</nav>" +
+        "</div>" +
+
+        '<div id="tabDetails" role="tabpanel" aria-labelledby="tabbtn-details" class="' + (state.activeTab === "details" ? "" : "hidden") + ' pt-5">' +
+          '<form id="detailForm" class="space-y-5">' +
+            '<div class="rounded-xl border border-slate-200 p-4">' +
+              '<h4 class="text-sm font-bold text-slate-700">General information</h4>' +
+              '<div class="mt-3 grid grid-cols-1 gap-4 sm:grid-cols-2">' +
+                formField("Category name", "fieldName", "text", escapeHtml(node.name), "sm:col-span-2") +
+                formField("URL slug", "fieldSlug", "text", escapeHtml(node.id), "") +
+                formSelect("Status", "fieldStatus", node.status) +
+                '<div class="sm:col-span-2">' +
+                  '<label for="fieldDesc" class="mb-1 block text-sm font-semibold text-slate-700">Description</label>' +
+                  '<textarea id="fieldDesc" rows="3" class="w-full resize-none rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/30">' + escapeHtml(node.description || "") + "</textarea>" +
+                "</div>" +
+                formField("Display order", "fieldOrder", "number", "10", "") +
+              "</div>" +
+              '<div class="mt-4 flex flex-wrap gap-5">' +
+                checkboxField("fieldNav", "Show in navigation menu", true) +
+                checkboxField("fieldFeatured", "Featured category", false) +
+              "</div>" +
+            "</div>" +
+
+            '<div class="rounded-xl border border-slate-200 p-4">' +
+              '<h4 class="text-sm font-bold text-slate-700">Search engine optimization</h4>' +
+              '<div class="mt-3 grid grid-cols-1 gap-4 sm:grid-cols-2">' +
+                formField("Meta title", "fieldMetaTitle", "text", escapeHtml(node.name) + " | Shop Online", "sm:col-span-2") +
+                '<div class="sm:col-span-2">' +
+                  '<label for="fieldMetaDesc" class="mb-1 block text-sm font-semibold text-slate-700">Meta description</label>' +
+                  '<textarea id="fieldMetaDesc" rows="2" class="w-full resize-none rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/30">Shop ' + escapeHtml(node.name.toLowerCase()) + " with fast shipping and easy returns.</textarea>" +
+                "</div>" +
+              "</div>" +
+            "</div>" +
+
+            '<div class="flex items-center justify-end gap-2 border-t border-slate-100 pt-4">' +
+              '<button type="button" data-action="discard" class="h-10 rounded-lg px-4 text-sm font-semibold text-slate-600 hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500">Discard changes</button>' +
+              '<button type="submit" class="h-10 rounded-lg bg-indigo-600 px-4 text-sm font-semibold text-white hover:bg-indigo-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2">Save changes</button>' +
+            "</div>" +
+          "</form>" +
+        "</div>" +
+
+        '<div id="tabSubcategories" role="tabpanel" aria-labelledby="tabbtn-subcategories" class="' + (state.activeTab === "subcategories" ? "" : "hidden") + ' pt-5">' +
+          (node.children.length === 0 ?
+            '<div class="flex flex-col items-center gap-3 rounded-xl border border-dashed border-slate-200 px-6 py-12 text-center">' +
+              '<svg class="h-9 w-9 text-slate-300" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7Z"/></svg>' +
+              '<p class="text-sm font-medium text-slate-600">No subcategories yet</p>' +
+              '<p class="max-w-xs text-xs text-slate-400">Break "' + escapeHtml(node.name) + '" down into smaller categories to help shoppers browse more precisely.</p>' +
+              '<button type="button" data-action="add-sub" class="mt-1 flex h-9 items-center gap-1.5 rounded-lg bg-indigo-600 px-3 text-sm font-semibold text-white hover:bg-indigo-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2">' +
+                '<svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M12 5v14M5 12h14"/></svg>Add subcategory</button>' +
+            "</div>"
+            :
+            '<div class="overflow-x-auto rounded-xl border border-slate-200">' +
+              '<table class="w-full text-left text-sm">' +
+                '<thead><tr class="border-b border-slate-200 bg-slate-50 text-xs font-semibold uppercase tracking-wide text-slate-500">' +
+                  '<th class="py-2.5 pl-3 pr-3">Name</th><th class="py-2.5 pr-3">Slug</th><th class="py-2.5 pr-3">Status</th><th class="py-2.5 pr-3">Products</th><th class="py-2.5 pr-3"></th>' +
+                "</tr></thead>" +
+                '<tbody class="pl-3">' + subcatRows + "</tbody>" +
+              "</table>" +
+            "</div>"
+          ) +
+        "</div>" +
+      "</div>";
+
+    wireDetailEvents();
+  }
+
+  function statCard(label, value, icon) {
+    var icons = {
+      box: '<path d="M21 8 12 3 3 8l9 5 9-5Z"/><path d="M3 8v8l9 5 9-5V8"/><path d="M12 13v8"/>',
+      layers: '<path d="M12 3 3 8l9 5 9-5-9-5Z"/><path d="m3 13 9 5 9-5"/>',
+      folder: '<path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7Z"/>',
+      arrow: '<path d="M5 12h14M13 6l6 6-6 6"/>'
+    };
+    return '<div class="rounded-xl border border-slate-200 bg-slate-50 p-3">' +
+      '<div class="flex items-center gap-1.5 text-slate-400"><svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">' + icons[icon] + '</svg><span class="text-xs font-medium">' + label + "</span></div>" +
+      '<p class="mt-1 truncate text-lg font-bold text-slate-900">' + value + "</p>" +
+    "</div>";
+  }
+
+  function tabButton(key, label) {
+    var active = state.activeTab === key;
+    return '<button type="button" id="tabbtn-' + key + '" data-tab="' + key + '" role="tab" aria-selected="' + active + '" aria-controls="tab' + capitalize(key) + '" class="relative -mb-px border-b-2 px-0.5 py-2.5 text-sm font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 ' +
+      (active ? "border-indigo-600 text-indigo-700" : "border-transparent text-slate-500 hover:text-slate-700") + '">' + label + "</button>";
+  }
+
+  function capitalize(s) { return s.charAt(0).toUpperCase() + s.slice(1); }
+
+  function formField(label, id, type, value, span) {
+    return '<div class="' + span + '"><label for="' + id + '" class="mb-1 block text-sm font-semibold text-slate-700">' + label + '</label>' +
+      '<input id="' + id + '" type="' + type + '" value="' + value + '" class="h-10 w-full rounded-lg border border-slate-300 px-3 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/30"></div>';
+  }
+
+  function formSelect(label, id, selected) {
+    var opts = ["active", "draft", "hidden"].map(function (s) {
+      return '<option value="' + s + '"' + (s === selected ? " selected" : "") + ">" + STATUS_META[s].label + "</option>";
+    }).join("");
+    return '<div><label for="' + id + '" class="mb-1 block text-sm font-semibold text-slate-700">Status</label>' +
+      '<select id="' + id + '" class="h-10 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/30">' + opts + "</select></div>";
+  }
+
+  function checkboxField(id, label, checked) {
+    return '<label for="' + id + '" class="flex items-center gap-2 text-sm font-medium text-slate-600">' +
+      '<input id="' + id + '" type="checkbox"' + (checked ? " checked" : "") + ' class="h-4 w-4 rounded border-slate-300 text-indigo-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500">' + label + "</label>";
+  }
+
+  /* ---------------------------------------------------------------------
+   * Toasts
+   * ------------------------------------------------------------------- */
+  function showToast(message, kind) {
+    var container = document.getElementById("toastContainer");
+    var el = document.createElement("div");
+    var styles = kind === "danger"
+      ? { bg: "bg-white", ring: "ring-rose-200", icon: '<svg class="h-5 w-5 text-rose-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 9v4m0 4h.01M10.3 3.9 2.6 17a2 2 0 0 0 1.7 3h15.4a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z"/></svg>' }
+      : { bg: "bg-white", ring: "ring-emerald-200", icon: '<svg class="h-5 w-5 text-emerald-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="m8 12 3 3 5-6"/></svg>' };
+    el.className = "anim-toast-in pointer-events-auto flex items-start gap-2.5 rounded-xl p-3.5 shadow-lg ring-1 " + styles.bg + " " + styles.ring;
+    el.setAttribute("role", "status");
+    el.innerHTML = styles.icon + '<p class="pt-0.5 text-sm font-medium text-slate-700">' + escapeHtml(message) + "</p>";
+    container.appendChild(el);
+    setTimeout(function () {
+      el.style.transition = "opacity .2s ease, transform .2s ease";
+      el.style.opacity = "0";
+      el.style.transform = "translateX(16px)";
+      setTimeout(function () { el.remove(); }, 200);
+    }, 3200);
+  }
+
+  /* ---------------------------------------------------------------------
+   * Modals
+   * ------------------------------------------------------------------- */
+  function openModal(modalEl, focusEl) {
+    state.lastFocusedEl = document.activeElement;
+    modalEl.classList.remove("hidden");
+    modalEl.classList.add("flex");
+    document.addEventListener("keydown", onModalKeydown);
+    setTimeout(function () { (focusEl || modalEl.querySelector("input,button")).focus(); }, 0);
+  }
+
+  function closeModal(modalEl) {
+    modalEl.classList.add("hidden");
+    modalEl.classList.remove("flex");
+    document.removeEventListener("keydown", onModalKeydown);
+    if (state.lastFocusedEl) state.lastFocusedEl.focus();
+  }
+
+  function onModalKeydown(e) {
+    if (e.key === "Escape") {
+      closeModal(document.getElementById("addModal"));
+      closeModal(document.getElementById("deleteModal"));
+    }
+  }
+
+  function openAddModal(parentId) {
+    state.addParentId = parentId;
+    var parentLoc = parentId ? locate(parentId) : null;
+    document.getElementById("addModalTitle").textContent = parentLoc ? "Add Subcategory" : "Add Category";
+    document.getElementById("addModalParentHint").textContent = parentLoc
+      ? "This will be added under “" + parentLoc.node.name + "”."
+      : "This will be added as a top-level category.";
+    document.getElementById("addForm").reset();
+    document.getElementById("addNameError").classList.add("hidden");
+    document.getElementById("addSlugPreview").innerHTML = "URL: /categories/&hairsp;";
+    openModal(document.getElementById("addModal"), document.getElementById("addNameInput"));
+  }
+
+  function openDeleteModal(id) {
+    var loc = locate(id);
+    if (!loc) return;
+    state.deleteTargetId = id;
+    var descCount = countDescendants(loc.node);
+    var total = totalProductCount(loc.node);
+    var extra = descCount > 0 ? " along with its " + descCount + " subcategor" + (descCount === 1 ? "y" : "ies") : "";
+    document.getElementById("deleteModalDesc").textContent =
+      '"' + loc.node.name + '" will be permanently removed' + extra + ", affecting " + total.toLocaleString() + " linked product" + (total === 1 ? "" : "s") + ". This cannot be undone.";
+    openModal(document.getElementById("deleteModal"), document.getElementById("deleteCancelBtn"));
+  }
+
+  /* ---------------------------------------------------------------------
+   * Mutations
+   * ------------------------------------------------------------------- */
+  function selectCategory(id) {
+    state.selectedId = id;
+    state.activeTab = "details";
+    renderTree();
+    renderDetail();
+    var row = document.querySelector('#categoryTree [data-id="' + id + '"] [data-action="select"]');
+    if (row) row.scrollIntoView({ block: "nearest" });
+  }
+
+  function toggleExpand(id) {
+    if (state.expanded.has(id)) state.expanded.delete(id); else state.expanded.add(id);
+    renderTree();
+  }
+
+  function expandAll() {
+    flattenIds(categories).forEach(function (id) { state.expanded.add(id); });
+    renderTree();
+  }
+
+  function collapseAll() {
+    state.expanded.clear();
+    renderTree();
+  }
+
+  function createCategory(name, status, description) {
+    var id = uniqueId(slugify(name));
+    var node = { id: id, name: name, status: status, description: description, count: 0, children: [] };
+    if (state.addParentId) {
+      var loc = locate(state.addParentId);
+      loc.node.children.push(node);
+      state.expanded.add(state.addParentId);
+    } else {
+      categories.push(node);
+    }
+    state.selectedId = id;
+    state.activeTab = "details";
+    renderHeaderStats();
+    renderTree();
+    renderDetail();
+    showToast('"' + name + '" was created successfully.', "success");
+  }
+
+  function deleteCategory(id) {
+    var loc = locate(id);
+    if (!loc) return;
+    var name = loc.node.name;
+    var idx = loc.siblings.indexOf(loc.node);
+    loc.siblings.splice(idx, 1);
+
+    if (state.selectedId === id || isDescendantOfRemoved(loc.node, state.selectedId)) {
+      state.selectedId = loc.parent ? loc.parent.id : (categories[0] ? categories[0].id : null);
+      state.activeTab = "details";
+    }
+    renderHeaderStats();
+    renderTree();
+    renderDetail();
+    showToast('"' + name + '" was deleted.', "danger");
+  }
+
+  function isDescendantOfRemoved(removedNode, id) {
+    if (!id) return false;
+    return !!locate(id, removedNode.children);
+  }
+
+  function saveDetailForm() {
+    var loc = locate(state.selectedId);
+    if (!loc) return;
+    var name = document.getElementById("fieldName").value.trim();
+    if (!name) { showToast("Category name cannot be empty.", "danger"); return; }
+    loc.node.name = name;
+    loc.node.status = document.getElementById("fieldStatus").value;
+    loc.node.description = document.getElementById("fieldDesc").value.trim();
+    renderHeaderStats();
+    renderTree();
+    renderDetail();
+    showToast("Changes to “" + name + "” were saved.", "success");
+  }
+
+  /* ---------------------------------------------------------------------
+   * Event wiring
+   * ------------------------------------------------------------------- */
+  function wireDetailEvents() {
+    var form = document.getElementById("detailForm");
+    if (form) {
+      form.addEventListener("submit", function (e) { e.preventDefault(); saveDetailForm(); });
+    }
+    var discardBtn = document.querySelector('[data-action="discard"]');
+    if (discardBtn) discardBtn.addEventListener("click", function () { renderDetail(); showToast("Changes discarded.", "success"); });
+
+    document.querySelectorAll('[data-tab]').forEach(function (btn) {
+      btn.addEventListener("click", function () { state.activeTab = btn.getAttribute("data-tab"); renderDetail(); });
+    });
+
+    var addSubBtns = document.querySelectorAll('[data-action="add-sub"]');
+    addSubBtns.forEach(function (btn) { btn.addEventListener("click", function () { openAddModal(state.selectedId); }); });
+
+    document.querySelectorAll('[data-action="delete"]').forEach(function (btn) {
+      btn.addEventListener("click", function () { openDeleteModal(btn.getAttribute("data-id")); });
+    });
+
+    var viewBtn = document.querySelector('[data-action="view-products"]');
+    if (viewBtn) viewBtn.addEventListener("click", function () {
+      var loc = locate(state.selectedId);
+      showToast("Opening Products filtered by “" + loc.node.name + "”…", "success");
+    });
+
+    document.querySelectorAll('#detailContent [data-action="select"]').forEach(function (btn) {
+      btn.addEventListener("click", function () { selectCategory(btn.getAttribute("data-id")); });
+    });
+  }
+
+  function init() {
+    renderHeaderStats();
+    renderTree();
+    renderDetail();
+
+    // Tree interactions (event delegation)
+    document.getElementById("categoryTree").addEventListener("click", function (e) {
+      var toggleBtn = e.target.closest('[data-action="toggle"]');
+      if (toggleBtn) { toggleExpand(toggleBtn.getAttribute("data-id")); return; }
+      var selectBtn = e.target.closest('[data-action="select"]');
+      if (selectBtn) { selectCategory(selectBtn.getAttribute("data-id")); }
+    });
+
+    // Keyboard roving between visible rows
+    document.getElementById("categoryTree").addEventListener("keydown", function (e) {
+      if (e.key !== "ArrowDown" && e.key !== "ArrowUp") return;
+      var rows = Array.prototype.slice.call(document.querySelectorAll('#categoryTree [data-action="select"]'));
+      var idx = rows.indexOf(document.activeElement);
+      if (idx === -1) return;
+      e.preventDefault();
+      var next = e.key === "ArrowDown" ? rows[idx + 1] : rows[idx - 1];
+      if (next) next.focus();
+    });
+
+    document.getElementById("treeSearch").addEventListener("input", function (e) {
+      state.query = e.target.value.trim().toLowerCase();
+      document.getElementById("clearSearchBtn").classList.toggle("hidden", !state.query);
+      renderTree();
+    });
+    document.getElementById("clearSearchBtn").addEventListener("click", function () {
+      state.query = "";
+      document.getElementById("treeSearch").value = "";
+      document.getElementById("clearSearchBtn").classList.add("hidden");
+      renderTree();
+      document.getElementById("treeSearch").focus();
+    });
+
+    document.getElementById("statusFilters").addEventListener("click", function (e) {
+      var btn = e.target.closest("[data-filter]");
+      if (!btn) return;
+      state.statusFilter = btn.getAttribute("data-filter");
+      renderTree();
+    });
+
+    document.getElementById("expandAllBtn").addEventListener("click", expandAll);
+    document.getElementById("collapseAllBtn").addEventListener("click", collapseAll);
+
+    document.getElementById("addRootBtn").addEventListener("click", function () { openAddModal(null); });
+
+    // Add modal
+    var addModal = document.getElementById("addModal");
+    document.getElementById("addModalCloseBtn").addEventListener("click", function () { closeModal(addModal); });
+    document.getElementById("addCancelBtn").addEventListener("click", function () { closeModal(addModal); });
+    addModal.addEventListener("click", function (e) { if (e.target === addModal) closeModal(addModal); });
+
+    document.getElementById("addNameInput").addEventListener("input", function (e) {
+      var v = e.target.value.trim();
+      document.getElementById("addSlugPreview").textContent = "URL: /categories/" + (v ? slugify(v) : "");
+    });
+
+    document.getElementById("addForm").addEventListener("submit", function (e) {
+      e.preventDefault();
+      var name = document.getElementById("addNameInput").value.trim();
+      var errorEl = document.getElementById("addNameError");
+      if (name.length < 2) {
+        errorEl.classList.remove("hidden");
+        document.getElementById("addNameInput").focus();
+        return;
+      }
+      errorEl.classList.add("hidden");
+      var status = document.getElementById("addStatusSelect").value;
+      var description = document.getElementById("addDescInput").value.trim();
+      createCategory(name, status, description);
+      closeModal(addModal);
+    });
+
+    // Delete modal
+    var deleteModal = document.getElementById("deleteModal");
+    document.getElementById("deleteCancelBtn").addEventListener("click", function () { closeModal(deleteModal); });
+    deleteModal.addEventListener("click", function (e) { if (e.target === deleteModal) closeModal(deleteModal); });
+    document.getElementById("deleteConfirmBtn").addEventListener("click", function () {
+      var id = state.deleteTargetId;
+      closeModal(deleteModal);
+      if (id) deleteCategory(id);
+    });
+  }
+
+  document.addEventListener("DOMContentLoaded", init);
+})();
+</script>
+</body>
+</html>

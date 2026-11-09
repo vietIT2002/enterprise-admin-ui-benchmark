@@ -1,0 +1,56 @@
+{
+  "brief": "21-payslip-print",
+  "run": 1,
+  "items": [
+    {
+      "item": "The slip identifies the employer (company name and tax code or address), the employee (full name, employee ID, department, job title) and the pay period together with its payment date",
+      "pass": true,
+      "evidence": "Letterhead shows 'Meridian Health Group' with address '4420 Harborview Parkway, Suite 200, Portland, OR 97209'; employee dl shows 'Jordan A. Reyes', 'MHG-20451' (Employee ID), 'Cardiac Care Unit' (Department), 'Registered Nurse II' (Title); header shows '#pay-period' = 'Pay period: October 1, 2026 – October 31, 2026' and '#pay-date' = 'Pay date: November 2, 2026'."
+    },
+    {
+      "item": "Earnings are itemised — basic salary with its proration (such as \"21 / 22 working days\"), each allowance, and overtime as hours × rate — and Gross pay equals the sum of the earnings lines",
+      "pass": false,
+      "evidence": "data.earnings only has flat labels/amounts ('Basic salary' 5200.00, 'Overtime pay' 312.50, 'Shift differential' 180.00, 'Charge nurse premium' 150.00) with no proration text (no '21/22 working days') and overtime is a lump sum, not hours × rate. Gross sum is correct ($5,842.50 = 5200+312.50+180+150) but the required itemisation detail is missing."
+    },
+    {
+      "item": "Deductions show the employee's social, health and unemployment insurance (each with its rate and contribution base) and personal income tax (with the taxable income it was computed on) apart from other deductions such as salary advances, and Total deductions equals their sum",
+      "pass": false,
+      "evidence": "Deductions list is US-style (Federal income tax, State income tax, Social Security (FICA), Medicare, Health insurance premium, 401(k) contribution) with only flat current/YTD amounts — no rate, no contribution base, no taxable-income figure for the income taxes, and no unemployment insurance line. Total deductions sum ($1,694.84) is arithmetically correct but the required rate/base/taxable-income disclosures are absent."
+    },
+    {
+      "item": "Net pay equals Gross pay minus Total deductions to the last unit and is the most prominent figure on the slip",
+      "pass": true,
+      "evidence": "netCurrent = grossCurrent - deductionsCurrent = 5842.50 - 1694.84 = 4147.66, rendered in '#net-current' as '$4,147.66'; it is styled 'font-mono text-4xl font-semibold text-ledger sm:text-5xl', by far the largest text on the page."
+    },
+    {
+      "item": "Amounts line up on the right with fixed-width digits and thousand separators, the currency is named, and decimals suit the currency (none for VND, two for USD) throughout",
+      "pass": false,
+      "evidence": "Numeric cells use 'text-right' plus 'font-mono tabular' (tabular-nums) and Intl.NumberFormat produces thousand separators and 2 decimals consistently (audit.json: numericCells.misaligned=0, nonTabular=0), but the currency is never named in text — only the '$' symbol is shown (money() uses currency:'USD' which renders as '$5,200.00', no 'USD' label anywhere on the page)."
+    },
+    {
+      "item": "Earnings and deductions are marked up as tables with header cells or as dt/dd label–value pairs, so a screen reader announces each amount together with its label",
+      "pass": true,
+      "evidence": "Both sections use real <table> markup with <thead><tr><th>Description</th><th>Current</th><th>Year to date</th></tr></thead> and <tbody id=\"earnings-body\">/<tbody id=\"deductions-body\"> rows of <td> cells."
+    },
+    {
+      "item": "A Print button is present, and the print stylesheet hides the app's sidebar, top bar and buttons, sets an A4 page with @page and keeps the earnings and deductions blocks from splitting across pages",
+      "pass": false,
+      "evidence": "button#print-btn calls window.print(); '@media print { .no-print{display:none!important} ... @page{margin:0.45in;} }' hides the toolbar/buttons via .no-print, but @page only sets a margin — no 'size: A4' — and there is no 'break-inside: avoid' (or page-break-inside) rule protecting the earnings/deductions section from splitting across pages."
+    },
+    {
+      "item": "The bank account number is masked except for its last four digits, and the slip carries a \"Confidential\" marking that also appears when printed",
+      "pass": true,
+      "evidence": "dd text 'Direct deposit, checking ••••4821' masks all but the last four digits; footer paragraph 'This payslip holds confidential payroll information meant only for Jordan A. Reyes.' sits inside #payslip (not .no-print), so it remains visible in the print stylesheet as well."
+    },
+    {
+      "item": "A period selector switches between months and the heading names the month shown; a month without a payslip shows a message saying so rather than zeros, and loading and error-with-retry states are built in",
+      "pass": false,
+      "evidence": "The toolbar text 'Viewing payslip for October 2026' is static plain text with no control to change month (no <select>/buttons for period switching); data is a single hard-coded JS object rendered synchronously with no loading state, no empty/no-payslip message, and no error/retry UI anywhere in the script."
+    }
+  ],
+  "tells": [
+    "glass — toolbar div uses 'bg-paper/95 backdrop-blur' (audit.json flags 'no-backdrop-blur' violation: blur(8px) on 'div.no-print.sticky')"
+  ],
+  "notes": "This is a US-style (USD, FICA/Medicare/401k) payslip rather than the VND/Vietnamese social-insurance style implied by several checklist items (proration, BHXH/BHYT/BHTN style insurance lines with rate+base, taxable-income basis for PIT, VND decimal rule). Those items fail primarily because that structure/data was never implemented, not due to a calculation bug — the displayed sums (gross, total deductions, net) are all internally consistent. No period selector, loading, or error/retry states exist at all; the page renders one fixed month from an inline data object.",
+  "blind": true
+}

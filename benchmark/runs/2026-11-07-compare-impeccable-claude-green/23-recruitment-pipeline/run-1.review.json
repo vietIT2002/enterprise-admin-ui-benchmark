@@ -1,0 +1,59 @@
+{
+  "brief": "23-recruitment-pipeline",
+  "run": 1,
+  "items": [
+    {
+      "item": "Stage columns run in hiring order (such as Applied → Screening → Interview → Offer → Hired), and rejected or withdrawn candidates are kept out of the active columns, in a separate collapsed column or behind a filter",
+      "pass": true,
+      "evidence": "STAGES = [applied, screening, interview, offer, hired, rejected] rendered in that order; renderBoard() computes `visibleStages = STAGES.filter(s => state.showDeclined || s.key !== 'rejected')`, so the rejected ('Not Moving Forward') column is hidden by default and only appears when the 'Show declined' switch (#declinedToggle) is on."
+    },
+    {
+      "item": "Each stage header shows a candidate count that matches the number of cards in that column under the current filters",
+      "pass": false,
+      "evidence": "Header badge uses `totalInStage = all.filter(c => c.stage === s.key).length` (unfiltered), while the cards shown use `list = all.filter(c => c.stage === s.key && matchesFilters(c))`. Applying any search/source/recruiter/rating filter leaves the header count unchanged while the visible card count shrinks, so they diverge."
+    },
+    {
+      "item": "The page names the opening being shown (job title, department, positions to fill and hired so far, such as \"Senior Accountant · Finance · 1 of 2 hired\"), and a selector switches to another opening",
+      "pass": false,
+      "evidence": "#jobMeta only renders `${department} · ${location} · ${workType} · Open since ${openSince}` (renderJobMeta()); JOBS objects have no 'positions to fill' field at all, and the closest figure, `${hired}/${total} hired · ${pct}% conversion` in #conversionStat, is hired-vs-all-candidates, not hired-vs-openings. The #jobSwitcher <select> does switch openings, but the required 'X of Y hired' framing is absent."
+    },
+    {
+      "item": "Each card gives the candidate's name, application source and days in the current stage, and candidates who have stayed past a stated limit are flagged with a text label or icon rather than colour alone",
+      "pass": false,
+      "evidence": "cardTemplate() renders name, title · company, tags, rating and `${c.daysInStage}d` with a clock icon, but never prints `c.source` on the card (source only appears later in the drawer). There is also no threshold/limit logic anywhere in the script (no 'stale'/'overdue' flag, icon, or label) for candidates stuck in a stage."
+    },
+    {
+      "item": "A card can change stage without dragging, through a \"Move to\" menu or buttons that work from the keyboard, and each move is announced through an aria-live region",
+      "pass": false,
+      "evidence": "A keyboard-focusable `.quick-advance` button (aria-label=\"Move to next stage\") and the drawer's `data-drawer-advance` button both call moveCandidate() to advance one stage without dragging, satisfying the button part. But moveCandidate() only calls showToast(), and there is no `aria-live` attribute anywhere in the page (confirmed via search) — #toastHost has no aria-live/role=\"status\", so moves are not announced to assistive tech."
+    },
+    {
+      "item": "Moving a candidate to Rejected opens a confirmation that names the candidate and requires a rejection reason before it completes",
+      "pass": false,
+      "evidence": "The reject button handler runs immediately: `if (rejectBtn) { const id = rejectBtn.dataset.id; moveCandidate(id, 'rejected', { nextStep: pick(NEXT_STEP.rejected, id.length) }); return; }` — it auto-picks a reason from NEXT_STEP.rejected with no dialog, no candidate-name confirmation, and no reason input."
+    },
+    {
+      "item": "Search by candidate name or email and filters by source and by recruiter narrow the board, and the active filters are displayed with a way to clear them",
+      "pass": false,
+      "evidence": "matchesFilters() only checks `${c.first} ${c.last}`, c.title and c.company against the query — `c.email` is never compared, so email search is not supported. Source/recruiter selects do narrow the board, and a 'Clear filters' button (#clearFiltersBtn) appears when `dirty` is true, but there is no chip/list display of which filters are currently active beyond the dropdowns' own selected value."
+    },
+    {
+      "item": "Opening a card shows the candidate's contact details, a link to the CV and a stage history listing each move with its date and the person who made it",
+      "pass": false,
+      "evidence": "drawerDetailTemplate() shows email, location and recruiter name, but there is no CV/resume link anywhere in the candidate data model or template. The 'Pipeline history' timeline shows stage labels with either the applied date, 'Xd ago · current', or the bare word 'Completed' for past stages — no date per move and no indication of which person performed each move."
+    },
+    {
+      "item": "A stage with no candidates keeps its column and shows a placeholder such as \"No candidates\", and loading and error-with-retry states are built in",
+      "pass": false,
+      "evidence": "renderBoard() does: `list.length ? list.map(cardTemplate).join('') : (totalInStage===0 ? '' : columnEmptyState(s.label))` — when a stage genuinely has zero candidates (totalInStage===0) it renders an empty string with no placeholder text at all; columnEmptyState (\"No candidates match your filters in …\") only fires when filters hide an otherwise non-empty stage. No loading spinner or error/retry UI exists anywhere in the script."
+    }
+  ],
+  "tells": [
+    "card-in-card — candidate cards (bg-white rounded-lg shadow-sm) sit inside stage column containers (section.rounded-xl bg-slate-100/70), and drawer notes render as bg-slate-50 rounded-lg boxes nested inside the drawer panel card",
+    "oversized-radius — board columns use rounded-xl (12px), exceeding an 8px max; flagged directly by audit.json's radius-scale violation on `main#board > section.flex-none.w-[300px]`",
+    "rainbow-status — six stage dot colors (slate/sky/violet/amber/emerald/rose) assigned per-stage with no apparent semantic system beyond 'different status, different hue'",
+    "hover-lift — cards use `hover:shadow-md hover:border-slate-300 transition-shadow` to elevate on hover"
+  ],
+  "notes": "Audit also independently flags low text contrast (41 instances, e.g. the day-count label at 2.56:1) and surface-shadow misuse on cards (23 instances) — consistent with the hover-lift/card-in-card tells noted above.",
+  "blind": true
+}

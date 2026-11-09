@@ -1,0 +1,56 @@
+{
+  "brief": "27-delivery-note-print",
+  "run": 2,
+  "items": [
+    {
+      "item": "The header shows the delivery note number, issue date, source sales order or transfer number and dispatching warehouse, each with a visible label, and every date on the note uses one unambiguous format (such as 06 Nov 2026)",
+      "pass": false,
+      "evidence": "All four fields are labelled (dt 'Ngày xuất', 'Kho xuất', 'Đơn hàng liên quan', plus 'Số phiếu' on the sheet), but every date is rendered as numeric slashes — dd.tnum '07/11/2026' in the header dl and <span id=\"sheet-date\">07/11/2026</span> on the sheet — which is ambiguous (DD/MM vs MM/DD), not an unambiguous format like '07 Th11 2026'."
+    },
+    {
+      "item": "Sender (company name, address, tax ID), recipient (customer name, delivery address, contact person and phone) and carrier (carrier name, vehicle plate or driver name) appear in three separately labelled blocks",
+      "pass": false,
+      "evidence": "The recipient block is properly labelled (h2#h-receiver 'Khách hàng & địa chỉ giao hàng'), but the sender identity (company name/address/MST at the top of the sheet) has no heading label at all, and carrier details ('Người vận chuyển', 'Phương tiện') are folded into the h2#h-sender 'Bên giao hàng' table alongside warehouse/preparer fields rather than forming their own labelled carrier block."
+    },
+    {
+      "item": "The goods are in a real <table> with column headers in <thead>, giving per line: line number, item code, description, unit of measure, quantity ordered, quantity delivered and lot or serial number, with quantities right-aligned",
+      "pass": false,
+      "evidence": "thead columns are only STT, Tên hàng hóa, Mã hàng, ĐVT, Số lượng, Ghi chú — a single 'Số lượng' quantity column (right-aligned, good) with no separate quantity-ordered vs quantity-delivered columns and no lot/serial number column."
+    },
+    {
+      "item": "A line delivered short of the ordered quantity states the outstanding amount in words (such as \"Backorder: 4 pcs\") rather than by colour alone",
+      "pass": false,
+      "evidence": "No ordered-vs-delivered distinction exists anywhere in the data model (goods items only have a single `qty` field) or markup, so no backorder/outstanding wording is possible."
+    },
+    {
+      "item": "A footer gives the total quantity delivered, the number of packages and the gross weight with its unit, and the quantity total equals the sum of the lines",
+      "pass": false,
+      "evidence": "tfoot#goods-totals only renders `${goods.length} mặt hàng` (item count), with no summed quantity, no package count, and no gross weight/unit."
+    },
+    {
+      "item": "Signature boxes are provided for the warehouse keeper (issued by), the driver or carrier and the receiver, each with room for printed name, signature and date, plus a remarks area for the condition of the goods on receipt",
+      "pass": false,
+      "evidence": "sig-grid has 'Thủ kho' and 'Người vận chuyển' boxes captioned only '(Ký, ghi rõ họ tên)' — no date field — while only 'Người nhận hàng' gets '(Ký, ghi rõ họ tên, ngày nhận)'; the only remarks text is a pre-filled order note ('Tấm lợp tôn cắt sẵn...'), not a blank area for recording goods condition at receipt."
+    },
+    {
+      "item": "A Print control that is a real <button> starts printing, and an @media print stylesheet hides the app navigation and on-screen controls, sets page margins and keeps the signature block from splitting across pages",
+      "pass": true,
+      "evidence": "`<button type=\"button\" id=\"btn-print\">In phiếu</button>` wired to `window.print()`; `@media print` sets `.no-print{display:none!important}`, `@page{size:A4;margin:14mm 12mm 18mm}`, and `.sig-grid{break-inside:avoid}`."
+    },
+    {
+      "item": "The note's status (such as Draft, Dispatched, Delivered or Cancelled) is shown in words next to its number, and a draft or cancelled note prints with a visible \"DRAFT\" or \"CANCELLED\" mark so it cannot pass as a valid dispatch document",
+      "pass": false,
+      "evidence": "The status badge (`#status-badge`, e.g. 'Đã xuất kho'/'Đã hủy') lives inside `<div class=\"no-print ...\">`, so it is hidden entirely when printing; there is no watermark or 'CANCELLED'/'DRAFT' mark anywhere in the print CSS or JS, so a cancelled note prints identically to a valid one."
+    },
+    {
+      "item": "A loading state is present, and a note that fails to load or does not exist shows a message with Retry and a link back to the delivery note list, never an empty template with blank fields",
+      "pass": false,
+      "evidence": "Loading/error/retry only exist for the goods line-items region (`[data-region=\"goods\"] [data-state=\"loading\"/\"error\"]` with a `.retry` button that just does `location.search = ''`); there is no document-level 'note failed to load / not found' state, and the retry control has no link back to the delivery note list."
+    }
+  ],
+  "tells": [
+    "card-in-card"
+  ],
+  "notes": "This is a Vietnamese warehouse dispatch note (Phiếu xuất kho, Mẫu 02-VT) rather than a generic sales delivery note. The on-screen/print split is otherwise clean (minimal dashboard chrome, no gradients/glass/emoji/avatars), but the document fails several data-completeness requirements from the checklist: no ordered-vs-delivered quantity split, no lot/serial column, no package/weight footer, incomplete signature date fields, ambiguous DD/MM/YYYY dates, and a status badge that disappears on print instead of watermarking cancelled/draft notes. card-in-card is a minor tell: nested rounded-bordered 'Bên giao hàng'/'Khách hàng' sections inside the already-bordered .sheet card.",
+  "blind": true
+}

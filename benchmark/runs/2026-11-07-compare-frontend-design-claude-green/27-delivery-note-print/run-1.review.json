@@ -1,0 +1,56 @@
+{
+  "brief": "27-delivery-note-print",
+  "run": 1,
+  "items": [
+    {
+      "item": "The header shows the delivery note number, issue date, source sales order or transfer number and dispatching warehouse, each with a visible label, and every date on the note uses one unambiguous format (such as 06 Nov 2026)",
+      "pass": false,
+      "evidence": "Header stub (dl#noteNo/noteDate) has labels 'No.' (DN-048213), 'Order ref' (PO-22917) and 'Date' (07 Nov 2026, unambiguous format, consistent with 'ETA 14 Nov 2026' in remarks) — but no 'Warehouse' label anywhere in the header. 'Distribution Center 4' appears only as plain address text under the sender name and again under SHIP FROM, never labelled as the dispatching warehouse."
+    },
+    {
+      "item": "Sender (company name, address, tax ID), recipient (customer name, delivery address, contact person and phone) and carrier (carrier name, vehicle plate or driver name) appear in three separately labelled blocks",
+      "pass": false,
+      "evidence": "Only two labelled blocks exist: 'SHIP FROM' (h2) with company name/address but no tax ID/VAT number, and 'DELIVER TO' (h2) with customer, contact 'Elena Marsh, Kitchen Manager' and phone. There is no third 'Carrier' block — vehicle reg 'PO19 KLX' only appears later buried inside the signature grid under 'Dispatched by (driver)', not as a standalone labelled sender/recipient/carrier block."
+    },
+    {
+      "item": "The goods are in a real <table> with column headers in <thead>, giving per line: line number, item code, description, unit of measure, quantity ordered, quantity delivered and lot or serial number, with quantities right-aligned",
+      "pass": false,
+      "evidence": "table.goods has a <thead> with Line, SKU, Description, Ordered, Shipped, Unit, Weight (th.text-right on Ordered/Shipped, correctly right-aligned per rows) but there is no lot/serial number column anywhere in the row template (row.innerHTML in the script only emits line, sku, desc, ordered, shipped, unit, weight)."
+    },
+    {
+      "item": "A line delivered short of the ordered quantity states the outstanding amount in words (such as \"Backorder: 4 pcs\") rather than by colour alone",
+      "pass": true,
+      "evidence": "Remarks text: \"Line 4 (NSC-4108) short-shipped by 1 case — balance backordered, ETA 14 Nov 2026.\" in addition to the amber-coloured shipped cell (text-[#B2701A]) for that row."
+    },
+    {
+      "item": "A footer gives the total quantity delivered, the number of packages and the gross weight with its unit, and the quantity total equals the sum of the lines",
+      "pass": false,
+      "evidence": "Footer dl shows 'Lines shipped' (6), 'Units shipped' (31, which correctly equals 2+3+12+4+4+6) and 'Total net weight' (172.0 kg) — there is no package count, and the weight is explicitly labelled net weight, not gross weight as required."
+    },
+    {
+      "item": "Signature boxes are provided for the warehouse keeper (issued by), the driver or carrier and the receiver, each with room for printed name, signature and date, plus a remarks area for the condition of the goods on receipt",
+      "pass": false,
+      "evidence": "Three sig-line boxes exist: 'Packed by (warehouse)', 'Dispatched by (driver)', 'Received by (customer)', each with name/signature and date lines. However the only 'Remarks' text on the page is the fixed pre-filled backorder note above the table (\"Remarks: Line 4 ... All other lines received complete and undamaged at handover.\") — there is no blank remarks field near the signatures for the receiver to record the condition of goods at receipt."
+    },
+    {
+      "item": "A Print control that is a real <button> starts printing, and an @media print stylesheet hides the app navigation and on-screen controls, sets page margins and keeps the signature block from splitting across pages",
+      "pass": false,
+      "evidence": "<button id=\"printBtn\">Print delivery note</button> calls window.print() via addEventListener. @media print has .no-print{display:none!important} (hides the console bar) and @page{size:A4;margin:12mm}. But no break-inside/page-break-inside:avoid rule is applied to the signature grid (div.grid.sm:grid-cols-3), so it is not protected from splitting across a page boundary."
+    },
+    {
+      "item": "The note's status (such as Draft, Dispatched, Delivered or Cancelled) is shown in words next to its number, and a draft or cancelled note prints with a visible \"DRAFT\" or \"CANCELLED\" mark so it cannot pass as a valid dispatch document",
+      "pass": false,
+      "evidence": "Status words exist but are inconsistent and not placed next to the note number: the console bar shows a 'SHIPPED' badge while the printable page shows a rotated 'DISPATCHED' stamp (div.stamp) positioned near the header, not beside dd#noteNo. All content is static/hardcoded (const goods = [...] with no status-driven branching), so there is no mechanism that would render a DRAFT or CANCELLED watermark for those statuses."
+    },
+    {
+      "item": "A loading state is present, and a note that fails to load or does not exist shows a message with Retry and a link back to the delivery note list, never an empty template with blank fields",
+      "pass": false,
+      "evidence": "No fetch/async logic exists at all — goods and header fields are hardcoded constants rendered synchronously on page load. There is no loading spinner/skeleton and no error/retry/empty state in the markup or script."
+    }
+  ],
+  "tells": [
+    "tracked-uppercase-labels — section headings 'SHIP FROM', 'DELIVER TO', 'GOODS SHIPPED', 'HANDOVER & SIGNATURES', 'DELIVERY NOTE' and the company name 'NORDHAVEN SUPPLY CO.' are all hardcoded uppercase text set in font-display with tracking-wide"
+  ],
+  "notes": "Audit flagged non-visual issues (tabular-nums, numeric-align on the line-number column, text-contrast, font-size-base) that don't map to the checklist but corroborate general polish gaps. The page is fully static (no state fetched/loaded), which drives the loading/error-state and draft/cancelled-mark failures — these behaviors simply aren't implemented rather than being implemented incorrectly.",
+  "blind": true
+}

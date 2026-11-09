@@ -1,0 +1,660 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Accounts Receivable Aging Report</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+  :focus-visible { outline: none; }
+  .tabular { font-variant-numeric: tabular-nums; }
+  @media (prefers-reduced-motion: reduce) {
+    * { transition-duration: 0.001ms !important; animation-duration: 0.001ms !important; }
+  }
+</style>
+</head>
+<body class="bg-slate-50 text-slate-900 font-sans antialiased min-h-screen">
+
+<!-- Header -->
+<header class="sticky top-0 z-40 bg-white border-b border-slate-200">
+  <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex flex-wrap items-center justify-between gap-4">
+    <div class="flex items-center gap-3">
+      <div class="flex items-center justify-center size-10 rounded-lg bg-blue-600 text-white shrink-0">
+        <svg class="size-6" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <rect x="3" y="4" width="18" height="16" rx="2"></rect>
+          <path d="M3 9h18"></path>
+          <path d="M7 14h3M14 14h3M7 17h3"></path>
+        </svg>
+      </div>
+      <div>
+        <h1 class="text-lg sm:text-xl font-semibold text-slate-900 leading-tight">Accounts Receivable Aging Report</h1>
+        <p class="text-sm text-slate-500" id="asOfLabel">As of November 7, 2026</p>
+      </div>
+    </div>
+    <div class="flex items-center gap-2">
+      <button type="button" id="printBtn" class="hidden sm:inline-flex items-center gap-2 min-h-11 px-4 py-2 rounded-lg border border-slate-300 text-slate-700 text-sm font-medium hover:bg-slate-50 transition-colors focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2">
+        <svg class="size-4" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9V2h12v7"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
+        Print
+      </button>
+      <button type="button" id="exportBtn" class="inline-flex items-center gap-2 min-h-11 px-4 py-2 rounded-lg bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700 transition-colors focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2">
+        <svg class="size-4" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M7 10l5 5 5-5"/><path d="M12 15V3"/></svg>
+        Export CSV
+      </button>
+    </div>
+  </div>
+</header>
+
+<main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8 space-y-6">
+
+  <!-- KPI Cards -->
+  <section aria-label="Aging summary">
+    <div id="kpiGrid" class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 sm:gap-4"></div>
+  </section>
+
+  <!-- Distribution bar -->
+  <section aria-labelledby="distTitle" class="bg-white border border-slate-200 rounded-xl p-5 shadow-sm">
+    <div class="flex items-center justify-between mb-4">
+      <h2 id="distTitle" class="text-sm font-semibold text-slate-700">Aging Distribution</h2>
+      <p class="text-sm text-slate-500 tabular" id="distTotalLabel"></p>
+    </div>
+    <div class="w-full h-4 rounded-full overflow-hidden flex bg-slate-100" id="distBar" role="img" aria-label="Loading distribution"></div>
+    <div class="flex flex-wrap gap-x-6 gap-y-2 mt-4" id="distLegend"></div>
+  </section>
+
+  <!-- Filters -->
+  <section aria-label="Filters" class="bg-white border border-slate-200 rounded-xl p-4 sm:p-5 shadow-sm">
+    <div class="flex flex-col lg:flex-row lg:items-end gap-4">
+      <div class="flex-1 min-w-0">
+        <label for="searchInput" class="block text-xs font-medium text-slate-600 mb-1.5">Search customer or invoice #</label>
+        <div class="relative">
+          <svg class="size-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
+          <input type="text" id="searchInput" placeholder="e.g. Acme Industrial, INV-10234" class="w-full min-h-11 pl-9 pr-3 py-2 rounded-lg border border-slate-300 text-sm placeholder:text-slate-400 focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:border-blue-500 outline-none" />
+        </div>
+      </div>
+
+      <div class="w-full lg:w-52">
+        <label for="bucketFilter" class="block text-xs font-medium text-slate-600 mb-1.5">Has balance in bucket</label>
+        <select id="bucketFilter" class="w-full min-h-11 px-3 py-2 rounded-lg border border-slate-300 text-sm bg-white focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:border-blue-500 outline-none">
+          <option value="all">All buckets</option>
+          <option value="current">Current</option>
+          <option value="b1_30">1–30 days</option>
+          <option value="b31_60">31–60 days</option>
+          <option value="b61_90">61–90 days</option>
+          <option value="b90plus">90+ days</option>
+        </select>
+      </div>
+
+      <div class="w-full lg:w-44">
+        <label for="minBalance" class="block text-xs font-medium text-slate-600 mb-1.5">Min. total due ($)</label>
+        <input type="number" id="minBalance" min="0" step="100" placeholder="0" class="w-full min-h-11 px-3 py-2 rounded-lg border border-slate-300 text-sm placeholder:text-slate-400 focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:border-blue-500 outline-none tabular" />
+      </div>
+
+      <div class="flex items-center gap-2.5 lg:pb-2.5">
+        <button type="button" id="overdueToggle" role="switch" aria-checked="false" class="relative inline-flex h-6 w-11 shrink-0 items-center rounded-full bg-slate-300 transition-colors focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2">
+          <span class="sr-only">Show overdue customers only</span>
+          <span id="overdueToggleDot" class="inline-block size-5 translate-x-0.5 rounded-full bg-white shadow transition-transform"></span>
+        </button>
+        <label for="overdueToggle" class="text-sm text-slate-700 select-none cursor-pointer" id="overdueToggleLabel">Overdue only</label>
+      </div>
+
+      <div class="lg:pb-2.5">
+        <button type="button" id="clearFiltersBtn" class="inline-flex items-center gap-1.5 min-h-11 px-3 py-2 rounded-lg text-sm font-medium text-slate-600 hover:text-slate-900 hover:bg-slate-100 transition-colors focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2">
+          <svg class="size-4" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M15 9l-6 6M9 9l6 6"/></svg>
+          Clear filters
+        </button>
+      </div>
+    </div>
+
+    <p class="mt-4 text-sm text-slate-500" id="resultsCount" aria-live="polite">Showing all customers</p>
+  </section>
+
+  <!-- Table -->
+  <section aria-label="Customer balances by aging bucket" class="bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden">
+    <div class="overflow-x-auto">
+      <table class="w-full text-sm">
+        <thead class="bg-slate-50 border-b border-slate-200">
+          <tr id="headerRow"></tr>
+        </thead>
+        <tbody id="tableBody" class="divide-y divide-slate-100"></tbody>
+        <tfoot id="tableFoot" class="border-t-2 border-slate-200 bg-slate-50 font-semibold"></tfoot>
+      </table>
+    </div>
+    <div id="emptyState" class="hidden flex-col items-center justify-center text-center py-16 px-6">
+      <svg class="size-10 text-slate-300 mb-3" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
+      <p class="text-slate-700 font-medium">No customers match your filters</p>
+      <p class="text-slate-500 text-sm mt-1">Try adjusting the search, bucket, or balance filters.</p>
+      <button type="button" id="emptyClearBtn" class="mt-4 inline-flex items-center min-h-11 px-4 py-2 rounded-lg bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700 transition-colors focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2">Clear filters</button>
+    </div>
+  </section>
+
+  <p class="text-xs text-slate-400 pb-4">Mock data for demonstration purposes only · Figures recalculated as of the reporting date shown above.</p>
+</main>
+
+<script>
+(function () {
+  "use strict";
+
+  /* ---------------------------------------------------------------- */
+  /* Reference date                                                   */
+  /* ---------------------------------------------------------------- */
+  function d(y, m, day) { return new Date(y, m - 1, day); }
+  var ASOF = d(2026, 11, 7);
+  var DAY_MS = 24 * 60 * 60 * 1000;
+
+  /* ---------------------------------------------------------------- */
+  /* Mock invoice data                                                 */
+  /* ---------------------------------------------------------------- */
+  var RAW_INVOICES = [
+    { customer: "Acme Industrial Supply", contact: "Maria Chen", email: "ar@acmeindustrial.com", invoiceNo: "INV-10234", invoiceDate: d(2026,10,20), dueDate: d(2026,11,19), amount: 4820.00 },
+    { customer: "Acme Industrial Supply", contact: "Maria Chen", email: "ar@acmeindustrial.com", invoiceNo: "INV-10198", invoiceDate: d(2026,9,25),  dueDate: d(2026,10,25), amount: 2150.50 },
+
+    { customer: "Northbridge Logistics", contact: "Daniel Brooks", email: "accounts@northbridgelog.com", invoiceNo: "INV-5521", invoiceDate: d(2026,9,10), dueDate: d(2026,10,10), amount: 7600.00 },
+    { customer: "Northbridge Logistics", contact: "Daniel Brooks", email: "accounts@northbridgelog.com", invoiceNo: "INV-5489", invoiceDate: d(2026,7,15), dueDate: d(2026,8,14),  amount: 3200.00 },
+
+    { customer: "Starling Media Group", contact: "Priya Patel", email: "billing@starlingmedia.com", invoiceNo: "INV-8832", invoiceDate: d(2026,10,28), dueDate: d(2026,11,27), amount: 1560.00 },
+
+    { customer: "Crestview Construction", contact: "Tom Whitfield", email: "ap@crestviewconstruction.com", invoiceNo: "INV-4410", invoiceDate: d(2026,6,1), dueDate: d(2026,7,1),  amount: 18500.00 },
+    { customer: "Crestview Construction", contact: "Tom Whitfield", email: "ap@crestviewconstruction.com", invoiceNo: "INV-4467", invoiceDate: d(2026,9,2), dueDate: d(2026,10,2), amount: 6400.00 },
+
+    { customer: "BluePeak Technologies", contact: "Elena Novak", email: "finance@bluepeaktech.com", invoiceNo: "INV-7701", invoiceDate: d(2026,10,15), dueDate: d(2026,11,14), amount: 9200.00 },
+
+    { customer: "Harbor & Co. Retail", contact: "Sam Reyes", email: "ar@harborandco.com", invoiceNo: "INV-3310", invoiceDate: d(2026,8,1), dueDate: d(2026,8,31), amount: 2890.00 },
+    { customer: "Harbor & Co. Retail", contact: "Sam Reyes", email: "ar@harborandco.com", invoiceNo: "INV-3355", invoiceDate: d(2026,10,5), dueDate: d(2026,11,4), amount: 1475.25 },
+
+    { customer: "Ridgeline Manufacturing", contact: "Grace Kim", email: "payables@ridgelinemfg.com", invoiceNo: "INV-9012", invoiceDate: d(2026,5,10), dueDate: d(2026,6,9), amount: 24750.00 },
+
+    { customer: "Vantage Point Consulting", contact: "Owen Marsh", email: "billing@vantagepointco.com", invoiceNo: "INV-6650", invoiceDate: d(2026,10,22), dueDate: d(2026,11,21), amount: 3300.00 },
+
+    { customer: "Meridian Healthcare Partners", contact: "Dr. Lisa Huang", email: "accounting@meridianhealthcare.com", invoiceNo: "INV-2201", invoiceDate: d(2026,9,18), dueDate: d(2026,10,18), amount: 5120.00 },
+    { customer: "Meridian Healthcare Partners", contact: "Dr. Lisa Huang", email: "accounting@meridianhealthcare.com", invoiceNo: "INV-2255", invoiceDate: d(2026,10,30), dueDate: d(2026,11,29), amount: 2960.00 },
+
+    { customer: "Oakwood Furniture Co.", contact: "Ben Foster", email: "ap@oakwoodfurniture.com", invoiceNo: "INV-1180", invoiceDate: d(2026,7,20), dueDate: d(2026,8,19), amount: 4300.00 },
+
+    { customer: "Pinnacle Software Solutions", contact: "Natalie Ross", email: "ar@pinnaclesoft.com", invoiceNo: "INV-7788", invoiceDate: d(2026,10,12), dueDate: d(2026,11,11), amount: 12000.00 },
+    { customer: "Pinnacle Software Solutions", contact: "Natalie Ross", email: "ar@pinnaclesoft.com", invoiceNo: "INV-7750", invoiceDate: d(2026,9,5), dueDate: d(2026,10,5), amount: 4800.00 },
+
+    { customer: "Lakeside Hospitality Group", contact: "Carlos Diaz", email: "finance@lakesidehospitality.com", invoiceNo: "INV-3391", invoiceDate: d(2026,6,15), dueDate: d(2026,7,15), amount: 9800.00 },
+
+    { customer: "Summit Legal Associates", contact: "Rachel Kim", email: "billing@summitlegal.com", invoiceNo: "INV-5540", invoiceDate: d(2026,10,25), dueDate: d(2026,11,24), amount: 7250.00 },
+
+    { customer: "Coastal Freight Services", contact: "Mike Donovan", email: "ar@coastalfreight.com", invoiceNo: "INV-9921", invoiceDate: d(2026,8,10), dueDate: d(2026,9,9), amount: 6150.00 },
+    { customer: "Coastal Freight Services", contact: "Mike Donovan", email: "ar@coastalfreight.com", invoiceNo: "INV-9955", invoiceDate: d(2026,9,28), dueDate: d(2026,10,28), amount: 2975.00 },
+
+    { customer: "Ironclad Security Systems", contact: "Angela Burke", email: "ap@ironcladsecurity.com", invoiceNo: "INV-4420", invoiceDate: d(2026,4,1), dueDate: d(2026,5,1), amount: 15600.00 },
+
+    { customer: "Greenfield Agriculture Co.", contact: "Jorge Lopez", email: "accounts@greenfieldag.com", invoiceNo: "INV-6601", invoiceDate: d(2026,10,18), dueDate: d(2026,11,17), amount: 3680.00 },
+
+    { customer: "Nova Electric Supply", contact: "Hannah Scott", email: "ar@novaelectric.com", invoiceNo: "INV-7712", invoiceDate: d(2026,9,12), dueDate: d(2026,10,12), amount: 5400.00 },
+
+    { customer: "Union Square Realty", contact: "Peter Nguyen", email: "billing@unionsquarerealty.com", invoiceNo: "INV-8801", invoiceDate: d(2026,8,22), dueDate: d(2026,9,21), amount: 11200.00 },
+
+    { customer: "Falcon Aerospace Parts", contact: "Monica Reed", email: "ap@falconaerospace.com", invoiceNo: "INV-5571", invoiceDate: d(2026,10,1), dueDate: d(2026,10,31), amount: 8900.00 },
+    { customer: "Falcon Aerospace Parts", contact: "Monica Reed", email: "ap@falconaerospace.com", invoiceNo: "INV-5590", invoiceDate: d(2026,10,29), dueDate: d(2026,11,28), amount: 2200.00 },
+
+    { customer: "Cedar Grove Dental Group", contact: "Dr. James Park", email: "billing@cedargrovedental.com", invoiceNo: "INV-2290", invoiceDate: d(2026,7,5), dueDate: d(2026,8,4), amount: 1950.00 },
+
+    { customer: "Apex Fitness Equipment", contact: "Derek Hall", email: "ar@apexfitness.com", invoiceNo: "INV-6630", invoiceDate: d(2026,9,20), dueDate: d(2026,10,20), amount: 3750.00 },
+
+    { customer: "Silverline Insurance Brokers", contact: "Olivia Martinez", email: "accounts@silverlineinsurance.com", invoiceNo: "INV-7745", invoiceDate: d(2026,10,8), dueDate: d(2026,11,7), amount: 4100.00 },
+
+    { customer: "Timberline Lumber Co.", contact: "Frank Ortiz", email: "ap@timberlinelumber.com", invoiceNo: "INV-3320", invoiceDate: d(2026,6,28), dueDate: d(2026,7,28), amount: 13400.00 },
+    { customer: "Timberline Lumber Co.", contact: "Frank Ortiz", email: "ap@timberlinelumber.com", invoiceNo: "INV-3366", invoiceDate: d(2026,9,30), dueDate: d(2026,10,30), amount: 5600.00 },
+
+    { customer: "Westfield Automotive Group", contact: "Sandra Kelly", email: "billing@westfieldauto.com", invoiceNo: "INV-9980", invoiceDate: d(2026,8,15), dueDate: d(2026,9,14), amount: 7800.00 },
+
+    { customer: "Brightwave Energy Solutions", contact: "Victor Chang", email: "ar@brightwaveenergy.com", invoiceNo: "INV-4455", invoiceDate: d(2026,10,26), dueDate: d(2026,11,25), amount: 16500.00 }
+  ];
+
+  var BUCKETS = [
+    { key: "current", label: "Current",     short: "Current",  text: "text-emerald-700", bg: "bg-emerald-50",  ring: "ring-emerald-200", bar: "bg-emerald-500" },
+    { key: "b1_30",   label: "1–30 days",   short: "1-30",     text: "text-amber-700",   bg: "bg-amber-50",    ring: "ring-amber-200",   bar: "bg-amber-500" },
+    { key: "b31_60",  label: "31–60 days",  short: "31-60",    text: "text-orange-700",  bg: "bg-orange-50",   ring: "ring-orange-200",  bar: "bg-orange-500" },
+    { key: "b61_90",  label: "61–90 days",  short: "61-90",    text: "text-red-700",     bg: "bg-red-50",      ring: "ring-red-200",     bar: "bg-red-500" },
+    { key: "b90plus", label: "90+ days",    short: "90+",      text: "text-rose-900",    bg: "bg-rose-100",    ring: "ring-rose-300",    bar: "bg-rose-800" }
+  ];
+  function bucketOf(k) { for (var i = 0; i < BUCKETS.length; i++) if (BUCKETS[i].key === k) return BUCKETS[i]; return BUCKETS[0]; }
+
+  function daysOverdue(dueDate) { return Math.floor((ASOF - dueDate) / DAY_MS); }
+  function bucketKeyForDays(days) {
+    if (days <= 0) return "current";
+    if (days <= 30) return "b1_30";
+    if (days <= 60) return "b31_60";
+    if (days <= 90) return "b61_90";
+    return "b90plus";
+  }
+
+  var fmtMoney = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", minimumFractionDigits: 2 });
+  var fmtDate = new Intl.DateTimeFormat("en-US", { year: "numeric", month: "short", day: "numeric" });
+
+  /* ---------------------------------------------------------------- */
+  /* Build customer aggregates                                        */
+  /* ---------------------------------------------------------------- */
+  var customersMap = {};
+  RAW_INVOICES.forEach(function (inv) {
+    var days = daysOverdue(inv.dueDate);
+    var bKey = bucketKeyForDays(days);
+    var c = customersMap[inv.customer];
+    if (!c) {
+      c = {
+        name: inv.customer,
+        contact: inv.contact,
+        email: inv.email,
+        invoices: [],
+        totals: { current: 0, b1_30: 0, b31_60: 0, b61_90: 0, b90plus: 0, total: 0 },
+        oldestDays: -Infinity,
+        oldestBucketKey: "current",
+        oldestDueDate: inv.dueDate
+      };
+      customersMap[inv.customer] = c;
+    }
+    var invRecord = { invoiceNo: inv.invoiceNo, invoiceDate: inv.invoiceDate, dueDate: inv.dueDate, amount: inv.amount, days: days, bucketKey: bKey };
+    c.invoices.push(invRecord);
+    c.totals[bKey] += inv.amount;
+    c.totals.total += inv.amount;
+    if (days > c.oldestDays) {
+      c.oldestDays = days;
+      c.oldestBucketKey = bKey;
+      c.oldestDueDate = inv.dueDate;
+    }
+  });
+  var CUSTOMERS = Object.keys(customersMap).map(function (k) { return customersMap[k]; });
+
+  var GRAND = { current: 0, b1_30: 0, b31_60: 0, b61_90: 0, b90plus: 0, total: 0 };
+  CUSTOMERS.forEach(function (c) {
+    GRAND.current += c.totals.current;
+    GRAND.b1_30 += c.totals.b1_30;
+    GRAND.b31_60 += c.totals.b31_60;
+    GRAND.b61_90 += c.totals.b61_90;
+    GRAND.b90plus += c.totals.b90plus;
+    GRAND.total += c.totals.total;
+  });
+
+  /* ---------------------------------------------------------------- */
+  /* KPI cards                                                         */
+  /* ---------------------------------------------------------------- */
+  var kpiGrid = document.getElementById("kpiGrid");
+  var kpiIcons = {
+    total: '<path d="M3 7h18M3 7v12a1 1 0 0 0 1 1h16a1 1 0 0 0 1-1V7M3 7l2.5-4h13L21 7"/>',
+    current: '<path d="M12 8v4l2.5 2.5"/><circle cx="12" cy="12" r="9"/>',
+    aging: '<path d="M12 8v4l2.5 2.5"/><circle cx="12" cy="12" r="9"/>',
+    critical: '<path d="M10.3 3.9 2.6 17a2 2 0 0 0 1.7 3h15.4a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z"/><path d="M12 9v4"/><path d="M12 17h.01"/>'
+  };
+  var kpiDefs = [
+    { label: "Total Outstanding", value: GRAND.total, accent: "bg-blue-600", textAccent: "text-blue-700", icon: kpiIcons.total, note: CUSTOMERS.length + " customers" },
+    { label: "Current", value: GRAND.current, accent: BUCKETS[0].bar, textAccent: BUCKETS[0].text, icon: kpiIcons.current, note: pct(GRAND.current) },
+    { label: "1–30 Days", value: GRAND.b1_30, accent: BUCKETS[1].bar, textAccent: BUCKETS[1].text, icon: kpiIcons.aging, note: pct(GRAND.b1_30) },
+    { label: "31–60 Days", value: GRAND.b31_60, accent: BUCKETS[2].bar, textAccent: BUCKETS[2].text, icon: kpiIcons.aging, note: pct(GRAND.b31_60) },
+    { label: "61–90 Days", value: GRAND.b61_90, accent: BUCKETS[3].bar, textAccent: BUCKETS[3].text, icon: kpiIcons.aging, note: pct(GRAND.b61_90) },
+    { label: "90+ Days", value: GRAND.b90plus, accent: BUCKETS[4].bar, textAccent: BUCKETS[4].text, icon: kpiIcons.critical, note: pct(GRAND.b90plus) }
+  ];
+  function pct(v) { return GRAND.total ? ((v / GRAND.total) * 100).toFixed(1) + "% of total" : "0% of total"; }
+
+  kpiGrid.innerHTML = kpiDefs.map(function (k) {
+    return (
+      '<div class="relative bg-white border border-slate-200 rounded-xl p-4 shadow-sm overflow-hidden">' +
+        '<div class="absolute top-0 left-0 right-0 h-1 ' + k.accent + '"></div>' +
+        '<div class="flex items-start justify-between">' +
+          '<p class="text-xs font-medium text-slate-500">' + k.label + '</p>' +
+          '<svg class="size-4 ' + k.textAccent + '" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + k.icon + '</svg>' +
+        '</div>' +
+        '<p class="mt-1.5 text-xl sm:text-2xl font-bold text-slate-900 tabular">' + fmtMoney.format(k.value) + '</p>' +
+        '<p class="mt-0.5 text-xs text-slate-400 tabular">' + k.note + '</p>' +
+      '</div>'
+    );
+  }).join("");
+
+  /* ---------------------------------------------------------------- */
+  /* Distribution bar + legend                                        */
+  /* ---------------------------------------------------------------- */
+  var distBar = document.getElementById("distBar");
+  var distLegend = document.getElementById("distLegend");
+  document.getElementById("distTotalLabel").textContent = fmtMoney.format(GRAND.total) + " total";
+
+  distBar.setAttribute("aria-label", "Aging distribution: " + BUCKETS.map(function (b) {
+    return b.label + " " + (GRAND.total ? ((GRAND[b.key] / GRAND.total) * 100).toFixed(1) : "0") + "%";
+  }).join(", "));
+
+  distBar.innerHTML = BUCKETS.map(function (b) {
+    var width = GRAND.total ? (GRAND[b.key] / GRAND.total) * 100 : 0;
+    if (width <= 0) return "";
+    return '<div class="' + b.bar + ' h-full first:rounded-l-full last:rounded-r-full transition-[width] duration-300" style="width:' + width + '%" title="' + b.label + ": " + fmtMoney.format(GRAND[b.key]) + '"></div>';
+  }).join("");
+
+  distLegend.innerHTML = BUCKETS.map(function (b) {
+    var pctVal = GRAND.total ? ((GRAND[b.key] / GRAND.total) * 100).toFixed(1) : "0.0";
+    return (
+      '<div class="flex items-center gap-2 text-sm">' +
+        '<span class="size-2.5 rounded-full ' + b.bar + ' shrink-0" aria-hidden="true"></span>' +
+        '<span class="text-slate-600">' + b.label + '</span>' +
+        '<span class="font-semibold text-slate-900 tabular">' + fmtMoney.format(GRAND[b.key]) + '</span>' +
+        '<span class="text-slate-400 tabular">(' + pctVal + '%)</span>' +
+      '</div>'
+    );
+  }).join("");
+
+  /* ---------------------------------------------------------------- */
+  /* Table setup                                                      */
+  /* ---------------------------------------------------------------- */
+  var COLUMNS = [
+    { key: "name",     label: "Customer",   sortable: true,  align: "left" },
+    { key: "count",    label: "Invoices",   sortable: false, align: "right" },
+    { key: "current",  label: "Current",    sortable: true,  align: "right" },
+    { key: "b1_30",    label: "1–30",       sortable: true,  align: "right" },
+    { key: "b31_60",   label: "31–60",      sortable: true,  align: "right" },
+    { key: "b61_90",   label: "61–90",      sortable: true,  align: "right" },
+    { key: "b90plus",  label: "90+",        sortable: true,  align: "right" },
+    { key: "total",    label: "Total Due",  sortable: true,  align: "right" },
+    { key: "status",   label: "Status",     sortable: true,  align: "left" }
+  ];
+
+  var sortState = { key: "total", dir: "desc" };
+  var expanded = {};
+
+  var headerRow = document.getElementById("headerRow");
+  function renderHeader() {
+    headerRow.innerHTML = COLUMNS.map(function (col, i) {
+      var isSorted = sortState.key === col.key;
+      var ariaSort = !col.sortable ? null : (isSorted ? (sortState.dir === "asc" ? "ascending" : "descending") : "none");
+      var alignCls = col.align === "right" ? "text-right" : "text-left";
+      var padCls = i === 0 ? "pl-4 sm:pl-5" : (i === COLUMNS.length - 1 ? "pr-4 sm:pr-5" : "");
+      var arrow = "";
+      if (col.sortable) {
+        arrow = '<svg class="size-3.5 inline-block ml-1 ' + (isSorted ? "text-slate-700" : "text-slate-300") + '" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' +
+          (isSorted && sortState.dir === "asc" ? '<path d="M12 19V5"/><path d="M5 12l7-7 7 7"/>' : '<path d="M12 5v14"/><path d="M19 12l-7 7-7-7"/>') +
+          '</svg>';
+      }
+      var inner = '<span class="inline-flex items-center">' + col.label + arrow + '</span>';
+      var thContent = col.sortable
+        ? '<button type="button" data-sort="' + col.key + '" class="hover:text-slate-900 focus-visible:ring-2 focus-visible:ring-blue-500 rounded px-1 -mx-1">' + inner + '</button>'
+        : inner;
+      return '<th scope="col" ' + (ariaSort ? 'aria-sort="' + ariaSort + '"' : '') + ' class="' + padCls + ' py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide ' + alignCls + ' whitespace-nowrap">' + thContent + '</th>';
+    }).join("") + '<th scope="col" class="pr-4 sm:pr-5 py-3 w-10"><span class="sr-only">Expand</span></th>';
+
+    headerRow.querySelectorAll("[data-sort]").forEach(function (btn) {
+      btn.addEventListener("click", function () {
+        var key = btn.getAttribute("data-sort");
+        if (sortState.key === key) {
+          sortState.dir = sortState.dir === "asc" ? "desc" : "asc";
+        } else {
+          sortState.key = key;
+          sortState.dir = key === "name" ? "asc" : "desc";
+        }
+        render();
+      });
+    });
+  }
+
+  function statusFor(c) {
+    var b = bucketOf(c.oldestBucketKey);
+    if (c.oldestBucketKey === "current") return { label: "Current", bucket: b };
+    return { label: b.label + " overdue", bucket: b };
+  }
+
+  function sortValue(c, key) {
+    if (key === "name") return c.name.toLowerCase();
+    if (key === "status") return c.oldestDays;
+    if (key === "count") return c.invoices.length;
+    return c.totals[key];
+  }
+
+  /* ---------------------------------------------------------------- */
+  /* Filtering                                                         */
+  /* ---------------------------------------------------------------- */
+  var searchInput = document.getElementById("searchInput");
+  var bucketFilter = document.getElementById("bucketFilter");
+  var minBalanceInput = document.getElementById("minBalance");
+  var overdueToggle = document.getElementById("overdueToggle");
+  var overdueToggleDot = document.getElementById("overdueToggleDot");
+  var resultsCount = document.getElementById("resultsCount");
+  var tableBody = document.getElementById("tableBody");
+  var tableFoot = document.getElementById("tableFoot");
+  var emptyState = document.getElementById("emptyState");
+  var tableWrapper = document.querySelector("table").parentElement;
+
+  var filterState = { search: "", bucket: "all", minBalance: 0, overdueOnly: false };
+
+  function getFiltered() {
+    var term = filterState.search.trim().toLowerCase();
+    return CUSTOMERS.filter(function (c) {
+      if (filterState.overdueOnly && c.oldestBucketKey === "current") return false;
+      if (filterState.bucket !== "all" && c.totals[filterState.bucket] <= 0) return false;
+      if (filterState.minBalance > 0 && c.totals.total < filterState.minBalance) return false;
+      if (term) {
+        var hay = (c.name + " " + c.contact + " " + c.invoices.map(function (i) { return i.invoiceNo; }).join(" ")).toLowerCase();
+        if (hay.indexOf(term) === -1) return false;
+      }
+      return true;
+    });
+  }
+
+  function badgeHtml(bucketKey, text) {
+    var b = bucketOf(bucketKey);
+    return '<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ' + b.bg + ' ' + b.text + ' ring-1 ring-inset ' + b.ring + '">' + text + '</span>';
+  }
+
+  function renderTable() {
+    var filtered = getFiltered();
+    var dir = sortState.dir === "asc" ? 1 : -1;
+    filtered.sort(function (a, b) {
+      var av = sortValue(a, sortState.key), bv = sortValue(b, sortState.key);
+      if (av < bv) return -1 * dir;
+      if (av > bv) return 1 * dir;
+      return 0;
+    });
+
+    resultsCount.textContent = "Showing " + filtered.length + " of " + CUSTOMERS.length + " customers";
+
+    if (filtered.length === 0) {
+      tableWrapper.classList.add("hidden");
+      tableFoot.innerHTML = "";
+      emptyState.classList.remove("hidden");
+      emptyState.classList.add("flex");
+      return;
+    }
+    tableWrapper.classList.remove("hidden");
+    emptyState.classList.add("hidden");
+    emptyState.classList.remove("flex");
+
+    tableBody.innerHTML = filtered.map(function (c) {
+      var st = statusFor(c);
+      var isOpen = !!expanded[c.name];
+      var rowId = "detail-" + c.name.replace(/[^a-z0-9]/gi, "-");
+
+      var cells = [
+        '<td class="pl-4 sm:pl-5 py-3 align-top"><div class="font-medium text-slate-900">' + escapeHtml(c.name) + '</div><div class="text-xs text-slate-500">' + escapeHtml(c.contact) + '</div></td>',
+        '<td class="py-3 text-right align-top tabular text-slate-600">' + c.invoices.length + '</td>',
+        '<td class="py-3 text-right align-top tabular ' + (c.totals.current ? "text-slate-700" : "text-slate-300") + '">' + (c.totals.current ? fmtMoney.format(c.totals.current) : "—") + '</td>',
+        '<td class="py-3 text-right align-top tabular ' + (c.totals.b1_30 ? "text-slate-700" : "text-slate-300") + '">' + (c.totals.b1_30 ? fmtMoney.format(c.totals.b1_30) : "—") + '</td>',
+        '<td class="py-3 text-right align-top tabular ' + (c.totals.b31_60 ? "text-slate-700" : "text-slate-300") + '">' + (c.totals.b31_60 ? fmtMoney.format(c.totals.b31_60) : "—") + '</td>',
+        '<td class="py-3 text-right align-top tabular ' + (c.totals.b61_90 ? "text-slate-700" : "text-slate-300") + '">' + (c.totals.b61_90 ? fmtMoney.format(c.totals.b61_90) : "—") + '</td>',
+        '<td class="py-3 text-right align-top tabular ' + (c.totals.b90plus ? "text-slate-700" : "text-slate-300") + '">' + (c.totals.b90plus ? fmtMoney.format(c.totals.b90plus) : "—") + '</td>',
+        '<td class="py-3 text-right align-top tabular font-semibold text-slate-900">' + fmtMoney.format(c.totals.total) + '</td>',
+        '<td class="py-3 align-top">' + badgeHtml(c.oldestBucketKey, st.label) + '</td>',
+        '<td class="pr-4 sm:pr-5 py-3 text-right align-top">' +
+          '<button type="button" data-expand="' + escapeHtml(c.name) + '" aria-expanded="' + isOpen + '" aria-controls="' + rowId + '" class="inline-flex items-center justify-center size-8 rounded-lg hover:bg-slate-100 text-slate-500 transition-colors focus-visible:ring-2 focus-visible:ring-blue-500">' +
+            '<span class="sr-only">' + (isOpen ? "Collapse" : "Expand") + ' invoice details for ' + escapeHtml(c.name) + '</span>' +
+            '<svg class="size-4 transition-transform duration-200 ' + (isOpen ? "rotate-180" : "") + '" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>' +
+          '</button>' +
+        '</td>'
+      ].join("");
+
+      var mainRow = '<tr class="hover:bg-slate-50/80">' + cells + '</tr>';
+
+      var detailRow = "";
+      if (isOpen) {
+        var invRows = c.invoices.slice().sort(function (a, b) { return b.days - a.days; }).map(function (inv) {
+          var bk = bucketOf(inv.bucketKey);
+          var dueLabel = inv.days > 0 ? (inv.days + " days overdue") : (inv.days === 0 ? "Due today" : ("Due in " + Math.abs(inv.days) + " days"));
+          return (
+            '<tr class="border-t border-slate-100">' +
+              '<td class="py-2 pl-4 text-slate-600">' + escapeHtml(inv.invoiceNo) + '</td>' +
+              '<td class="py-2 text-slate-600">' + fmtDate.format(inv.invoiceDate) + '</td>' +
+              '<td class="py-2 text-slate-600">' + fmtDate.format(inv.dueDate) + '</td>' +
+              '<td class="py-2 text-slate-600">' + badgeHtml(inv.bucketKey, dueLabel) + '</td>' +
+              '<td class="py-2 text-right tabular font-medium text-slate-800 pr-4">' + fmtMoney.format(inv.amount) + '</td>' +
+            '</tr>'
+          );
+        }).join("");
+
+        detailRow = (
+          '<tr id="' + rowId + '" class="bg-slate-50">' +
+            '<td colspan="' + (COLUMNS.length + 1) + '" class="px-4 sm:px-5 py-3">' +
+              '<div class="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2">Invoice detail · ' + escapeHtml(c.email) + '</div>' +
+              '<div class="overflow-x-auto rounded-lg border border-slate-200 bg-white">' +
+                '<table class="w-full text-sm">' +
+                  '<thead><tr class="text-xs text-slate-400 text-left">' +
+                    '<th scope="col" class="py-2 pl-4 font-medium">Invoice #</th>' +
+                    '<th scope="col" class="py-2 font-medium">Invoice Date</th>' +
+                    '<th scope="col" class="py-2 font-medium">Due Date</th>' +
+                    '<th scope="col" class="py-2 font-medium">Aging</th>' +
+                    '<th scope="col" class="py-2 font-medium text-right pr-4">Amount</th>' +
+                  '</tr></thead>' +
+                  '<tbody>' + invRows + '</tbody>' +
+                '</table>' +
+              '</div>' +
+            '</td>' +
+          '</tr>'
+        );
+      }
+
+      return mainRow + detailRow;
+    }).join("");
+
+    tableBody.querySelectorAll("[data-expand]").forEach(function (btn) {
+      btn.addEventListener("click", function () {
+        var name = btn.getAttribute("data-expand");
+        expanded[name] = !expanded[name];
+        renderTable();
+      });
+    });
+
+    var sums = { current: 0, b1_30: 0, b31_60: 0, b61_90: 0, b90plus: 0, total: 0 };
+    filtered.forEach(function (c) {
+      sums.current += c.totals.current;
+      sums.b1_30 += c.totals.b1_30;
+      sums.b31_60 += c.totals.b31_60;
+      sums.b61_90 += c.totals.b61_90;
+      sums.b90plus += c.totals.b90plus;
+      sums.total += c.totals.total;
+    });
+    var invCount = filtered.reduce(function (acc, c) { return acc + c.invoices.length; }, 0);
+    tableFoot.innerHTML = (
+      '<tr>' +
+        '<td class="pl-4 sm:pl-5 py-3 text-slate-700">Total (' + filtered.length + ' customers)</td>' +
+        '<td class="py-3 text-right tabular text-slate-600">' + invCount + '</td>' +
+        '<td class="py-3 text-right tabular">' + fmtMoney.format(sums.current) + '</td>' +
+        '<td class="py-3 text-right tabular">' + fmtMoney.format(sums.b1_30) + '</td>' +
+        '<td class="py-3 text-right tabular">' + fmtMoney.format(sums.b31_60) + '</td>' +
+        '<td class="py-3 text-right tabular">' + fmtMoney.format(sums.b61_90) + '</td>' +
+        '<td class="py-3 text-right tabular">' + fmtMoney.format(sums.b90plus) + '</td>' +
+        '<td class="py-3 text-right tabular text-blue-700">' + fmtMoney.format(sums.total) + '</td>' +
+        '<td class="py-3" colspan="2"></td>' +
+      '</tr>'
+    );
+  }
+
+  function escapeHtml(s) {
+    return String(s).replace(/[&<>"']/g, function (ch) {
+      return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[ch];
+    });
+  }
+
+  function render() {
+    renderHeader();
+    renderTable();
+  }
+
+  /* ---------------------------------------------------------------- */
+  /* Filter wiring                                                     */
+  /* ---------------------------------------------------------------- */
+  var searchDebounce;
+  searchInput.addEventListener("input", function () {
+    clearTimeout(searchDebounce);
+    searchDebounce = setTimeout(function () {
+      filterState.search = searchInput.value;
+      render();
+    }, 150);
+  });
+
+  bucketFilter.addEventListener("change", function () {
+    filterState.bucket = bucketFilter.value;
+    render();
+  });
+
+  minBalanceInput.addEventListener("input", function () {
+    var v = parseFloat(minBalanceInput.value);
+    filterState.minBalance = isNaN(v) ? 0 : v;
+    render();
+  });
+
+  function setOverdueToggle(val) {
+    filterState.overdueOnly = val;
+    overdueToggle.setAttribute("aria-checked", String(val));
+    overdueToggle.classList.toggle("bg-blue-600", val);
+    overdueToggle.classList.toggle("bg-slate-300", !val);
+    overdueToggleDot.classList.toggle("translate-x-5", val);
+    overdueToggleDot.classList.toggle("translate-x-0.5", !val);
+    render();
+  }
+  overdueToggle.addEventListener("click", function () { setOverdueToggle(!filterState.overdueOnly); });
+
+  function clearFilters() {
+    filterState = { search: "", bucket: "all", minBalance: 0, overdueOnly: false };
+    searchInput.value = "";
+    bucketFilter.value = "all";
+    minBalanceInput.value = "";
+    setOverdueToggle(false);
+    render();
+  }
+  document.getElementById("clearFiltersBtn").addEventListener("click", clearFilters);
+  document.getElementById("emptyClearBtn").addEventListener("click", clearFilters);
+
+  /* ---------------------------------------------------------------- */
+  /* Export CSV                                                        */
+  /* ---------------------------------------------------------------- */
+  function csvField(v) {
+    var s = String(v);
+    if (/[",\n]/.test(s)) s = '"' + s.replace(/"/g, '""') + '"';
+    return s;
+  }
+
+  document.getElementById("exportBtn").addEventListener("click", function () {
+    var filtered = getFiltered();
+    var dir = sortState.dir === "asc" ? 1 : -1;
+    filtered.sort(function (a, b) {
+      var av = sortValue(a, sortState.key), bv = sortValue(b, sortState.key);
+      if (av < bv) return -1 * dir;
+      if (av > bv) return 1 * dir;
+      return 0;
+    });
+
+    var header = ["Customer", "Contact", "Email", "Invoices", "Current", "1-30 Days", "31-60 Days", "61-90 Days", "90+ Days", "Total Due", "Status"];
+    var rows = filtered.map(function (c) {
+      var st = statusFor(c);
+      return [
+        c.name, c.contact, c.email, c.invoices.length,
+        c.totals.current.toFixed(2), c.totals.b1_30.toFixed(2), c.totals.b31_60.toFixed(2),
+        c.totals.b61_90.toFixed(2), c.totals.b90plus.toFixed(2), c.totals.total.toFixed(2), st.label
+      ].map(csvField).join(",");
+    });
+    var csv = [header.map(csvField).join(","), rows.join("\n")].join("\n");
+
+    var blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement("a");
+    a.href = url;
+    a.download = "ar-aging-report-" + ASOF.getFullYear() + "-" + String(ASOF.getMonth() + 1).padStart(2, "0") + "-" + String(ASOF.getDate()).padStart(2, "0") + ".csv";
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  });
+
+  document.getElementById("printBtn").addEventListener("click", function () { window.print(); });
+
+  /* ---------------------------------------------------------------- */
+  render();
+})();
+</script>
+</body>
+</html>

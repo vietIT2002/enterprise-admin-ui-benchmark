@@ -1,0 +1,54 @@
+{
+  "brief": "23-recruitment-pipeline",
+  "run": 1,
+  "items": [
+    {
+      "item": "Stage columns run in hiring order (such as Applied → Screening → Interview → Offer → Hired), and rejected or withdrawn candidates are kept out of the active columns, in a separate collapsed column or behind a filter",
+      "pass": true,
+      "evidence": "STAGES = [applied, screening, interview, offer, hired] rendered in order via columnTemplate; DECLINED_STAGE ('Not moving forward') is only appended to columns when state.showDeclined is true, toggled by #toggleDeclined ('Show not moving forward'), default false so declined/withdrawn candidates are hidden behind this filter."
+    },
+    {
+      "item": "Each stage header shows a candidate count that matches the number of cards in that column under the current filters",
+      "pass": true,
+      "evidence": "renderBoard() computes `cards = filtered.filter(c => c.stage === stage.key)` from the same `filtered` list used to render cards, and columnTemplate prints `cards.length` in the header badge, e.g. '<span class=\"text-xs bg-white/25...\">' + cards.length + '</span>'."
+    },
+    {
+      "item": "The page names the opening being shown (job title, department, positions to fill and hired so far, such as \"Senior Accountant · Finance · 1 of 2 hired\"), and a selector switches to another opening",
+      "pass": false,
+      "evidence": "renderJobMeta() shows job.title, department + ' team', location, type, manager, 'N openings', and 'Opened N days ago' — e.g. screenshot shows 'Design team | Remote (US) | Full-time | Hiring manager Dana Whitfield | 2 openings | Opened 48 days ago'. There is no 'X of Y hired' figure anywhere, only total openings. #jobSwitcher select does switch openings correctly, but the hired-so-far count required by the item is missing."
+    },
+    {
+      "item": "Each card gives the candidate's name, application source and days in the current stage, and candidates who have stayed past a stated limit are flagged with a text label or icon rather than colour alone",
+      "pass": false,
+      "evidence": "cardTemplate renders name, 'From ' + c.source + '.' and days + ' day(s) in ' + stageLabel. However the only badges are flag==='new' ('New') and flag==='offer-out' ('Offer sent') — there is no concept of a stated time-in-stage limit anywhere in the code, so overdue candidates are never flagged by label or icon."
+    },
+    {
+      "item": "A card can change stage without dragging, through a \"Move to\" menu or buttons that work from the keyboard, and each move is announced through an aria-live region",
+      "pass": true,
+      "evidence": "renderDossierActions() renders a button 'Move to ' + next.label that calls moveCandidate(); cards are reachable/openable via keyboard (tabindex=\"0\", role=\"button\", Enter/Space handled in board keydown listener) and dossier buttons are native <button> elements. showToast() writes into `#toast` which has `aria-live=\"polite\"`, and moveCandidate() calls showToast('Moved ' + c.name + ' to ' + ... + '.') on every move."
+    },
+    {
+      "item": "Moving a candidate to Rejected opens a confirmation that names the candidate and requires a rejection reason before it completes",
+      "pass": false,
+      "evidence": "The decline action is `else if (action === 'decline') { moveCandidate(c, 'declined'); }` — it moves the candidate immediately with no confirmation dialog and no input for a rejection reason; declinedReason only exists as pre-seeded static data in CANDIDATES_RAW, never captured via UI."
+    },
+    {
+      "item": "Search by candidate name or email and filters by source and by recruiter narrow the board, and the active filters are displayed with a way to clear them",
+      "pass": false,
+      "evidence": "matchesFilters() builds `hay` from name + title + company + tags only (no email field), and #searchInput's placeholder is 'Search by name, title, or skill'. #filterSource and #filterRecruiter do narrow the board. But there is no active-filter display or clear control anywhere — only #activeCount showing a result count, with no chips/labels for which filters are applied and no 'clear filters' affordance."
+    },
+    {
+      "item": "Opening a card shows the candidate's contact details, a link to the CV and a stage history listing each move with its date and the person who made it",
+      "pass": false,
+      "evidence": "renderDossierContent() shows email/phone/linkedin as plain text (not <a> links), and the resume is shown as `<span>` text c.resumeFile with 'Preview not available in this demo.' (not a link). stageTimelineHtml() lists stage + fmtDate(date) only — history entries are {stage, date} with no person/recruiter attached, so no mover is shown."
+    },
+    {
+      "item": "A stage with no candidates keeps its column and shows a placeholder such as \"No candidates\", and loading and error-with-retry states are built in",
+      "pass": false,
+      "evidence": "columnTemplate always renders a column per stage and shows '<p class=\"text-sm text-ink/40 px-1 py-4\">No candidates match your filters.</p>' when cards.length is 0, satisfying the placeholder half. But the app uses only static in-memory CANDIDATES_RAW with no fetch/async logic, so there is no loading state and no error-with-retry state anywhere in the code."
+    }
+  ],
+  "tells": [],
+  "notes": "Board data is fully static/in-memory (no fetch), so there is no real loading or error state to evaluate — only the empty-column placeholder is implemented. The UI is largely custom-styled (serif/sans pairing, muted stage colors, small radii) and didn't show obvious generic-dashboard template tells from the checklist list.",
+  "blind": true
+}

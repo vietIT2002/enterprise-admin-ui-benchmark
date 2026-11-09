@@ -1,0 +1,678 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lịch phân ca theo tuần · Cửa hàng Minh Phát</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+  [hidden] { display: none !important; }
+  .tnum { font-variant-numeric: tabular-nums; }
+  @media print {
+    aside, nav, [data-no-print] { display: none !important; }
+    main { padding: 0 !important; }
+  }
+</style>
+</head>
+<body class="bg-white text-sm text-slate-900 antialiased">
+<div class="flex min-h-screen">
+  <aside class="w-56 shrink-0 border-r border-slate-200 bg-slate-50">
+    <div class="flex h-12 items-center px-4 font-semibold text-slate-900">Cửa hàng Minh Phát</div>
+    <nav aria-label="Chính" class="px-2 pb-4">
+      <p class="px-2 pb-1 pt-3 text-xs font-medium text-slate-600">Vận hành</p>
+      <a href="#" aria-current="page" class="flex h-8 items-center rounded bg-slate-200 px-2 font-medium text-slate-900">Lịch phân ca</a>
+      <a href="#" class="flex h-8 items-center rounded px-2 text-slate-700 hover:bg-slate-100">Nhân viên</a>
+      <a href="#" class="flex h-8 items-center rounded px-2 text-slate-700 hover:bg-slate-100">Yêu cầu nghỉ</a>
+      <p class="px-2 pb-1 pt-3 text-xs font-medium text-slate-600">Báo cáo</p>
+      <a href="#" class="flex h-8 items-center rounded px-2 text-slate-700 hover:bg-slate-100">Giờ công</a>
+      <a href="#" class="flex h-8 items-center rounded px-2 text-slate-700 hover:bg-slate-100">Chi phí nhân sự</a>
+    </nav>
+  </aside>
+
+  <main class="min-w-0 flex-1 px-6 py-4">
+    <header class="flex flex-wrap items-start justify-between gap-3">
+      <div>
+        <div class="flex items-center gap-2">
+          <h1 class="text-xl font-semibold text-slate-900">Lịch phân ca theo tuần</h1>
+          <span id="status-badge" class="inline-flex h-6 items-center rounded-full px-2 text-xs font-medium"></span>
+        </div>
+        <p id="status-meta" class="mt-1 text-xs text-slate-600"></p>
+      </div>
+      <div class="flex items-center gap-2">
+        <button type="button" id="btn-export" class="h-8 rounded border border-slate-300 bg-white px-3 text-slate-700 hover:bg-slate-50">Xuất lịch tuần (<span id="export-count" class="tnum">0</span> ca)</button>
+        <button type="button" id="btn-publish" class="h-8 rounded bg-blue-700 px-3 font-medium text-white hover:bg-blue-800 disabled:cursor-not-allowed disabled:bg-slate-200 disabled:text-slate-500">Công bố lịch</button>
+      </div>
+    </header>
+
+    <div class="mt-3 flex flex-wrap items-center gap-2" role="group" aria-label="Điều hướng tuần">
+      <button type="button" id="btn-today" class="h-8 rounded border border-slate-300 bg-white px-3 text-slate-700 hover:bg-slate-50">Tuần này</button>
+      <button type="button" id="btn-prev" aria-label="Tuần trước" class="h-8 w-8 rounded border border-slate-300 bg-white text-slate-700 hover:bg-slate-50">‹</button>
+      <button type="button" id="btn-next" aria-label="Tuần sau" class="h-8 w-8 rounded border border-slate-300 bg-white text-slate-700 hover:bg-slate-50">›</button>
+      <h2 id="week-range" class="px-1 text-base font-semibold text-slate-900"></h2>
+      <div class="ml-auto flex items-center gap-1 rounded-md border border-slate-300 bg-white p-0.5" role="group" aria-label="Chế độ xem">
+        <button type="button" id="view-grid" aria-pressed="true" class="h-7 rounded px-2 text-sm">Lưới</button>
+        <button type="button" id="view-list" aria-pressed="false" class="h-7 rounded px-2 text-sm">Danh sách</button>
+      </div>
+    </div>
+
+    <div class="mt-3 flex flex-wrap items-center gap-2">
+      <input type="search" id="q" aria-label="Tìm nhân viên theo tên" placeholder="Tìm nhân viên" class="h-8 w-56 rounded border border-slate-300 px-2 text-sm">
+      <label class="sr-only" for="f-role">Vai trò</label>
+      <select id="f-role" class="h-8 rounded border border-slate-300 bg-white px-2 text-sm"></select>
+      <div id="chips" class="flex flex-wrap items-center gap-1"></div>
+    </div>
+
+    <p class="mt-2 text-slate-600" data-result-count><span id="result-count" class="tnum">0</span> nhân viên · <span id="shift-count" class="tnum">0</span> ca làm tuần này</p>
+
+    <section data-region="roster" class="mt-2" aria-label="Lịch phân ca">
+      <div data-state="ready">
+        <div id="grid-view">
+          <div class="overflow-x-auto rounded-md border border-slate-200">
+            <table class="w-full border-collapse">
+              <caption class="sr-only">Lịch phân ca theo tuần</caption>
+              <thead>
+                <tr id="day-header-row" class="border-b border-slate-200 bg-slate-50"></tr>
+              </thead>
+              <tbody id="roster-rows"></tbody>
+              <tfoot>
+                <tr id="coverage-row" class="border-t-2 border-slate-200 bg-slate-50 font-medium"></tr>
+              </tfoot>
+            </table>
+          </div>
+          <ul id="legend" aria-label="Chú giải" class="mt-3 flex flex-wrap gap-x-4 gap-y-1.5 text-xs text-slate-600"></ul>
+        </div>
+        <div id="list-view" hidden>
+          <div class="overflow-x-auto rounded-md border border-slate-200">
+            <table class="w-full border-collapse">
+              <caption class="sr-only">Lịch phân ca dạng danh sách</caption>
+              <thead class="bg-slate-50 text-slate-700">
+                <tr class="h-10 border-b border-slate-200">
+                  <th scope="col" class="px-3 text-left font-medium">Ngày</th>
+                  <th scope="col" class="px-3 text-left font-medium">Nhân viên</th>
+                  <th scope="col" class="px-3 text-left font-medium">Vai trò</th>
+                  <th scope="col" class="px-3 text-left font-medium">Ca làm</th>
+                  <th scope="col" class="px-3 text-right font-medium">Giờ</th>
+                  <th scope="col" class="px-3 text-left font-medium">Trạng thái</th>
+                </tr>
+              </thead>
+              <tbody id="list-rows"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+      <div data-state="empty" hidden class="rounded-md border border-dashed border-slate-300 px-6 py-10 text-center">
+        <p class="font-medium text-slate-900">Không có nhân viên nào khớp</p>
+        <p class="mt-1 text-slate-600">Thử một vai trò khác hoặc xóa tìm kiếm.</p>
+        <button type="button" id="empty-action" class="mt-3 h-8 rounded border border-slate-300 bg-white px-3 hover:bg-slate-50">Xóa bộ lọc</button>
+      </div>
+      <div data-state="loading" aria-busy="true" hidden class="rounded-md border border-slate-200" aria-label="Đang tải lịch phân ca">
+        <div class="h-10 border-b border-slate-200 bg-slate-50"></div>
+        <div id="skeleton"></div>
+      </div>
+      <div data-state="error" hidden class="rounded-md border border-red-200 bg-red-50 px-4 py-3 text-red-800" role="alert">
+        <p class="font-medium">Không thể tải lịch phân ca.</p>
+        <p class="mt-1">Kiểm tra kết nối rồi thử lại.</p>
+        <button type="button" id="retry" class="mt-2 h-8 rounded border border-red-300 bg-white px-3 text-red-800 hover:bg-red-100">Thử lại</button>
+      </div>
+    </section>
+  </main>
+</div>
+
+<div id="backdrop" hidden class="fixed inset-0 z-30 bg-slate-900/40"></div>
+
+<div id="shift-dialog" role="dialog" aria-modal="true" aria-labelledby="shift-dialog-title" hidden class="fixed left-1/2 top-16 z-40 w-[420px] -translate-x-1/2 rounded-lg border border-slate-200 bg-white p-5 shadow-lg">
+  <h2 id="shift-dialog-title" class="text-base font-semibold text-slate-900"></h2>
+  <p id="shift-dialog-sub" class="mt-0.5 text-slate-600"></p>
+  <div class="mt-4 space-y-3">
+    <div>
+      <label for="shift-type" class="block font-medium text-slate-900">Loại ca</label>
+      <select id="shift-type" class="mt-1 h-8 w-full rounded border border-slate-300 bg-white px-2">
+        <option value="sang">Ca sáng (06:00–14:00)</option>
+        <option value="chieu">Ca chiều (14:00–22:00)</option>
+        <option value="toi">Ca tối (22:00–06:00)</option>
+        <option value="off">Nghỉ</option>
+        <option value="leave">Nghỉ phép</option>
+      </select>
+    </div>
+    <div id="shift-time-fields" class="grid grid-cols-2 gap-3">
+      <div>
+        <label for="shift-start" class="block font-medium text-slate-900">Giờ bắt đầu</label>
+        <input type="time" id="shift-start" class="mt-1 h-8 w-full rounded border border-slate-300 px-2">
+      </div>
+      <div>
+        <label for="shift-end" class="block font-medium text-slate-900">Giờ kết thúc</label>
+        <input type="time" id="shift-end" class="mt-1 h-8 w-full rounded border border-slate-300 px-2">
+      </div>
+    </div>
+    <div>
+      <label for="shift-note" class="block font-medium text-slate-900">Ghi chú <span class="font-normal text-slate-500">(không bắt buộc)</span></label>
+      <textarea id="shift-note" rows="2" class="mt-1 w-full rounded border border-slate-300 px-2 py-1.5"></textarea>
+    </div>
+  </div>
+  <div id="shift-dialog-error" role="alert" hidden class="mt-3 rounded border border-red-200 bg-red-50 px-3 py-2 text-red-800"></div>
+  <div class="mt-5 flex items-center justify-between">
+    <button type="button" id="shift-delete" class="h-8 rounded px-2 font-medium text-red-700 hover:bg-red-50">Xóa ca</button>
+    <div class="flex gap-2">
+      <button type="button" id="shift-cancel" class="h-8 rounded border border-slate-300 bg-white px-3 hover:bg-slate-50">Hủy</button>
+      <button type="button" id="shift-save" class="h-8 rounded bg-blue-700 px-3 font-medium text-white hover:bg-blue-800">Lưu</button>
+    </div>
+  </div>
+</div>
+
+<div id="approve-dialog" role="dialog" aria-modal="true" aria-labelledby="approve-dialog-title" hidden class="fixed left-1/2 top-16 z-40 w-[420px] -translate-x-1/2 rounded-lg border border-slate-200 bg-white p-5 shadow-lg">
+  <h2 id="approve-dialog-title" class="text-base font-semibold text-slate-900">Yêu cầu nghỉ chờ duyệt</h2>
+  <dl class="mt-3 space-y-1.5">
+    <div class="flex justify-between gap-3"><dt class="text-slate-600">Nhân viên</dt><dd id="approve-name" class="font-medium text-slate-900"></dd></div>
+    <div class="flex justify-between gap-3"><dt class="text-slate-600">Ngày</dt><dd id="approve-date" class="font-medium text-slate-900"></dd></div>
+    <div class="flex justify-between gap-3"><dt class="text-slate-600">Lý do</dt><dd id="approve-reason" class="text-right text-slate-900"></dd></div>
+  </dl>
+  <div id="reject-reason-wrap" hidden class="mt-3">
+    <label for="reject-reason" class="block font-medium text-slate-900">Lý do từ chối</label>
+    <textarea id="reject-reason" rows="2" class="mt-1 w-full rounded border border-slate-300 px-2 py-1.5"></textarea>
+    <p id="reject-reason-error" role="alert" hidden class="mt-1 text-red-700">Vui lòng nhập lý do từ chối.</p>
+  </div>
+  <div class="mt-5 flex justify-end gap-2">
+    <button type="button" id="approve-cancel" class="h-8 rounded border border-slate-300 bg-white px-3 hover:bg-slate-50">Đóng</button>
+    <button type="button" id="approve-reject" class="h-8 rounded border border-red-300 bg-white px-3 font-medium text-red-700 hover:bg-red-50">Từ chối</button>
+    <button type="button" id="approve-ok" class="h-8 rounded bg-blue-700 px-3 font-medium text-white hover:bg-blue-800">Duyệt nghỉ</button>
+  </div>
+</div>
+
+<div id="confirm" role="alertdialog" aria-modal="true" aria-labelledby="confirm-title" aria-describedby="confirm-text" hidden class="fixed left-1/2 top-24 z-40 w-[420px] -translate-x-1/2 rounded-lg border border-slate-200 bg-white p-5 shadow-lg">
+  <h2 id="confirm-title" class="text-base font-semibold text-slate-900"></h2>
+  <p id="confirm-text" class="mt-2 text-slate-700"></p>
+  <div class="mt-4 flex justify-end gap-2">
+    <button type="button" id="confirm-cancel" class="h-8 rounded border border-slate-300 bg-white px-3 hover:bg-slate-50">Hủy</button>
+    <button type="button" id="confirm-ok" class="h-8 rounded px-3 font-medium text-white"></button>
+  </div>
+</div>
+
+<div id="toast" role="status" aria-live="polite" class="fixed bottom-4 right-4 z-50"></div>
+
+<script>
+  const $ = (id) => document.getElementById(id);
+  const pad = (n) => String(n).padStart(2, '0');
+  const LOCALE = 'vi-VN';
+  const WEEKDAY_SHORT = ['T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'CN'];
+  const WEEKDAY_FULL = ['Thứ Hai', 'Thứ Ba', 'Thứ Tư', 'Thứ Năm', 'Thứ Sáu', 'Thứ Bảy', 'Chủ Nhật'];
+  const fmtCount = (n) => new Intl.NumberFormat(LOCALE).format(n);
+  const toISO = (d) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+  const parseISO = (iso) => new Date(iso + 'T00:00:00');
+  const addDays = (d, n) => { const r = new Date(d.getFullYear(), d.getMonth(), d.getDate()); r.setDate(r.getDate() + n); return r; };
+  const startOfWeek = (d) => { const dow = d.getDay(); return addDays(d, dow === 0 ? -6 : 1 - dow); };
+  const dayIndexMon = (d) => (d.getDay() + 6) % 7;
+  const fmtDay = (d) => `${pad(d.getDate())}/${pad(d.getMonth() + 1)}`;
+  const fmtFullDate = (d) => `${WEEKDAY_FULL[dayIndexMon(d)]}, ${pad(d.getDate())}/${pad(d.getMonth() + 1)}/${d.getFullYear()}`;
+  const fmtRange = (start) => {
+    const end = addDays(start, 6);
+    return start.getMonth() === end.getMonth()
+      ? `${pad(start.getDate())}–${pad(end.getDate())} thg ${start.getMonth() + 1}, ${start.getFullYear()}`
+      : `${pad(start.getDate())}/${pad(start.getMonth() + 1)} – ${pad(end.getDate())}/${pad(end.getMonth() + 1)}/${end.getFullYear()}`;
+  };
+  const initials = (name) => name.trim().split(/\s+/).slice(-2).map((w) => w[0]).join('').toUpperCase();
+  function hash(str) {
+    let h = 2166136261;
+    for (let i = 0; i < str.length; i++) { h ^= str.charCodeAt(i); h = Math.imul(h, 16777619); }
+    h ^= h >>> 15; h = Math.imul(h, 2246822519); h ^= h >>> 13;
+    return h >>> 0;
+  }
+  const rand01 = (seed) => hash(seed) / 4294967296;
+
+  const TODAY = new Date(2026, 10, 7);
+  const BASE_WEEK_START = startOfWeek(TODAY);
+  const BASE_WEEK_ISO = toISO(BASE_WEEK_START);
+  const REQUIRED_COVERAGE = [5, 5, 5, 5, 5, 7, 6];
+
+  const EMPLOYEES = [
+    { id: 'e1', name: 'Nguyễn Văn An', role: 'Quản lý ca' },
+    { id: 'e2', name: 'Trần Thị Bích', role: 'Thu ngân' },
+    { id: 'e3', name: 'Lê Hoàng Cường', role: 'Bán hàng' },
+    { id: 'e4', name: 'Phạm Thị Dung', role: 'Bán hàng' },
+    { id: 'e5', name: 'Hoàng Văn Em', role: 'Kho' },
+    { id: 'e6', name: 'Vũ Thị Hoa', role: 'Thu ngân' },
+    { id: 'e7', name: 'Đặng Văn Khải', role: 'Bán hàng' },
+    { id: 'e8', name: 'Bùi Thị Lan', role: 'Bán hàng' },
+    { id: 'e9', name: 'Ngô Văn Minh', role: 'Kho' },
+    { id: 'e10', name: 'Đỗ Thị Nga', role: 'Thu ngân' },
+    { id: 'e11', name: 'Trương Văn Phúc', role: 'Bảo vệ' },
+    { id: 'e12', name: 'Lý Thị Quỳnh', role: 'Bán hàng' },
+  ];
+  const ROLE_LIST = [...new Set(EMPLOYEES.map((e) => e.role))];
+  const SHIFT_TYPES = {
+    sang: { label: 'Ca sáng', start: '06:00', end: '14:00', classes: 'border-blue-200 bg-blue-50 text-blue-800' },
+    chieu: { label: 'Ca chiều', start: '14:00', end: '22:00', classes: 'border-amber-200 bg-amber-50 text-amber-800' },
+    toi: { label: 'Ca tối', start: '22:00', end: '06:00', classes: 'border-violet-200 bg-violet-50 text-violet-800' },
+  };
+
+  const weekCache = {};
+  function metaFor(weekIso, weekStart) {
+    if (weekStart.getTime() < BASE_WEEK_START.getTime()) {
+      const d = fmtDay(addDays(weekStart, 9)) + '/' + weekStart.getFullYear() + ' 09:05';
+      return { published: true, dirty: false, publishedBy: 'Nguyễn Văn An', publishedAt: d, changedBy: 'Nguyễn Văn An', changedAt: d };
+    }
+    if (weekIso === BASE_WEEK_ISO) return { published: false, dirty: false, changedBy: 'Nguyễn Văn An', changedAt: '05/11/2026 18:40' };
+    const d = fmtDay(addDays(weekStart, -3)) + '/' + weekStart.getFullYear() + ' 17:20';
+    return { published: false, dirty: false, changedBy: 'Nguyễn Văn An', changedAt: d };
+  }
+
+  function buildWeek(weekStart) {
+    const weekIso = toISO(weekStart);
+    const entries = {};
+    EMPLOYEES.forEach((emp) => {
+      entries[emp.id] = {};
+      for (let d = 0; d < 7; d++) {
+        const iso = toISO(addDays(weekStart, d));
+        const r = rand01(`${weekIso}|${emp.id}|${d}`);
+        let entry;
+        if (r < 0.1) entry = { kind: 'off' };
+        else if (r < 0.15) entry = { kind: 'leave', reason: 'Nghỉ phép năm', span: 1 };
+        else {
+          const r2 = rand01(`${weekIso}|${emp.id}|${d}|t`);
+          let type = r2 < 0.45 ? 'sang' : r2 < 0.85 ? 'chieu' : 'toi';
+          if (emp.role === 'Quản lý ca' && type === 'toi') type = r2 < 0.5 ? 'sang' : 'chieu';
+          if (emp.role === 'Bảo vệ' && type !== 'toi' && r2 > 0.3) type = 'toi';
+          entry = { kind: 'shift', shiftType: type, start: SHIFT_TYPES[type].start, end: SHIFT_TYPES[type].end };
+        }
+        entries[emp.id][iso] = entry;
+      }
+    });
+    if (weekIso === BASE_WEEK_ISO) {
+      const iso = (n) => toISO(addDays(weekStart, n));
+      entries.e4[iso(3)] = { kind: 'leave', reason: 'Nghỉ phép năm', span: 2 };
+      entries.e4[iso(4)] = { kind: 'leave-continuation' };
+      entries.e3[iso(5)] = { kind: 'leave-pending', reason: 'Việc gia đình' };
+      entries.e5[iso(2)] = { kind: 'off' };
+      entries.e9[iso(2)] = { kind: 'off' };
+      entries.e11[iso(2)] = { kind: 'off' };
+      entries.e1[iso(0)] = { kind: 'shift', shiftType: 'sang', start: '06:00', end: '14:00' };
+    }
+    return { weekIso, entries, meta: metaFor(weekIso, weekStart) };
+  }
+  function getWeekData(weekStart) {
+    const iso = toISO(weekStart);
+    if (!weekCache[iso]) weekCache[iso] = buildWeek(weekStart);
+    return weekCache[iso];
+  }
+  function markDirty(weekData) { if (weekData.meta.published) weekData.meta.dirty = true; }
+  function weeklyHours(empId, days, weekData) {
+    let h = 0;
+    days.forEach((day) => { const e = weekData.entries[empId][toISO(day)]; if (e && e.kind === 'shift') h += 8; });
+    return h;
+  }
+
+  const params = new URLSearchParams(location.search);
+  const forced = params.get('state');
+  const ui = {
+    q: params.get('q') || '',
+    role: params.get('role') || '',
+    view: params.get('view') === 'list' ? 'list' : 'grid',
+    weekStart: params.get('week') ? startOfWeek(parseISO(params.get('week'))) : new Date(BASE_WEEK_START),
+  };
+  const state = { dialogTarget: null };
+
+  function syncUrl() {
+    const p = new URLSearchParams();
+    if (ui.q) p.set('q', ui.q);
+    if (ui.role) p.set('role', ui.role);
+    if (ui.view !== 'grid') p.set('view', ui.view);
+    if (toISO(ui.weekStart) !== BASE_WEEK_ISO) p.set('week', toISO(ui.weekStart));
+    if (forced) p.set('state', forced);
+    history.replaceState(null, '', p.toString() ? '?' + p : location.pathname);
+  }
+  const show = (s) => document.querySelectorAll('[data-region="roster"] [data-state]').forEach((e) => (e.hidden = e.dataset.state !== s));
+  const announce = (html) => { $('toast').innerHTML = `<div class="flex items-center gap-3 rounded-md border border-slate-200 bg-white px-4 py-3 shadow-md">${html}</div>`; clearTimeout(announce.t); announce.t = setTimeout(() => ($('toast').innerHTML = ''), 6000); };
+
+  function matchingEmployees() {
+    const q = ui.q.trim().toLowerCase();
+    return EMPLOYEES.filter((e) => (!ui.role || e.role === ui.role) && (!q || e.name.toLowerCase().includes(q)));
+  }
+  function totalShifts(employees, days, weekData) {
+    let n = 0;
+    employees.forEach((emp) => days.forEach((day) => { const e = weekData.entries[emp.id][toISO(day)]; if (e && e.kind === 'shift') n++; }));
+    return n;
+  }
+
+  function renderHeaderStatus(meta) {
+    let cls, text;
+    if (!meta.published) { cls = 'bg-slate-100 text-slate-700'; text = 'Dự thảo'; }
+    else if (meta.dirty) { cls = 'bg-amber-50 text-amber-800'; text = 'Có thay đổi mới'; }
+    else { cls = 'bg-green-50 text-green-800'; text = 'Đã công bố'; }
+    $('status-badge').className = `inline-flex h-6 items-center rounded-full px-2 text-xs font-medium ${cls}`;
+    $('status-badge').textContent = text;
+    $('status-meta').textContent = meta.published
+      ? `Công bố lần cuối bởi ${meta.publishedBy} · ${meta.publishedAt}${meta.dirty ? ' · có thay đổi chưa công bố' : ''}`
+      : `Thay đổi lần cuối bởi ${meta.changedBy} · ${meta.changedAt}`;
+    const needsPublish = !meta.published || meta.dirty;
+    const btn = $('btn-publish');
+    btn.disabled = !needsPublish;
+    btn.textContent = !meta.published ? 'Công bố lịch' : meta.dirty ? 'Công bố lại' : 'Đã công bố';
+    btn.title = needsPublish ? '' : 'Không có thay đổi nào để công bố';
+  }
+  function renderChips() {
+    const chips = [];
+    if (ui.q) chips.push(['q', `Tìm: ${ui.q}`]);
+    if (ui.role) chips.push(['role', `Vai trò: ${ui.role}`]);
+    $('chips').innerHTML = chips.map(([k, t]) => `<span class="inline-flex h-6 items-center gap-1 rounded-full bg-slate-100 pl-2 pr-1 text-slate-700">${t}<button type="button" data-chip="${k}" class="h-6 w-6 rounded-full hover:bg-slate-200" aria-label="Bỏ lọc ${t}">×</button></span>`).join('') + (chips.length ? '<button type="button" id="clear-all" class="h-6 px-2 text-blue-700 underline">Xóa tất cả</button>' : '');
+  }
+
+  function cellContent(emp, day, iso, entry, idx, rowIdx) {
+    const dayFull = fmtFullDate(day);
+    const attrs = `data-cell data-row="${rowIdx}" data-idx="${idx}" data-emp="${emp.id}" data-date="${iso}" tabindex="${rowIdx === 0 && idx === 0 ? 0 : -1}"`;
+    if (!entry) return `<button type="button" ${attrs} class="flex h-12 w-full items-center justify-center rounded border border-dashed border-slate-300 text-slate-400 hover:border-blue-400 hover:text-blue-600" aria-label="Thêm ca cho ${emp.name}, ${dayFull}">+</button>`;
+    if (entry.kind === 'shift') {
+      const t = SHIFT_TYPES[entry.shiftType];
+      return `<button type="button" ${attrs} class="flex h-12 w-full flex-col items-start justify-center gap-0.5 rounded border px-2 text-left ${t.classes}" aria-label="${emp.name}, ${t.label}, ${entry.start}–${entry.end}, ${dayFull}"><span class="truncate font-medium">${t.label}</span><span class="tnum text-xs">${entry.start}–${entry.end}</span></button>`;
+    }
+    if (entry.kind === 'off') return `<button type="button" ${attrs} class="flex h-12 w-full items-center justify-center rounded border border-slate-200 bg-slate-50 font-medium text-slate-600" aria-label="${emp.name}, nghỉ, ${dayFull}">Nghỉ</button>`;
+    if (entry.kind === 'leave') {
+      const label = entry.span > 1 ? `Nghỉ phép · ${entry.span} ngày` : 'Nghỉ phép';
+      return `<button type="button" ${attrs} class="flex h-12 w-full flex-col items-center justify-center rounded border border-slate-300 bg-slate-100 px-2 font-medium text-slate-700" aria-label="${emp.name}, nghỉ phép, ${dayFull}">${label}</button>`;
+    }
+    if (entry.kind === 'leave-pending') return `<button type="button" ${attrs} class="flex h-12 w-full flex-col items-center justify-center gap-0.5 rounded border border-dashed border-blue-300 bg-blue-50 px-2 font-medium text-blue-800" aria-label="${emp.name}, xin nghỉ, chờ duyệt, ${dayFull}"><span>Xin nghỉ</span><span class="text-xs">Chờ duyệt</span></button>`;
+    return '';
+  }
+
+  function renderDayHeader(days) {
+    let html = '<th scope="col" class="w-48 px-3 py-2 text-left text-xs font-medium text-slate-600">Nhân viên</th>';
+    days.forEach((day, i) => {
+      const isToday = toISO(day) === toISO(TODAY);
+      const isWeekend = i >= 5;
+      html += `<th scope="col" class="px-2 py-2 text-center text-xs font-medium text-slate-600 ${isWeekend ? 'bg-slate-50' : ''}" ${isToday ? 'aria-current="date"' : ''}><div class="flex flex-col items-center gap-0.5"><span>${WEEKDAY_SHORT[i]}</span><span class="flex h-6 w-6 items-center justify-center rounded-full text-sm ${isToday ? 'bg-blue-700 font-semibold text-white' : 'text-slate-900'}">${day.getDate()}</span>${isToday ? '<span class="text-[11px] font-medium text-blue-700">Hôm nay</span>' : ''}</div></th>`;
+    });
+    html += '<th scope="col" class="px-3 py-2 text-right text-xs font-medium text-slate-600">Tổng giờ</th>';
+    $('day-header-row').innerHTML = html;
+  }
+  function renderRosterRows(days, employees, weekData) {
+    let html = '';
+    employees.forEach((emp, rowIdx) => {
+      let cells = `<th scope="row" class="px-3 py-2 text-left align-middle"><div class="flex items-center gap-2"><span class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-slate-200 text-xs font-medium text-slate-700">${initials(emp.name)}</span><div class="min-w-0"><p class="truncate font-medium text-slate-900">${emp.name}</p><p class="truncate text-xs text-slate-600">${emp.role}</p></div></div></th>`;
+      let idx = 0;
+      for (let d = 0; d < 7; d++) {
+        const iso = toISO(days[d]);
+        const entry = weekData.entries[emp.id][iso];
+        if (entry && entry.kind === 'leave-continuation') continue;
+        const isWeekend = d >= 5;
+        const span = entry && entry.kind === 'leave' && entry.span > 1 ? entry.span : 1;
+        cells += `<td colspan="${span}" class="px-1.5 py-1 align-middle ${isWeekend ? 'bg-slate-50' : ''}">${cellContent(emp, days[d], iso, entry, idx, rowIdx)}</td>`;
+        idx++;
+      }
+      cells += `<td class="px-3 py-2 text-right align-middle font-medium tnum text-slate-900">${weeklyHours(emp.id, days, weekData)}</td>`;
+      html += `<tr class="border-b border-slate-200 last:border-0 hover:bg-slate-50/60">${cells}</tr>`;
+    });
+    $('roster-rows').innerHTML = html;
+  }
+  function renderCoverageRow(days, weekData) {
+    let html = '<th scope="row" class="px-3 py-2 text-left text-slate-700">Số người có ca</th>';
+    days.forEach((day, i) => {
+      const iso = toISO(day);
+      let scheduled = 0;
+      EMPLOYEES.forEach((emp) => { const e = weekData.entries[emp.id][iso]; if (e && e.kind === 'shift') scheduled++; });
+      const required = REQUIRED_COVERAGE[i];
+      const short = scheduled < required;
+      html += `<td class="px-2 py-2 text-center ${i >= 5 ? 'bg-slate-50' : ''}"><div class="flex flex-col items-center"><span class="tnum">${scheduled}/${required}</span>${short ? `<span class="text-[11px] font-medium text-amber-700">Thiếu ${required - scheduled}</span>` : ''}</div></td>`;
+    });
+    html += '<td class="px-3 py-2"></td>';
+    $('coverage-row').innerHTML = html;
+  }
+  function renderLegend() {
+    const items = [
+      ['h-4 w-4 rounded-full bg-blue-700', 'Hôm nay'],
+      ['h-4 w-4 rounded border border-slate-200 bg-slate-50', 'Cuối tuần'],
+      ['h-4 w-4 rounded border border-blue-200 bg-blue-50', 'Ca sáng'],
+      ['h-4 w-4 rounded border border-amber-200 bg-amber-50', 'Ca chiều'],
+      ['h-4 w-4 rounded border border-violet-200 bg-violet-50', 'Ca tối'],
+      ['h-4 w-4 rounded border border-slate-200 bg-slate-50', 'Nghỉ'],
+      ['h-4 w-4 rounded border border-slate-300 bg-slate-100', 'Nghỉ phép'],
+      ['h-4 w-4 rounded border border-dashed border-blue-300 bg-blue-50', 'Chờ duyệt'],
+    ];
+    $('legend').innerHTML = items.map(([cls, label]) => `<li class="flex items-center gap-1.5"><span class="${cls}" aria-hidden="true"></span>${label}</li>`).join('');
+  }
+  function renderListRows(days, employees, weekData) {
+    const rows = [];
+    employees.forEach((emp) => days.forEach((day) => {
+      const iso = toISO(day);
+      const entry = weekData.entries[emp.id][iso];
+      if (!entry || entry.kind === 'off' || entry.kind === 'leave-continuation') return;
+      rows.push({ day, iso, emp, entry });
+    }));
+    rows.sort((a, b) => (a.iso === b.iso ? a.emp.name.localeCompare(b.emp.name, 'vi') : a.iso.localeCompare(b.iso)));
+    $('list-rows').innerHTML = rows.map(({ emp, day, entry }) => {
+      let label, hours, status, cls;
+      if (entry.kind === 'shift') { label = `${SHIFT_TYPES[entry.shiftType].label} · ${entry.start}–${entry.end}`; hours = 8; status = 'Đã lên lịch'; cls = 'bg-blue-50 text-blue-800'; }
+      else if (entry.kind === 'leave') { label = 'Nghỉ phép'; hours = 0; status = 'Đã duyệt'; cls = 'bg-green-50 text-green-800'; }
+      else { label = 'Xin nghỉ'; hours = 0; status = 'Chờ duyệt'; cls = 'bg-amber-50 text-amber-800'; }
+      return `<tr class="h-10 border-b border-slate-200 last:border-0 hover:bg-slate-50"><td class="whitespace-nowrap px-3 tnum">${fmtDay(day)}</td><td class="px-3">${emp.name}</td><td class="px-3 text-slate-600">${emp.role}</td><td class="px-3">${label}</td><td class="px-3 text-right tnum">${hours}</td><td class="px-3"><span class="inline-flex h-6 items-center rounded-full px-2 text-xs font-medium ${cls}">${status}</span></td></tr>`;
+    }).join('');
+  }
+
+  function render() {
+    syncUrl();
+    const days = Array.from({ length: 7 }, (_, i) => addDays(ui.weekStart, i));
+    const weekData = getWeekData(ui.weekStart);
+    $('week-range').textContent = fmtRange(ui.weekStart);
+    renderHeaderStatus(weekData.meta);
+    renderChips();
+    if (forced === 'loading') { show('loading'); return; }
+    if (forced === 'error') { show('error'); return; }
+    const employees = forced === 'empty' ? [] : matchingEmployees();
+    $('result-count').textContent = fmtCount(employees.length);
+    const shiftCount = totalShifts(employees, days, weekData);
+    $('shift-count').textContent = fmtCount(shiftCount);
+    $('btn-export').innerHTML = `Xuất lịch tuần (<span class="tnum">${fmtCount(shiftCount)}</span> ca)`;
+    $('view-grid').setAttribute('aria-pressed', String(ui.view === 'grid'));
+    $('view-list').setAttribute('aria-pressed', String(ui.view === 'list'));
+    $('view-grid').className = `h-7 rounded px-2 text-sm ${ui.view === 'grid' ? 'bg-slate-200 font-medium text-slate-900' : 'text-slate-700'}`;
+    $('view-list').className = `h-7 rounded px-2 text-sm ${ui.view === 'list' ? 'bg-slate-200 font-medium text-slate-900' : 'text-slate-700'}`;
+    $('grid-view').hidden = ui.view !== 'grid';
+    $('list-view').hidden = ui.view !== 'list';
+    if (!employees.length) { show('empty'); return; }
+    show('ready');
+    renderDayHeader(days);
+    renderRosterRows(days, employees, weekData);
+    renderCoverageRow(days, weekData);
+    renderListRows(days, employees, weekData);
+  }
+
+  // Dialogs
+  const OVERLAYS = ['shift-dialog', 'approve-dialog', 'confirm'];
+  function openOverlay(id) { OVERLAYS.forEach((o) => ($(o).hidden = o !== id)); $('backdrop').hidden = false; }
+  function closeOverlays() { OVERLAYS.forEach((o) => ($(o).hidden = true)); $('backdrop').hidden = true; }
+
+  function updateShiftTimeFields() {
+    const type = $('shift-type').value;
+    $('shift-time-fields').classList.toggle('hidden', !SHIFT_TYPES[type]);
+  }
+  function openShiftDialog(empId, iso, entry) {
+    state.dialogTarget = { empId, iso };
+    const emp = EMPLOYEES.find((e) => e.id === empId);
+    const day = parseISO(iso);
+    $('shift-dialog-title').textContent = entry ? 'Sửa ca làm' : 'Thêm ca làm';
+    $('shift-dialog-sub').textContent = `${emp.name} · ${fmtFullDate(day)}`;
+    const type = entry ? (entry.kind === 'shift' ? entry.shiftType : entry.kind) : 'sang';
+    $('shift-type').value = type;
+    updateShiftTimeFields();
+    if (entry && entry.kind === 'shift') { $('shift-start').value = entry.start; $('shift-end').value = entry.end; }
+    else if (SHIFT_TYPES[type]) { $('shift-start').value = SHIFT_TYPES[type].start; $('shift-end').value = SHIFT_TYPES[type].end; }
+    $('shift-note').value = (entry && entry.note) || '';
+    $('shift-delete').hidden = !entry;
+    $('shift-dialog-error').hidden = true;
+    openOverlay('shift-dialog');
+    $('shift-type').focus();
+  }
+  function saveShift() {
+    const { empId, iso } = state.dialogTarget;
+    const type = $('shift-type').value;
+    let entry;
+    if (type === 'off') entry = { kind: 'off' };
+    else if (type === 'leave') entry = { kind: 'leave', reason: 'Nghỉ phép', span: 1 };
+    else {
+      const start = $('shift-start').value, end = $('shift-end').value;
+      if (!start || !end) { $('shift-dialog-error').textContent = 'Vui lòng nhập giờ bắt đầu và kết thúc.'; $('shift-dialog-error').hidden = false; return; }
+      entry = { kind: 'shift', shiftType: type, start, end };
+    }
+    const note = $('shift-note').value.trim();
+    if (note) entry.note = note;
+    const weekData = getWeekData(ui.weekStart);
+    weekData.entries[empId][iso] = entry;
+    markDirty(weekData);
+    closeOverlays();
+    render();
+    const emp = EMPLOYEES.find((e) => e.id === empId);
+    announce(`<span>Đã lưu ca cho ${emp.name}, ${fmtDay(parseISO(iso))}.</span>`);
+  }
+  function deleteShift() {
+    const { empId, iso } = state.dialogTarget;
+    const emp = EMPLOYEES.find((e) => e.id === empId);
+    closeOverlays();
+    openConfirm(`Xóa ca làm của ${emp.name}?`, `Ca làm ngày ${fmtDay(parseISO(iso))} sẽ được xóa khỏi lịch. Bạn có thể hoàn tác.`, 'Xóa ca', 'danger', () => {
+      const weekData = getWeekData(ui.weekStart);
+      const removed = weekData.entries[empId][iso];
+      delete weekData.entries[empId][iso];
+      markDirty(weekData);
+      render();
+      announce(`<span>Đã xóa ca của ${emp.name}.</span><button type="button" id="undo-shift" class="font-medium text-blue-700 underline">Hoàn tác</button>`);
+      const undo = $('undo-shift');
+      if (undo) undo.onclick = () => { weekData.entries[empId][iso] = removed; render(); announce(`Đã khôi phục ca của ${emp.name}.`); };
+    });
+  }
+
+  function resetApproveReject() {
+    $('reject-reason-wrap').hidden = true;
+    $('reject-reason').value = '';
+    $('reject-reason-error').hidden = true;
+    $('approve-reject').textContent = 'Từ chối';
+  }
+  function openApproveDialog(empId, iso, entry) {
+    state.dialogTarget = { empId, iso };
+    const emp = EMPLOYEES.find((e) => e.id === empId);
+    $('approve-name').textContent = emp.name;
+    $('approve-date').textContent = fmtFullDate(parseISO(iso));
+    $('approve-reason').textContent = entry.reason || '—';
+    resetApproveReject();
+    openOverlay('approve-dialog');
+    $('approve-cancel').focus();
+  }
+
+  function openConfirm(title, text, okLabel, tone, onConfirm) {
+    $('confirm-title').textContent = title;
+    $('confirm-text').textContent = text;
+    $('confirm-ok').textContent = okLabel;
+    $('confirm-ok').className = `h-8 rounded px-3 font-medium text-white ${tone === 'danger' ? 'bg-red-700 hover:bg-red-800' : 'bg-blue-700 hover:bg-blue-800'}`;
+    openOverlay('confirm');
+    $('confirm-cancel').focus();
+    $('confirm-ok').onclick = () => { closeOverlays(); onConfirm(); };
+  }
+
+  // Events
+  $('roster-rows').addEventListener('click', (e) => {
+    const btn = e.target.closest('[data-cell]');
+    if (!btn) return;
+    const { emp: empId, date: iso } = btn.dataset;
+    const weekData = getWeekData(ui.weekStart);
+    const entry = weekData.entries[empId][iso];
+    if (entry && entry.kind === 'leave-pending') openApproveDialog(empId, iso, entry);
+    else openShiftDialog(empId, iso, entry);
+  });
+  $('roster-rows').addEventListener('keydown', (e) => {
+    const btn = e.target.closest('[data-cell]');
+    if (!btn) return;
+    if (!['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Home', 'End'].includes(e.key)) return;
+    e.preventDefault();
+    const row = Number(btn.dataset.row), idx = Number(btn.dataset.idx);
+    const rowLen = (r) => document.querySelectorAll(`#roster-rows [data-row="${r}"]`).length;
+    const move = (r, i) => { const t = document.querySelector(`#roster-rows [data-row="${r}"][data-idx="${i}"]`); if (t) { btn.tabIndex = -1; t.tabIndex = 0; t.focus(); } };
+    if (e.key === 'ArrowRight') move(row, Math.min(idx + 1, rowLen(row) - 1));
+    else if (e.key === 'ArrowLeft') move(row, Math.max(idx - 1, 0));
+    else if (e.key === 'ArrowDown') { const n = rowLen(row + 1); if (n) move(row + 1, Math.min(idx, n - 1)); }
+    else if (e.key === 'ArrowUp') { const n = rowLen(row - 1); if (n) move(row - 1, Math.min(idx, n - 1)); }
+    else if (e.key === 'Home') move(row, 0);
+    else if (e.key === 'End') move(row, rowLen(row) - 1);
+  });
+
+  $('shift-type').addEventListener('change', () => {
+    updateShiftTimeFields();
+    const t = $('shift-type').value;
+    if (SHIFT_TYPES[t]) { $('shift-start').value = SHIFT_TYPES[t].start; $('shift-end').value = SHIFT_TYPES[t].end; }
+  });
+  $('shift-save').addEventListener('click', saveShift);
+  $('shift-delete').addEventListener('click', deleteShift);
+  $('shift-cancel').addEventListener('click', closeOverlays);
+
+  $('approve-ok').addEventListener('click', () => {
+    const { empId, iso } = state.dialogTarget;
+    const emp = EMPLOYEES.find((e) => e.id === empId);
+    const weekData = getWeekData(ui.weekStart);
+    const entry = weekData.entries[empId][iso];
+    weekData.entries[empId][iso] = { kind: 'leave', reason: entry.reason, span: 1 };
+    markDirty(weekData);
+    closeOverlays();
+    render();
+    announce(`Đã duyệt nghỉ cho ${emp.name}, ${fmtDay(parseISO(iso))}.`);
+  });
+  $('approve-reject').addEventListener('click', () => {
+    if ($('reject-reason-wrap').hidden) {
+      $('reject-reason-wrap').hidden = false;
+      $('approve-reject').textContent = 'Xác nhận từ chối';
+      $('reject-reason').focus();
+      return;
+    }
+    if (!$('reject-reason').value.trim()) { $('reject-reason-error').hidden = false; $('reject-reason').focus(); return; }
+    const { empId, iso } = state.dialogTarget;
+    const emp = EMPLOYEES.find((e) => e.id === empId);
+    const weekData = getWeekData(ui.weekStart);
+    delete weekData.entries[empId][iso];
+    markDirty(weekData);
+    closeOverlays();
+    render();
+    announce(`Đã từ chối yêu cầu nghỉ của ${emp.name}.`);
+  });
+  $('approve-cancel').addEventListener('click', closeOverlays);
+
+  $('confirm-cancel').addEventListener('click', closeOverlays);
+  $('backdrop').addEventListener('click', closeOverlays);
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeOverlays(); });
+
+  $('btn-today').addEventListener('click', () => { ui.weekStart = new Date(BASE_WEEK_START); render(); });
+  $('btn-prev').addEventListener('click', () => { ui.weekStart = addDays(ui.weekStart, -7); render(); });
+  $('btn-next').addEventListener('click', () => { ui.weekStart = addDays(ui.weekStart, 7); render(); });
+  $('view-grid').addEventListener('click', () => { ui.view = 'grid'; render(); });
+  $('view-list').addEventListener('click', () => { ui.view = 'list'; render(); });
+
+  let qTimer;
+  $('q').addEventListener('input', (e) => { clearTimeout(qTimer); qTimer = setTimeout(() => { ui.q = e.target.value; render(); }, 250); });
+  $('f-role').addEventListener('change', (e) => { ui.role = e.target.value; render(); });
+  $('chips').addEventListener('click', (e) => {
+    const c = e.target.closest('[data-chip]');
+    if (c) { ui[c.dataset.chip] = ''; if (c.dataset.chip === 'q') $('q').value = ''; if (c.dataset.chip === 'role') $('f-role').value = ''; render(); }
+    if (e.target.id === 'clear-all') clearFilters();
+  });
+  function clearFilters() { ui.q = ''; ui.role = ''; $('q').value = ''; $('f-role').value = ''; render(); $('q').focus(); }
+  $('empty-action').addEventListener('click', clearFilters);
+  $('retry').addEventListener('click', () => { location.search = ''; });
+  $('btn-export').addEventListener('click', () => announce(`<span>Đã xuất lịch tuần ${fmtRange(ui.weekStart)}.</span>`));
+  $('btn-publish').addEventListener('click', () => {
+    const weekData = getWeekData(ui.weekStart);
+    if (!weekData.meta.published || weekData.meta.dirty) {
+      openConfirm(`Công bố lịch tuần ${fmtRange(ui.weekStart)}?`, 'Toàn bộ nhân viên sẽ nhận thông báo và xem được ca làm mới nhất trong ứng dụng.', 'Công bố lịch', 'primary', () => {
+        weekData.meta.published = true;
+        weekData.meta.dirty = false;
+        const now = new Date();
+        weekData.meta.publishedBy = 'Nguyễn Văn An';
+        weekData.meta.publishedAt = `${pad(now.getDate())}/${pad(now.getMonth() + 1)}/${now.getFullYear()} ${pad(now.getHours())}:${pad(now.getMinutes())}`;
+        render();
+        announce(`Đã công bố lịch tuần ${fmtRange(ui.weekStart)}.`);
+      });
+    }
+  });
+
+  // Init
+  $('f-role').innerHTML = '<option value="">Tất cả vai trò</option>' + ROLE_LIST.map((r) => `<option value="${r}">${r}</option>`).join('');
+  $('q').value = ui.q;
+  $('f-role').value = ui.role;
+  renderLegend();
+  $('skeleton').innerHTML = Array.from({ length: 6 }, () => `<div class="flex h-14 items-center gap-3 border-b border-slate-200 px-3"><div class="h-8 w-8 rounded-full bg-slate-200"></div><div class="h-3 w-32 rounded bg-slate-200"></div><div class="ml-auto flex gap-2">${Array.from({ length: 7 }, () => '<div class="h-10 w-16 rounded bg-slate-200"></div>').join('')}</div></div>`).join('');
+  if (!forced) { show('loading'); setTimeout(render, 300); }
+  else render();
+</script>
+</body>
+</html>

@@ -1,0 +1,853 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>RoomSync — Meeting Room Booking</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+  tailwind.config = {
+    theme: {
+      extend: {
+        fontFamily: { sans: ['ui-sans-serif','system-ui','-apple-system','Segoe UI','Roboto','Helvetica Neue','Arial','sans-serif'] }
+      }
+    }
+  }
+</script>
+<style>
+  * { scrollbar-width: thin; scrollbar-color: #cbd5e1 transparent; }
+  *::-webkit-scrollbar { height: 10px; width: 10px; }
+  *::-webkit-scrollbar-track { background: transparent; }
+  *::-webkit-scrollbar-thumb { background-color: #cbd5e1; border-radius: 9999px; }
+  @media (prefers-reduced-motion: reduce) {
+    * { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; }
+  }
+  .icon { width: 1em; height: 1em; }
+  [data-modal-overlay].open { display: flex; }
+  .toast-enter { animation: toastIn .18s ease-out; }
+  @keyframes toastIn { from { opacity:0; transform: translateY(8px); } to { opacity:1; transform: translateY(0); } }
+</style>
+</head>
+<body class="min-h-screen bg-slate-50 text-slate-900 font-sans antialiased">
+
+<!-- ============ HEADER ============ -->
+<header class="sticky top-0 z-40 bg-white border-b border-slate-200">
+  <div class="mx-auto max-w-[1700px] px-4 sm:px-6 py-3 flex items-center justify-between gap-4">
+    <div class="flex items-center gap-2.5">
+      <span class="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-indigo-600 text-white shrink-0">
+        <svg class="icon" style="width:20px;height:20px" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 22V4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v18Z"/><path d="M6 12H4a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h2"/><path d="M18 9h2a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-2"/><path d="M10 6h4M10 10h4M10 14h4M10 18h4"/></svg>
+      </span>
+      <div class="leading-tight">
+        <p class="text-base font-semibold text-slate-900">RoomSync</p>
+        <p class="text-xs text-slate-500">Harborview Tower &middot; Facilities</p>
+      </div>
+    </div>
+    <div class="hidden sm:flex items-center gap-2 text-sm text-slate-600">
+      <span class="h-8 w-8 rounded-full bg-slate-200 flex items-center justify-center font-medium text-slate-600">JD</span>
+      <span>Jordan Diaz</span>
+    </div>
+  </div>
+</header>
+
+<!-- ============ TOOLBAR ============ -->
+<div class="bg-white border-b border-slate-200">
+  <div class="mx-auto max-w-[1700px] px-4 sm:px-6 py-3 flex flex-wrap items-center justify-between gap-3">
+    <div class="flex items-center gap-2">
+      <button id="todayBtn" type="button" class="h-11 px-4 rounded-md border border-slate-300 text-sm font-medium text-slate-700 hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2">Today</button>
+      <div class="flex items-center">
+        <button id="prevBtn" type="button" aria-label="Previous" class="h-11 w-11 flex items-center justify-center rounded-md hover:bg-slate-100 text-slate-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2">
+          <svg class="icon" style="width:18px;height:18px" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 18l-6-6 6-6"/></svg>
+        </button>
+        <button id="nextBtn" type="button" aria-label="Next" class="h-11 w-11 flex items-center justify-center rounded-md hover:bg-slate-100 text-slate-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2">
+          <svg class="icon" style="width:18px;height:18px" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 18l6-6-6-6"/></svg>
+        </button>
+      </div>
+      <h1 id="dateLabel" class="text-lg font-semibold text-slate-900 ml-1"></h1>
+    </div>
+
+    <div class="flex items-center gap-2">
+      <div role="group" aria-label="Calendar view" class="inline-flex rounded-md border border-slate-300 p-0.5 bg-slate-100">
+        <button id="viewDayBtn" type="button" aria-pressed="true" class="h-10 px-4 rounded text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500">Day</button>
+        <button id="viewWeekBtn" type="button" aria-pressed="false" class="h-10 px-4 rounded text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500">Week</button>
+      </div>
+      <button id="newBookingBtn" type="button" class="h-11 px-4 rounded-md bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium flex items-center gap-1.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2">
+        <svg class="icon" style="width:16px;height:16px" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
+        New Booking
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ============ MAIN ============ -->
+<main class="mx-auto max-w-[1700px] px-4 sm:px-6 py-5">
+
+  <!-- Room filter / legend -->
+  <div class="mb-4">
+    <div class="flex items-center justify-between mb-2">
+      <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">Rooms</p>
+      <button id="resetRoomsBtn" type="button" class="text-xs font-medium text-indigo-600 hover:text-indigo-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 rounded px-1">Show all</button>
+    </div>
+    <div id="roomFilterRow" class="flex flex-wrap gap-2"></div>
+  </div>
+
+  <p class="text-sm text-slate-500 mb-3">Click any open slot to book a room. Click an existing booking to view its details.</p>
+
+  <!-- Calendar -->
+  <div id="calendarContainer"></div>
+</main>
+
+<!-- ============ NEW BOOKING MODAL ============ -->
+<div id="modalOverlay" data-modal-overlay class="hidden fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-sm p-4 items-center justify-center">
+  <div role="dialog" aria-modal="true" aria-labelledby="modalTitle" class="bg-white w-full max-w-lg rounded-xl shadow-xl max-h-[90vh] overflow-y-auto">
+    <form id="bookingForm" novalidate>
+      <div class="flex items-center justify-between px-6 py-4 border-b border-slate-200">
+        <h2 id="modalTitle" class="text-lg font-semibold text-slate-900">New Booking</h2>
+        <button type="button" id="closeModalBtn" aria-label="Close dialog" class="h-11 w-11 flex items-center justify-center rounded-md hover:bg-slate-100 text-slate-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500">
+          <svg class="icon" style="width:18px;height:18px" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6L6 18M6 6l12 12"/></svg>
+        </button>
+      </div>
+
+      <div class="px-6 py-5 space-y-4">
+        <div id="formError" role="alert" class="hidden items-start gap-2 rounded-md border border-red-200 bg-red-50 text-red-700 text-sm px-3 py-2">
+          <svg class="icon shrink-0 mt-0.5" style="width:16px;height:16px" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/></svg>
+          <span id="formErrorText"></span>
+        </div>
+
+        <div>
+          <label for="bk-title" class="block text-sm font-medium text-slate-700 mb-1">Meeting title</label>
+          <input id="bk-title" type="text" required placeholder="e.g. Marketing Sync" class="w-full h-11 rounded-md border border-slate-300 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500">
+        </div>
+
+        <div>
+          <label for="bk-room" class="block text-sm font-medium text-slate-700 mb-1">Room</label>
+          <select id="bk-room" required class="w-full h-11 rounded-md border border-slate-300 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"></select>
+          <p id="bk-capacity-help" class="mt-1 text-xs text-slate-500"></p>
+        </div>
+
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label for="bk-date" class="block text-sm font-medium text-slate-700 mb-1">Date</label>
+            <input id="bk-date" type="date" required class="w-full h-11 rounded-md border border-slate-300 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500">
+          </div>
+          <div>
+            <label for="bk-attendees" class="block text-sm font-medium text-slate-700 mb-1">Attendees</label>
+            <input id="bk-attendees" type="number" min="1" value="2" required class="w-full h-11 rounded-md border border-slate-300 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500">
+          </div>
+        </div>
+
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label for="bk-start" class="block text-sm font-medium text-slate-700 mb-1">Start time</label>
+            <select id="bk-start" required class="w-full h-11 rounded-md border border-slate-300 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"></select>
+          </div>
+          <div>
+            <label for="bk-end" class="block text-sm font-medium text-slate-700 mb-1">End time</label>
+            <select id="bk-end" required class="w-full h-11 rounded-md border border-slate-300 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"></select>
+          </div>
+        </div>
+
+        <div>
+          <label for="bk-organizer" class="block text-sm font-medium text-slate-700 mb-1">Organizer</label>
+          <input id="bk-organizer" type="text" required value="Jordan Diaz" class="w-full h-11 rounded-md border border-slate-300 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500">
+        </div>
+
+        <div>
+          <label for="bk-notes" class="block text-sm font-medium text-slate-700 mb-1">Notes <span class="text-slate-400 font-normal">(optional)</span></label>
+          <textarea id="bk-notes" rows="2" placeholder="Agenda, dial-in info, catering…" class="w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"></textarea>
+        </div>
+      </div>
+
+      <div class="px-6 py-4 border-t border-slate-200 flex items-center justify-end gap-2">
+        <button type="button" id="cancelModalBtn" class="h-11 px-4 rounded-md border border-slate-300 text-sm font-medium text-slate-700 hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500">Cancel</button>
+        <button type="submit" class="h-11 px-5 rounded-md bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2">Confirm Booking</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- ============ BOOKING DETAIL MODAL ============ -->
+<div id="detailOverlay" data-modal-overlay class="hidden fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-sm p-4 items-center justify-center">
+  <div role="dialog" aria-modal="true" aria-labelledby="detailTitle" class="bg-white w-full max-w-md rounded-xl shadow-xl overflow-hidden">
+    <div class="flex items-start justify-between px-6 py-4 border-b border-slate-200">
+      <div>
+        <p id="detailRoom" class="text-xs font-semibold uppercase tracking-wide text-indigo-600 mb-0.5"></p>
+        <h2 id="detailTitle" class="text-lg font-semibold text-slate-900"></h2>
+      </div>
+      <button type="button" id="closeDetailBtn" aria-label="Close dialog" class="h-11 w-11 flex items-center justify-center rounded-md hover:bg-slate-100 text-slate-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 shrink-0">
+        <svg class="icon" style="width:18px;height:18px" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6L6 18M6 6l12 12"/></svg>
+      </button>
+    </div>
+    <div class="px-6 py-4 space-y-3 text-sm">
+      <div class="flex items-center gap-2 text-slate-700">
+        <svg class="icon shrink-0" style="width:16px;height:16px" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>
+        <span id="detailDateTime"></span>
+      </div>
+      <div class="flex items-center gap-2 text-slate-700">
+        <svg class="icon shrink-0" style="width:16px;height:16px" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+        <span id="detailAttendees"></span>
+      </div>
+      <div class="flex items-center gap-2 text-slate-700">
+        <span class="icon shrink-0 inline-flex items-center justify-center h-4 w-4 rounded-full bg-slate-200 text-[10px] font-semibold" id="detailOrganizerInitials"></span>
+        <span id="detailOrganizer"></span>
+      </div>
+      <p id="detailNotes" class="text-slate-600 border-t border-slate-100 pt-3 hidden"></p>
+    </div>
+    <div id="cancelConfirmRow" class="hidden px-6 pb-4">
+      <div class="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700 flex items-center justify-between gap-3">
+        <span>Cancel this booking?</span>
+        <div class="flex gap-2 shrink-0">
+          <button type="button" id="cancelNoBtn" class="h-9 px-3 rounded-md border border-slate-300 bg-white text-slate-700 text-xs font-medium hover:bg-slate-50">Keep it</button>
+          <button type="button" id="cancelYesBtn" class="h-9 px-3 rounded-md bg-red-600 text-white text-xs font-medium hover:bg-red-700">Yes, cancel</button>
+        </div>
+      </div>
+    </div>
+    <div class="px-6 py-4 border-t border-slate-200 flex items-center justify-between gap-2">
+      <button type="button" id="cancelBookingBtn" class="h-11 px-4 rounded-md border border-red-300 text-sm font-medium text-red-600 hover:bg-red-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500">Cancel booking</button>
+      <button type="button" id="closeDetailBtn2" class="h-11 px-4 rounded-md bg-slate-900 text-white text-sm font-medium hover:bg-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500">Close</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============ TOASTS ============ -->
+<div id="toastContainer" class="fixed bottom-4 right-4 z-[60] space-y-2 w-72 max-w-[90vw]"></div>
+
+<script>
+(function(){
+  "use strict";
+
+  /* ---------------------------------------------------------------
+     DATA
+  --------------------------------------------------------------- */
+  const ROOMS = [
+    { id:'r1', name:'Boardroom A',   floor:'3rd Floor', capacity:12, equipment:['Video Conferencing','4K Display','Whiteboard'], color:'indigo' },
+    { id:'r2', name:'Innovation Lab', floor:'3rd Floor', capacity:20, equipment:['Projector','Flexible Seating','Whiteboard'],     color:'violet' },
+    { id:'r3', name:'Studio B',      floor:'2nd Floor', capacity:8,  equipment:['Video Conferencing','Whiteboard'],               color:'sky' },
+    { id:'r4', name:'Huddle 1',      floor:'2nd Floor', capacity:4,  equipment:['TV Screen'],                                     color:'teal' },
+    { id:'r5', name:'Huddle 2',      floor:'2nd Floor', capacity:4,  equipment:['TV Screen'],                                     color:'amber' },
+    { id:'r6', name:'Focus Pod',     floor:'1st Floor', capacity:2,  equipment:['Phone Booth'],                                   color:'rose' },
+  ];
+
+  const COLOR_CLASSES = {
+    indigo: { dot:'bg-indigo-500', bg:'bg-indigo-50', border:'border-indigo-500', text:'text-indigo-800', chipOn:'bg-indigo-600 text-white border-indigo-600', bar:'bg-indigo-500' },
+    violet: { dot:'bg-violet-500', bg:'bg-violet-50', border:'border-violet-500', text:'text-violet-800', chipOn:'bg-violet-600 text-white border-violet-600', bar:'bg-violet-500' },
+    sky:    { dot:'bg-sky-500',    bg:'bg-sky-50',    border:'border-sky-500',    text:'text-sky-800',    chipOn:'bg-sky-600 text-white border-sky-600',       bar:'bg-sky-500' },
+    teal:   { dot:'bg-teal-500',   bg:'bg-teal-50',   border:'border-teal-500',  text:'text-teal-800',   chipOn:'bg-teal-600 text-white border-teal-600',     bar:'bg-teal-500' },
+    amber:  { dot:'bg-amber-500',  bg:'bg-amber-50',  border:'border-amber-500', text:'text-amber-800',  chipOn:'bg-amber-600 text-white border-amber-600',   bar:'bg-amber-500' },
+    rose:   { dot:'bg-rose-500',   bg:'bg-rose-50',   border:'border-rose-500',  text:'text-rose-800',   chipOn:'bg-rose-600 text-white border-rose-600',     bar:'bg-rose-500' },
+  };
+
+  let bookingSeq = 1;
+  const BOOKINGS = [
+    { id:'b'+bookingSeq++, roomId:'r1', date:'2026-11-09', start:'09:00', end:'10:00', title:'Product Roadmap Review', organizer:'Sarah Chen', attendees:8, notes:'Review Q1 roadmap priorities with stakeholders.' },
+    { id:'b'+bookingSeq++, roomId:'r1', date:'2026-11-09', start:'14:00', end:'15:30', title:'Client Pitch: Nimbus Co', organizer:'David Osei', attendees:6, notes:'' },
+    { id:'b'+bookingSeq++, roomId:'r2', date:'2026-11-09', start:'10:30', end:'12:00', title:'Design Sprint Kickoff', organizer:'Priya Nair', attendees:14, notes:'Bring laptops and sprint boards.' },
+    { id:'b'+bookingSeq++, roomId:'r3', date:'2026-11-09', start:'13:00', end:'13:30', title:'1:1 Sync', organizer:'Marcus Lee', attendees:2, notes:'' },
+    { id:'b'+bookingSeq++, roomId:'r4', date:'2026-11-09', start:'11:00', end:'11:30', title:'Engineering Standup', organizer:'Engineering Team', attendees:5, notes:'' },
+    { id:'b'+bookingSeq++, roomId:'r5', date:'2026-11-09', start:'15:00', end:'16:00', title:'Vendor Call', organizer:'Finance', attendees:3, notes:'' },
+    { id:'b'+bookingSeq++, roomId:'r6', date:'2026-11-09', start:'09:30', end:'10:00', title:'Interview Prep', organizer:'Elena Rossi', attendees:1, notes:'' },
+
+    { id:'b'+bookingSeq++, roomId:'r1', date:'2026-11-10', start:'10:00', end:'11:00', title:'Board Meeting', organizer:'Executive Team', attendees:10, notes:'Confidential — board members only.' },
+    { id:'b'+bookingSeq++, roomId:'r2', date:'2026-11-10', start:'14:00', end:'16:00', title:'Hackathon Planning', organizer:'R&D', attendees:18, notes:'' },
+    { id:'b'+bookingSeq++, roomId:'r3', date:'2026-11-10', start:'09:00', end:'09:30', title:'Daily Standup', organizer:'Product Team', attendees:7, notes:'' },
+    { id:'b'+bookingSeq++, roomId:'r4', date:'2026-11-10', start:'13:30', end:'14:00', title:'Performance Review', organizer:'HR', attendees:2, notes:'' },
+    { id:'b'+bookingSeq++, roomId:'r6', date:'2026-11-10', start:'16:00', end:'16:30', title:'Candidate Screen', organizer:'Talent Acquisition', attendees:1, notes:'' },
+
+    { id:'b'+bookingSeq++, roomId:'r1', date:'2026-11-11', start:'11:00', end:'12:30', title:'Quarterly Business Review', organizer:'Leadership', attendees:9, notes:'' },
+    { id:'b'+bookingSeq++, roomId:'r3', date:'2026-11-11', start:'15:00', end:'16:00', title:'Customer Demo', organizer:'Sales', attendees:4, notes:'' },
+    { id:'b'+bookingSeq++, roomId:'r5', date:'2026-11-11', start:'09:30', end:'10:00', title:'Sprint Retro', organizer:'Engineering', attendees:6, notes:'' },
+    { id:'b'+bookingSeq++, roomId:'r2', date:'2026-11-11', start:'13:00', end:'14:30', title:'Workshop: Accessibility', organizer:'UX Guild', attendees:16, notes:'' },
+    { id:'b'+bookingSeq++, roomId:'r6', date:'2026-11-11', start:'11:00', end:'11:30', title:'Private Call', organizer:'Legal', attendees:1, notes:'' },
+
+    { id:'b'+bookingSeq++, roomId:'r1', date:'2026-11-12', start:'09:00', end:'10:00', title:'All-Hands Prep', organizer:'Communications', attendees:5, notes:'' },
+    { id:'b'+bookingSeq++, roomId:'r1', date:'2026-11-12', start:'16:00', end:'17:00', title:'Partner Negotiation', organizer:'Business Development', attendees:4, notes:'' },
+    { id:'b'+bookingSeq++, roomId:'r3', date:'2026-11-12', start:'10:30', end:'11:30', title:'Design Critique', organizer:'Design Team', attendees:6, notes:'' },
+    { id:'b'+bookingSeq++, roomId:'r4', date:'2026-11-12', start:'14:00', end:'14:30', title:'1:1 with Manager', organizer:'Alex Kim', attendees:2, notes:'' },
+    { id:'b'+bookingSeq++, roomId:'r2', date:'2026-11-12', start:'09:30', end:'11:00', title:'New Hire Training', organizer:'People Ops', attendees:12, notes:'' },
+
+    { id:'b'+bookingSeq++, roomId:'r1', date:'2026-11-13', start:'10:00', end:'11:00', title:'Sprint Review', organizer:'Product Team', attendees:9, notes:'' },
+    { id:'b'+bookingSeq++, roomId:'r3', date:'2026-11-13', start:'13:30', end:'14:00', title:'Media Interview', organizer:'PR Team', attendees:3, notes:'' },
+    { id:'b'+bookingSeq++, roomId:'r5', date:'2026-11-13', start:'11:00', end:'11:30', title:'Support Standup', organizer:'Support Team', attendees:4, notes:'' },
+    { id:'b'+bookingSeq++, roomId:'r6', date:'2026-11-13', start:'15:00', end:'15:30', title:'Quiet Focus Block', organizer:'Alex Kim', attendees:1, notes:'' },
+    { id:'b'+bookingSeq++, roomId:'r2', date:'2026-11-13', start:'15:30', end:'17:00', title:'Town Hall Rehearsal', organizer:'Events Team', attendees:20, notes:'' },
+  ];
+
+  /* ---------------------------------------------------------------
+     CONSTANTS & STATE
+  --------------------------------------------------------------- */
+  const DAY_START = 7 * 60;   // 7:00 AM in minutes
+  const DAY_END   = 19 * 60;  // 7:00 PM in minutes
+  const SLOT_MIN  = 30;
+  const SLOT_COUNT = (DAY_END - DAY_START) / SLOT_MIN;
+  const ROW_H = 48;
+
+  const REAL_TODAY = new Date();
+
+  const state = {
+    view: 'day',
+    currentDate: new Date(2026, 10, 9), // Monday, Nov 9 2026 — demo anchor date
+    visibleRooms: new Set(ROOMS.map(r => r.id)),
+    pendingPrefill: null,
+    detailBookingId: null,
+  };
+
+  /* ---------------------------------------------------------------
+     HELPERS
+  --------------------------------------------------------------- */
+  const pad = n => String(n).padStart(2, '0');
+  const toDateStr = d => `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+  const toMinutes = hhmm => { const [h,m] = hhmm.split(':').map(Number); return h*60+m; };
+  const toTimeStr = min => `${pad(Math.floor(min/60))}:${pad(min%60)}`;
+  const formatTime12 = hhmm => {
+    const [h,m] = hhmm.split(':').map(Number);
+    const period = h >= 12 ? 'PM' : 'AM';
+    let hh = h % 12; if (hh === 0) hh = 12;
+    return `${hh}:${pad(m)} ${period}`;
+  };
+  const roomById = id => ROOMS.find(r => r.id === id);
+  const initials = name => name.split(/\s+/).map(w=>w[0]).slice(0,2).join('').toUpperCase();
+
+  function startOfWeek(d) {
+    const day = d.getDay(); // 0=Sun
+    const diff = (day === 0 ? -6 : 1 - day);
+    const res = new Date(d);
+    res.setDate(d.getDate() + diff);
+    res.setHours(0,0,0,0);
+    return res;
+  }
+  function getWeekDates(d) {
+    const start = startOfWeek(d);
+    return Array.from({length:7}, (_,i) => { const dt = new Date(start); dt.setDate(start.getDate()+i); return dt; });
+  }
+  function isSameDate(a,b){ return toDateStr(a) === toDateStr(b); }
+
+  function findConflict(roomId, dateStr, startMin, endMin, excludeId) {
+    return BOOKINGS.find(b =>
+      b.id !== excludeId &&
+      b.roomId === roomId &&
+      b.date === dateStr &&
+      startMin < toMinutes(b.end) &&
+      toMinutes(b.start) < endMin
+    );
+  }
+
+  /* ---------------------------------------------------------------
+     TOASTS
+  --------------------------------------------------------------- */
+  function showToast(message) {
+    const container = document.getElementById('toastContainer');
+    const toast = document.createElement('div');
+    toast.className = 'toast-enter flex items-center gap-2 rounded-lg bg-slate-900 text-white text-sm px-4 py-3 shadow-lg';
+    toast.innerHTML = `
+      <svg class="icon shrink-0 text-emerald-400" style="width:16px;height:16px" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><path d="M22 4L12 14.01l-3-3"/></svg>
+      <span>${message}</span>`;
+    container.appendChild(toast);
+    setTimeout(() => { toast.style.opacity = '0'; toast.style.transition = 'opacity .25s'; setTimeout(()=>toast.remove(), 250); }, 2800);
+  }
+
+  /* ---------------------------------------------------------------
+     TOOLBAR
+  --------------------------------------------------------------- */
+  function updateToolbar() {
+    const label = document.getElementById('dateLabel');
+    if (state.view === 'day') {
+      label.textContent = state.currentDate.toLocaleDateString('en-US', { weekday:'long', month:'long', day:'numeric', year:'numeric' });
+    } else {
+      const week = getWeekDates(state.currentDate);
+      const start = week[0], end = week[6];
+      const sameMonth = start.getMonth() === end.getMonth();
+      const startStr = start.toLocaleDateString('en-US', { month:'short', day:'numeric' });
+      const endStr = end.toLocaleDateString('en-US', { month: sameMonth ? undefined : 'short', day:'numeric', year:'numeric' });
+      label.textContent = `${startStr} – ${endStr}`;
+    }
+    const dayBtn = document.getElementById('viewDayBtn');
+    const weekBtn = document.getElementById('viewWeekBtn');
+    const activeCls = ['bg-white','text-indigo-700','shadow-sm'];
+    const inactiveCls = ['text-slate-600'];
+    dayBtn.classList.remove(...activeCls, ...inactiveCls);
+    weekBtn.classList.remove(...activeCls, ...inactiveCls);
+    if (state.view === 'day') {
+      dayBtn.classList.add(...activeCls); weekBtn.classList.add(...inactiveCls);
+      dayBtn.setAttribute('aria-pressed','true'); weekBtn.setAttribute('aria-pressed','false');
+    } else {
+      weekBtn.classList.add(...activeCls); dayBtn.classList.add(...inactiveCls);
+      weekBtn.setAttribute('aria-pressed','true'); dayBtn.setAttribute('aria-pressed','false');
+    }
+  }
+
+  /* ---------------------------------------------------------------
+     ROOM FILTER / LEGEND
+  --------------------------------------------------------------- */
+  function renderRoomFilter() {
+    const row = document.getElementById('roomFilterRow');
+    row.innerHTML = ROOMS.map(r => {
+      const c = COLOR_CLASSES[r.color];
+      const on = state.visibleRooms.has(r.id);
+      return `
+        <button type="button" data-room-toggle="${r.id}" aria-pressed="${on}"
+          title="${r.equipment.join(', ')}"
+          class="h-11 inline-flex items-center gap-2 rounded-full border px-3.5 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 ${on ? c.chipOn : 'bg-white text-slate-500 border-slate-300 hover:bg-slate-50'}">
+          <span class="h-2 w-2 rounded-full ${on ? 'bg-white' : c.dot}"></span>
+          ${r.name}
+          <span class="${on ? 'text-white/80' : 'text-slate-400'} text-xs">· ${r.capacity} seats</span>
+        </button>`;
+    }).join('');
+  }
+
+  /* ---------------------------------------------------------------
+     DAY VIEW
+  --------------------------------------------------------------- */
+  function renderDayView() {
+    const container = document.getElementById('calendarContainer');
+    const visibleRooms = ROOMS.filter(r => state.visibleRooms.has(r.id));
+    const dateStr = toDateStr(state.currentDate);
+    const isToday = isSameDate(state.currentDate, REAL_TODAY);
+
+    if (visibleRooms.length === 0) {
+      container.innerHTML = `<div class="rounded-lg border border-dashed border-slate-300 bg-white py-16 text-center text-slate-500">Select at least one room above to see its schedule.</div>`;
+      return;
+    }
+
+    const wrapper = document.createElement('div');
+    wrapper.className = 'relative overflow-auto max-h-[70vh] rounded-lg border border-slate-200 bg-white';
+
+    const grid = document.createElement('div');
+    grid.className = 'grid relative';
+    grid.style.gridTemplateColumns = `64px repeat(${visibleRooms.length}, minmax(190px, 1fr))`;
+    grid.style.gridTemplateRows = `64px repeat(${SLOT_COUNT}, ${ROW_H}px)`;
+
+    // Corner cell
+    const corner = document.createElement('div');
+    corner.className = 'sticky top-0 left-0 z-30 bg-white border-b border-r border-slate-200';
+    corner.style.gridColumn = '1'; corner.style.gridRow = '1';
+    grid.appendChild(corner);
+
+    // Room headers with live free/busy status
+    const nowMin = REAL_TODAY.getHours()*60 + REAL_TODAY.getMinutes();
+    visibleRooms.forEach((room, i) => {
+      const c = COLOR_CLASSES[room.color];
+      const header = document.createElement('div');
+      header.className = 'sticky top-0 z-20 bg-white border-b border-l border-slate-200 px-3 py-2 flex flex-col justify-center';
+      header.style.gridColumn = String(i+2); header.style.gridRow = '1';
+
+      let statusHtml;
+      if (isToday) {
+        const busy = findConflict(room.id, dateStr, nowMin, nowMin+1, null);
+        statusHtml = busy
+          ? `<span class="inline-flex items-center gap-1 text-xs font-medium text-rose-600"><span class="h-1.5 w-1.5 rounded-full bg-rose-500"></span>Busy until ${formatTime12(busy.end)}</span>`
+          : `<span class="inline-flex items-center gap-1 text-xs font-medium text-emerald-600"><span class="h-1.5 w-1.5 rounded-full bg-emerald-500"></span>Free now</span>`;
+      } else {
+        statusHtml = `<span class="text-xs text-slate-400">${room.capacity} seats · ${room.floor}</span>`;
+      }
+
+      header.innerHTML = `
+        <div class="flex items-center gap-1.5">
+          <span class="h-2 w-2 rounded-full ${c.dot} shrink-0"></span>
+          <span class="text-sm font-semibold text-slate-900 truncate" title="${room.name}">${room.name}</span>
+        </div>
+        ${statusHtml}`;
+      grid.appendChild(header);
+    });
+
+    // Time labels + empty slot cells
+    for (let s = 0; s < SLOT_COUNT; s++) {
+      const slotStartMin = DAY_START + s*SLOT_MIN;
+      const timeCell = document.createElement('div');
+      timeCell.className = 'sticky left-0 z-10 bg-white border-r border-slate-200 text-right pr-2 text-[11px] text-slate-400';
+      timeCell.style.gridColumn = '1'; timeCell.style.gridRow = String(s+2);
+      if (slotStartMin % 60 === 0) {
+        timeCell.innerHTML = `<span class="relative -top-2">${formatTime12(toTimeStr(slotStartMin))}</span>`;
+      }
+      grid.appendChild(timeCell);
+
+      visibleRooms.forEach((room, i) => {
+        const cell = document.createElement('div');
+        cell.className = `border-l border-slate-100 cursor-pointer hover:bg-indigo-50/60 ${slotStartMin % 60 === 0 ? 'border-t border-t-slate-200' : 'border-t border-t-slate-50'}`;
+        cell.style.gridColumn = String(i+2); cell.style.gridRow = String(s+2);
+        cell.dataset.action = 'new-booking';
+        cell.dataset.room = room.id;
+        cell.dataset.date = dateStr;
+        cell.dataset.start = toTimeStr(slotStartMin);
+        cell.dataset.end = toTimeStr(slotStartMin + SLOT_MIN);
+        grid.appendChild(cell);
+      });
+    }
+
+    // Booking blocks
+    visibleRooms.forEach((room, i) => {
+      const c = COLOR_CLASSES[room.color];
+      BOOKINGS.filter(b => b.roomId === room.id && b.date === dateStr).forEach(b => {
+        const startMin = toMinutes(b.start), endMin = toMinutes(b.end);
+        const rowStart = (startMin - DAY_START)/SLOT_MIN + 2;
+        const rowSpan = (endMin - startMin)/SLOT_MIN;
+        const block = document.createElement('div');
+        block.className = `relative z-10 m-0.5 rounded-md border-l-4 ${c.border} ${c.bg} ${c.text} px-2 py-1 overflow-hidden shadow-sm hover:shadow-md cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500`;
+        block.style.gridColumn = String(i+2);
+        block.style.gridRow = `${rowStart} / span ${rowSpan}`;
+        block.setAttribute('role','button');
+        block.setAttribute('tabindex','0');
+        block.dataset.action = 'view-booking';
+        block.dataset.id = b.id;
+        block.setAttribute('aria-label', `${b.title}, ${formatTime12(b.start)} to ${formatTime12(b.end)}, ${room.name}, organized by ${b.organizer}`);
+        block.innerHTML = `
+          <p class="text-[11px] font-medium opacity-80">${formatTime12(b.start)} – ${formatTime12(b.end)}</p>
+          <p class="text-xs font-semibold truncate">${b.title}</p>
+          <p class="text-[11px] truncate opacity-80">${b.organizer}</p>`;
+        grid.appendChild(block);
+      });
+    });
+
+    // Now indicator
+    if (isToday && nowMin >= DAY_START && nowMin <= DAY_END) {
+      const top = 64 + ((nowMin - DAY_START)/SLOT_MIN) * ROW_H;
+      const line = document.createElement('div');
+      line.className = 'absolute left-0 right-0 z-20 pointer-events-none';
+      line.style.top = `${top}px`;
+      line.innerHTML = `<div class="h-0.5 bg-red-500 relative"><span class="absolute -left-1 -top-[5px] h-2.5 w-2.5 rounded-full bg-red-500"></span></div>`;
+      grid.appendChild(line);
+    }
+
+    wrapper.appendChild(grid);
+    container.innerHTML = '';
+    container.appendChild(wrapper);
+  }
+
+  /* ---------------------------------------------------------------
+     WEEK VIEW
+  --------------------------------------------------------------- */
+  function renderWeekView() {
+    const container = document.getElementById('calendarContainer');
+    const visibleRooms = ROOMS.filter(r => state.visibleRooms.has(r.id));
+    const week = getWeekDates(state.currentDate);
+
+    if (visibleRooms.length === 0) {
+      container.innerHTML = `<div class="rounded-lg border border-dashed border-slate-300 bg-white py-16 text-center text-slate-500">Select at least one room above to see its schedule.</div>`;
+      return;
+    }
+
+    const wrapper = document.createElement('div');
+    wrapper.className = 'overflow-auto max-h-[70vh] rounded-lg border border-slate-200 bg-white';
+
+    const grid = document.createElement('div');
+    grid.className = 'grid';
+    grid.style.gridTemplateColumns = `180px repeat(7, minmax(130px, 1fr))`;
+    grid.style.gridTemplateRows = `56px repeat(${visibleRooms.length}, 76px)`;
+
+    const corner = document.createElement('div');
+    corner.className = 'sticky top-0 left-0 z-30 bg-white border-b border-r border-slate-200';
+    corner.style.gridColumn = '1'; corner.style.gridRow = '1';
+    grid.appendChild(corner);
+
+    week.forEach((day, i) => {
+      const today = isSameDate(day, REAL_TODAY);
+      const head = document.createElement('div');
+      head.className = `sticky top-0 z-20 border-b border-l border-slate-200 px-2 py-2 text-center ${today ? 'bg-indigo-50' : 'bg-white'}`;
+      head.style.gridColumn = String(i+2); head.style.gridRow = '1';
+      head.innerHTML = `
+        <p class="text-[11px] uppercase tracking-wide ${today ? 'text-indigo-600 font-semibold' : 'text-slate-400'}">${day.toLocaleDateString('en-US',{weekday:'short'})}</p>
+        <p class="text-sm font-semibold ${today ? 'text-indigo-700' : 'text-slate-700'}">${day.getDate()}${today ? ' · Today' : ''}</p>`;
+      grid.appendChild(head);
+    });
+
+    visibleRooms.forEach((room, rIdx) => {
+      const c = COLOR_CLASSES[room.color];
+      const label = document.createElement('div');
+      label.className = 'sticky left-0 z-10 bg-white border-r border-t border-slate-100 px-3 py-2 flex flex-col justify-center';
+      label.style.gridColumn = '1'; label.style.gridRow = String(rIdx+2);
+      label.innerHTML = `
+        <div class="flex items-center gap-1.5">
+          <span class="h-2 w-2 rounded-full ${c.dot} shrink-0"></span>
+          <span class="text-sm font-semibold text-slate-900 truncate">${room.name}</span>
+        </div>
+        <span class="text-xs text-slate-400">${room.capacity} seats · ${room.floor}</span>`;
+      grid.appendChild(label);
+
+      week.forEach((day, dIdx) => {
+        const dateStr = toDateStr(day);
+        const dayBookings = BOOKINGS.filter(b => b.roomId === room.id && b.date === dateStr)
+          .sort((a,b) => toMinutes(a.start) - toMinutes(b.start));
+
+        const cell = document.createElement('button');
+        cell.type = 'button';
+        cell.className = `text-left border-t border-l border-slate-100 px-2 py-2 hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-indigo-500 ${isSameDate(day,REAL_TODAY) ? 'bg-indigo-50/30' : ''}`;
+        cell.style.gridColumn = String(dIdx+2); cell.style.gridRow = String(rIdx+2);
+        cell.dataset.action = 'goto-day';
+        cell.dataset.date = dateStr;
+        cell.setAttribute('aria-label', `${room.name} on ${day.toLocaleDateString('en-US',{weekday:'long', month:'long', day:'numeric'})}, ${dayBookings.length} booking${dayBookings.length===1?'':'s'}. View day schedule.`);
+
+        const bar = document.createElement('div');
+        bar.className = 'relative h-5 w-full rounded bg-slate-100 overflow-hidden';
+        dayBookings.forEach(b => {
+          const leftPct = ((toMinutes(b.start) - DAY_START) / (DAY_END - DAY_START)) * 100;
+          const widthPct = ((toMinutes(b.end) - toMinutes(b.start)) / (DAY_END - DAY_START)) * 100;
+          const span = document.createElement('span');
+          span.className = `absolute top-0 bottom-0 ${c.bar} rounded-sm`;
+          span.style.left = `${Math.max(0,leftPct)}%`;
+          span.style.width = `${Math.max(2,widthPct)}%`;
+          span.title = `${formatTime12(b.start)}–${formatTime12(b.end)} · ${b.title}`;
+          bar.appendChild(span);
+        });
+
+        const footer = document.createElement('p');
+        footer.className = `mt-1 text-[11px] ${dayBookings.length ? 'text-slate-500' : 'text-emerald-600 font-medium'}`;
+        footer.textContent = dayBookings.length ? `${dayBookings.length} booking${dayBookings.length===1?'':'s'}` : 'Free all day';
+
+        cell.appendChild(bar);
+        cell.appendChild(footer);
+        grid.appendChild(cell);
+      });
+    });
+
+    wrapper.appendChild(grid);
+    container.innerHTML = '';
+    container.appendChild(wrapper);
+  }
+
+  function render() {
+    updateToolbar();
+    renderRoomFilter();
+    if (state.view === 'day') renderDayView(); else renderWeekView();
+  }
+
+  /* ---------------------------------------------------------------
+     NEW BOOKING MODAL
+  --------------------------------------------------------------- */
+  function populateTimeSelects() {
+    const startSel = document.getElementById('bk-start');
+    startSel.innerHTML = '';
+    for (let m = DAY_START; m < DAY_END; m += SLOT_MIN) {
+      const t = toTimeStr(m);
+      startSel.innerHTML += `<option value="${t}">${formatTime12(t)}</option>`;
+    }
+    updateEndOptions();
+  }
+  function updateEndOptions() {
+    const startVal = document.getElementById('bk-start').value;
+    const endSel = document.getElementById('bk-end');
+    const prevEnd = endSel.value;
+    const startMin = toMinutes(startVal || toTimeStr(DAY_START));
+    endSel.innerHTML = '';
+    for (let m = startMin + SLOT_MIN; m <= DAY_END; m += SLOT_MIN) {
+      const t = toTimeStr(m);
+      endSel.innerHTML += `<option value="${t}">${formatTime12(t)}</option>`;
+    }
+    if ([...endSel.options].some(o => o.value === prevEnd)) endSel.value = prevEnd;
+  }
+  function populateRoomSelect() {
+    const sel = document.getElementById('bk-room');
+    sel.innerHTML = ROOMS.map(r => `<option value="${r.id}">${r.name} — ${r.capacity} seats (${r.floor})</option>`).join('');
+    updateCapacityHelp();
+  }
+  function updateCapacityHelp() {
+    const room = roomById(document.getElementById('bk-room').value);
+    document.getElementById('bk-capacity-help').textContent = room ? `Capacity: ${room.capacity} · ${room.equipment.join(', ')}` : '';
+  }
+
+  function openNewBookingModal(prefill) {
+    const form = document.getElementById('bookingForm');
+    form.reset();
+    hideFormError();
+    populateRoomSelect();
+    populateTimeSelects();
+
+    document.getElementById('bk-date').value = (prefill && prefill.date) || toDateStr(state.currentDate);
+    if (prefill && prefill.room) document.getElementById('bk-room').value = prefill.room;
+    updateCapacityHelp();
+    if (prefill && prefill.start) document.getElementById('bk-start').value = prefill.start;
+    updateEndOptions();
+    if (prefill && prefill.end) {
+      const endSel = document.getElementById('bk-end');
+      if ([...endSel.options].some(o => o.value === prefill.end)) endSel.value = prefill.end;
+    }
+    document.getElementById('bk-organizer').value = 'Jordan Diaz';
+    document.getElementById('bk-attendees').value = 2;
+
+    const overlay = document.getElementById('modalOverlay');
+    overlay.classList.remove('hidden'); overlay.classList.add('flex','open');
+    document.getElementById('bk-title').focus();
+  }
+  function closeNewBookingModal() {
+    const overlay = document.getElementById('modalOverlay');
+    overlay.classList.add('hidden'); overlay.classList.remove('flex','open');
+  }
+  function showFormError(msg) {
+    const box = document.getElementById('formError');
+    document.getElementById('formErrorText').textContent = msg;
+    box.classList.remove('hidden'); box.classList.add('flex');
+  }
+  function hideFormError() {
+    const box = document.getElementById('formError');
+    box.classList.add('hidden'); box.classList.remove('flex');
+  }
+
+  function handleBookingSubmit(e) {
+    e.preventDefault();
+    hideFormError();
+
+    const title = document.getElementById('bk-title').value.trim();
+    const roomId = document.getElementById('bk-room').value;
+    const dateVal = document.getElementById('bk-date').value;
+    const start = document.getElementById('bk-start').value;
+    const end = document.getElementById('bk-end').value;
+    const organizer = document.getElementById('bk-organizer').value.trim();
+    const attendees = parseInt(document.getElementById('bk-attendees').value, 10);
+    const notes = document.getElementById('bk-notes').value.trim();
+
+    if (!title || !roomId || !dateVal || !start || !end || !organizer || !attendees) {
+      showFormError('Please fill in all required fields.');
+      return;
+    }
+    if (toMinutes(end) <= toMinutes(start)) {
+      showFormError('End time must be after the start time.');
+      return;
+    }
+    const room = roomById(roomId);
+    if (attendees > room.capacity) {
+      showFormError(`${room.name} seats up to ${room.capacity} people — reduce attendees or pick a larger room.`);
+      return;
+    }
+    const conflict = findConflict(roomId, dateVal, toMinutes(start), toMinutes(end), null);
+    if (conflict) {
+      showFormError(`${room.name} is already booked ${formatTime12(conflict.start)}–${formatTime12(conflict.end)} for "${conflict.title}". Choose another time or room.`);
+      return;
+    }
+
+    BOOKINGS.push({ id:'b'+(bookingSeq++), roomId, date:dateVal, start, end, title, organizer, attendees, notes });
+    closeNewBookingModal();
+    state.currentDate = new Date(dateVal + 'T00:00:00');
+    state.view = 'day';
+    render();
+    showToast(`Booked ${room.name} for "${title}".`);
+  }
+
+  /* ---------------------------------------------------------------
+     BOOKING DETAIL MODAL
+  --------------------------------------------------------------- */
+  function openBookingDetail(id) {
+    const b = BOOKINGS.find(x => x.id === id);
+    if (!b) return;
+    const room = roomById(b.roomId);
+    state.detailBookingId = id;
+
+    document.getElementById('detailRoom').textContent = room.name;
+    document.getElementById('detailTitle').textContent = b.title;
+    const dateObj = new Date(b.date + 'T00:00:00');
+    document.getElementById('detailDateTime').textContent =
+      `${dateObj.toLocaleDateString('en-US',{weekday:'long', month:'long', day:'numeric'})} · ${formatTime12(b.start)} – ${formatTime12(b.end)}`;
+    document.getElementById('detailAttendees').textContent = `${b.attendees} attendee${b.attendees===1?'':'s'} · Capacity ${room.capacity}`;
+    document.getElementById('detailOrganizer').textContent = b.organizer;
+    document.getElementById('detailOrganizerInitials').textContent = initials(b.organizer);
+    const notesEl = document.getElementById('detailNotes');
+    if (b.notes) { notesEl.textContent = b.notes; notesEl.classList.remove('hidden'); }
+    else { notesEl.classList.add('hidden'); }
+
+    document.getElementById('cancelConfirmRow').classList.add('hidden');
+
+    const overlay = document.getElementById('detailOverlay');
+    overlay.classList.remove('hidden'); overlay.classList.add('flex','open');
+    document.getElementById('closeDetailBtn').focus();
+  }
+  function closeBookingDetail() {
+    const overlay = document.getElementById('detailOverlay');
+    overlay.classList.add('hidden'); overlay.classList.remove('flex','open');
+    document.getElementById('cancelConfirmRow').classList.add('hidden');
+    state.detailBookingId = null;
+  }
+
+  /* ---------------------------------------------------------------
+     EVENTS
+  --------------------------------------------------------------- */
+  document.getElementById('todayBtn').addEventListener('click', () => {
+    state.currentDate = new Date(REAL_TODAY);
+    render();
+  });
+  document.getElementById('prevBtn').addEventListener('click', () => {
+    state.currentDate.setDate(state.currentDate.getDate() - (state.view === 'day' ? 1 : 7));
+    render();
+  });
+  document.getElementById('nextBtn').addEventListener('click', () => {
+    state.currentDate.setDate(state.currentDate.getDate() + (state.view === 'day' ? 1 : 7));
+    render();
+  });
+  document.getElementById('viewDayBtn').addEventListener('click', () => { state.view = 'day'; render(); });
+  document.getElementById('viewWeekBtn').addEventListener('click', () => { state.view = 'week'; render(); });
+  document.getElementById('newBookingBtn').addEventListener('click', () => openNewBookingModal(null));
+  document.getElementById('resetRoomsBtn').addEventListener('click', () => {
+    state.visibleRooms = new Set(ROOMS.map(r => r.id));
+    render();
+  });
+
+  document.getElementById('roomFilterRow').addEventListener('click', e => {
+    const btn = e.target.closest('[data-room-toggle]');
+    if (!btn) return;
+    const id = btn.dataset.roomToggle;
+    if (state.visibleRooms.has(id)) {
+      if (state.visibleRooms.size > 1) state.visibleRooms.delete(id);
+    } else {
+      state.visibleRooms.add(id);
+    }
+    render();
+  });
+
+  document.getElementById('calendarContainer').addEventListener('click', e => {
+    const el = e.target.closest('[data-action]');
+    if (!el) return;
+    const action = el.dataset.action;
+    if (action === 'new-booking') {
+      openNewBookingModal({ room: el.dataset.room, date: el.dataset.date, start: el.dataset.start, end: el.dataset.end });
+    } else if (action === 'view-booking') {
+      openBookingDetail(el.dataset.id);
+    } else if (action === 'goto-day') {
+      state.currentDate = new Date(el.dataset.date + 'T00:00:00');
+      state.view = 'day';
+      render();
+    }
+  });
+  document.getElementById('calendarContainer').addEventListener('keydown', e => {
+    if (e.key !== 'Enter' && e.key !== ' ') return;
+    const el = e.target.closest('[data-action="view-booking"]');
+    if (!el) return;
+    e.preventDefault();
+    openBookingDetail(el.dataset.id);
+  });
+
+  document.getElementById('bk-room').addEventListener('change', updateCapacityHelp);
+  document.getElementById('bk-start').addEventListener('change', updateEndOptions);
+  document.getElementById('bookingForm').addEventListener('submit', handleBookingSubmit);
+  document.getElementById('closeModalBtn').addEventListener('click', closeNewBookingModal);
+  document.getElementById('cancelModalBtn').addEventListener('click', closeNewBookingModal);
+  document.getElementById('modalOverlay').addEventListener('click', e => { if (e.target.id === 'modalOverlay') closeNewBookingModal(); });
+
+  document.getElementById('closeDetailBtn').addEventListener('click', closeBookingDetail);
+  document.getElementById('closeDetailBtn2').addEventListener('click', closeBookingDetail);
+  document.getElementById('detailOverlay').addEventListener('click', e => { if (e.target.id === 'detailOverlay') closeBookingDetail(); });
+  document.getElementById('cancelBookingBtn').addEventListener('click', () => {
+    document.getElementById('cancelConfirmRow').classList.remove('hidden');
+  });
+  document.getElementById('cancelNoBtn').addEventListener('click', () => {
+    document.getElementById('cancelConfirmRow').classList.add('hidden');
+  });
+  document.getElementById('cancelYesBtn').addEventListener('click', () => {
+    const id = state.detailBookingId;
+    const idx = BOOKINGS.findIndex(b => b.id === id);
+    if (idx !== -1) {
+      const [removed] = BOOKINGS.splice(idx, 1);
+      closeBookingDetail();
+      render();
+      showToast(`Cancelled "${removed.title}".`);
+    }
+  });
+
+  document.addEventListener('keydown', e => {
+    if (e.key !== 'Escape') return;
+    if (!document.getElementById('modalOverlay').classList.contains('hidden')) closeNewBookingModal();
+    if (!document.getElementById('detailOverlay').classList.contains('hidden')) closeBookingDetail();
+  });
+
+  /* ---------------------------------------------------------------
+     INIT
+  --------------------------------------------------------------- */
+  render();
+})();
+</script>
+</body>
+</html>

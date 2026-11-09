@@ -1,0 +1,54 @@
+{
+  "brief": "29-support-ticket-board",
+  "run": 1,
+  "items": [
+    {
+      "item": "Every status column heading shows the status name and its ticket count, and the count equals the cards shown or the column states how many are not shown (such as \"Showing 20 of 134\")",
+      "pass": true,
+      "evidence": "columnHTML() renders `<span class=\"truncate\">${col.label}</span>` plus `headerCount` = `${count}${col.limit ? ' / '+col.limit : ''}`, and `body` always renders the full `tickets.map(cardHTML)` list (no slicing), so the header count matches the rendered card count, e.g. screenshot shows 'New 8' with 8 cards, 'In progress 9 / 6 Over limit' with all 9 cards present."
+    },
+    {
+      "item": "Each card shows the ticket number (such as #4821), subject, customer, priority as a word or code (such as \"P1 · Urgent\") and the assignee, or an explicit \"Unassigned\"",
+      "pass": true,
+      "evidence": "cardHTML(): `${t.id}` (e.g. 'TKT-1029'), subject `<p class=\"clamp2...\">`, customer `<p class=\"...truncate\">${esc(t.customerName)}</p>`, priority pill `${t.priority}` (word), and assignee row showing `esc(assigneeName)` which is `t.assignee || 'Unassigned'` (screenshot shows '? Unassigned' for TKT-1004/1027)."
+    },
+    {
+      "item": "Open tickets show the time left to the next SLA target and which target it is (such as \"Resolution due in 2h 15m\"), and breached tickets show how long they are overdue (such as \"Breached 40m ago\") in text or with an icon, not by colour alone",
+      "pass": false,
+      "evidence": "slaView() only ever produces generic text like 'Due in 4h' / 'Overdue by 8d' (not colour-only, which is good), but never names which SLA target the countdown refers to (no 'Resolution due' / 'First response due' wording anywhere) — SLA_HOURS is a single undifferentiated timer per priority, so the 'which target' requirement is unmet."
+    },
+    {
+      "item": "Tickets in a waiting status (such as \"Waiting on customer\") show their SLA timer as paused instead of counting down",
+      "pass": false,
+      "evidence": "slaView(t) only special-cases status 'resolved'/'closed'; for status 'waiting' it falls through to the same `diff = t.dueAt - NOW` countdown as open/in_progress, so waiting tickets keep counting down/overdue (e.g. screenshot 'Waiting on customer' column shows 'Overdue by...' and 'Due in 1...' on cards, not a paused indicator)."
+    },
+    {
+      "item": "Within each column the cards are ordered by SLA due time or by priority, and the board states which ordering is used",
+      "pass": true,
+      "evidence": "sortTickets() sorts by `PRIORITY_RANK[a.priority]-PRIORITY_RANK[b.priority] || a.dueAt-b.dueAt`, and the column `<h2 ... title=\"Sorted by priority, then SLA due date\">` states the ordering (exposed via title attribute, consistent with how the page exposes other exact details)."
+    },
+    {
+      "item": "Search finds tickets by number, subject or customer, and filters cover assignee (including \"Me\" and \"Unassigned\"), priority and SLA state (such as breached or due within 1 hour)",
+      "pass": false,
+      "evidence": "matching() filters by `t.id + subject + customerName + customerCompany` (search) and by `#f-priority`, `#f-assignee` (includes '__unassigned' option) and `#f-mine` ('Assigned to me'). However there is no filter control anywhere for SLA state (breached / due within 1h) — only search, priority, assignee and mine exist."
+    },
+    {
+      "item": "Each card has keyboard-reachable actions to assign the ticket (including \"Assign to me\") and to change its status without dragging, with accessible names that include the ticket number",
+      "pass": false,
+      "evidence": "The kebab button `aria-label=\"Actions for ${t.id}\"` opens a 'Move to…' menu (openMenu) listing only status columns — a non-drag, keyboard-reachable status change with the ticket number in its accessible name. But there is no equivalent quick 'assign' / 'Assign to me' action on the card or in that menu; assignment is only possible by opening the side panel and using the plain '#panel-assignee' select, whose accessible name ('Assignee') does not include the ticket number."
+    },
+    {
+      "item": "An empty column shows a short message instead of blank space, a search or filter with no matches offers to clear it, and loading and failed-load (with retry) states exist",
+      "pass": true,
+      "evidence": "columnHTML() empty body: `<li>No tickets in ${col.label.toLowerCase()}</li>`; `#no-match` block ('No tickets match these filters' + '#no-match-clear' 'Clear filters' button); `[data-state=\"loading\"]` skeleton region; `[data-state=\"error\"]` role=\"alert\" block with '#retry' 'Retry' button."
+    },
+    {
+      "item": "Every relative time (such as \"Updated 3h ago\") also exposes the exact date, time and timezone, in a <time datetime> element or a title attribute",
+      "pass": false,
+      "evidence": "SLA relative labels ('Due in 4h', 'Overdue by 8d', 'Resolved today') are wrapped in `<span ... title=\"${esc(fmtDateTime(t.dueAt))}\">` and fmtDateTime() = `${fmtDM(d)} ${fmtTime(d)}` (e.g. '12/11 09:30') — no `<time datetime>` element and no timezone is ever rendered anywhere on the page, only day/month and hour/minute."
+    }
+  ],
+  "tells": [],
+  "notes": "No template tells observed: no greeting header, no KPI icon tiles, no delta pills, avatars use real assignee initials (not non-person), no gradients/glass/backdrop-blur, no uppercase tracked labels, no actual emoji icons (only '⋯'/'×'/'«' glyphs), status/priority colour tones are functional rather than a decorative rainbow, no sidebar promo card, no decorative chart, no card-in-card nesting, no hover-lift, radii are standard (4/6px per audit), sidebar is slate-50 not navy/indigo. Main gaps are all SLA/assignment related: no named SLA target, waiting tickets don't pause their timer, no SLA-state filter, no quick 'Assign to me' action, and no timezone exposed for relative times.",
+  "blind": true
+}

@@ -1,0 +1,54 @@
+{
+  "brief": "31-user-access-admin",
+  "run": 1,
+  "items": [
+    {
+      "item": "Each row shows the user's name and email, role, status in words (such as Active, Invited, Deactivated, Locked) and whether two-factor sign-in is enabled",
+      "pass": false,
+      "evidence": "Row template (`$('rows').innerHTML = rows.map(...)`) renders avatar+name, email `mailto:` link, role text, status pill (`TONE[x.status]`), and last sign-in — there is no 2FA column, badge, or data field (`u()` objects only carry id/name/email/role/status/lastSignIn/you). Two-factor enablement is never shown."
+    },
+    {
+      "item": "Last sign-in uses one date-time format with the timezone stated, relative times also expose the exact time, and an account that has never signed in shows \"Never\" rather than a blank or a 1970 date",
+      "pass": false,
+      "evidence": "fmtAbsolute formats via `Intl.DateTimeFormat(LOCALE,{day,month,year})`/`timeFmt` with no `timeZone` option and no timezone label rendered anywhere (e.g. first.png shows \"11/07/2026, 10:42 PM · 18 minutes ago\" with no zone). `fmtLastSignIn` returns `'<span ... aria-label=\"Not set\">—</span>'` for null lastSignIn instead of the word \"Never\"."
+    },
+    {
+      "item": "Users can be found by searching name or email and filtered by role, status and inactivity (such as no sign-in for 90+ days), with the number of matching users shown",
+      "pass": false,
+      "evidence": "`#q` search and `#f-role` select plus status tabs (`renderTabs`) filter via `matching()`, and `#result-count` shows the count (\"26 users\"). But there is no inactivity/no-sign-in-90+-days filter anywhere in the UI or in `matching()`'s predicate."
+    },
+    {
+      "item": "The invite form requires an email and a role, labels both fields, and shows an inline error for a malformed address or one that already has an account",
+      "pass": true,
+      "evidence": "`<label for=\"inv-email\">Email *</label>` / `<label for=\"inv-role\">Role *</label>`; submit handler validates `/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/` showing 'Enter an email like name@company.com', and checks `users.find(x=>x.email.toLowerCase()===email.toLowerCase())` showing 'Email already used by ${existing.name}' via `fieldError()`."
+    },
+    {
+      "item": "Deactivation asks for confirmation that names the user and states the effect (active sessions ended, sign-in blocked, data kept), and a deactivated user is offered Reactivate instead",
+      "pass": false,
+      "evidence": "confirmDeactivateOne text is only \"${x.name} will immediately lose access to Acme Admin. You can reactivate the account later.\" — names the user and implies reactivation, but never states sessions are ended or that data is kept. Reactivate action itself does exist for Deactivated rows (`rowActions` returns `['reactivate','Reactivate']`)."
+    },
+    {
+      "item": "The signed-in administrator's own row is marked (such as \"You\") and cannot be deactivated or lose the admin role, and the last remaining administrator cannot be deactivated, with the disabled action explaining why",
+      "pass": false,
+      "evidence": "Avery Chen's row shows \"(you)\" and `rowActions()` omits 'deactivate' when `x.you`, so self cannot be deactivated. However there is no protection or disabled/explained state for the last remaining Administrator — e.g. Jordan Patel (the only other Administrator) can be freely deactivated via the menu with no admin-count check or messaging."
+    },
+    {
+      "item": "Password reset sends a reset link to the user's email address, which the confirmation names, and the administrator never sees, sets or types the new password",
+      "pass": true,
+      "evidence": "Menu action 'reset' calls `announce('Password reset link sent to ${x.email}.')`; there is no password input/field anywhere in the markup for the admin to view or type a password."
+    },
+    {
+      "item": "Row actions are buttons or a keyboard-operable menu whose accessible names include the user (such as \"Actions for Mai Nguyen\"), and the outcome of an action is announced in an aria-live or role=\"status\" region",
+      "pass": true,
+      "evidence": "`<button data-menu=\"${x.id}\" aria-haspopup=\"menu\" aria-label=\"Actions for ${x.name}\">⋯</button>` and outcomes go to `<div id=\"toast\" role=\"status\" aria-live=\"polite\">` via `announce()`."
+    },
+    {
+      "item": "A search with no matching users shows a message with a way to clear it, and loading and failed-load states with a retry exist",
+      "pass": true,
+      "evidence": "`[data-state=\"empty\"]` shows \"No users match these filters\" with `#empty-action` = 'Clear filters'; `[data-state=\"loading\"]` has `aria-busy=\"true\"` with skeleton rows; `[data-state=\"error\"]` has `role=\"alert\"` text 'Users could not be loaded.' plus `#retry` button."
+    }
+  ],
+  "tells": [],
+  "notes": "Overall a clean, non-templated build (audit.json score 100/100, no stock dashboard chrome like greeting headers, KPI tiles, gradients, or glass panels). Functional gaps are the main issues: no 2FA indicator, no stated timezone, 'Never' not used for null sign-in, no inactivity filter, incomplete deactivation-effect copy, and no last-admin protection.",
+  "blind": true
+}

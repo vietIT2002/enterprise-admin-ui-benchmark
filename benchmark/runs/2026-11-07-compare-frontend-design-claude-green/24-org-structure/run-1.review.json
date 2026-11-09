@@ -1,0 +1,54 @@
+{
+  "brief": "24-org-structure",
+  "run": 1,
+  "items": [
+    {
+      "item": "The hierarchy is an indented tree in which every unit with sub-units expands and collapses, exposed as role=\"tree\"/\"treeitem\" with aria-expanded (or nested lists whose toggles are buttons with aria-expanded) and operable from the keyboard",
+      "pass": false,
+      "evidence": "Tree rows are plain <button class=\"tree-row\"> elements with only aria-current set (row.setAttribute('aria-current', ...)); there is no role=\"tree\"/\"treeitem\" anywhere and no aria-expanded attribute. The expand/collapse chevron is a bare <span data-toggle> nested inside the row button, toggled only via event delegation on click (tree-root.addEventListener('click', e => e.target.closest('[data-toggle]'))). Because the chevron is a descendant span rather than a focusable control, pressing Enter/Space on the focused row button cannot trigger it (e.target would be the button, not the span), so expand/collapse is not keyboard-operable."
+    },
+    {
+      "item": "Each unit shows its total headcount including sub-units alongside its direct staff (such as \"42 · 8 direct\"), and every parent's total equals its direct staff plus its children's totals",
+      "pass": false,
+      "evidence": "Tree rows and the detail headcount (hc.textContent = headcountOf(node).toLocaleString(); #headcount-number) render only the recursive total via headcountOf(); no node ever displays a separate 'direct staff' figure or combined 'total · N direct' format. Parent nodes also carry no own headcount field (headcountOf sums only children), so a direct count can't even be derived from the data model."
+    },
+    {
+      "item": "Each unit names its manager, and a unit without one shows \"Vacant\" rather than a blank",
+      "pass": false,
+      "evidence": "document.getElementById('manager-name').textContent = node.manager.name; has no fallback branch, and no node in orgData omits a manager, so the 'Vacant' case is unimplemented."
+    },
+    {
+      "item": "The selected unit is marked in the tree (aria-selected or aria-current), and the details panel shows its name, code, path from the top (such as \"Company › Finance › Accounts Payable\"), manager and cost centre or location",
+      "pass": false,
+      "evidence": "aria-current is correctly toggled (row.setAttribute('aria-current', state.selectedId === node.id ? 'true' : 'false')) and the breadcrumb nav (#breadcrumb, built from pathTo(id)) shows the path, plus manager and 'Cost center CC-1000' are rendered. However no unit code is ever displayed anywhere in the detail panel (only the internal `id` field is used for lookups, never rendered), so the 'code' requirement is unmet."
+    },
+    {
+      "item": "The details panel compares approved positions with filled ones and gives vacancies as approved minus filled",
+      "pass": false,
+      "evidence": "The only staffing metric shown is 'Open positions' (#metric-open = openPositionsOf(node)), a raw field from the data. There is no 'approved' headcount field anywhere in orgData and no approved-minus-filled computation."
+    },
+    {
+      "item": "The details panel lists the unit's direct employees with name and job title, and their number equals the unit's direct headcount",
+      "pass": false,
+      "evidence": "For leaf units the panel renders the 'Role mix' section (#rolemix-body) from node.roleMix, which is aggregated counts per job title (e.g. {title:'Registered nurse, inpatient', count:98}) — no individual employee names are ever listed."
+    },
+    {
+      "item": "Searching by unit or manager name expands the ancestors of each match and highlights it, and a search with no match says so",
+      "pass": false,
+      "evidence": "The search input handler does expand ancestor nodes of matches (the expandMatches() IIFE adds matching ancestor ids to state.expanded) and #no-results shows 'No units or managers match your search.' when subtreeHasMatch(orgData,q) is false. But buildRow() never applies any highlight/mark styling to the matched node or text — nameEl.textContent = node.name is set with no diff from the non-search render, so matches are not visually highlighted."
+    },
+    {
+      "item": "Deactivating or moving a unit asks for confirmation in a dialog that names the unit and the number of employees and sub-units affected",
+      "pass": false,
+      "evidence": "No deactivate or move affordance exists anywhere in the markup or script — only 'Expand all'/'Collapse all' buttons and a search box are present. No dialog/modal element exists in the page."
+    },
+    {
+      "item": "A unit with no direct employees shows an explicit empty message in the details panel, and loading and error-with-retry states exist for both the tree and the panel",
+      "pass": false,
+      "evidence": "renderDetail() always renders either the sub-units table or the role-mix list with no branch for an empty roleMix array, so there is no explicit empty-state message. The data is a static in-page object rendered synchronously on load (render() called once at the bottom of the script) with no fetch, no loading skeleton, and no error/retry UI for either the tree panel or the detail panel."
+    }
+  ],
+  "tells": [],
+  "notes": "Design is a restrained editorial style (Newsreader display serif + IBM Plex Sans, muted brass/slate palette, 2px radii) with no stock dashboard tells observed (no greeting header, KPI icon tiles, gradients, glassmorphism, emoji icons, rainbow status pills, sidebar promo, decorative charts, card-in-card nesting, hover-lift, oversized radius, or navy/indigo sidebar). The automated audit (score 76/100) separately flags a 12px body-text size violation, a 3.36:1 tree-row headcount contrast failure, and plain-text (non-mailto) manager email. All nine checklist items fail: the tree lacks ARIA tree semantics and keyboard-operable expand/collapse, headcount is shown only as a total (no direct-vs-total split), there's no 'Vacant' manager fallback, no unit code is displayed, there's no approved-vs-filled vacancy comparison, no named direct-employee list (only aggregated role-mix), search lacks match highlighting, there's no deactivate/move confirmation flow, and there are no empty/loading/error states.",
+  "blind": true
+}

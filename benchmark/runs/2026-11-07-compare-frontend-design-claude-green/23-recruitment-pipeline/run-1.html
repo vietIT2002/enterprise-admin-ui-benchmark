@@ -1,0 +1,725 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Pipeline — Talent Pipeline</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Zilla+Slab:wght@400;500;600;700&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+  tailwind.config = {
+    theme: {
+      extend: {
+        fontFamily: {
+          serif: ['"Zilla Slab"', 'serif'],
+          sans: ['"IBM Plex Sans"', 'sans-serif'],
+        },
+        colors: {
+          ink: '#1B2330',
+          paper: '#EEF1F4',
+          line: '#D7DBE2',
+          teal: { 50: '#E8F3F0', 100: '#CFE7E0', 600: '#2E7A6C', 700: '#235F57' },
+          brass: { 50: '#FBF2E2', 100: '#F3E1B8', 600: '#B8872B', 700: '#8E6A20' },
+          brick: { 50: '#F6E9E6', 600: '#A1402F' },
+        },
+      },
+    },
+  };
+</script>
+<style>
+  html, body { font-family: 'IBM Plex Sans', sans-serif; }
+  .font-serif { font-family: 'Zilla Slab', serif; }
+  .column-body::-webkit-scrollbar, .dossier-scroll::-webkit-scrollbar { width: 7px; }
+  .column-body::-webkit-scrollbar-track, .dossier-scroll::-webkit-scrollbar-track { background: transparent; }
+  .column-body::-webkit-scrollbar-thumb, .dossier-scroll::-webkit-scrollbar-thumb { background: #C3C9D2; border-radius: 4px; }
+  .candidate-card { cursor: grab; }
+  .candidate-card:active { cursor: grabbing; }
+  .rating-tick { width: 11px; height: 5px; border-radius: 1px; }
+  @media (prefers-reduced-motion: reduce) {
+    * { transition-duration: 0.01ms !important; animation-duration: 0.01ms !important; }
+  }
+</style>
+</head>
+<body class="h-screen flex flex-col bg-paper text-ink antialiased overflow-hidden">
+
+  <!-- Header -->
+  <header class="shrink-0 bg-white border-b border-line px-6 py-3 flex items-center justify-between gap-4 flex-wrap">
+    <div class="flex items-center gap-3">
+      <div class="w-7 h-7 shrink-0" aria-hidden="true">
+        <svg viewBox="0 0 28 28" class="w-full h-full">
+          <rect x="1" y="1" width="26" height="26" rx="3" fill="#1B2330"/>
+          <path d="M1 14 L14 1 L27 14 L14 27 Z" fill="none" stroke="#2E7A6C" stroke-width="1.4" transform="translate(0,0)"/>
+          <rect x="6" y="6" width="16" height="16" fill="none" stroke="#B8872B" stroke-width="1.2"/>
+        </svg>
+      </div>
+      <div class="leading-tight">
+        <p class="font-serif text-lg font-semibold">Pipeline</p>
+        <p class="text-[11px] text-ink/50 -mt-0.5">Recruiting</p>
+      </div>
+      <div class="flex items-center gap-2 ml-4 pl-4 border-l border-line">
+        <label for="jobSwitcher" class="text-sm text-ink/60">Viewing</label>
+        <select id="jobSwitcher" class="text-sm border border-line rounded-sm px-2 py-1.5 bg-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-teal-600"></select>
+      </div>
+    </div>
+    <div class="flex items-center gap-2">
+      <span class="text-sm text-ink/60">Signed in as Priya Nandan</span>
+      <span class="w-7 h-7 rounded-full bg-ink text-white text-[11px] font-medium flex items-center justify-center">PN</span>
+    </div>
+  </header>
+
+  <!-- Job meta -->
+  <section id="jobMeta" class="shrink-0 bg-white border-b border-line px-6 py-4"></section>
+
+  <!-- Toolbar -->
+  <section class="shrink-0 bg-white border-b border-line px-6 py-3 flex items-center gap-3 flex-wrap">
+    <div class="relative">
+      <svg class="absolute left-2.5 top-2.5 w-4 h-4 text-ink/40" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+      <input id="searchInput" type="text" placeholder="Search by name, title, or skill"
+        class="w-72 pl-8 pr-3 py-2 text-sm border border-line rounded-sm bg-white placeholder:text-ink/40 focus-visible:outline focus-visible:outline-2 focus-visible:outline-teal-600" />
+    </div>
+    <select id="filterRecruiter" class="text-sm border border-line rounded-sm px-2 py-2 bg-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-teal-600"></select>
+    <select id="filterSource" class="text-sm border border-line rounded-sm px-2 py-2 bg-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-teal-600"></select>
+    <select id="filterRating" class="text-sm border border-line rounded-sm px-2 py-2 bg-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-teal-600">
+      <option value="0">Any fit rating</option>
+      <option value="3">3+ fit rating</option>
+      <option value="4">4+ fit rating</option>
+      <option value="5">5 fit rating only</option>
+    </select>
+    <button id="toggleDeclined" type="button" aria-pressed="false"
+      class="text-sm border border-line rounded-sm px-3 py-2 bg-white text-ink/70 hover:border-ink/40 focus-visible:outline focus-visible:outline-2 focus-visible:outline-teal-600">
+      Show not moving forward
+    </button>
+    <span id="activeCount" class="text-sm text-ink/50 ml-auto"></span>
+  </section>
+
+  <!-- Board -->
+  <main class="flex-1 min-h-0 overflow-x-auto">
+    <div id="board" class="flex gap-4 h-full px-6 py-4 min-w-max"></div>
+  </main>
+
+  <!-- Dossier backdrop -->
+  <div id="backdrop" class="fixed inset-0 bg-ink/30 opacity-0 pointer-events-none motion-safe:transition-opacity motion-safe:duration-300 z-40"></div>
+
+  <!-- Dossier panel -->
+  <aside id="dossier" class="fixed top-0 right-0 h-full w-full sm:w-[440px] bg-white border-l border-line shadow-xl translate-x-full motion-safe:transition-transform motion-safe:duration-300 z-50 flex flex-col" aria-hidden="true">
+    <div class="flex items-center justify-between px-5 py-4 border-b border-line shrink-0">
+      <p class="font-serif text-base font-medium">Candidate profile</p>
+      <button id="closeDossier" type="button" aria-label="Close panel"
+        class="w-8 h-8 flex items-center justify-center rounded-sm text-ink/50 hover:text-ink hover:bg-paper focus-visible:outline focus-visible:outline-2 focus-visible:outline-teal-600">
+        <svg viewBox="0 0 20 20" class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="1.8"><line x1="4" y1="4" x2="16" y2="16"/><line x1="16" y1="4" x2="4" y2="16"/></svg>
+      </button>
+    </div>
+    <div id="dossierContent" class="dossier-scroll flex-1 min-h-0 overflow-y-auto px-5 py-5"></div>
+    <div id="dossierActions" class="shrink-0 border-t border-line px-5 py-4"></div>
+  </aside>
+
+  <!-- Toast -->
+  <div id="toast" aria-live="polite" class="fixed bottom-6 left-1/2 -translate-x-1/2 translate-y-20 opacity-0 motion-safe:transition-all motion-safe:duration-300 z-50">
+    <div class="bg-ink text-white text-sm px-4 py-2.5 rounded-sm shadow-lg"></div>
+  </div>
+
+<script>
+(function () {
+  'use strict';
+
+  var REFERENCE_DATE = new Date(2026, 10, 7);
+
+  function fmtDate(iso) {
+    var d = new Date(iso + 'T00:00:00');
+    return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+  }
+  function daysAgo(iso) {
+    var d = new Date(iso + 'T00:00:00');
+    return Math.max(0, Math.round((REFERENCE_DATE - d) / 86400000));
+  }
+  function initials(name) {
+    var parts = name.split(' ');
+    return (parts[0][0] + (parts[parts.length - 1][0] || '')).toUpperCase();
+  }
+  function deriveContact(name, idx) {
+    var slug = name.toLowerCase().replace(/[^a-z\s-]/g, '').trim().replace(/\s+/g, '.');
+    var phoneSeed = String(2000 + idx * 7).slice(-4);
+    return {
+      email: slug + '@mailcorp.example',
+      phone: '(415) 555-' + phoneSeed,
+      linkedin: 'linkedin.com/in/' + slug.replace(/\./g, '-'),
+      resumeFile: slug.replace(/\./g, '_') + '_resume.pdf'
+    };
+  }
+
+  var STAGES = [
+    { key: 'applied', label: 'Applied', color: '#4C5F82' },
+    { key: 'screening', label: 'Screening', color: '#3E6B7D' },
+    { key: 'interview', label: 'Interview', color: '#2E7A6C' },
+    { key: 'offer', label: 'Offer', color: '#B8872B' },
+    { key: 'hired', label: 'Hired', color: '#1F6B47' }
+  ];
+  var DECLINED_STAGE = { key: 'declined', label: 'Not moving forward', color: '#7A828C' };
+  var STAGE_BY_KEY = {};
+  STAGES.concat([DECLINED_STAGE]).forEach(function (s) { STAGE_BY_KEY[s.key] = s; });
+
+  var JOBS = [
+    {
+      id: 'design', title: 'Senior Product Designer', department: 'Design',
+      location: 'Remote (US)', type: 'Full-time', manager: 'Dana Whitfield',
+      openings: 2, opened: '2026-09-20'
+    },
+    {
+      id: 'backend', title: 'Backend Engineer, Platform', department: 'Engineering',
+      location: 'Hybrid (New York, NY)', type: 'Full-time', manager: 'Luis Ferreira',
+      openings: 3, opened: '2026-10-10'
+    }
+  ];
+
+  var CANDIDATES_RAW = [
+    // Design job
+    { jobId: 'design', name: 'Amelia Brooks', title: 'Senior Product Designer', company: 'Figtree Studio', source: 'LinkedIn', rating: 4, recruiter: 'Priya Nandan', tags: ['Figma', 'Design systems'], flag: 'new', stage: 'applied',
+      history: [{ stage: 'applied', date: '2026-10-28' }] },
+    { jobId: 'design', name: 'Devon Castillo', title: 'Product Designer', company: 'Hearth', source: 'Referral', rating: 3, recruiter: 'Marcus Oyelaran', tags: ['Prototyping', 'User research'], stage: 'applied',
+      history: [{ stage: 'applied', date: '2026-10-30' }] },
+    { jobId: 'design', name: 'Yuki Tanaka', title: 'Senior Designer, Platform', company: 'Northwind', source: 'Career site', rating: 5, recruiter: 'Priya Nandan', tags: ['Accessibility', 'Design systems'], flag: 'new', stage: 'applied',
+      history: [{ stage: 'applied', date: '2026-10-25' }] },
+    { jobId: 'design', name: 'Sofia Mercado', title: 'Lead Product Designer', company: 'Birchwell', source: 'Dribbble', rating: 4, recruiter: 'Marcus Oyelaran', tags: ['Visual design', 'Motion design'], stage: 'applied',
+      history: [{ stage: 'applied', date: '2026-10-22' }] },
+    { jobId: 'design', name: 'Theo Lindgren', title: 'Product Designer', company: 'Loop Health', source: 'LinkedIn', rating: 2, recruiter: 'Priya Nandan', tags: ['Prototyping'], flag: 'new', stage: 'applied',
+      history: [{ stage: 'applied', date: '2026-11-01' }] },
+
+    { jobId: 'design', name: 'Harper Jin', title: 'Senior Product Designer', company: 'Glasswing', source: 'Referral', rating: 4, recruiter: 'Marcus Oyelaran', tags: ['Design systems', 'Workshop facilitation'], stage: 'screening',
+      history: [{ stage: 'applied', date: '2026-10-18' }, { stage: 'screening', date: '2026-10-24' }] },
+    { jobId: 'design', name: 'Noah Fitzgerald', title: 'Product Designer', company: 'Anchorpoint', source: 'LinkedIn', rating: 3, recruiter: 'Priya Nandan', tags: ['User research'], stage: 'screening',
+      history: [{ stage: 'applied', date: '2026-10-15' }, { stage: 'screening', date: '2026-10-22' }] },
+    { jobId: 'design', name: 'Ines Varga', title: 'Senior Designer', company: 'Cobalt Labs', source: 'Portfolio inbound', rating: 4, recruiter: 'Marcus Oyelaran', tags: ['Accessibility', 'Visual design'], stage: 'screening',
+      history: [{ stage: 'applied', date: '2026-10-12' }, { stage: 'screening', date: '2026-10-21' }] },
+    { jobId: 'design', name: 'Caleb Osei', title: 'Product Designer', company: 'Fernhill', source: 'Career site', rating: 3, recruiter: 'Priya Nandan', tags: ['Prototyping', 'Motion design'], stage: 'screening',
+      history: [{ stage: 'applied', date: '2026-10-20' }, { stage: 'screening', date: '2026-10-27' }] },
+
+    { jobId: 'design', name: 'Maren Holt', title: 'Senior Product Designer', company: 'Driftwood', source: 'Referral', rating: 5, recruiter: 'Priya Nandan', tags: ['Design systems', 'Accessibility'], stage: 'interview',
+      history: [{ stage: 'applied', date: '2026-09-29' }, { stage: 'screening', date: '2026-10-04' }, { stage: 'interview', date: '2026-10-14' }],
+      notes: [{ author: 'Dana Whitfield, Design Lead', date: '2026-10-16', text: 'Strong systems thinking — walked through a messy legacy flow with a clear plan to simplify it. Scheduling a second interview with the research team.' }] },
+    { jobId: 'design', name: 'Elias Petrov', title: 'Lead Designer', company: 'Northwind', source: 'LinkedIn', rating: 4, recruiter: 'Marcus Oyelaran', tags: ['User research', 'Workshop facilitation'], stage: 'interview',
+      history: [{ stage: 'applied', date: '2026-10-02' }, { stage: 'screening', date: '2026-10-07' }, { stage: 'interview', date: '2026-10-20' }],
+      notes: [{ author: 'Dana Whitfield, Design Lead', date: '2026-10-22', text: 'Good craft and a polished portfolio. Want to probe research depth in the next round before deciding.' }] },
+    { jobId: 'design', name: 'Ruth Okafor', title: 'Senior Product Designer', company: 'Hearth', source: 'Career site', rating: 4, recruiter: 'Priya Nandan', tags: ['Visual design', 'Design systems'], stage: 'interview',
+      history: [{ stage: 'applied', date: '2026-10-05' }, { stage: 'screening', date: '2026-10-09' }, { stage: 'interview', date: '2026-10-22' }],
+      notes: [{ author: 'Dana Whitfield, Design Lead', date: '2026-10-24', text: 'Confident presenter with specific metrics behind past design decisions. The panel is aligned to move forward.' }] },
+    { jobId: 'design', name: 'Jonas Albrecht', title: 'Product Designer', company: 'Birchwell', source: 'Dribbble', rating: 3, recruiter: 'Marcus Oyelaran', tags: ['Prototyping'], stage: 'interview',
+      history: [{ stage: 'applied', date: '2026-10-08' }, { stage: 'screening', date: '2026-10-13' }, { stage: 'interview', date: '2026-10-27' }],
+      notes: [{ author: 'Dana Whitfield, Design Lead', date: '2026-10-29', text: 'Solid fundamentals, but answers stayed surface-level on trade-offs. Borderline — scheduling one more conversation.' }] },
+
+    { jobId: 'design', name: 'Clara Bergström', title: 'Senior Product Designer', company: 'Loop Health', source: 'Referral', rating: 5, recruiter: 'Priya Nandan', tags: ['Design systems', 'Accessibility', 'User research'], flag: 'offer-out', stage: 'offer',
+      history: [{ stage: 'applied', date: '2026-09-25' }, { stage: 'screening', date: '2026-09-29' }, { stage: 'interview', date: '2026-10-06' }, { stage: 'offer', date: '2026-10-28' }],
+      notes: [{ author: 'Dana Whitfield, Design Lead', date: '2026-10-28', text: 'Best systems portfolio we have seen this cycle. Offer approved by leadership and extended on Oct 28.' }] },
+
+    { jobId: 'design', name: 'Simone Delacroix', title: 'Senior Product Designer', company: 'Glasswing', source: 'LinkedIn', rating: 5, recruiter: 'Marcus Oyelaran', tags: ['Design systems', 'Visual design'], stage: 'hired',
+      history: [{ stage: 'applied', date: '2026-09-22' }, { stage: 'screening', date: '2026-09-26' }, { stage: 'interview', date: '2026-10-03' }, { stage: 'offer', date: '2026-10-10' }, { stage: 'hired', date: '2026-10-20' }],
+      notes: [{ author: 'Dana Whitfield, Design Lead', date: '2026-10-20', text: 'Exceptional across every round. Accepted the offer on Oct 20 — start date pending onboarding.' }] },
+
+    { jobId: 'design', name: 'Patrick Nwosu', title: 'Product Designer', company: 'Fernhill', source: 'Career site', rating: 2, recruiter: 'Priya Nandan', tags: ['Prototyping'], stage: 'declined',
+      history: [{ stage: 'applied', date: '2026-10-01' }, { stage: 'screening', date: '2026-10-06' }, { stage: 'declined', date: '2026-10-12' }],
+      declinedReason: 'Not enough design systems experience for the level.' },
+    { jobId: 'design', name: 'Greta Lindholm', title: 'Senior Designer', company: 'Anchorpoint', source: 'LinkedIn', rating: 3, recruiter: 'Marcus Oyelaran', tags: ['Visual design'], stage: 'declined',
+      history: [{ stage: 'applied', date: '2026-09-28' }, { stage: 'screening', date: '2026-10-03' }, { stage: 'interview', date: '2026-10-11' }, { stage: 'declined', date: '2026-10-15' }],
+      declinedReason: 'Withdrew. Accepted another offer.' },
+    { jobId: 'design', name: 'Omar Siddiqui', title: 'Product Designer', company: 'Cobalt Labs', source: 'Referral', rating: 2, recruiter: 'Priya Nandan', tags: ['User research'], stage: 'declined',
+      history: [{ stage: 'applied', date: '2026-10-14' }, { stage: 'declined', date: '2026-10-19' }],
+      declinedReason: 'Portfolio not aligned with the complexity of this role.' },
+
+    // Backend job
+    { jobId: 'backend', name: 'Baran Kaya', title: 'Backend Engineer', company: 'Ferrotech', source: 'LinkedIn', rating: 3, recruiter: 'Jordan Ellsworth', tags: ['Go', 'Postgres'], flag: 'new', stage: 'applied',
+      history: [{ stage: 'applied', date: '2026-10-30' }] },
+    { jobId: 'backend', name: 'Lucía Fernández', title: 'Software Engineer, Platform', company: 'Driftwood', source: 'Referral', rating: 4, recruiter: 'Priya Nandan', tags: ['Kubernetes', 'Distributed systems'], flag: 'new', stage: 'applied',
+      history: [{ stage: 'applied', date: '2026-11-01' }] },
+    { jobId: 'backend', name: 'Milo Jansen', title: 'Backend Engineer', company: 'Northwind', source: 'Career site', rating: 3, recruiter: 'Jordan Ellsworth', tags: ['API design', 'Go'], stage: 'applied',
+      history: [{ stage: 'applied', date: '2026-10-27' }] },
+    { jobId: 'backend', name: 'Esther Kim', title: 'Senior Backend Engineer', company: 'Hearth', source: 'GitHub', rating: 4, recruiter: 'Priya Nandan', tags: ['gRPC', 'System design'], stage: 'applied',
+      history: [{ stage: 'applied', date: '2026-10-24' }] },
+    { jobId: 'backend', name: 'Tobias Reinholt', title: 'Platform Engineer', company: 'Cobalt Labs', source: 'Indeed', rating: 2, recruiter: 'Jordan Ellsworth', tags: ['Kubernetes'], flag: 'new', stage: 'applied',
+      history: [{ stage: 'applied', date: '2026-11-02' }] },
+
+    { jobId: 'backend', name: 'Adaeze Chukwu', title: 'Backend Engineer', company: 'Glasswing', source: 'Referral', rating: 4, recruiter: 'Priya Nandan', tags: ['Go', 'Observability'], stage: 'screening',
+      history: [{ stage: 'applied', date: '2026-10-20' }, { stage: 'screening', date: '2026-10-28' }] },
+    { jobId: 'backend', name: "Finn O'Malley", title: 'Software Engineer', company: 'Anchorpoint', source: 'LinkedIn', rating: 3, recruiter: 'Jordan Ellsworth', tags: ['Postgres', 'API design'], stage: 'screening',
+      history: [{ stage: 'applied', date: '2026-10-22' }, { stage: 'screening', date: '2026-10-29' }] },
+    { jobId: 'backend', name: 'Priyanka Rao', title: 'Backend Engineer', company: 'Birchwell', source: 'Career site', rating: 4, recruiter: 'Priya Nandan', tags: ['Distributed systems', 'Go'], stage: 'screening',
+      history: [{ stage: 'applied', date: '2026-10-19' }, { stage: 'screening', date: '2026-10-27' }] },
+
+    { jobId: 'backend', name: 'Gabriel Souza', title: 'Senior Backend Engineer', company: 'Fernhill', source: 'GitHub', rating: 5, recruiter: 'Jordan Ellsworth', tags: ['System design', 'gRPC', 'Kubernetes'], stage: 'interview',
+      history: [{ stage: 'applied', date: '2026-10-14' }, { stage: 'screening', date: '2026-10-19' }, { stage: 'interview', date: '2026-10-29' }],
+      notes: [{ author: 'Luis Ferreira, Platform Lead', date: '2026-10-31', text: 'Deep distributed systems background — whiteboarded a clean design for the sharding problem. Panel wants to move to offer.' }] },
+    { jobId: 'backend', name: 'Hana Mizrahi', title: 'Backend Engineer', company: 'Loop Health', source: 'Referral', rating: 4, recruiter: 'Priya Nandan', tags: ['Go', 'Distributed systems'], stage: 'interview',
+      history: [{ stage: 'applied', date: '2026-10-16' }, { stage: 'screening', date: '2026-10-21' }, { stage: 'interview', date: '2026-10-31' }],
+      notes: [{ author: 'Luis Ferreira, Platform Lead', date: '2026-11-02', text: 'Strong Go fundamentals. Still working through a take-home exercise with the team before the next step.' }] },
+    { jobId: 'backend', name: 'Oskar Lindqvist', title: 'Platform Engineer', company: 'Driftwood', source: 'LinkedIn', rating: 3, recruiter: 'Jordan Ellsworth', tags: ['Kubernetes', 'Observability'], stage: 'interview',
+      history: [{ stage: 'applied', date: '2026-10-18' }, { stage: 'screening', date: '2026-10-23' }, { stage: 'interview', date: '2026-11-02' }],
+      notes: [{ author: 'Luis Ferreira, Platform Lead', date: '2026-11-03', text: 'Good breadth, a bit light on production incident experience. Scheduling a follow-up with the SRE team.' }] },
+
+    { jobId: 'backend', name: 'Wendell Marsh', title: 'Senior Backend Engineer', company: 'Northwind', source: 'Referral', rating: 5, recruiter: 'Priya Nandan', tags: ['Go', 'System design', 'API design'], flag: 'offer-out', stage: 'offer',
+      history: [{ stage: 'applied', date: '2026-10-12' }, { stage: 'screening', date: '2026-10-17' }, { stage: 'interview', date: '2026-10-24' }, { stage: 'offer', date: '2026-11-02' }],
+      notes: [{ author: 'Luis Ferreira, Platform Lead', date: '2026-11-02', text: 'Top candidate this cycle. Offer approved and sent — awaiting signature.' }] },
+
+    { jobId: 'backend', name: 'Ingrid Solberg', title: 'Backend Engineer', company: 'Glasswing', source: 'LinkedIn', rating: 5, recruiter: 'Jordan Ellsworth', tags: ['Go', 'Postgres', 'Distributed systems'], stage: 'hired',
+      history: [{ stage: 'applied', date: '2026-10-11' }, { stage: 'screening', date: '2026-10-15' }, { stage: 'interview', date: '2026-10-21' }, { stage: 'offer', date: '2026-10-27' }, { stage: 'hired', date: '2026-11-03' }],
+      notes: [{ author: 'Luis Ferreira, Platform Lead', date: '2026-11-03', text: 'Hired. Strong systems design and a great fit with the platform team.' }] },
+
+    { jobId: 'backend', name: 'Marcus Webb', title: 'Backend Engineer', company: 'Fernhill', source: 'Career site', rating: 2, recruiter: 'Priya Nandan', tags: ['API design'], stage: 'declined',
+      history: [{ stage: 'applied', date: '2026-10-13' }, { stage: 'screening', date: '2026-10-18' }, { stage: 'interview', date: '2026-10-25' }, { stage: 'declined', date: '2026-10-30' }],
+      declinedReason: 'System design depth below the bar for this level.' },
+    { jobId: 'backend', name: 'Yelena Petrova', title: 'Software Engineer', company: 'Cobalt Labs', source: 'Indeed', rating: 3, recruiter: 'Jordan Ellsworth', tags: ['Postgres'], stage: 'declined',
+      history: [{ stage: 'applied', date: '2026-10-15' }, { stage: 'screening', date: '2026-10-20' }, { stage: 'declined', date: '2026-10-24' }],
+      declinedReason: 'Withdrew. Relocation fell through.' },
+    { jobId: 'backend', name: 'Deshawn Price', title: 'Backend Engineer', company: 'Anchorpoint', source: 'LinkedIn', rating: 3, recruiter: 'Priya Nandan', tags: ['Go', 'Kubernetes'], stage: 'declined',
+      history: [{ stage: 'applied', date: '2026-10-16' }, { stage: 'screening', date: '2026-10-21' }, { stage: 'interview', date: '2026-10-28' }, { stage: 'offer', date: '2026-11-01' }, { stage: 'declined', date: '2026-11-04' }],
+      declinedReason: 'Declined our offer — countered by current employer.' }
+  ];
+
+  var CANDIDATES = CANDIDATES_RAW.map(function (c, i) {
+    var contact = deriveContact(c.name, i);
+    return Object.assign({ id: 'c' + i }, c, contact);
+  });
+
+  var state = { jobId: 'design', query: '', recruiter: 'all', source: 'all', minRating: 0, showDeclined: false, selectedId: null };
+
+  // ---------- helpers ----------
+  function jobCandidates(jobId) { return CANDIDATES.filter(function (c) { return c.jobId === jobId; }); }
+  function currentStageDate(c) { return c.history[c.history.length - 1].date; }
+  function matchesFilters(c) {
+    var q = state.query.trim().toLowerCase();
+    if (q) {
+      var hay = (c.name + ' ' + c.title + ' ' + c.company + ' ' + c.tags.join(' ')).toLowerCase();
+      if (hay.indexOf(q) === -1) return false;
+    }
+    if (state.recruiter !== 'all' && c.recruiter !== state.recruiter) return false;
+    if (state.source !== 'all' && c.source !== state.source) return false;
+    if (c.rating < state.minRating) return false;
+    return true;
+  }
+
+  // ---------- job switcher ----------
+  var jobSwitcher = document.getElementById('jobSwitcher');
+  JOBS.forEach(function (j) {
+    var opt = document.createElement('option');
+    opt.value = j.id; opt.textContent = j.title;
+    jobSwitcher.appendChild(opt);
+  });
+  jobSwitcher.value = state.jobId;
+  jobSwitcher.addEventListener('change', function () {
+    state.jobId = jobSwitcher.value;
+    state.query = ''; state.recruiter = 'all'; state.source = 'all'; state.minRating = 0; state.showDeclined = false;
+    document.getElementById('searchInput').value = '';
+    document.getElementById('toggleDeclined').setAttribute('aria-pressed', 'false');
+    document.getElementById('toggleDeclined').classList.remove('bg-ink', 'text-white', 'border-ink');
+    renderAll();
+  });
+
+  // ---------- job meta ----------
+  function renderJobMeta() {
+    var job = JOBS.filter(function (j) { return j.id === state.jobId; })[0];
+    var el = document.getElementById('jobMeta');
+    var meta = [
+      job.department + ' team',
+      job.location,
+      job.type,
+      'Hiring manager ' + job.manager,
+      job.openings + ' openings',
+      'Opened ' + daysAgo(job.opened) + ' days ago'
+    ];
+    el.innerHTML =
+      '<h1 class="font-serif text-2xl font-medium">' + job.title + '</h1>' +
+      '<div class="flex flex-wrap items-center gap-x-4 gap-y-1 mt-2">' +
+      meta.map(function (m, i) {
+        return '<span class="text-sm text-ink/60' + (i > 0 ? ' pl-4 border-l border-line' : '') + '">' + m + '</span>';
+      }).join('') +
+      '</div>';
+  }
+
+  // ---------- toolbar option lists ----------
+  function renderToolbarOptions() {
+    var list = jobCandidates(state.jobId);
+    var recruiters = Array.from(new Set(list.map(function (c) { return c.recruiter; }))).sort();
+    var sources = Array.from(new Set(list.map(function (c) { return c.source; }))).sort();
+    var recSel = document.getElementById('filterRecruiter');
+    var srcSel = document.getElementById('filterSource');
+    recSel.innerHTML = '<option value="all">All recruiters</option>' + recruiters.map(function (r) { return '<option value="' + r + '">' + r + '</option>'; }).join('');
+    srcSel.innerHTML = '<option value="all">All sources</option>' + sources.map(function (s) { return '<option value="' + s + '">' + s + '</option>'; }).join('');
+    recSel.value = state.recruiter;
+    srcSel.value = state.source;
+    document.getElementById('filterRating').value = String(state.minRating);
+  }
+
+  // ---------- rating ticks ----------
+  function ratingTicks(rating) {
+    var out = '';
+    for (var i = 1; i <= 5; i++) {
+      out += '<span class="rating-tick ' + (i <= rating ? 'bg-teal-600' : 'bg-line') + '"></span>';
+    }
+    return '<div class="flex items-center gap-0.5" aria-label="Fit rating ' + rating + ' of 5">' + out + '</div>';
+  }
+
+  // ---------- board ----------
+  function cardTemplate(c) {
+    var flagBadge = '';
+    if (c.flag === 'new') flagBadge = '<span class="text-[10px] font-medium text-brass-700 bg-brass-50 border border-brass-100 rounded-sm px-1.5 py-0.5 shrink-0">New</span>';
+    if (c.flag === 'offer-out') flagBadge = '<span class="text-[10px] font-medium text-brass-700 bg-brass-50 border border-brass-100 rounded-sm px-1.5 py-0.5 shrink-0">Offer sent</span>';
+
+    var visibleTags = c.tags.slice(0, 2);
+    var extra = c.tags.length - visibleTags.length;
+    var tagsHtml = visibleTags.map(function (t) {
+      return '<span class="text-[11px] px-1.5 py-0.5 rounded-sm border border-line text-ink/70">' + t + '</span>';
+    }).join('') + (extra > 0 ? '<span class="text-[11px] px-1 py-0.5 text-ink/40">+' + extra + '</span>' : '');
+
+    var days = daysAgo(currentStageDate(c));
+    var stageLabel = STAGE_BY_KEY[c.stage].label;
+
+    return (
+      '<div class="candidate-card bg-white border border-line rounded-sm p-3 hover:border-ink/30 focus-visible:outline focus-visible:outline-2 focus-visible:outline-teal-600" ' +
+      'tabindex="0" role="button" draggable="true" data-id="' + c.id + '">' +
+        '<div class="flex items-start justify-between gap-2">' +
+          '<div class="min-w-0">' +
+            '<p class="font-serif text-[15px] font-medium leading-snug truncate">' + c.name + '</p>' +
+            '<p class="text-xs text-ink/60 mt-0.5 truncate">' + c.title + ' at ' + c.company + '</p>' +
+          '</div>' + flagBadge +
+        '</div>' +
+        '<div class="mt-2">' + ratingTicks(c.rating) + '</div>' +
+        '<div class="flex flex-wrap gap-1 mt-2">' + tagsHtml + '</div>' +
+        '<div class="flex items-center justify-between mt-3 pt-2 border-t border-line">' +
+          '<span class="w-5 h-5 rounded-full bg-slate-600 text-white text-[10px] flex items-center justify-center shrink-0" title="' + c.recruiter + '">' + initials(c.recruiter) + '</span>' +
+          '<p class="text-[11px] text-ink/50 text-right leading-tight">From ' + c.source + '.<br>' + days + ' day' + (days === 1 ? '' : 's') + ' in ' + stageLabel + '.</p>' +
+        '</div>' +
+      '</div>'
+    );
+  }
+
+  function columnTemplate(stage, cards) {
+    var body = cards.length
+      ? cards.map(cardTemplate).join('')
+      : '<p class="text-sm text-ink/40 px-1 py-4">No candidates match your filters.</p>';
+    return (
+      '<section class="flex flex-col w-[300px] shrink-0 h-full">' +
+        '<div class="rounded-t-sm px-3 py-2 flex items-center justify-between text-white shrink-0" style="background-color:' + stage.color + '">' +
+          '<span class="font-serif text-sm">' + stage.label + '</span>' +
+          '<span class="text-xs bg-white/25 rounded-sm px-1.5 py-0.5">' + cards.length + '</span>' +
+        '</div>' +
+        '<div class="column-body flex-1 min-h-0 overflow-y-auto space-y-2 p-2 bg-white/70 border border-line border-t-0 rounded-b-sm" data-stage="' + stage.key + '">' +
+          body +
+        '</div>' +
+      '</section>'
+    );
+  }
+
+  function renderBoard() {
+    var all = jobCandidates(state.jobId);
+    var filtered = all.filter(matchesFilters);
+    var columns = STAGES.slice();
+    if (state.showDeclined) columns.push(DECLINED_STAGE);
+
+    var board = document.getElementById('board');
+    board.innerHTML = columns.map(function (stage) {
+      var cards = filtered.filter(function (c) { return c.stage === stage.key; });
+      return columnTemplate(stage, cards);
+    }).join('');
+
+    var activeCount = filtered.filter(function (c) { return c.stage !== 'declined'; }).length;
+    document.getElementById('activeCount').textContent = activeCount + ' active candidate' + (activeCount === 1 ? '' : 's');
+  }
+
+  function renderAll() {
+    renderJobMeta();
+    renderToolbarOptions();
+    renderBoard();
+  }
+
+  // ---------- dossier ----------
+  var dossier = document.getElementById('dossier');
+  var backdrop = document.getElementById('backdrop');
+
+  function stageTimelineHtml(c) {
+    var sequence = STAGES;
+    var reached = {};
+    c.history.forEach(function (h) { reached[h.stage] = h.date; });
+    var isDeclined = c.stage === 'declined';
+    var items = sequence.map(function (s, i) {
+      var date = reached[s.key];
+      var done = !!date;
+      var isCurrent = s.key === c.stage;
+      var dotClass = done ? 'border-transparent' : 'border-line bg-white';
+      var dotStyle = done ? 'background-color:' + s.color + ';' : '';
+      return (
+        '<div class="flex gap-3">' +
+          '<div class="flex flex-col items-center">' +
+            '<span class="w-3 h-3 rounded-full border-2 ' + dotClass + ' ' + (isCurrent ? 'ring-2 ring-offset-1 ring-ink/20' : '') + '" style="' + dotStyle + '"></span>' +
+            (i < sequence.length - 1 ? '<span class="w-px flex-1 bg-line mt-1"></span>' : '') +
+          '</div>' +
+          '<div class="pb-4">' +
+            '<p class="text-sm ' + (done ? 'text-ink' : 'text-ink/40') + '">' + s.label + '</p>' +
+            '<p class="text-xs text-ink/40">' + (date ? fmtDate(date) : 'Not yet reached') + '</p>' +
+          '</div>' +
+        '</div>'
+      );
+    }).join('');
+    if (isDeclined) {
+      var dDate = reached['declined'];
+      items += (
+        '<div class="flex gap-3">' +
+          '<div class="flex flex-col items-center"><span class="w-3 h-3 rounded-full" style="background-color:' + DECLINED_STAGE.color + '"></span></div>' +
+          '<div>' +
+            '<p class="text-sm text-ink">' + DECLINED_STAGE.label + '</p>' +
+            '<p class="text-xs text-ink/40">' + (dDate ? fmtDate(dDate) : '') + '</p>' +
+            '<p class="text-sm text-ink/70 mt-1 max-w-[30ch]">' + (c.declinedReason || 'Reason not recorded yet.') + '</p>' +
+          '</div>' +
+        '</div>'
+      );
+    }
+    return items;
+  }
+
+  function notesHtml(c) {
+    if (!c.notes || !c.notes.length) {
+      return '<p class="text-sm text-ink/40">No feedback recorded yet.</p>';
+    }
+    return c.notes.map(function (n) {
+      return (
+        '<div class="border border-line rounded-sm p-3 bg-paper/50">' +
+          '<p class="text-sm text-ink/90">' + n.text + '</p>' +
+          '<p class="text-xs text-ink/40 mt-2">' + n.author + ', ' + fmtDate(n.date) + '</p>' +
+        '</div>'
+      );
+    }).join('<div class="h-2"></div>');
+  }
+
+  function factRow(label, value) {
+    return '<div><p class="text-xs text-ink/40">' + label + '</p><p class="text-sm text-ink mt-0.5">' + value + '</p></div>';
+  }
+
+  function renderDossierContent(c) {
+    var stage = STAGE_BY_KEY[c.stage];
+    var content = document.getElementById('dossierContent');
+    content.innerHTML =
+      '<div class="flex items-start gap-3">' +
+        '<span class="w-12 h-12 rounded-full bg-ink text-white text-base font-medium flex items-center justify-center shrink-0">' + initials(c.name) + '</span>' +
+        '<div class="min-w-0">' +
+          '<p class="font-serif text-xl font-medium leading-tight">' + c.name + '</p>' +
+          '<p class="text-sm text-ink/60 mt-0.5">' + c.title + ' at ' + c.company + '</p>' +
+          '<span class="inline-block text-xs text-white rounded-sm px-2 py-0.5 mt-2" style="background-color:' + stage.color + '">' + stage.label + '</span>' +
+        '</div>' +
+      '</div>' +
+
+      '<div class="grid grid-cols-2 gap-4 mt-6">' +
+        factRow('Recruiter', c.recruiter) +
+        factRow('Source', c.source) +
+        factRow('Fit rating', '') +
+        factRow('Applied', fmtDate(c.history[0].date)) +
+      '</div>' +
+
+      '<div class="mt-6 pt-5 border-t border-line">' +
+        '<p class="text-sm font-medium mb-3">Contact</p>' +
+        '<div class="space-y-1.5 text-sm text-ink/80">' +
+          '<p>' + c.email + '</p>' +
+          '<p>' + c.phone + '</p>' +
+          '<p>' + c.linkedin + '</p>' +
+        '</div>' +
+      '</div>' +
+
+      '<div class="mt-6 pt-5 border-t border-line">' +
+        '<p class="text-sm font-medium mb-3">Skills</p>' +
+        '<div class="flex flex-wrap gap-1.5">' +
+          c.tags.map(function (t) { return '<span class="text-xs px-2 py-0.5 rounded-sm border border-line text-ink/70">' + t + '</span>'; }).join('') +
+        '</div>' +
+      '</div>' +
+
+      '<div class="mt-6 pt-5 border-t border-line">' +
+        '<p class="text-sm font-medium mb-3">Stage history</p>' +
+        stageTimelineHtml(c) +
+      '</div>' +
+
+      '<div class="mt-2 pt-5 border-t border-line">' +
+        '<p class="text-sm font-medium mb-3">Feedback</p>' +
+        notesHtml(c) +
+      '</div>' +
+
+      '<div class="mt-6 pt-5 border-t border-line">' +
+        '<p class="text-sm font-medium mb-3">Resume</p>' +
+        '<div class="border border-line rounded-sm px-3 py-2 flex items-center justify-between">' +
+          '<span class="text-sm text-ink/80 truncate">' + c.resumeFile + '</span>' +
+        '</div>' +
+        '<p class="text-xs text-ink/40 mt-1.5">Preview not available in this demo.</p>' +
+      '</div>';
+
+    // fit rating lives in the facts grid; render separately to reuse ratingTicks markup safely
+    var ratingSlot = content.querySelectorAll('.grid > div')[2];
+    ratingSlot.querySelector('p.mt-0\\.5').innerHTML = '';
+    ratingSlot.querySelector('p.mt-0\\.5').appendChild(ratingTicksNode(c.rating));
+  }
+
+  function ratingTicksNode(rating) {
+    var wrap = document.createElement('div');
+    wrap.innerHTML = ratingTicks(rating);
+    return wrap.firstChild;
+  }
+
+  function renderDossierActions(c) {
+    var actions = document.getElementById('dossierActions');
+    if (c.stage === 'hired') {
+      actions.innerHTML = '<p class="text-sm text-ink/60">Hired on ' + fmtDate(currentStageDate(c)) + '.</p>';
+      return;
+    }
+    if (c.stage === 'declined') {
+      actions.innerHTML =
+        '<button data-action="reopen" class="w-full text-sm border border-line rounded-sm py-2 hover:border-ink/40 focus-visible:outline focus-visible:outline-2 focus-visible:outline-teal-600">Reopen candidate</button>';
+      return;
+    }
+    var idx = STAGES.map(function (s) { return s.key; }).indexOf(c.stage);
+    var next = STAGES[idx + 1];
+    var html = '';
+    if (next) {
+      html += '<button data-action="advance" class="w-full text-sm text-white rounded-sm py-2.5 bg-teal-600 hover:bg-teal-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-ink">Move to ' + next.label + '</button>';
+    }
+    html += '<button data-action="decline" class="w-full text-sm text-brick-600 mt-2 py-2 hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-teal-600">Mark as not moving forward</button>';
+    actions.innerHTML = html;
+  }
+
+  function openDossier(id) {
+    state.selectedId = id;
+    var c = CANDIDATES.filter(function (x) { return x.id === id; })[0];
+    if (!c) return;
+    renderDossierContent(c);
+    renderDossierActions(c);
+    dossier.classList.remove('translate-x-full');
+    dossier.setAttribute('aria-hidden', 'false');
+    backdrop.classList.remove('opacity-0', 'pointer-events-none');
+  }
+  function closeDossier() {
+    state.selectedId = null;
+    dossier.classList.add('translate-x-full');
+    dossier.setAttribute('aria-hidden', 'true');
+    backdrop.classList.add('opacity-0', 'pointer-events-none');
+  }
+
+  document.getElementById('closeDossier').addEventListener('click', closeDossier);
+  backdrop.addEventListener('click', closeDossier);
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape' && state.selectedId) closeDossier();
+  });
+
+  document.getElementById('dossierActions').addEventListener('click', function (e) {
+    var btn = e.target.closest('button');
+    if (!btn || !state.selectedId) return;
+    var c = CANDIDATES.filter(function (x) { return x.id === state.selectedId; })[0];
+    var action = btn.dataset.action;
+    if (action === 'advance') {
+      var idx = STAGES.map(function (s) { return s.key; }).indexOf(c.stage);
+      var next = STAGES[idx + 1];
+      moveCandidate(c, next.key);
+    } else if (action === 'decline') {
+      moveCandidate(c, 'declined');
+    } else if (action === 'reopen') {
+      moveCandidate(c, 'applied');
+      c.declinedReason = undefined;
+    }
+    renderDossierContent(c);
+    renderDossierActions(c);
+    renderBoard();
+  });
+
+  // ---------- move / drag-drop / toast ----------
+  function moveCandidate(c, stageKey) {
+    c.stage = stageKey;
+    c.history.push({ stage: stageKey, date: isoToday() });
+    showToast('Moved ' + c.name + ' to ' + STAGE_BY_KEY[stageKey].label + '.');
+  }
+  function isoToday() {
+    var y = REFERENCE_DATE.getFullYear(), m = REFERENCE_DATE.getMonth() + 1, d = REFERENCE_DATE.getDate();
+    return y + '-' + String(m).padStart(2, '0') + '-' + String(d).padStart(2, '0');
+  }
+
+  var toast = document.getElementById('toast');
+  var toastTimer = null;
+  function showToast(message) {
+    toast.querySelector('div').textContent = message;
+    toast.classList.remove('opacity-0', 'translate-y-20');
+    if (toastTimer) clearTimeout(toastTimer);
+    toastTimer = setTimeout(function () {
+      toast.classList.add('opacity-0', 'translate-y-20');
+    }, 2600);
+  }
+
+  var board = document.getElementById('board');
+
+  board.addEventListener('click', function (e) {
+    var card = e.target.closest('.candidate-card');
+    if (card) openDossier(card.dataset.id);
+  });
+  board.addEventListener('keydown', function (e) {
+    var card = e.target.closest('.candidate-card');
+    if (card && (e.key === 'Enter' || e.key === ' ')) {
+      e.preventDefault();
+      openDossier(card.dataset.id);
+    }
+  });
+  board.addEventListener('dragstart', function (e) {
+    var card = e.target.closest('.candidate-card');
+    if (!card) return;
+    e.dataTransfer.setData('text/plain', card.dataset.id);
+    card.classList.add('opacity-50');
+  });
+  board.addEventListener('dragend', function (e) {
+    var card = e.target.closest('.candidate-card');
+    if (card) card.classList.remove('opacity-50');
+  });
+  board.addEventListener('dragover', function (e) {
+    var zone = e.target.closest('.column-body');
+    if (zone) {
+      e.preventDefault();
+      zone.classList.add('ring-2', 'ring-teal-600/40');
+    }
+  });
+  board.addEventListener('dragleave', function (e) {
+    var zone = e.target.closest('.column-body');
+    if (zone) zone.classList.remove('ring-2', 'ring-teal-600/40');
+  });
+  board.addEventListener('drop', function (e) {
+    var zone = e.target.closest('.column-body');
+    if (!zone) return;
+    e.preventDefault();
+    zone.classList.remove('ring-2', 'ring-teal-600/40');
+    var id = e.dataTransfer.getData('text/plain');
+    var c = CANDIDATES.filter(function (x) { return x.id === id; })[0];
+    if (!c || c.stage === zone.dataset.stage) return;
+    moveCandidate(c, zone.dataset.stage);
+    renderBoard();
+    if (state.selectedId === c.id) { renderDossierContent(c); renderDossierActions(c); }
+  });
+
+  // ---------- toolbar listeners ----------
+  document.getElementById('searchInput').addEventListener('input', function (e) {
+    state.query = e.target.value;
+    renderBoard();
+  });
+  document.getElementById('filterRecruiter').addEventListener('change', function (e) {
+    state.recruiter = e.target.value;
+    renderBoard();
+  });
+  document.getElementById('filterSource').addEventListener('change', function (e) {
+    state.source = e.target.value;
+    renderBoard();
+  });
+  document.getElementById('filterRating').addEventListener('change', function (e) {
+    state.minRating = Number(e.target.value);
+    renderBoard();
+  });
+  document.getElementById('toggleDeclined').addEventListener('click', function () {
+    state.showDeclined = !state.showDeclined;
+    this.setAttribute('aria-pressed', String(state.showDeclined));
+    this.classList.toggle('bg-ink', state.showDeclined);
+    this.classList.toggle('text-white', state.showDeclined);
+    this.classList.toggle('border-ink', state.showDeclined);
+    this.textContent = state.showDeclined ? 'Hide not moving forward' : 'Show not moving forward';
+    renderBoard();
+  });
+
+  renderAll();
+})();
+</script>
+</body>
+</html>

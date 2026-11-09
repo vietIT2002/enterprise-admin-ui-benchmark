@@ -1,0 +1,563 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Accounts receivable aging · Ledger ERP</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+  [hidden] { display: none !important; }
+  .tnum { font-variant-numeric: tabular-nums; }
+  @media print {
+    aside, nav, button, input, select, [data-no-print] { display: none !important; }
+    main { padding: 0 !important; }
+    @page { size: A4 landscape; margin: 12mm; }
+    table { border-collapse: collapse; width: 100%; }
+    thead { display: table-header-group; }
+    tfoot { display: table-row-group; }
+    tr { break-inside: avoid; }
+  }
+</style>
+</head>
+<body class="bg-white text-sm text-slate-900 antialiased">
+<div class="flex min-h-screen">
+  <aside class="w-56 shrink-0 border-r border-slate-200 bg-slate-50">
+    <div class="flex h-12 items-center px-4 font-semibold">Ledger ERP</div>
+    <nav aria-label="Main" class="px-2 pb-4">
+      <p class="px-2 pb-1 pt-3 text-xs font-medium text-slate-600">Receivables</p>
+      <a href="#" class="flex h-8 items-center rounded px-2 text-slate-700 hover:bg-slate-100">Invoices</a>
+      <a href="#" class="flex h-8 items-center rounded px-2 text-slate-700 hover:bg-slate-100">Customers</a>
+      <a href="#" class="flex h-8 items-center rounded px-2 text-slate-700 hover:bg-slate-100">Payments</a>
+      <p class="px-2 pb-1 pt-3 text-xs font-medium text-slate-600">Reports</p>
+      <a href="#" aria-current="page" class="flex h-8 items-center rounded bg-slate-200 px-2 font-medium">AR aging</a>
+      <a href="#" class="flex h-8 items-center rounded px-2 text-slate-700 hover:bg-slate-100">Revenue</a>
+      <a href="#" class="flex h-8 items-center rounded px-2 text-slate-700 hover:bg-slate-100">Collections</a>
+    </nav>
+  </aside>
+
+  <main class="min-w-0 flex-1 px-6 py-4">
+    <header class="flex items-start justify-between gap-4">
+      <div>
+        <h1 id="page-title" class="text-xl font-semibold">Accounts receivable aging</h1>
+        <p id="basis-line" class="mt-1 text-slate-600"></p>
+      </div>
+      <div class="flex items-center gap-2">
+        <button type="button" id="btn-print" class="h-8 rounded border border-slate-300 bg-white px-3 hover:bg-slate-50">Print</button>
+        <button type="button" id="btn-export" class="h-8 rounded bg-blue-700 px-3 font-medium text-white hover:bg-blue-800">Export <span id="export-count" class="tnum">0</span> customers</button>
+      </div>
+    </header>
+
+    <div class="mt-4 flex flex-wrap items-end gap-2" role="search" aria-label="Report filters">
+      <div>
+        <label class="block text-xs font-medium text-slate-600" for="f-asof-mode">As of</label>
+        <div class="mt-1 flex gap-1">
+          <select id="f-asof-mode" class="h-8 rounded border border-slate-300 bg-white px-2">
+            <option value="today">Today</option>
+            <option value="eom">End of last month</option>
+            <option value="custom">Custom date</option>
+          </select>
+          <input type="date" id="f-asof-date" class="h-8 w-36 rounded border border-slate-300 px-2" disabled>
+        </div>
+      </div>
+      <div>
+        <label class="sr-only" for="q">Search customers by name or ID</label>
+        <input type="search" id="q" aria-label="Search customers by name or ID" placeholder="Search name or customer ID" class="h-8 w-72 rounded border border-slate-300 px-2">
+      </div>
+      <div>
+        <label class="block text-xs font-medium text-slate-600" for="f-group">Customer group</label>
+        <select id="f-group" class="mt-1 h-8 rounded border border-slate-300 bg-white px-2">
+          <option value="">All groups</option>
+          <option>Retail</option>
+          <option>Wholesale</option>
+          <option>Distributor</option>
+        </select>
+      </div>
+      <div class="relative">
+        <button type="button" id="btn-more" aria-haspopup="dialog" aria-expanded="false" class="h-8 rounded border border-slate-300 bg-white px-3 hover:bg-slate-50">More filters</button>
+        <div id="panel" role="dialog" aria-label="More filters" hidden class="absolute left-0 top-9 z-20 w-72 rounded-md border border-slate-200 bg-white p-4 shadow-md">
+          <div>
+            <label class="block text-sm font-medium" for="panel-min">Minimum balance due (<span id="panel-currency"></span>)</label>
+            <input type="number" id="panel-min" min="0" step="100" class="mt-1 h-8 w-full rounded border border-slate-300 px-2">
+          </div>
+          <label class="mt-3 flex items-center gap-2">
+            <input type="checkbox" id="panel-zero" class="h-4 w-4">
+            <span>Include customers with a $0 balance</span>
+          </label>
+          <div class="mt-4 flex justify-between">
+            <button type="button" id="panel-reset" class="h-8 rounded border border-slate-300 bg-white px-3 hover:bg-slate-50">Reset</button>
+            <button type="button" id="panel-apply" class="h-8 rounded bg-blue-700 px-3 font-medium text-white hover:bg-blue-800">Apply</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div id="chips" class="mt-2 flex flex-wrap items-center gap-2"></div>
+
+    <div class="mt-3 flex gap-1 border-b border-slate-200" role="group" aria-label="Aging bucket" id="tabs"></div>
+
+    <p class="mt-3 text-slate-600" data-result-count><span id="result-count" class="tnum">0</span> customers · <span id="result-total" class="tnum"></span> total due</p>
+    <p id="announce" role="status" aria-live="polite" class="sr-only"></p>
+
+    <div id="bulk" hidden class="mt-2 flex h-10 items-center gap-3 rounded-md border border-blue-200 bg-blue-50 px-3" role="region" aria-label="Bulk actions">
+      <span><span id="bulk-count" class="tnum">0</span> selected</span>
+      <button type="button" id="bulk-all" class="text-blue-700 underline">Select all <span id="bulk-all-count" class="tnum">0</span> matching</button>
+      <button type="button" id="bulk-send" class="text-blue-700 underline">Send statement</button>
+      <button type="button" id="bulk-clear" class="text-blue-700 underline">Clear selection</button>
+    </div>
+
+    <section data-region="ar-aging" class="mt-2" aria-label="Accounts receivable aging by customer">
+      <div data-state="ready" class="overflow-x-auto rounded-md border border-slate-200">
+        <table class="w-full border-collapse">
+          <caption class="sr-only">Accounts receivable aging by customer</caption>
+          <thead class="bg-slate-50 text-slate-700">
+            <tr class="h-10 border-b border-slate-200">
+              <th scope="col" class="w-10 px-3 text-left"><input type="checkbox" id="select-all" class="h-4 w-4" aria-label="Select all customers"></th>
+              <th scope="col" class="px-3 text-left font-medium" data-col="name"><button type="button" data-sort="name" class="inline-flex items-center gap-1">Customer</button></th>
+              <th scope="col" class="px-3 text-left font-medium" data-col="group"><button type="button" data-sort="group" class="inline-flex items-center gap-1">Group</button></th>
+              <th scope="col" class="px-3 text-right font-medium" data-col="current"><button type="button" data-sort="current" class="inline-flex w-full flex-row-reverse items-center gap-1 text-right">Current (<span class="cur"></span>)</button></th>
+              <th scope="col" class="px-3 text-right font-medium" data-col="b1_30"><button type="button" data-sort="b1_30" class="inline-flex w-full flex-row-reverse items-center gap-1 text-right">1–30 days (<span class="cur"></span>)</button></th>
+              <th scope="col" class="px-3 text-right font-medium" data-col="b31_60"><button type="button" data-sort="b31_60" class="inline-flex w-full flex-row-reverse items-center gap-1 text-right">31–60 days (<span class="cur"></span>)</button></th>
+              <th scope="col" class="px-3 text-right font-medium" data-col="b61_90"><button type="button" data-sort="b61_90" class="inline-flex w-full flex-row-reverse items-center gap-1 text-right">61–90 days (<span class="cur"></span>)</button></th>
+              <th scope="col" class="px-3 text-right font-medium" data-col="b90"><button type="button" data-sort="b90" class="inline-flex w-full flex-row-reverse items-center gap-1 text-right">90+ days (<span class="cur"></span>)</button></th>
+              <th scope="col" class="px-3 text-right font-medium" data-col="total"><button type="button" data-sort="total" class="inline-flex w-full flex-row-reverse items-center gap-1 text-right">Total due (<span class="cur"></span>)</button></th>
+              <th scope="col" class="px-3 text-left font-medium">Invoices</th>
+            </tr>
+          </thead>
+          <tbody id="rows"></tbody>
+          <tfoot id="tfoot"></tfoot>
+        </table>
+      </div>
+      <div data-state="empty" hidden class="rounded-md border border-dashed border-slate-300 px-6 py-10 text-center">
+        <p class="font-medium" id="empty-title">No customers match these filters</p>
+        <p class="mt-1 text-slate-600" id="empty-text">Try another group or search, or clear the filters.</p>
+        <button type="button" id="empty-action" class="mt-3 h-8 rounded border border-slate-300 bg-white px-3 hover:bg-slate-50">Clear filters</button>
+      </div>
+      <div data-state="loading" aria-busy="true" hidden class="rounded-md border border-slate-200" aria-label="Loading accounts receivable aging">
+        <div class="h-10 border-b border-slate-200 bg-slate-50"></div>
+        <div id="skeleton"></div>
+      </div>
+      <div data-state="error" hidden class="rounded-md border border-red-200 bg-red-50 px-4 py-3 text-red-800" role="alert">
+        <p class="font-medium">The aging report could not be loaded.</p>
+        <p class="mt-1">Check your connection, then try again.</p>
+        <button type="button" id="retry" class="mt-2 h-8 rounded border border-red-300 bg-white px-3 text-red-800 hover:bg-red-100">Retry</button>
+      </div>
+    </section>
+  </main>
+</div>
+
+<div id="toast" role="status" aria-live="polite" class="fixed bottom-4 right-4 z-50" data-no-print></div>
+
+<script>
+  const LOCALE = 'en-US';
+  const CURRENCY = 'USD';
+  const amountFmt = new Intl.NumberFormat(LOCALE, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  const fmtAmount = (n) => amountFmt.format(n);
+  const moneyFmt = new Intl.NumberFormat(LOCALE, { style: 'currency', currency: CURRENCY });
+  const fmtMoney = (n) => moneyFmt.format(n);
+  const fmtCount = (n) => new Intl.NumberFormat(LOCALE).format(n);
+  const fmtDate = (iso) => new Intl.DateTimeFormat(LOCALE, { day: '2-digit', month: '2-digit', year: 'numeric' }).format(new Date(iso + 'T00:00:00'));
+  const dateFmt = new Intl.DateTimeFormat(LOCALE, { day: '2-digit', month: '2-digit', year: 'numeric' });
+  const timeFmt = new Intl.DateTimeFormat(LOCALE, { hour: '2-digit', minute: '2-digit', hour12: false });
+  const fmtDateTime = (d) => `${dateFmt.format(d)} ${timeFmt.format(d)}`;
+  document.querySelectorAll('.cur').forEach((el) => (el.textContent = CURRENCY));
+  document.getElementById('panel-currency').textContent = CURRENCY;
+
+  const sortIcon = '<svg class="h-3.5 w-3.5 text-slate-400" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path d="M10 3l4 4H6l4-4zM10 17l-4-4h8l-4 4z"/></svg>';
+  document.querySelectorAll('[data-sort]').forEach((b) => b.insertAdjacentHTML('beforeend', sortIcon));
+
+  // Mock data: 24 customers across 3 groups with open invoices at various ages.
+  const TODAY_ISO = '2026-11-07';
+  const EOM_ISO = '2026-10-31';
+
+  function addDaysISO(iso, delta) {
+    const [y, m, d] = iso.split('-').map(Number);
+    return new Date(Date.UTC(y, m - 1, d + delta)).toISOString().slice(0, 10);
+  }
+  function daysBetween(aIso, bIso) {
+    return Math.round((Date.parse(aIso + 'T00:00:00Z') - Date.parse(bIso + 'T00:00:00Z')) / 86400000);
+  }
+
+  // [id, name, group, [days overdue as of today for each open invoice; negative = not yet due]]
+  const CUSTOMER_DEFS = [
+    ['CUST-1001', 'Minh Phát Co.', 'Wholesale', [-20, 12]],
+    ['CUST-1002', 'Hòa Bình Trading', 'Retail', [5, 40]],
+    ['CUST-1003', 'An Khang Pharmacy', 'Retail', [-10]],
+    ['CUST-1004', 'Northwind Retail', 'Retail', [70, 15, -5]],
+    ['CUST-1005', 'Blue Lotus Hotel', 'Distributor', [95]],
+    ['CUST-1006', 'Saigon Steel', 'Wholesale', [110, 65, 20]],
+    ['CUST-1007', 'Tran Thi Hong', 'Retail', [-15]],
+    ['CUST-1008', 'Le Van An', 'Retail', [3]],
+    ['CUST-1009', 'Dai Nam Logistics', 'Distributor', [45, -8]],
+    ['CUST-1010', 'Phu Quy Seafood', 'Wholesale', [130]],
+    ['CUST-1011', 'Thien Long Stationery', 'Retail', [8, 33]],
+    ['CUST-1012', 'Kim Cương Jewelry', 'Retail', [-25]],
+    ['CUST-1013', 'Hoàng Gia Furniture', 'Wholesale', [58, 2]],
+    ['CUST-1014', 'Việt Thành Electronics', 'Distributor', [22]],
+    ['CUST-1015', 'Sông Hồng Textiles', 'Wholesale', [88, 44]],
+    ['CUST-1016', 'Đông Á Pharma', 'Retail', [-12, 6]],
+    ['CUST-1017', 'Mekong Rice Traders', 'Distributor', [150]],
+    ['CUST-1018', 'Thành Công Garment', 'Wholesale', [30]],
+    ['CUST-1019', 'Hùng Vương Foods', 'Retail', [-18]],
+    ['CUST-1020', 'Đất Việt Construction', 'Distributor', [67, 10]],
+    ['CUST-1021', 'Lạc Hồng Media', 'Retail', []],
+    ['CUST-1022', 'Bạch Đằng Shipping', 'Wholesale', []],
+    ['CUST-1023', 'Nam Phong Agritech', 'Distributor', [4]],
+    ['CUST-1024', 'Cửu Long Chemicals', 'Wholesale', [101, 12]],
+  ];
+
+  let invSeq = 1;
+  const INVOICES = [];
+  CUSTOMER_DEFS.forEach(([id], ci) => {
+    CUSTOMER_DEFS[ci][3].forEach((d, ii) => {
+      const amount = Math.round((650 + ((ci * 937 + ii * 311) % 4200) * 9.7) * 100) / 100;
+      const dueDate = addDaysISO(TODAY_ISO, -d);
+      const issueDate = addDaysISO(dueDate, -30);
+      INVOICES.push({ id: 'INV-' + (4000 + invSeq++), customerId: id, issueDate, dueDate, amount });
+    });
+  });
+  const CUSTOMERS = CUSTOMER_DEFS.map(([id, name, group]) => ({ id, name, group }));
+
+  const BUCKETS = [
+    { key: 'current', label: 'Current', tone: 'neutral' },
+    { key: 'b1_30', label: '1–30 days overdue', tone: 'warning' },
+    { key: 'b31_60', label: '31–60 days overdue', tone: 'warning' },
+    { key: 'b61_90', label: '61–90 days overdue', tone: 'danger' },
+    { key: 'b90', label: '90+ days overdue', tone: 'danger' },
+  ];
+  const TONE = { neutral: 'bg-slate-100 text-slate-700', warning: 'bg-amber-50 text-amber-800', danger: 'bg-red-50 text-red-800' };
+  const TAB_LABEL = { current: 'Current', b1_30: '1–30 days', b31_60: '31–60 days', b61_90: '61–90 days', b90: '90+ days' };
+  const SEV_ORDER = ['b90', 'b61_90', 'b31_60', 'b1_30', 'current'];
+  const SEV_RANK = { current: 0, b1_30: 1, b31_60: 2, b61_90: 3, b90: 4 };
+
+  function bucketOf(daysOverdue) {
+    if (daysOverdue <= 0) return 'current';
+    if (daysOverdue <= 30) return 'b1_30';
+    if (daysOverdue <= 60) return 'b31_60';
+    if (daysOverdue <= 90) return 'b61_90';
+    return 'b90';
+  }
+
+  function aggregate(asOfIso) {
+    const byCust = new Map(CUSTOMERS.map((c) => [c.id, { ...c, current: 0, b1_30: 0, b31_60: 0, b61_90: 0, b90: 0, total: 0, count: 0, invoices: [] }]));
+    for (const inv of INVOICES) {
+      const row = byCust.get(inv.customerId);
+      const daysOverdue = daysBetween(asOfIso, inv.dueDate);
+      const bucket = bucketOf(daysOverdue);
+      row[bucket] += inv.amount;
+      row.total += inv.amount;
+      row.count += 1;
+      row.invoices.push({ ...inv, daysOverdue, bucket });
+    }
+    for (const row of byCust.values()) {
+      row.invoices.sort((a, b) => b.daysOverdue - a.daysOverdue);
+      row.worst = SEV_ORDER.find((k) => row[k] > 0.004) || 'current';
+      row.worstSeverity = SEV_RANK[row.worst];
+    }
+    return Array.from(byCust.values());
+  }
+
+  const params = new URLSearchParams(location.search);
+  const forced = params.get('state');
+  const ui = {
+    asofMode: ['eom', 'custom'].includes(params.get('asof')) ? params.get('asof') : 'today',
+    asofDate: params.get('asofDate') || TODAY_ISO,
+    q: params.get('q') || '',
+    group: params.get('group') || '',
+    bucketTab: params.get('bucket') || 'All',
+    minBalance: Number(params.get('min')) || 0,
+    showZero: params.get('zero') === '1',
+    sort: params.get('sort') || 'severity',
+    dir: params.get('dir') || 'desc',
+    selected: new Set(),
+    allMatching: false,
+    expanded: new Set(),
+  };
+  const resolveAsOf = () => (ui.asofMode === 'eom' ? EOM_ISO : ui.asofMode === 'custom' ? ui.asofDate || TODAY_ISO : TODAY_ISO);
+
+  const $ = (id) => document.getElementById(id);
+  const announce = (html, sr) => {
+    $('toast').innerHTML = `<div class="flex items-center gap-3 rounded-md border border-slate-200 bg-white px-4 py-3 shadow-md">${html}</div>`;
+    clearTimeout(announce.t);
+    announce.t = setTimeout(() => ($('toast').innerHTML = ''), 6000);
+    if (sr) $('announce').textContent = sr;
+  };
+  const show = (state) => document.querySelectorAll('[data-region="ar-aging"] [data-state]').forEach((e) => (e.hidden = e.dataset.state !== state));
+
+  function baseList(rows) {
+    const q = ui.q.trim().toLowerCase();
+    return rows.filter((r) => (!ui.group || r.group === ui.group) && (!q || (r.name + ' ' + r.id).toLowerCase().includes(q)) && r.total >= ui.minBalance && (ui.showZero || r.total > 0.004));
+  }
+  function matching(rows) {
+    const base = baseList(rows);
+    if (ui.bucketTab === 'All') return base;
+    const key = Object.keys(TAB_LABEL).find((k) => TAB_LABEL[k] === ui.bucketTab);
+    return base.filter((r) => r[key] > 0.004);
+  }
+  function sorted(list) {
+    const out = [...list];
+    if (ui.sort === 'severity') {
+      out.sort((a, b) => b.worstSeverity - a.worstSeverity || b.total - a.total);
+      return out;
+    }
+    const dir = ui.dir === 'asc' ? 1 : -1;
+    out.sort((a, b) => {
+      const av = ui.sort === 'name' || ui.sort === 'group' ? a[ui.sort].toLowerCase() : a[ui.sort];
+      const bv = ui.sort === 'name' || ui.sort === 'group' ? b[ui.sort].toLowerCase() : b[ui.sort];
+      return av > bv ? dir : av < bv ? -dir : 0;
+    });
+    return out;
+  }
+  function syncUrl() {
+    const p = new URLSearchParams();
+    if (ui.asofMode !== 'today') p.set('asof', ui.asofMode);
+    if (ui.asofMode === 'custom' && ui.asofDate) p.set('asofDate', ui.asofDate);
+    if (ui.q) p.set('q', ui.q);
+    if (ui.group) p.set('group', ui.group);
+    if (ui.bucketTab !== 'All') p.set('bucket', ui.bucketTab);
+    if (ui.minBalance) p.set('min', String(ui.minBalance));
+    if (ui.showZero) p.set('zero', '1');
+    if (ui.sort !== 'severity' || ui.dir !== 'desc') { p.set('sort', ui.sort); p.set('dir', ui.dir); }
+    if (forced) p.set('state', forced);
+    history.replaceState(null, '', p.toString() ? '?' + p : location.pathname);
+  }
+
+  function renderHeader(asOf) {
+    $('page-title').textContent = `Accounts receivable aging · As of ${fmtDate(asOf)}`;
+    $('basis-line').textContent = `Amounts in ${CURRENCY} · Updated ${fmtDateTime(new Date())}`;
+  }
+  function renderTabs(base) {
+    const counts = { All: base.length };
+    for (const k of Object.keys(TAB_LABEL)) counts[TAB_LABEL[k]] = base.filter((r) => r[k] > 0.004).length;
+    const tabs = ['All', ...Object.values(TAB_LABEL)];
+    $('tabs').innerHTML = tabs.map((t) => `<button type="button" data-tab="${t}" aria-pressed="${ui.bucketTab === t}" class="h-9 border-b-2 px-3 ${ui.bucketTab === t ? 'border-blue-700 font-medium text-slate-900' : 'border-transparent text-slate-700 hover:text-slate-900'}">${t} <span class="tnum text-slate-600">${fmtCount(counts[t])}</span></button>`).join('');
+  }
+  function renderChips() {
+    const chips = [];
+    if (ui.q) chips.push(['q', `Search: ${ui.q}`]);
+    if (ui.group) chips.push(['group', `Group: ${ui.group}`]);
+    if (ui.minBalance > 0) chips.push(['min', `Min balance: ${fmtMoney(ui.minBalance)}`]);
+    if (ui.showZero) chips.push(['zero', 'Includes $0 balance']);
+    if (ui.asofMode !== 'today') chips.push(['asof', `As of: ${fmtDate(resolveAsOf())}`]);
+    $('chips').innerHTML = chips.map(([k, t]) => `<span class="inline-flex h-6 items-center gap-1 rounded-full bg-slate-100 pl-2 pr-1 text-slate-700">${t}<button type="button" data-chip="${k}" class="h-6 w-6 rounded-full hover:bg-slate-200" aria-label="Remove filter ${t}">×</button></span>`).join('') + (chips.length ? '<button type="button" id="clear-all" class="h-6 px-2 text-blue-700 underline">Clear all</button>' : '');
+  }
+
+  function invoiceRows(r) {
+    return r.invoices.map((inv) => {
+      const b = BUCKETS.find((x) => x.key === inv.bucket);
+      return `<tr class="h-8 border-b border-slate-200 last:border-0">
+        <td class="px-3">${inv.id}</td>
+        <td class="tnum px-3">${fmtDate(inv.issueDate)}</td>
+        <td class="tnum px-3">${fmtDate(inv.dueDate)}</td>
+        <td class="tnum px-3 text-right">${inv.daysOverdue > 0 ? fmtCount(inv.daysOverdue) : '—'}</td>
+        <td class="px-3"><span class="inline-flex h-5 items-center rounded-full px-2 text-xs font-medium ${TONE[b.tone]}">${b.label}</span></td>
+        <td class="tnum px-3 text-right">${fmtAmount(inv.amount)}</td>
+      </tr>`;
+    }).join('');
+  }
+
+  function render() {
+    syncUrl();
+    const asOf = resolveAsOf();
+    renderHeader(asOf);
+    const rows = forced === 'empty' ? [] : aggregate(asOf);
+    const base = baseList(rows);
+    renderTabs(base);
+    renderChips();
+    const list = sorted(matching(rows));
+    const total = list.reduce((s, r) => s + r.total, 0);
+    $('result-count').textContent = fmtCount(list.length);
+    $('result-total').textContent = fmtMoney(total);
+    $('announce').textContent = list.length ? `${fmtCount(list.length)} customers match` : 'No customers match';
+    const selectedCount = ui.allMatching ? list.length : ui.selected.size;
+    $('btn-export').innerHTML = selectedCount ? `Export <span class="tnum">${fmtCount(selectedCount)}</span> selected` : `Export <span id="export-count" class="tnum">${fmtCount(list.length)}</span> customers`;
+    $('bulk').hidden = !selectedCount;
+    $('bulk-count').textContent = fmtCount(selectedCount);
+    $('bulk-all-count').textContent = fmtCount(list.length);
+    $('bulk-all').hidden = ui.allMatching || list.length <= list.length;
+
+    document.querySelectorAll('th[data-col]').forEach((th) => th.setAttribute('aria-sort', th.dataset.col === ui.sort ? (ui.dir === 'asc' ? 'ascending' : 'descending') : 'none'));
+
+    if (!list.length) {
+      const firstUse = forced === 'empty';
+      $('empty-title').textContent = firstUse ? 'No customers have an outstanding balance' : 'No customers match these filters';
+      $('empty-text').textContent = firstUse ? 'Every invoice is paid as of this date.' : 'Try another group or search, or clear the filters.';
+      $('empty-action').textContent = 'Clear filters';
+      show('empty');
+      return;
+    }
+    show('ready');
+
+    $('rows').innerHTML = list.map((r) => {
+      const status = BUCKETS.find((b) => b.key === r.worst);
+      const checked = ui.allMatching || ui.selected.has(r.id);
+      return `<tr class="h-10 border-b border-slate-200 last:border-0 hover:bg-slate-50">
+        <td class="px-3"><input type="checkbox" class="h-4 w-4" data-select="${r.id}" ${checked ? 'checked' : ''} aria-label="Select ${r.name}"></td>
+        <td class="max-w-56 px-3"><div class="flex items-center gap-2"><span class="truncate font-medium" title="${r.name}">${r.name}</span><span class="shrink-0 inline-flex h-5 items-center rounded-full px-2 text-xs font-medium ${TONE[status.tone]}">${status.label}</span></div></td>
+        <td class="whitespace-nowrap px-3 text-slate-700">${r.group}</td>
+        <td class="tnum whitespace-nowrap px-3 text-right">${fmtAmount(r.current)}</td>
+        <td class="tnum whitespace-nowrap px-3 text-right">${fmtAmount(r.b1_30)}</td>
+        <td class="tnum whitespace-nowrap px-3 text-right">${fmtAmount(r.b31_60)}</td>
+        <td class="tnum whitespace-nowrap px-3 text-right">${fmtAmount(r.b61_90)}</td>
+        <td class="tnum whitespace-nowrap px-3 text-right">${fmtAmount(r.b90)}</td>
+        <td class="tnum whitespace-nowrap px-3 text-right font-medium">${fmtAmount(r.total)}</td>
+        <td class="whitespace-nowrap px-3">${r.count ? `<button type="button" data-expand="${r.id}" aria-expanded="${ui.expanded.has(r.id)}" aria-controls="detail-${r.id}" class="inline-flex items-center gap-1 whitespace-nowrap text-blue-700 hover:underline">${fmtCount(r.count)} invoice${r.count === 1 ? '' : 's'}</button>` : '<span class="whitespace-nowrap text-slate-500">0 invoices</span>'}</td>
+      </tr>
+      <tr id="detail-${r.id}" data-detail="${r.id}" ${ui.expanded.has(r.id) ? '' : 'hidden'} class="border-b border-slate-200 bg-slate-50 last:border-0">
+        <td class="p-0" colspan="10"><div class="px-10 py-3">
+          <table class="w-full border-collapse text-slate-700">
+            <caption class="sr-only">Open invoices for ${r.name}</caption>
+            <thead><tr class="h-8 border-b border-slate-300 text-xs font-medium">
+              <th scope="col" class="px-3 text-left">Invoice</th>
+              <th scope="col" class="px-3 text-left">Issued</th>
+              <th scope="col" class="px-3 text-left">Due</th>
+              <th scope="col" class="px-3 text-right">Days overdue</th>
+              <th scope="col" class="px-3 text-left">Bucket</th>
+              <th scope="col" class="px-3 text-right">Amount (<span class="cur"></span>)</th>
+            </tr></thead>
+            <tbody>${invoiceRows(r)}</tbody>
+          </table>
+        </div></td>
+      </tr>`;
+    }).join('');
+    document.querySelectorAll('#rows .cur').forEach((el) => (el.textContent = CURRENCY));
+
+    const sums = BUCKETS.reduce((acc, b) => ((acc[b.key] = list.reduce((s, r) => s + r[b.key], 0)), acc), {});
+    $('tfoot').innerHTML = `<tr class="h-10 border-t-2 border-slate-300 font-medium">
+      <td class="px-3" colspan="3">Total</td>
+      <td class="tnum px-3 text-right">${fmtAmount(sums.current)}</td>
+      <td class="tnum px-3 text-right">${fmtAmount(sums.b1_30)}</td>
+      <td class="tnum px-3 text-right">${fmtAmount(sums.b31_60)}</td>
+      <td class="tnum px-3 text-right">${fmtAmount(sums.b61_90)}</td>
+      <td class="tnum px-3 text-right">${fmtAmount(sums.b90)}</td>
+      <td class="tnum px-3 text-right">${fmtAmount(total)}</td>
+      <td class="px-3"></td>
+    </tr>`;
+
+    const ids = list.map((r) => r.id);
+    const onPage = ids.filter((id) => ui.allMatching || ui.selected.has(id)).length;
+    $('select-all').checked = onPage === ids.length;
+    $('select-all').indeterminate = onPage > 0 && onPage < ids.length;
+  }
+
+  function exportCsv(list) {
+    const header = ['Customer ID', 'Customer', 'Group', `Current (${CURRENCY})`, `1-30 days (${CURRENCY})`, `31-60 days (${CURRENCY})`, `61-90 days (${CURRENCY})`, `90+ days (${CURRENCY})`, `Total due (${CURRENCY})`];
+    const lines = [header.join(',')];
+    for (const r of list) lines.push([r.id, `"${r.name.replace(/"/g, '""')}"`, r.group, r.current, r.b1_30, r.b31_60, r.b61_90, r.b90, r.total].map((v) => (typeof v === 'number' ? v.toFixed(2) : v)).join(','));
+    const blob = new Blob([lines.join('\n')], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `ar-aging-${resolveAsOf()}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  }
+
+  function currentList() {
+    const rows = forced === 'empty' ? [] : aggregate(resolveAsOf());
+    return sorted(matching(rows));
+  }
+
+  // Events
+  $('f-asof-mode').addEventListener('change', (e) => {
+    ui.asofMode = e.target.value;
+    $('f-asof-date').disabled = ui.asofMode !== 'custom';
+    if (ui.asofMode !== 'custom') $('f-asof-date').value = resolveAsOf();
+    render();
+  });
+  $('f-asof-date').addEventListener('change', (e) => { ui.asofDate = e.target.value; render(); });
+  let qTimer;
+  $('q').addEventListener('input', (e) => { clearTimeout(qTimer); qTimer = setTimeout(() => { ui.q = e.target.value; ui.allMatching = false; render(); }, 300); });
+  $('f-group').addEventListener('change', (e) => { ui.group = e.target.value; render(); });
+  $('tabs').addEventListener('click', (e) => { const b = e.target.closest('[data-tab]'); if (b) { ui.bucketTab = b.dataset.tab; render(); } });
+
+  $('btn-more').addEventListener('click', () => {
+    const opening = $('panel').hidden;
+    $('panel').hidden = !opening;
+    $('btn-more').setAttribute('aria-expanded', String(opening));
+    if (opening) { $('panel-min').value = ui.minBalance || ''; $('panel-zero').checked = ui.showZero; $('panel-min').focus(); }
+  });
+  $('panel-reset').addEventListener('click', () => { $('panel-min').value = ''; $('panel-zero').checked = false; });
+  $('panel-apply').addEventListener('click', () => {
+    ui.minBalance = Number($('panel-min').value) || 0;
+    ui.showZero = $('panel-zero').checked;
+    $('panel').hidden = true;
+    $('btn-more').setAttribute('aria-expanded', 'false');
+    $('btn-more').textContent = (ui.minBalance > 0 || ui.showZero) ? `More filters (${(ui.minBalance > 0 ? 1 : 0) + (ui.showZero ? 1 : 0)})` : 'More filters';
+    $('btn-more').focus();
+    render();
+  });
+  document.addEventListener('click', (e) => { if (!e.target.closest('#panel, #btn-more')) $('panel').hidden = true; });
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape') $('panel').hidden = true; });
+
+  $('chips').addEventListener('click', (e) => {
+    const c = e.target.closest('[data-chip]');
+    if (c) {
+      const k = c.dataset.chip;
+      if (k === 'q') { ui.q = ''; $('q').value = ''; }
+      if (k === 'group') { ui.group = ''; $('f-group').value = ''; }
+      if (k === 'min') { ui.minBalance = 0; }
+      if (k === 'zero') { ui.showZero = false; }
+      if (k === 'asof') { ui.asofMode = 'today'; $('f-asof-mode').value = 'today'; $('f-asof-date').disabled = true; $('f-asof-date').value = TODAY_ISO; }
+      $('btn-more').textContent = (ui.minBalance > 0 || ui.showZero) ? `More filters (${(ui.minBalance > 0 ? 1 : 0) + (ui.showZero ? 1 : 0)})` : 'More filters';
+      render();
+    }
+    if (e.target.id === 'clear-all') clearFilters();
+  });
+  function clearFilters() {
+    ui.q = ''; ui.group = ''; ui.minBalance = 0; ui.showZero = false; ui.asofMode = 'today'; ui.asofDate = TODAY_ISO; ui.bucketTab = 'All';
+    $('q').value = ''; $('f-group').value = ''; $('f-asof-mode').value = 'today'; $('f-asof-date').disabled = true; $('f-asof-date').value = TODAY_ISO;
+    $('btn-more').textContent = 'More filters';
+    render();
+    $('q').focus();
+  }
+  $('empty-action').addEventListener('click', clearFilters);
+  document.querySelector('thead').addEventListener('click', (e) => {
+    const b = e.target.closest('[data-sort]');
+    if (!b) return;
+    ui.dir = ui.sort === b.dataset.sort && ui.dir === 'asc' ? 'desc' : 'asc';
+    ui.sort = b.dataset.sort;
+    render();
+  });
+  $('select-all').addEventListener('change', (e) => {
+    currentList().forEach((r) => (e.target.checked ? ui.selected.add(r.id) : ui.selected.delete(r.id)));
+    if (!e.target.checked) ui.allMatching = false;
+    render();
+  });
+  $('rows').addEventListener('change', (e) => { const c = e.target.closest('[data-select]'); if (c) { c.checked ? ui.selected.add(c.dataset.select) : ui.selected.delete(c.dataset.select); ui.allMatching = false; render(); } });
+  $('rows').addEventListener('click', (e) => {
+    const b = e.target.closest('[data-expand]');
+    if (!b) return;
+    const id = b.dataset.expand;
+    ui.expanded.has(id) ? ui.expanded.delete(id) : ui.expanded.add(id);
+    render();
+  });
+  $('bulk-all').addEventListener('click', () => { ui.allMatching = true; render(); });
+  $('bulk-clear').addEventListener('click', () => { ui.selected.clear(); ui.allMatching = false; render(); });
+  $('bulk-send').addEventListener('click', () => {
+    const n = ui.allMatching ? currentList().length : ui.selected.size;
+    announce(`<span>Statement sent to ${fmtCount(n)} customer${n === 1 ? '' : 's'}.</span>`, `Statement sent to ${n} customers`);
+  });
+  $('btn-export').addEventListener('click', () => {
+    const list = currentList();
+    const scope = ui.allMatching || ui.selected.size ? list.filter((r) => ui.allMatching || ui.selected.has(r.id)) : list;
+    exportCsv(scope);
+    announce(`<span>Export started: ar-aging-${resolveAsOf()}.csv (${fmtCount(scope.length)} customers).</span>`);
+  });
+  $('btn-print').addEventListener('click', () => window.print());
+  $('retry').addEventListener('click', () => { location.search = ''; });
+
+  // Initial state: ?state=loading|error shows that state; otherwise render the data.
+  $('skeleton').innerHTML = Array.from({ length: 8 }, () => '<div class="flex h-10 items-center gap-4 border-b border-slate-200 px-3"><div class="h-3 w-40 rounded bg-slate-200"></div><div class="ml-auto h-3 w-16 rounded bg-slate-200"></div><div class="h-3 w-16 rounded bg-slate-200"></div><div class="h-3 w-16 rounded bg-slate-200"></div></div>').join('');
+  $('q').value = ui.q;
+  $('f-group').value = ui.group;
+  $('f-asof-mode').value = ui.asofMode;
+  $('f-asof-date').value = resolveAsOf();
+  $('f-asof-date').disabled = ui.asofMode !== 'custom';
+  if (ui.minBalance > 0 || ui.showZero) $('btn-more').textContent = `More filters (${(ui.minBalance > 0 ? 1 : 0) + (ui.showZero ? 1 : 0)})`;
+  if (forced === 'loading' || forced === 'error') { show(forced); renderHeader(resolveAsOf()); renderTabs([]); $('result-count').textContent = '—'; }
+  else render();
+</script>
+</body>
+</html>

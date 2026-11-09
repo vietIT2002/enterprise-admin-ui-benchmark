@@ -1,0 +1,58 @@
+{
+  "brief": "31-user-access-admin",
+  "run": 1,
+  "items": [
+    {
+      "item": "Each row shows the user's name and email, role, status in words (such as Active, Invited, Deactivated, Locked) and whether two-factor sign-in is enabled",
+      "pass": false,
+      "evidence": "rowHtml() (page.html:497-519) renders name, email, role badge and statusBadge() text (Active/Invited/Deactivated only, no 'Locked' state in DATA or statusBadge config). No two-factor/2FA column or indicator exists anywhere in rowHtml, buildMenuItems, or DATA objects."
+    },
+    {
+      "item": "Last sign-in uses one date-time format with the timezone stated, relative times also expose the exact time, and an account that has never signed in shows \"Never\" rather than a blank or a 1970 date",
+      "pass": false,
+      "evidence": "timeAgo() returns 'Never' for null lastSignIn (good), and the relative text has a title tooltip from formatExact() (page.html:419-423, 513). But formatExact() uses d.toLocaleString(undefined,{dateStyle:'medium',timeStyle:'short'}) with no timezone abbreviation/offset shown anywhere, so the 'timezone stated' requirement fails."
+    },
+    {
+      "item": "Users can be found by searching name or email and filtered by role, status and inactivity (such as no sign-in for 90+ days), with the number of matching users shown",
+      "pass": false,
+      "evidence": "searchInput filters name/email and #roleFilter/#statusFilter filter role and status (page.html:945-954); #resultsCount shows 'N users' (line 193, 579). There is no inactivity/90+ days filter control anywhere in the markup or getFiltered() logic (page.html:462-484)."
+    },
+    {
+      "item": "The invite form requires an email and a role, labels both fields, and shows an inline error for a malformed address or one that already has an account",
+      "pass": true,
+      "evidence": "inviteEmail and inviteRole are both required with associated <label> elements (page.html:294-304); submit handler validates with emailRe and checks DATA.some(...) for an existing account, showing text in #inviteEmailError with role=\"alert\" (page.html:992-1006)."
+    },
+    {
+      "item": "Deactivation asks for confirmation that names the user and states the effect (active sessions ended, sign-in blocked, data kept), and a deactivated user is offered Reactivate instead",
+      "pass": false,
+      "evidence": "Confirm dialog text is only \"<name> will immediately lose access to the workspace. You can reactivate this account at any time.\" (page.html:760) — it names the user and mentions reactivation, but never states that active sessions are ended, sign-in is blocked, or that data is kept. Reactivate option for deactivated users does exist via buildMenuItems() deactivateLabel/action (page.html:522-523)."
+    },
+    {
+      "item": "The signed-in administrator's own row is marked (such as \"You\") and cannot be deactivated or lose the admin role, and the last remaining administrator cannot be deactivated, with the disabled action explaining why",
+      "pass": false,
+      "evidence": "The signed-in admin, Jordan Diaz (jordan.diaz@acmecorp.com, shown in sidebar/topbar, page.html:65,96-97), does not appear anywhere in the DATA array (page.html:351-367) or table, so no row is marked 'You'. buildMenuItems() only disables deactivate for role==='Owner' (ownerLocked, page.html:524,531); there is no 'last remaining admin' check and no protection tied to the signed-in user at all."
+    },
+    {
+      "item": "Password reset sends a reset link to the user's email address, which the confirmation names, and the administrator never sees, sets or types the new password",
+      "pass": true,
+      "evidence": "Confirm dialog: \"Send a password reset link to \" + user.email + \"?\" and on confirm toast \"Password reset link sent to \" + user.email + \".\" (page.html:749-755); no password input field exists anywhere in the UI."
+    },
+    {
+      "item": "Row actions are buttons or a keyboard-operable menu whose accessible names include the user (such as \"Actions for Mai Nguyen\"), and the outcome of an action is announced in an aria-live or role=\"status\" region",
+      "pass": true,
+      "evidence": "menu-trigger button: aria-label=\"Actions for \" + escapeHtml(u.name) (page.html:515), matching the example pattern; menu items are real <button role=\"menuitem\"> elements (buildMenuItems, page.html:521-535) reachable/activatable by keyboard. Outcomes are announced via #toastContainer which has aria-live=\"polite\" aria-atomic=\"true\" (page.html:343) and toast() messages like \"...account has been deactivated.\" (page.html:766)."
+    },
+    {
+      "item": "A search with no matching users shows a message with a way to clear it, and loading and failed-load states with a retry exist",
+      "pass": false,
+      "evidence": "#emptyState shows \"No users found\" / \"Try adjusting your search or filters.\" plus a \"Clear filters\" button wired to #clearFilters (page.html:246-251, 955-964) — satisfies the no-results half. However there is no loading state (spinner/skeleton) and no failed-load/error state with a retry button anywhere in the markup or script; data renders synchronously from a static in-memory array (DATA, page.html:350-367)."
+    }
+  ],
+  "tells": [
+    "kpi-icon-tiles",
+    "oversized-radius",
+    "navy-sidebar-indigo-accent"
+  ],
+  "notes": "Stat cards (Total users / Active / Pending invites / Deactivated) are classic icon+number KPI tiles with no trend context, flagged by the audit as rounded-xl (12px) exceeding the 8px radius-scale cap. Sidebar is bg-slate-900 navy with indigo-600 accents on the logo mark, active-state elements, and primary buttons. Audit also flags real defects worth noting: plain-text emails should be mailto: links (contact-link, 8 occurrences), card shadows should be borders only (surface-shadow), and all 8 visible rows are two-line/65px exceeding the two-line row-height cap (table-row-height / table-row-two-line).",
+  "blind": true
+}

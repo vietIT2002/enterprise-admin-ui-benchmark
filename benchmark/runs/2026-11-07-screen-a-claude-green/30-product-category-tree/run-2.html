@@ -1,0 +1,728 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Danh mục sản phẩm · TMĐT Admin</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+  [hidden] { display: none !important; }
+  .tnum { font-variant-numeric: tabular-nums; }
+  mark { background: #fef08a; color: inherit; border-radius: 2px; }
+  @media print {
+    aside, nav, button, input, select, [data-no-print] { display: none !important; }
+    main { padding: 0 !important; }
+  }
+  @media (max-width: 1023px) {
+    #split[data-mobile="tree"] #detail-panel { display: none; }
+    #split[data-mobile="detail"] #tree-panel { display: none; }
+  }
+</style>
+</head>
+<body class="bg-white text-sm text-slate-900 antialiased">
+<!--
+  Product category tree + split view (enterprise-admin-ui, trees.md). Keeps the list template's shell,
+  states (data-region/data-state via ?state=), confirmation dialog, status region and print stylesheet.
+  Tree uses role="tree"/"treeitem" (single column: name + product count). Selection lives in ?category=
+  and the expanded set persists in localStorage. A parent's count is always computed from its children.
+-->
+<div class="flex min-h-screen">
+  <aside class="w-56 shrink-0 border-r border-slate-200 bg-slate-50">
+    <div class="flex h-12 items-center px-4 font-semibold">Shopverse Admin</div>
+    <nav aria-label="Điều hướng chính" class="px-2 pb-4">
+      <p class="px-2 pb-1 pt-3 text-xs font-medium text-slate-600">Tổng quan</p>
+      <a href="#" class="flex h-8 items-center rounded px-2 text-slate-700 hover:bg-slate-100">Bảng điều khiển</a>
+      <a href="#" class="flex h-8 items-center rounded px-2 text-slate-700 hover:bg-slate-100">Đơn hàng</a>
+      <p class="px-2 pb-1 pt-3 text-xs font-medium text-slate-600">Sản phẩm</p>
+      <a href="#" class="flex h-8 items-center rounded px-2 text-slate-700 hover:bg-slate-100">Tất cả sản phẩm</a>
+      <a href="#" aria-current="page" class="flex h-8 items-center rounded bg-slate-200 px-2 font-medium">Danh mục sản phẩm</a>
+      <a href="#" class="flex h-8 items-center rounded px-2 text-slate-700 hover:bg-slate-100">Kho hàng</a>
+      <p class="px-2 pb-1 pt-3 text-xs font-medium text-slate-600">Kinh doanh</p>
+      <a href="#" class="flex h-8 items-center rounded px-2 text-slate-700 hover:bg-slate-100">Khách hàng</a>
+      <a href="#" class="flex h-8 items-center rounded px-2 text-slate-700 hover:bg-slate-100">Khuyến mãi</a>
+    </nav>
+  </aside>
+
+  <main class="flex min-w-0 flex-1 flex-col px-6 py-4">
+    <p class="text-slate-600"><a href="#" class="hover:underline">Sản phẩm</a> / Danh mục sản phẩm</p>
+    <header class="mt-1 flex items-center justify-between gap-4">
+      <h1 class="text-xl font-semibold">Danh mục sản phẩm</h1>
+      <div class="flex items-center gap-2">
+        <button type="button" id="btn-print" data-no-print class="h-8 rounded border border-slate-300 bg-white px-3 hover:bg-slate-50">In danh mục đang chọn</button>
+        <button type="button" id="btn-add-root" class="h-8 rounded bg-blue-700 px-3 font-medium text-white hover:bg-blue-800">Thêm danh mục</button>
+      </div>
+    </header>
+
+    <p class="mt-3 text-slate-600" data-result-count><span id="result-count" class="tnum">0</span> danh mục · <span id="result-total" class="tnum">0</span> sản phẩm</p>
+
+    <div id="split" class="mt-3 flex min-h-0 flex-1 gap-4" data-mobile="tree">
+      <section id="tree-panel" class="flex w-full shrink-0 flex-col overflow-hidden rounded-md border border-slate-200 lg:w-[360px]" aria-label="Cây danh mục">
+        <div class="flex items-center gap-2 border-b border-slate-200 bg-slate-50 p-2">
+          <input type="search" id="q" aria-label="Tìm kiếm danh mục theo tên hoặc mã" placeholder="Tìm kiếm danh mục" class="h-8 w-full rounded border border-slate-300 px-2">
+        </div>
+        <div class="flex items-center gap-1 border-b border-slate-200 px-2 py-1.5">
+          <button type="button" id="expand-all" class="h-7 rounded px-2 text-blue-700 hover:bg-slate-100">Mở rộng tất cả</button>
+          <button type="button" id="collapse-all" class="h-7 rounded px-2 text-blue-700 hover:bg-slate-100">Thu gọn tất cả</button>
+        </div>
+
+        <section data-region="tree" class="min-h-0 flex-1 overflow-y-auto" aria-label="Danh mục">
+          <div data-state="ready" class="p-1">
+            <div id="tree" role="tree" aria-label="Danh mục sản phẩm"></div>
+            <div id="no-match" hidden class="px-3 py-8 text-center text-slate-600">
+              <p id="no-match-text"></p>
+              <button type="button" id="clear-search" class="mt-2 text-blue-700 underline">Xóa tìm kiếm</button>
+            </div>
+          </div>
+          <div data-state="empty" hidden class="px-4 py-10 text-center">
+            <p class="font-medium" id="empty-title">Chưa có danh mục nào</p>
+            <p class="mt-1 text-slate-600" id="empty-text">Danh mục xuất hiện ở đây khi bạn tạo danh mục đầu tiên cho cửa hàng.</p>
+            <button type="button" id="empty-action" class="mt-3 h-8 rounded border border-slate-300 bg-white px-3 hover:bg-slate-50">Thêm danh mục</button>
+          </div>
+          <div data-state="loading" aria-busy="true" hidden aria-label="Đang tải danh mục">
+            <div id="skeleton" class="p-2"></div>
+          </div>
+          <div data-state="error" hidden class="m-2 rounded-md border border-red-200 bg-red-50 px-4 py-3 text-red-800" role="alert">
+            <p class="font-medium">Không thể tải danh mục sản phẩm.</p>
+            <p class="mt-1">Kiểm tra kết nối mạng rồi thử lại.</p>
+            <button type="button" id="retry" class="mt-2 h-8 rounded border border-red-300 bg-white px-3 text-red-800 hover:bg-red-100">Thử lại</button>
+          </div>
+        </section>
+      </section>
+
+      <section id="detail-panel" class="min-w-0 flex-1 overflow-y-auto rounded-md border border-slate-200" aria-label="Chi tiết danh mục">
+        <button type="button" id="back-to-tree" data-no-print class="m-2 flex h-8 items-center gap-1 rounded px-2 text-blue-700 hover:bg-slate-100 lg:hidden">← Quay lại danh mục</button>
+        <div id="detail-content" class="p-5"></div>
+      </section>
+    </div>
+  </main>
+</div>
+
+<div id="menu" role="menu" aria-label="Thao tác khác" hidden class="fixed z-20 w-56 rounded-md border border-slate-200 bg-white py-1 shadow-md">
+  <button type="button" role="menuitem" data-act="add-child" class="block h-9 w-full px-3 text-left hover:bg-slate-100">Thêm danh mục con</button>
+  <button type="button" role="menuitem" data-act="toggle-status" class="block h-9 w-full px-3 text-left hover:bg-slate-100"></button>
+  <button type="button" role="menuitem" data-act="delete" class="block h-9 w-full px-3 text-left text-red-700 hover:bg-slate-100">Xóa danh mục</button>
+</div>
+
+<div id="backdrop" hidden class="fixed inset-0 z-30 bg-slate-900/40"></div>
+
+<div id="confirm" role="alertdialog" aria-modal="true" aria-labelledby="confirm-title" aria-describedby="confirm-text" hidden class="fixed left-1/2 top-24 z-40 w-[440px] -translate-x-1/2 rounded-lg border border-slate-200 bg-white p-5 shadow-lg">
+  <h2 id="confirm-title" class="text-base font-semibold"></h2>
+  <p id="confirm-text" class="mt-2 text-slate-700"></p>
+  <div class="mt-4 flex justify-end gap-2">
+    <button type="button" id="confirm-cancel" class="h-8 rounded border border-slate-300 bg-white px-3 hover:bg-slate-50">Hủy</button>
+    <button type="button" id="confirm-ok" class="h-8 rounded bg-red-700 px-3 font-medium text-white hover:bg-red-800"></button>
+  </div>
+</div>
+
+<div id="form-backdrop" hidden class="fixed inset-0 z-30 bg-slate-900/40"></div>
+<div id="form-dialog" role="dialog" aria-modal="true" aria-labelledby="form-title" hidden class="fixed left-1/2 top-16 z-40 max-h-[85vh] w-[480px] -translate-x-1/2 overflow-y-auto rounded-lg border border-slate-200 bg-white shadow-lg">
+  <form id="cat-form" novalidate>
+    <div class="p-5">
+      <h2 id="form-title" class="text-base font-semibold">Thêm danh mục</h2>
+      <p id="form-error-summary" role="alert" hidden class="mt-3 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-red-800"></p>
+
+      <div class="mt-4">
+        <label class="block font-medium" for="f-parent">Danh mục cha</label>
+        <input id="f-parent-readonly" type="text" readonly class="mt-1.5 h-9 w-full rounded border border-slate-200 bg-slate-50 px-2 text-slate-600">
+        <select id="f-parent" class="mt-1.5 h-9 w-full rounded border border-slate-300 bg-white px-2"></select>
+      </div>
+
+      <div class="mt-4">
+        <label class="block font-medium" for="f-name">Tên danh mục <span class="text-red-700">*</span></label>
+        <input id="f-name" type="text" class="mt-1.5 h-9 w-full rounded border border-slate-300 px-2" aria-describedby="f-name-err">
+        <p id="f-name-err" class="mt-1 hidden text-red-700">Nhập tên danh mục.</p>
+      </div>
+
+      <div class="mt-4">
+        <label class="block font-medium" for="f-code">Mã danh mục <span class="text-red-700">*</span></label>
+        <input id="f-code" type="text" class="mt-1.5 h-9 w-full rounded border border-slate-300 px-2 uppercase" aria-describedby="f-code-err">
+        <p id="f-code-err" class="mt-1 hidden text-red-700">Nhập mã danh mục.</p>
+      </div>
+
+      <div class="mt-4" id="f-status-wrap">
+        <label class="block font-medium" for="f-status">Trạng thái</label>
+        <select id="f-status" class="mt-1.5 h-9 w-full rounded border border-slate-300 bg-white px-2">
+          <option value="active">Đang hoạt động</option>
+          <option value="inactive">Ngừng kinh doanh</option>
+          <option value="draft">Nháp</option>
+        </select>
+      </div>
+
+      <div class="mt-4">
+        <label class="block font-medium" for="f-desc">Mô tả</label>
+        <textarea id="f-desc" rows="3" class="mt-1.5 w-full rounded border border-slate-300 px-2 py-1.5"></textarea>
+      </div>
+    </div>
+    <div class="sticky bottom-0 flex justify-end gap-2 border-t border-slate-200 bg-white px-5 py-3">
+      <button type="button" id="form-cancel" class="h-8 rounded border border-slate-300 bg-white px-3 hover:bg-slate-50">Hủy</button>
+      <button type="submit" id="form-save" class="h-8 rounded bg-blue-700 px-3 font-medium text-white hover:bg-blue-800">Lưu</button>
+    </div>
+  </form>
+</div>
+
+<div id="toast" role="status" aria-live="polite" class="fixed bottom-4 right-4 z-50"></div>
+
+<script>
+const LOCALE = 'vi-VN';
+const CURRENCY = 'VND';
+const amountFmt = new Intl.NumberFormat(LOCALE, { style: 'currency', currency: CURRENCY, maximumFractionDigits: 0 });
+const fmtAmount = (n) => amountFmt.format(n);
+const fmtCount = (n) => new Intl.NumberFormat(LOCALE).format(n);
+const fmtDate = (iso) => new Intl.DateTimeFormat(LOCALE, { day: '2-digit', month: '2-digit', year: 'numeric' }).format(new Date(iso + 'T00:00:00'));
+
+const STATUS_LABEL = { active: 'Đang hoạt động', inactive: 'Ngừng kinh doanh', draft: 'Nháp' };
+const STATUS_TONE = { active: 'bg-green-50 text-green-800', inactive: 'bg-slate-100 text-slate-700', draft: 'bg-blue-50 text-blue-800' };
+
+// Mock data: a Vietnamese e-commerce category tree. ownCount is products filed directly in that
+// category; a parent's total is always computed as own + the sum of its children, never typed.
+let CATS = [
+  { id: 'fashion', parentId: null, name: 'Thời trang', code: 'TT', status: 'active', ownCount: 0, description: 'Toàn bộ sản phẩm thời trang cho nam, nữ và trẻ em.', createdDate: '2023-02-10', updatedBy: 'Nguyễn Thị Lan', updatedDate: '2026-10-28' },
+  { id: 'fashion-men', parentId: 'fashion', name: 'Thời trang nam', code: 'TT-NAM', status: 'active', ownCount: 0, description: 'Quần áo và phụ kiện dành cho nam giới.', createdDate: '2023-02-10', updatedBy: 'Nguyễn Thị Lan', updatedDate: '2026-09-02' },
+  { id: 'fm-shirt', parentId: 'fashion-men', name: 'Áo nam', code: 'TT-NAM-AO', status: 'active', ownCount: 480, description: 'Áo sơ mi, áo thun, áo khoác nam.', createdDate: '2023-02-11', updatedBy: 'Trần Văn Bình', updatedDate: '2026-10-15' },
+  { id: 'fm-pants', parentId: 'fashion-men', name: 'Quần nam', code: 'TT-NAM-QU', status: 'active', ownCount: 390, description: 'Quần tây, quần jeans, quần short nam.', createdDate: '2023-02-11', updatedBy: 'Trần Văn Bình', updatedDate: '2026-08-20' },
+  { id: 'fm-shoes', parentId: 'fashion-men', name: 'Giày dép nam', code: 'TT-NAM-GD', status: 'active', ownCount: 250, description: 'Giày thể thao, giày tây, dép nam.', createdDate: '2023-03-01', updatedBy: 'Trần Văn Bình', updatedDate: '2026-07-11' },
+  { id: 'fashion-women', parentId: 'fashion', name: 'Thời trang nữ', code: 'TT-NU', status: 'active', ownCount: 0, description: 'Quần áo và phụ kiện dành cho nữ giới.', createdDate: '2023-02-10', updatedBy: 'Nguyễn Thị Lan', updatedDate: '2026-10-02' },
+  { id: 'fw-shirt', parentId: 'fashion-women', name: 'Áo nữ', code: 'TT-NU-AO', status: 'active', ownCount: 620, description: 'Áo sơ mi, áo kiểu, áo len nữ.', createdDate: '2023-02-12', updatedBy: 'Phạm Thu Hương', updatedDate: '2026-10-30' },
+  { id: 'fw-pants', parentId: 'fashion-women', name: 'Quần & Váy nữ', code: 'TT-NU-QV', status: 'active', ownCount: 540, description: 'Chân váy, đầm, quần nữ các loại.', createdDate: '2023-02-12', updatedBy: 'Phạm Thu Hương', updatedDate: '2026-09-18' },
+  { id: 'fw-shoes', parentId: 'fashion-women', name: 'Giày dép nữ', code: 'TT-NU-GD', status: 'active', ownCount: 410, description: 'Giày cao gót, giày thể thao, sandal nữ.', createdDate: '2023-03-01', updatedBy: 'Phạm Thu Hương', updatedDate: '2026-06-25' },
+  { id: 'fw-bags', parentId: 'fashion-women', name: 'Túi xách & Phụ kiện', code: 'TT-NU-TX', status: 'active', ownCount: 280, description: 'Túi xách, ví, trang sức thời trang.', createdDate: '2023-03-05', updatedBy: 'Phạm Thu Hương', updatedDate: '2026-05-14' },
+  { id: 'fashion-kids', parentId: 'fashion', name: 'Thời trang trẻ em', code: 'TT-TE', status: 'active', ownCount: 270, description: 'Quần áo và giày dép cho trẻ từ 0-12 tuổi.', createdDate: '2023-04-01', updatedBy: 'Nguyễn Thị Lan', updatedDate: '2026-08-09' },
+
+  { id: 'electronics', parentId: null, name: 'Điện tử', code: 'DT', status: 'active', ownCount: 40, description: 'Thiết bị điện tử, điện thoại, máy tính và phụ kiện.', createdDate: '2023-02-10', updatedBy: 'Lê Minh Quân', updatedDate: '2026-10-20' },
+  { id: 'el-phone', parentId: 'electronics', name: 'Điện thoại & Phụ kiện', code: 'DT-DT', status: 'active', ownCount: 640, description: 'Điện thoại di động, ốp lưng, sạc, cáp.', createdDate: '2023-02-11', updatedBy: 'Lê Minh Quân', updatedDate: '2026-10-29' },
+  { id: 'el-laptop', parentId: 'electronics', name: 'Máy tính & Laptop', code: 'DT-MT', status: 'active', ownCount: 510, description: 'Laptop, máy tính để bàn, linh kiện.', createdDate: '2023-02-11', updatedBy: 'Lê Minh Quân', updatedDate: '2026-09-30' },
+  { id: 'el-smart', parentId: 'electronics', name: 'Thiết bị gia dụng thông minh', code: 'DT-TB', status: 'active', ownCount: 330, description: 'Camera, ổ khóa, công tắc thông minh.', createdDate: '2023-05-01', updatedBy: 'Đặng Hải Yến', updatedDate: '2026-07-22' },
+  { id: 'el-audio', parentId: 'electronics', name: 'Âm thanh', code: 'DT-AT', status: 'active', ownCount: 260, description: 'Tai nghe, loa, micro.', createdDate: '2023-05-01', updatedBy: 'Đặng Hải Yến', updatedDate: '2026-04-19' },
+  { id: 'el-camera', parentId: 'electronics', name: 'Máy ảnh & Máy quay', code: 'DT-MA', status: 'active', ownCount: 190, description: 'Máy ảnh, máy quay, phụ kiện quay phim.', createdDate: '2023-06-10', updatedBy: 'Đặng Hải Yến', updatedDate: '2026-03-02' },
+
+  { id: 'home', parentId: null, name: 'Nhà cửa & Đời sống', code: 'NC', status: 'active', ownCount: 0, description: 'Đồ dùng, nội thất và trang trí cho gia đình.', createdDate: '2023-02-15', updatedBy: 'Vũ Thanh Tùng', updatedDate: '2026-09-12' },
+  { id: 'home-furniture', parentId: 'home', name: 'Nội thất', code: 'NC-NT', status: 'active', ownCount: 410, description: 'Bàn, ghế, tủ, giường.', createdDate: '2023-02-16', updatedBy: 'Vũ Thanh Tùng', updatedDate: '2026-09-12' },
+  { id: 'home-kitchen', parentId: 'home', name: 'Đồ dùng nhà bếp', code: 'NC-DB', status: 'active', ownCount: 380, description: 'Nồi, chảo, dụng cụ nấu ăn.', createdDate: '2023-02-16', updatedBy: 'Vũ Thanh Tùng', updatedDate: '2026-08-01' },
+  { id: 'home-decor', parentId: 'home', name: 'Trang trí nhà cửa', code: 'NC-TT', status: 'active', ownCount: 290, description: 'Tranh, đèn, cây giả, phụ kiện trang trí.', createdDate: '2023-03-20', updatedBy: 'Vũ Thanh Tùng', updatedDate: '2026-06-30' },
+  { id: 'home-tools', parentId: 'home', name: 'Dụng cụ & Thiết bị', code: 'NC-DC', status: 'active', ownCount: 480, description: 'Dụng cụ sửa chữa, thiết bị vệ sinh.', createdDate: '2023-03-20', updatedBy: 'Vũ Thanh Tùng', updatedDate: '2026-02-14' },
+
+  { id: 'beauty', parentId: null, name: 'Sức khỏe & Làm đẹp', code: 'SK', status: 'active', ownCount: 0, description: 'Mỹ phẩm, chăm sóc cá nhân và thực phẩm chức năng.', createdDate: '2023-03-01', updatedBy: 'Hoàng Mai Anh', updatedDate: '2026-10-05' },
+  { id: 'beauty-cosmetics', parentId: 'beauty', name: 'Mỹ phẩm', code: 'SK-MP', status: 'active', ownCount: 520, description: 'Trang điểm, chăm sóc da mặt.', createdDate: '2023-03-02', updatedBy: 'Hoàng Mai Anh', updatedDate: '2026-10-05' },
+  { id: 'beauty-personal', parentId: 'beauty', name: 'Chăm sóc cá nhân', code: 'SK-CS', status: 'active', ownCount: 280, description: 'Sữa tắm, dầu gội, chăm sóc răng miệng.', createdDate: '2023-03-02', updatedBy: 'Hoàng Mai Anh', updatedDate: '2026-07-19' },
+  { id: 'beauty-supplement', parentId: 'beauty', name: 'Thực phẩm chức năng', code: 'SK-TP', status: 'active', ownCount: 180, description: 'Vitamin, thực phẩm bổ sung.', createdDate: '2023-04-15', updatedBy: 'Hoàng Mai Anh', updatedDate: '2026-05-27' },
+
+  { id: 'baby', parentId: null, name: 'Mẹ & bé', code: 'MB', status: 'active', ownCount: 0, description: 'Đồ dùng, dinh dưỡng và đồ chơi cho mẹ và bé.', createdDate: '2023-04-01', updatedBy: 'Ngô Bảo Châu', updatedDate: '2026-08-14' },
+  { id: 'baby-gear', parentId: 'baby', name: 'Đồ dùng cho bé', code: 'MB-DD', status: 'active', ownCount: 320, description: 'Xe đẩy, nôi, bình sữa, tã.', createdDate: '2023-04-02', updatedBy: 'Ngô Bảo Châu', updatedDate: '2026-08-14' },
+  { id: 'baby-milk', parentId: 'baby', name: 'Sữa & Dinh dưỡng', code: 'MB-SU', status: 'active', ownCount: 180, description: 'Sữa công thức, ngũ cốc ăn dặm.', createdDate: '2023-04-02', updatedBy: 'Ngô Bảo Châu', updatedDate: '2026-06-01' },
+  { id: 'baby-toys', parentId: 'baby', name: 'Đồ chơi trẻ em', code: 'MB-DC', status: 'active', ownCount: 140, description: 'Đồ chơi giáo dục, đồ chơi vận động.', createdDate: '2023-05-10', updatedBy: 'Ngô Bảo Châu', updatedDate: '2026-03-23' },
+
+  { id: 'sports', parentId: null, name: 'Thể thao & Du lịch', code: 'TD', status: 'inactive', ownCount: 0, description: 'Dụng cụ thể thao và đồ dùng du lịch. Tạm ngừng kinh doanh để tái cơ cấu nhà cung cấp.', createdDate: '2023-06-01', updatedBy: 'Bùi Quốc Đạt', updatedDate: '2026-10-01' },
+  { id: 'sports-gear', parentId: 'sports', name: 'Dụng cụ thể thao', code: 'TD-DC', status: 'inactive', ownCount: 230, description: 'Vợt, bóng, tạ, thảm tập.', createdDate: '2023-06-02', updatedBy: 'Bùi Quốc Đạt', updatedDate: '2026-10-01' },
+  { id: 'sports-travel', parentId: 'sports', name: 'Đồ dùng du lịch', code: 'TD-DD', status: 'inactive', ownCount: 180, description: 'Vali, balo, phụ kiện du lịch.', createdDate: '2023-06-02', updatedBy: 'Bùi Quốc Đạt', updatedDate: '2026-10-01' },
+
+  { id: 'green-tech', parentId: null, name: 'Công nghệ xanh', code: 'CNX', status: 'draft', ownCount: 0, description: 'Danh mục thử nghiệm cho các sản phẩm thân thiện môi trường, chưa công bố.', createdDate: '2026-10-30', updatedBy: 'Lê Minh Quân', updatedDate: '2026-10-30' },
+];
+
+// Mock recent products per category that holds products directly (ownCount > 0).
+const PRODUCT_NAMES = {
+  'fm-shirt': ['Áo sơ mi trắng form Slim', 'Áo thun cotton cổ tròn', 'Áo khoác gió 2 lớp', 'Áo polo kẻ sọc', 'Áo len cổ lọ'],
+  'fw-shirt': ['Áo kiểu voan tay bồng', 'Áo thun basic form rộng', 'Áo len cardigan', 'Áo sơ mi lụa', 'Áo croptop thể thao'],
+  'electronics': ['Cáp sạc nhanh USB-C 1m', 'Củ sạc 20W', 'Miếng dán cường lực', 'Giá đỡ điện thoại để bàn'],
+  'el-phone': ['Điện thoại Galaxy A35 5G', 'Ốp lưng silicon chống sốc', 'Tai nghe nhét tai TWS', 'Kính cường lực full màn hình', 'Pin sạc dự phòng 10.000mAh'],
+  'beauty-cosmetics': ['Son kem lì 12 màu', 'Kem nền che khuyết điểm', 'Phấn phủ kiềm dầu', 'Chì kẻ mày tự nhiên', 'Bảng phấn mắt 9 ô'],
+  'baby-toys': ['Bộ xếp hình gỗ 50 chi tiết', 'Xe tập đi đa năng', 'Thú nhồi bông phát nhạc'],
+};
+function genProducts(catId, cat) {
+  if (!cat.ownCount) return [];
+  const names = PRODUCT_NAMES[catId] || Array.from({ length: Math.min(5, cat.ownCount) }, (_, i) => `${cat.name} – mẫu ${i + 1}`);
+  return names.slice(0, 5).map((name, i) => ({
+    name,
+    sku: cat.code + '-' + String(1000 + i * 7),
+    price: Math.round((((i + 1) * 193 + catId.length * 311) % 85 + 8) * 11900 / 100) * 100,
+    stock: (i * 37 + catId.length * 13) % 180 + (i === 0 ? 0 : 5),
+  }));
+}
+
+const byId = Object.fromEntries(CATS.map((c) => [c.id, c]));
+const childrenOf = (pid) => CATS.filter((c) => c.parentId === pid);
+function totalCount(id) {
+  const c = byId[id];
+  return c.ownCount + childrenOf(id).reduce((s, k) => s + totalCount(k.id), 0);
+}
+function ancestorsOf(id) {
+  const out = [];
+  let c = byId[id];
+  while (c && c.parentId) { out.push(c.parentId); c = byId[c.parentId]; }
+  return out;
+}
+function pathOf(id) {
+  const out = [byId[id]];
+  let c = byId[id];
+  while (c && c.parentId) { c = byId[c.parentId]; out.unshift(c); }
+  return out;
+}
+
+const params = new URLSearchParams(location.search);
+const forced = params.get('state');
+if (forced === 'empty') CATS = [];
+
+const EXP_KEY = 'pc-tree-expanded';
+function loadExpanded() { try { return new Set(JSON.parse(localStorage.getItem(EXP_KEY) || '[]')); } catch { return new Set(); } }
+function saveExpanded(s) { try { localStorage.setItem(EXP_KEY, JSON.stringify([...s])); } catch {} }
+
+const ui = {
+  q: '',
+  selected: params.get('category') || null,
+  expanded: loadExpanded(),
+};
+if (ui.expanded.size === 0 && CATS.length) CATS.filter((c) => !c.parentId).forEach((c) => ui.expanded.add(c.id));
+if (ui.selected) ancestorsOf(ui.selected).forEach((a) => ui.expanded.add(a));
+let focusId = ui.selected || (CATS.find((c) => !c.parentId) || {}).id || null;
+let mobilePanel = ui.selected ? 'detail' : 'tree';
+
+const $ = (id) => document.getElementById(id);
+const escapeHtml = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const announce = (html) => { $('toast').innerHTML = `<div class="flex items-center gap-3 rounded-md border border-slate-200 bg-white px-4 py-3 shadow-md">${html}</div>`; clearTimeout(announce.t); announce.t = setTimeout(() => ($('toast').innerHTML = ''), 6000); };
+const show = (state) => document.querySelectorAll('[data-region="tree"] > [data-state]').forEach((e) => (e.hidden = e.dataset.state !== state));
+
+function syncUrl() {
+  const p = new URLSearchParams();
+  if (ui.selected) p.set('category', ui.selected);
+  if (forced) p.set('state', forced);
+  history.replaceState(null, '', p.toString() ? '?' + p : location.pathname);
+}
+
+function highlight(text, q) {
+  const safe = escapeHtml(text);
+  if (!q) return safe;
+  const i = text.toLowerCase().indexOf(q.toLowerCase());
+  if (i < 0) return safe;
+  return escapeHtml(text.slice(0, i)) + '<mark>' + escapeHtml(text.slice(i, i + q.length)) + '</mark>' + escapeHtml(text.slice(i + q.length));
+}
+
+function visibleRows() {
+  const q = ui.q.trim().toLowerCase();
+  let visibleSet = null;
+  const matched = q ? CATS.filter((c) => c.name.toLowerCase().includes(q)) : null;
+  if (matched) {
+    visibleSet = new Set();
+    matched.forEach((m) => { visibleSet.add(m.id); ancestorsOf(m.id).forEach((a) => visibleSet.add(a)); });
+  }
+  const rows = [];
+  (function walk(parentId, level) {
+    const kids = childrenOf(parentId);
+    kids.forEach((k, i) => {
+      if (visibleSet && !visibleSet.has(k.id)) return;
+      rows.push({ id: k.id, level, setsize: kids.length, posinset: i + 1 });
+      const hasKids = childrenOf(k.id).length > 0;
+      const isExpanded = matched ? true : ui.expanded.has(k.id);
+      if (hasKids && isExpanded) walk(k.id, level + 1);
+    });
+  })(null, 1);
+  return rows;
+}
+
+function renderSummary() {
+  const q = ui.q.trim().toLowerCase();
+  if (q) {
+    const matched = CATS.filter((c) => c.name.toLowerCase().includes(q));
+    const total = matched.reduce((s, c) => s + totalCount(c.id), 0);
+    $('result-count').textContent = fmtCount(matched.length);
+    $('result-total').textContent = fmtCount(total);
+  } else {
+    const roots = CATS.filter((c) => !c.parentId);
+    const total = roots.reduce((s, c) => s + totalCount(c.id), 0);
+    $('result-count').textContent = fmtCount(CATS.length);
+    $('result-total').textContent = fmtCount(total);
+  }
+}
+
+function renderTree() {
+  if (!CATS.length) { show('empty'); return; }
+  show('ready');
+  const rows = visibleRows();
+  const q = ui.q.trim().toLowerCase();
+
+  if (q && !rows.length) {
+    $('tree').innerHTML = '';
+    $('no-match').hidden = false;
+    $('no-match-text').textContent = `Không có danh mục nào khớp với "${ui.q.trim()}"`;
+    return;
+  }
+  $('no-match').hidden = true;
+
+  if (!focusId || !rows.find((r) => r.id === focusId)) focusId = rows.length ? rows[0].id : null;
+
+  $('tree').innerHTML = rows.map((r) => {
+    const cat = byId[r.id];
+    const hasKids = childrenOf(r.id).length > 0;
+    const isExpanded = q ? true : ui.expanded.has(r.id);
+    const selected = r.id === ui.selected;
+    const total = totalCount(r.id);
+    return `<div role="treeitem" id="row-${r.id}" data-id="${r.id}" aria-level="${r.level}" aria-setsize="${r.setsize}" aria-posinset="${r.posinset}"
+        ${hasKids ? `aria-expanded="${isExpanded}"` : ''} aria-selected="${selected}" tabindex="${r.id === focusId ? 0 : -1}"
+        class="flex h-9 cursor-pointer items-center gap-1 rounded px-1 outline-none focus-visible:ring-2 focus-visible:ring-blue-600 ${selected ? 'bg-blue-50 text-blue-900' : 'hover:bg-slate-100'}"
+        style="padding-left:${(r.level - 1) * 18 + 4}px">
+        <span class="flex h-6 w-6 shrink-0 items-center justify-center">${hasKids ? `<button type="button" tabindex="-1" data-toggle="${r.id}" aria-hidden="true" class="flex h-5 w-5 items-center justify-center rounded text-slate-500 hover:bg-slate-200">${isExpanded ? '▾' : '▸'}</button>` : ''}</span>
+        <span class="min-w-0 flex-1 truncate" title="${escapeHtml(cat.name)}">${highlight(cat.name, q)}${cat.status !== 'active' ? ` <span class="text-xs text-slate-500">(${STATUS_LABEL[cat.status]})</span>` : ''}</span>
+        <span class="tnum shrink-0 pl-2 text-right text-slate-600">${fmtCount(total)}</span>
+      </div>`;
+  }).join('');
+}
+
+function blockReason(cat, action) {
+  const kids = childrenOf(cat.id);
+  const own = cat.ownCount;
+  const parts = [];
+  if (own > 0) parts.push(`còn ${fmtCount(own)} sản phẩm`);
+  if (kids.length > 0) parts.push(`còn ${fmtCount(kids.length)} danh mục con`);
+  if (!parts.length) return null;
+  const verb = action === 'delete' ? 'xóa' : 'ngừng kinh doanh';
+  return `Không thể ${verb} "${cat.name}": ${parts.join(' và ')}. Chuyển sản phẩm hoặc danh mục con trước khi ${verb}.`;
+}
+
+function renderDetail() {
+  const el = $('detail-content');
+  if (!ui.selected || !byId[ui.selected]) {
+    el.innerHTML = `<div class="flex h-full flex-col items-center justify-center py-16 text-center">
+      <p class="font-medium">Chọn một danh mục để xem chi tiết</p>
+      <p class="mt-1 text-slate-600">Thông tin danh mục, số lượng sản phẩm và sản phẩm gần đây sẽ hiển thị tại đây.</p>
+      <button type="button" id="detail-add-root" class="mt-3 h-8 rounded bg-blue-700 px-3 font-medium text-white hover:bg-blue-800">Thêm danh mục</button>
+    </div>`;
+    $('detail-add-root').addEventListener('click', () => openForm('add-root'));
+    return;
+  }
+  const cat = byId[ui.selected];
+  const path = pathOf(cat.id);
+  const total = totalCount(cat.id);
+  const kids = childrenOf(cat.id);
+  const products = genProducts(cat.id, cat);
+
+  el.innerHTML = `
+    <nav aria-label="Đường dẫn danh mục" class="flex flex-wrap items-center gap-1 text-slate-600">
+      ${path.map((p, i) => i < path.length - 1
+        ? `<button type="button" data-goto="${p.id}" class="hover:underline hover:text-blue-700">${escapeHtml(p.name)}</button><span aria-hidden="true">/</span>`
+        : `<span class="text-slate-900">${escapeHtml(p.name)}</span>`).join(' ')}
+    </nav>
+
+    <div class="mt-3 flex items-start justify-between gap-4">
+      <div class="min-w-0">
+        <div class="flex flex-wrap items-center gap-2">
+          <h2 class="text-lg font-semibold">${escapeHtml(cat.name)}</h2>
+          <span class="inline-flex h-6 items-center whitespace-nowrap rounded-full px-2 text-xs font-medium ${STATUS_TONE[cat.status]}">${STATUS_LABEL[cat.status]}</span>
+        </div>
+        <p class="mt-0.5 text-slate-600">Mã: ${escapeHtml(cat.code)}</p>
+      </div>
+      <div class="flex shrink-0 items-center gap-2" data-no-print>
+        <button type="button" id="detail-edit" class="h-8 rounded border border-slate-300 bg-white px-3 hover:bg-slate-50">Chỉnh sửa</button>
+        <button type="button" id="detail-menu-btn" aria-haspopup="menu" aria-expanded="false" aria-label="Thao tác khác cho ${escapeHtml(cat.name)}" class="h-8 w-8 rounded border border-slate-300 bg-white hover:bg-slate-50">⋯</button>
+      </div>
+    </div>
+
+    <dl class="mt-4 grid grid-cols-2 gap-x-4 gap-y-3 rounded-md border border-slate-200 p-3 sm:grid-cols-4">
+      ${cat.ownCount > 0 && kids.length > 0 ? `
+        <div><dt class="text-slate-600">Sản phẩm riêng</dt><dd class="tnum font-medium">${fmtCount(cat.ownCount)}</dd></div>
+        <div><dt class="text-slate-600">Tổng sản phẩm</dt><dd class="tnum font-medium">${fmtCount(total)}</dd></div>
+      ` : `<div><dt class="text-slate-600">Tổng sản phẩm</dt><dd class="tnum font-medium">${fmtCount(total)}</dd></div>`}
+      <div><dt class="text-slate-600">Danh mục con</dt><dd class="tnum font-medium">${fmtCount(kids.length)}</dd></div>
+      <div><dt class="text-slate-600">Ngày tạo</dt><dd class="tnum font-medium">${fmtDate(cat.createdDate)}</dd></div>
+    </dl>
+
+    ${cat.description ? `<section class="mt-4"><h3 class="font-medium">Mô tả</h3><p class="mt-1 text-slate-700">${escapeHtml(cat.description)}</p></section>` : ''}
+
+    <section class="mt-5">
+      <div class="flex items-center justify-between">
+        <h3 class="font-medium">Sản phẩm trong danh mục</h3>
+        ${products.length ? `<button type="button" data-no-print class="text-blue-700 hover:underline" id="view-all-products">Xem tất cả ${fmtCount(cat.ownCount)} sản phẩm →</button>` : ''}
+      </div>
+      ${products.length ? `
+      <div class="mt-2 overflow-x-auto rounded-md border border-slate-200">
+        <table class="w-full border-collapse">
+          <caption class="sr-only">Sản phẩm gần đây trong ${escapeHtml(cat.name)}</caption>
+          <thead class="bg-slate-50 text-slate-700">
+            <tr class="h-9 border-b border-slate-200">
+              <th scope="col" class="px-3 text-left font-medium">Sản phẩm</th>
+              <th scope="col" class="px-3 text-right font-medium">Giá</th>
+              <th scope="col" class="px-3 text-right font-medium">Tồn kho</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${products.map((p) => `<tr class="h-10 border-b border-slate-200 last:border-0">
+              <td class="px-3"><span class="block truncate" title="${escapeHtml(p.name)}">${escapeHtml(p.name)}</span><span class="block text-xs text-slate-500">${escapeHtml(p.sku)}</span></td>
+              <td class="tnum px-3 text-right">${fmtAmount(p.price)}</td>
+              <td class="tnum px-3 text-right">${fmtCount(p.stock)}</td>
+            </tr>`).join('')}
+          </tbody>
+        </table>
+      </div>` : `
+      <div class="mt-2 rounded-md border border-dashed border-slate-300 px-4 py-6 text-center">
+        <p class="text-slate-600">${kids.length ? 'Danh mục này chưa có sản phẩm trực tiếp · sản phẩm nằm trong các danh mục con.' : 'Chưa có sản phẩm nào trong danh mục này.'}</p>
+        ${!kids.length ? `<button type="button" id="add-product" data-no-print class="mt-2 h-8 rounded border border-slate-300 bg-white px-3 hover:bg-slate-50">Thêm sản phẩm</button>` : ''}
+      </div>`}
+    </section>
+
+    <p class="mt-5 text-slate-500">Cập nhật lần cuối bởi ${escapeHtml(cat.updatedBy)} · ${fmtDate(cat.updatedDate)} · <button type="button" id="view-history" data-no-print class="text-blue-700 hover:underline">Xem lịch sử</button></p>
+  `;
+
+  $('detail-edit').addEventListener('click', () => openForm('edit', cat.id));
+  $('detail-menu-btn').addEventListener('click', (e) => openRowMenu(e.currentTarget, cat.id));
+  path.slice(0, -1).forEach(() => {});
+  el.querySelectorAll('[data-goto]').forEach((b) => b.addEventListener('click', () => selectCategory(b.dataset.goto)));
+  const vap = $('view-all-products');
+  if (vap) vap.addEventListener('click', () => announce(`<span>Mở trang Sản phẩm đã lọc theo danh mục "${escapeHtml(cat.name)}".</span>`));
+  const addP = $('add-product');
+  if (addP) addP.addEventListener('click', () => announce('<span>Mở trang Sản phẩm để thêm sản phẩm mới vào danh mục này.</span>'));
+  $('view-history').addEventListener('click', () => announce('<span>Lịch sử thay đổi chi tiết chưa khả dụng trong bản demo này.</span>'));
+}
+
+function render() {
+  syncUrl();
+  renderSummary();
+  if (forced === 'loading' || forced === 'error') { show(forced); renderDetail(); return; }
+  renderTree();
+  renderDetail();
+  $('split').dataset.mobile = mobilePanel;
+}
+
+function selectCategory(id) {
+  ui.selected = id;
+  focusId = id;
+  ancestorsOf(id).forEach((a) => ui.expanded.add(a));
+  mobilePanel = 'detail';
+  render();
+  const row = $('row-' + id);
+  if (row) row.scrollIntoView({ block: 'nearest' });
+}
+
+// Tree interaction
+$('tree').addEventListener('click', (e) => {
+  const toggle = e.target.closest('[data-toggle]');
+  if (toggle) {
+    e.stopPropagation();
+    const id = toggle.dataset.toggle;
+    ui.expanded.has(id) ? ui.expanded.delete(id) : ui.expanded.add(id);
+    saveExpanded(ui.expanded);
+    focusId = id;
+    renderTree();
+    $('row-' + id).focus();
+    return;
+  }
+  const row = e.target.closest('[role="treeitem"]');
+  if (row) selectCategory(row.dataset.id);
+});
+
+$('tree').addEventListener('keydown', (e) => {
+  const rows = visibleRows();
+  const i = rows.findIndex((r) => r.id === focusId);
+  if (i < 0) return;
+  const r = rows[i];
+  const cat = byId[r.id];
+  const hasKids = childrenOf(r.id).length > 0;
+  const isExpanded = ui.q.trim() ? true : ui.expanded.has(r.id);
+  const focusRow = (id) => { if (!id) return; focusId = id; renderTree(); $('row-' + id).focus(); };
+
+  switch (e.key) {
+    case 'ArrowDown': e.preventDefault(); return focusRow(rows[i + 1] && rows[i + 1].id);
+    case 'ArrowUp': e.preventDefault(); return focusRow(rows[i - 1] && rows[i - 1].id);
+    case 'Home': e.preventDefault(); return focusRow(rows[0] && rows[0].id);
+    case 'End': e.preventDefault(); return focusRow(rows[rows.length - 1] && rows[rows.length - 1].id);
+    case 'ArrowRight':
+      e.preventDefault();
+      if (hasKids && !isExpanded) { ui.expanded.add(r.id); saveExpanded(ui.expanded); return focusRow(r.id); }
+      if (hasKids) return focusRow(rows[i + 1] && rows[i + 1].id);
+      return;
+    case 'ArrowLeft':
+      e.preventDefault();
+      if (hasKids && isExpanded) { ui.expanded.delete(r.id); saveExpanded(ui.expanded); return focusRow(r.id); }
+      return focusRow(cat.parentId);
+    case 'Enter': case ' ': e.preventDefault(); return selectCategory(r.id);
+    case '*': {
+      e.preventDefault();
+      rows.filter((x) => x.level === r.level).forEach((sib) => { if (childrenOf(sib.id).length) ui.expanded.add(sib.id); });
+      saveExpanded(ui.expanded);
+      return renderTree();
+    }
+    default:
+      if (e.key.length === 1 && /\S/.test(e.key)) {
+        const ordered = [...rows.slice(i + 1), ...rows.slice(0, i)];
+        const next = ordered.find((x) => byId[x.id].name.toLowerCase().startsWith(e.key.toLowerCase()));
+        if (next) focusRow(next.id);
+      }
+  }
+});
+
+let qTimer;
+$('q').addEventListener('input', (e) => { clearTimeout(qTimer); qTimer = setTimeout(() => { ui.q = e.target.value; render(); }, 250); });
+$('clear-search').addEventListener('click', () => { ui.q = ''; $('q').value = ''; render(); $('q').focus(); });
+$('expand-all').addEventListener('click', () => { CATS.filter((c) => childrenOf(c.id).length).forEach((c) => ui.expanded.add(c.id)); saveExpanded(ui.expanded); renderTree(); });
+$('collapse-all').addEventListener('click', () => { ui.expanded.clear(); if (ui.selected) ancestorsOf(ui.selected).forEach((a) => ui.expanded.add(a)); saveExpanded(ui.expanded); renderTree(); });
+$('empty-action').addEventListener('click', () => openForm('add-root'));
+$('retry').addEventListener('click', () => { location.search = ''; });
+$('btn-add-root').addEventListener('click', () => openForm('add-root'));
+$('btn-print').addEventListener('click', () => window.print());
+$('back-to-tree').addEventListener('click', () => { mobilePanel = 'tree'; $('split').dataset.mobile = 'tree'; });
+
+// Overflow menu (detail panel actions)
+let menuFor = null;
+function openRowMenu(btn, id) {
+  menuFor = id;
+  const cat = byId[id];
+  $('menu').querySelector('[data-act="toggle-status"]').textContent = cat.status === 'inactive' ? 'Kích hoạt lại' : 'Ngừng kinh doanh';
+  const r = btn.getBoundingClientRect();
+  Object.assign($('menu').style, { top: r.bottom + 4 + 'px', left: Math.max(8, r.right - 224) + 'px' });
+  $('menu').hidden = false;
+  btn.setAttribute('aria-expanded', 'true');
+  $('menu').querySelector('button').focus();
+}
+function closeMenu() { $('menu').hidden = true; $('detail-menu-btn') && $('detail-menu-btn').setAttribute('aria-expanded', 'false'); }
+$('menu').addEventListener('click', (e) => {
+  const b = e.target.closest('[data-act]');
+  if (!b) return;
+  const cat = byId[menuFor];
+  closeMenu();
+  if (b.dataset.act === 'add-child') openForm('add-child', menuFor);
+  else if (b.dataset.act === 'delete') confirmDelete(cat);
+  else if (b.dataset.act === 'toggle-status') confirmToggleStatus(cat);
+});
+document.addEventListener('click', (e) => { if (!e.target.closest('#menu, #detail-menu-btn')) closeMenu(); });
+document.addEventListener('keydown', (e) => { if (e.key === 'Escape') { closeMenu(); closeConfirm(); closeForm(); } });
+
+function closeConfirm() { $('backdrop').hidden = $('confirm').hidden = true; }
+function confirmDelete(cat) {
+  const reason = blockReason(cat, 'delete');
+  $('confirm-title').textContent = `Xóa danh mục "${cat.name}"?`;
+  if (reason) {
+    $('confirm-text').textContent = reason;
+    $('confirm-ok').hidden = true;
+    $('confirm-cancel').textContent = 'Đóng';
+  } else {
+    $('confirm-text').textContent = `"${cat.name}" sẽ bị xóa khỏi danh mục sản phẩm và không thể hoàn tác.`;
+    $('confirm-ok').hidden = false;
+    $('confirm-ok').textContent = 'Xóa danh mục';
+    $('confirm-cancel').textContent = 'Hủy';
+    $('confirm-ok').onclick = () => {
+      CATS = CATS.filter((c) => c.id !== cat.id);
+      if (ui.selected === cat.id) ui.selected = null;
+      closeConfirm();
+      render();
+      announce(`<span>Đã xóa danh mục ${escapeHtml(cat.name)}.</span>`);
+    };
+  }
+  $('backdrop').hidden = $('confirm').hidden = false;
+  $('confirm-cancel').focus();
+}
+function confirmToggleStatus(cat) {
+  const activating = cat.status === 'inactive';
+  if (!activating) {
+    const reason = blockReason(cat, 'deactivate');
+    if (reason) {
+      $('confirm-title').textContent = `Ngừng kinh doanh "${cat.name}"?`;
+      $('confirm-text').textContent = reason;
+      $('confirm-ok').hidden = true;
+      $('confirm-cancel').textContent = 'Đóng';
+      $('backdrop').hidden = $('confirm').hidden = false;
+      $('confirm-cancel').focus();
+      return;
+    }
+  }
+  $('confirm-title').textContent = activating ? `Kích hoạt lại "${cat.name}"?` : `Ngừng kinh doanh "${cat.name}"?`;
+  $('confirm-text').textContent = activating ? `Danh mục sẽ hiển thị lại cho khách hàng.` : `Danh mục sẽ bị ẩn khỏi cửa hàng cho đến khi kích hoạt lại.`;
+  $('confirm-ok').hidden = false;
+  $('confirm-ok').textContent = activating ? 'Kích hoạt lại' : 'Ngừng kinh doanh';
+  $('confirm-cancel').textContent = 'Hủy';
+  $('confirm-ok').onclick = () => {
+    cat.status = activating ? 'active' : 'inactive';
+    closeConfirm();
+    render();
+    announce(`<span>Danh mục ${escapeHtml(cat.name)} ${activating ? 'đã được kích hoạt lại' : 'đã ngừng kinh doanh'}.</span>`);
+  };
+  $('backdrop').hidden = $('confirm').hidden = false;
+  $('confirm-cancel').focus();
+}
+$('confirm-cancel').addEventListener('click', closeConfirm);
+
+// Add / edit category form
+let formMode = null, formTargetId = null;
+function closeForm() { $('form-backdrop').hidden = $('form-dialog').hidden = true; }
+function openForm(mode, contextId) {
+  formMode = mode;
+  formTargetId = contextId || null;
+  $('cat-form').reset();
+  $('f-name-err').classList.add('hidden');
+  $('f-code-err').classList.add('hidden');
+  $('form-error-summary').hidden = true;
+
+  const allOptions = `<option value="">— Không có (danh mục gốc) —</option>` + CATS.map((c) => `<option value="${c.id}">${'— '.repeat(ancestorsOf(c.id).length)}${escapeHtml(c.name)}</option>`).join('');
+
+  if (mode === 'add-root') {
+    $('form-title').textContent = 'Thêm danh mục';
+    $('f-parent-readonly').classList.add('hidden');
+    $('f-parent').classList.remove('hidden');
+    $('f-parent').innerHTML = allOptions;
+    $('f-parent').value = '';
+    $('f-status-wrap').classList.add('hidden');
+  } else if (mode === 'add-child') {
+    const parent = byId[contextId];
+    $('form-title').textContent = `Thêm danh mục con của "${parent.name}"`;
+    $('f-parent-readonly').classList.remove('hidden');
+    $('f-parent-readonly').value = pathOf(parent.id).map((p) => p.name).join(' / ');
+    $('f-parent').classList.add('hidden');
+    $('f-status-wrap').classList.add('hidden');
+  } else if (mode === 'edit') {
+    const cat = byId[contextId];
+    $('form-title').textContent = `Chỉnh sửa "${cat.name}"`;
+    $('f-parent-readonly').classList.remove('hidden');
+    $('f-parent-readonly').value = cat.parentId ? pathOf(cat.parentId).map((p) => p.name).join(' / ') : '— Danh mục gốc —';
+    $('f-parent').classList.add('hidden');
+    $('f-status-wrap').classList.remove('hidden');
+    $('f-name').value = cat.name;
+    $('f-code').value = cat.code;
+    $('f-status').value = cat.status;
+    $('f-desc').value = cat.description || '';
+  }
+  $('form-backdrop').hidden = $('form-dialog').hidden = false;
+  $('f-name').focus();
+}
+$('form-cancel').addEventListener('click', closeForm);
+$('cat-form').addEventListener('submit', (e) => {
+  e.preventDefault();
+  const name = $('f-name').value.trim();
+  const code = $('f-code').value.trim();
+  const errors = [];
+  if (!name) { $('f-name-err').classList.remove('hidden'); errors.push($('f-name')); } else $('f-name-err').classList.add('hidden');
+  if (!code) { $('f-code-err').classList.remove('hidden'); errors.push($('f-code')); } else $('f-code-err').classList.add('hidden');
+  if (errors.length) {
+    $('form-error-summary').hidden = false;
+    $('form-error-summary').textContent = errors.length > 1 ? 'Vui lòng điền đầy đủ các trường bắt buộc.' : 'Vui lòng điền trường bắt buộc.';
+    errors[0].focus();
+    return;
+  }
+  $('form-error-summary').hidden = true;
+
+  if (formMode === 'edit') {
+    const cat = byId[formTargetId];
+    cat.name = name; cat.code = code; cat.status = $('f-status').value; cat.description = $('f-desc').value.trim();
+    cat.updatedBy = 'Bạn'; cat.updatedDate = new Date().toISOString().slice(0, 10);
+    closeForm();
+    render();
+    announce(`<span>Đã lưu danh mục ${escapeHtml(cat.name)}.</span>`);
+  } else {
+    const parentId = formMode === 'add-child' ? formTargetId : ($('f-parent').value || null);
+    const id = 'cat-' + code.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') + '-' + (CATS.length + 1);
+    const cat = { id, parentId, name, code, status: 'active', ownCount: 0, description: $('f-desc').value.trim(), createdDate: new Date().toISOString().slice(0, 10), updatedBy: 'Bạn', updatedDate: new Date().toISOString().slice(0, 10) };
+    CATS.push(cat);
+    if (parentId) ui.expanded.add(parentId);
+    saveExpanded(ui.expanded);
+    closeForm();
+    selectCategory(id);
+    announce(`<span>Đã thêm danh mục ${escapeHtml(cat.name)}.</span>`);
+  }
+});
+['f-name', 'f-code'].forEach((id) => $(id).addEventListener('blur', () => {
+  const err = $(id + '-err');
+  if (!$(id).value.trim()) err.classList.remove('hidden'); else err.classList.add('hidden');
+}));
+
+// Initial render
+$('empty-title').textContent = 'Chưa có danh mục nào';
+$('skeleton').innerHTML = Array.from({ length: 10 }, (_, i) => `<div class="flex h-9 items-center gap-2 px-2" style="padding-left:${(i % 3) * 18 + 4}px"><div class="h-3 w-40 rounded bg-slate-200"></div><div class="ml-auto h-3 w-8 rounded bg-slate-200"></div></div>`).join('');
+$('q').value = ui.q;
+render();
+</script>
+</body>
+</html>

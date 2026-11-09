@@ -1,0 +1,57 @@
+{
+  "brief": "22-room-booking-calendar",
+  "run": 1,
+  "items": [
+    {
+      "item": "The day view lists rooms as rows, each labelled with its capacity (and its floor or equipment), against a time axis that covers working hours and is labelled at least every hour",
+      "pass": false,
+      "evidence": "renderDayView() (page.html:388-451) lays rooms out as grid COLUMNS ('cols = 64px repeat(list.length, minmax(150px,1fr))') with the time axis running vertically down the left ('for (var h=7; h<=18; h++) ... top:' + ((h-7)*60) + 'px'). Capacity/equipment are shown (e.g. '2.01 Anchor' header with person-icon '4' and screen icon), but rooms are columns, not rows, so the required row-based layout with a horizontal time axis is not implemented."
+    },
+    {
+      "item": "A Day / Week switch marks the active view (aria-pressed, aria-selected or aria-current), Previous / Today / Next controls move the range, and a heading states the date or date range on screen (such as \"Mon 2 – Sun 8 Nov 2026\")",
+      "pass": false,
+      "evidence": "btn-view-day/btn-view-week (page.html:113-114) only get a className swap in renderAll() ('bg-ink text-white' vs 'bg-surface text-ink') — no aria-pressed/aria-selected/aria-current attribute is ever set. Prev/Today/Next exist and work (btn-prev/btn-today/btn-next, page.html:618-629) and #range-label shows 'Monday 9 November 2026', but the active-view marking requirement is unmet."
+    },
+    {
+      "item": "Each booking shows its title or organiser and its start–end time as text, and its block covers exactly that stretch of the time axis (a 09:30–11:00 booking spans one and a half hours)",
+      "pass": true,
+      "evidence": "Booking block markup (page.html:420-424): '<p class=\"text-xs font-medium ...\">' + b.title + '</p><p class=\"text-[11px] ...\">' + b.start + '–' + b.end. Block top/height are computed in minutes (top = minsOf(start)-DAY_START, height = end-start) against a 1px-per-minute track (.room-cell background-size 100% 60px, DAY_SPAN=720px for 720 minutes), so a 90-minute booking renders exactly 90px tall."
+    },
+    {
+      "item": "Filters for minimum capacity and for equipment (such as projector or video conferencing) narrow the rooms listed, and the number of matching rooms is shown",
+      "pass": false,
+      "evidence": "renderLegend() (page.html:357-385) only offers per-room toggle chips and an 'All rooms' button that add/remove individual room ids from state.activeRoomIds — there is no minimum-capacity input or equipment checkbox, and no count of matching rooms is rendered anywhere."
+    },
+    {
+      "item": "Choosing a free slot opens a booking form already filled in with that room, date and start time",
+      "pass": true,
+      "evidence": "Room-cell click handler (page.html:432-441) computes the clicked minute and calls openBookingModal({roomId, date: dateIso, start: timeLabel(minute), end: ...}), and openBookingModal() (page.html:532-545) sets sel.value, #f-date, #f-start, #f-end from that prefill."
+    },
+    {
+      "item": "Saving is blocked with an inline message when the time overlaps another booking of the same room (the message names that booking's time and organiser) or when the end is not after the start",
+      "pass": false,
+      "evidence": "Submit handler (page.html:599-606): end<=start gives 'End time must be after the start time.' (pass for that half), but the overlap message is only roomById[roomId].name + ' is already booked for part of that time.' — it names the room, not the conflicting booking's time or organiser, so the required detail is missing."
+    },
+    {
+      "item": "Cancelling a booking asks for confirmation in a dialog that names the room, date and time and offers a way to keep the booking",
+      "pass": false,
+      "evidence": "detail-cancel-booking click handler (page.html:577-586) is a two-click arm/confirm toggle on the same button ('Cancel booking' -> 'Confirm cancellation') inside the already-open detail modal; it does not open a confirmation dialog restating room/date/time, and there is no explicit 'keep booking' control distinct from the generic Close button."
+    },
+    {
+      "item": "Free slots and bookings are focusable buttons or links whose accessible names give the room, date, time and status (such as \"Lotus room, Thu 5 Nov, 09:00–09:30, free\"), not click handlers on bare divs",
+      "pass": false,
+      "evidence": "Room cells are '<div class=\"room-cell ... cursor-pointer\" data-room=...>' and bookings are '<div class=\"booking-block ...\" data-booking=...>' (page.html:416,420) with addEventListener('click', ...) attached directly to the divs — no button/link element, no role, no tabindex, no aria-label, so neither free slots nor bookings are keyboard-focusable or named."
+    },
+    {
+      "item": "When no rooms match the filters, a message with a clear-filters action takes the place of the grid, and loading and error-with-retry states are built in",
+      "pass": false,
+      "evidence": "#empty-filter (page.html:135-138) shows static text 'No rooms match these filters / Select at least one room above, or clear the filter to see the full floor.' with no button/action element to clear filters, and there is no loading state or error/retry UI anywhere in the markup or script."
+    }
+  ],
+  "tells": [
+    "hover-lift (.booking-block:hover { transform: translateY(-1px); } at page.html:46-49)",
+    "gradient (functional but audit-flagged: .room-cell linear-gradient grid-line background, audit.json hardStopGradients:8)"
+  ],
+  "notes": "Core structural mismatch: the day view renders rooms as columns with a vertical time axis rather than rows against a horizontal time axis, which the checklist explicitly requires. Filtering is room-by-room toggling only, with no capacity/equipment filters or match-count display. Interactive slots/bookings are non-semantic divs (no keyboard access, no accessible names). Overlap and cancellation messaging lack the required specificity (conflicting booking's time/organiser; room/date/time in a real confirm dialog). No loading or error/retry states exist. Visual polish (typography, spacing, color-coded floors) is good and the booking-block time math is accurate.",
+  "blind": true
+}

@@ -1,0 +1,58 @@
+{
+  "brief": "29-support-ticket-board",
+  "run": 1,
+  "items": [
+    {
+      "item": "Every status column heading shows the status name and its ticket count, and the count equals the cards shown or the column states how many are not shown (such as \"Showing 20 of 134\")",
+      "pass": true,
+      "evidence": "columnTemplate() header renders `<h2>${status.label}</h2><span>${items.length}</span>` (page.html:333-335) where items is the same filtered/sorted array that is mapped into cards, so the badge count always equals the number of cards rendered (confirmed in screenshot: 'New 5' with 5 cards, 'In Progress 5' with 5 cards, 'Waiting on Customer 4' with 4 cards, 'Resolved 4' with 4 cards)."
+    },
+    {
+      "item": "Each card shows the ticket number (such as #4821), subject, customer, priority as a word or code (such as \"P1 · Urgent\") and the assignee, or an explicit \"Unassigned\"",
+      "pass": false,
+      "evidence": "cardTemplate() (page.html:262-310) shows the ticket id, subject, customer/company, and a priority chip (e.g. 'Urgent'), but when t.assignee is null it renders only an 'Assign to me' action button (page.html:300-303), never the literal text 'Unassigned' anywhere on the card — there is no explicit unassigned label, only an action affordance."
+    },
+    {
+      "item": "Open tickets show the time left to the next SLA target and which target it is (such as \"Resolution due in 2h 15m\"), and breached tickets show how long they are overdue (such as \"Breached 40m ago\") in text or with an icon, not by colour alone",
+      "pass": false,
+      "evidence": "slaInfo() labels are generic — '${formatDuration(remaining)} remaining', 'Due in ${formatDuration(remaining)}', 'Breached ${formatDuration(remaining)} ago' (page.html:239-244). The target itself (e.g. 'Resolution' vs 'First response') is never named, only a bare countdown/overdue duration, so the requirement to state 'which target it is' is not met (breached-ago wording alone does pass its half)."
+    },
+    {
+      "item": "Tickets in a waiting status (such as \"Waiting on customer\") show their SLA timer as paused instead of counting down",
+      "pass": false,
+      "evidence": "slaInfo(t) (page.html:223-245) only special-cases t.status === 'resolved'; for 'waiting' tickets it falls through to the same remaining/breached countdown logic as open tickets. Screenshot confirms 'Waiting on Customer' column cards show live countdown/overdue text identical in style to other columns, e.g. 'Breached 4h 0m ago' and '23h 59m remaining', with no paused indicator."
+    },
+    {
+      "item": "Within each column the cards are ordered by SLA due time or by priority, and the board states which ordering is used",
+      "pass": false,
+      "evidence": "columnTemplate() sorts items by `a.slaDueAt - b.slaDueAt` (or resolvedAt for the Resolved column) at page.html:321-326, so an ordering is applied, but no label, tooltip, or header text anywhere in the markup tells the user what the sort order is (no 'Sorted by SLA due time' or similar string in page.html)."
+    },
+    {
+      "item": "Search finds tickets by number, subject or customer, and filters cover assignee (including \"Me\" and \"Unassigned\"), priority and SLA state (such as breached or due within 1 hour)",
+      "pass": false,
+      "evidence": "matchesFilters() (page.html:251-260) does search id+subject+customer+company, and the assignee <select id=\"assignee-filter\"> (page.html:73-77) offers 'All assignees', 'Unassigned', and each agent by name — but no option is labelled 'Me', only the literal name 'Priya Shah'. There is also no SLA-state filter control anywhere (no breached / due-within-1-hour chip or select) — only #priority-filter and #assignee-filter exist."
+    },
+    {
+      "item": "Each card has keyboard-reachable actions to assign the ticket (including \"Assign to me\") and to change its status without dragging, with accessible names that include the ticket number",
+      "pass": false,
+      "evidence": "The move-status button has `aria-label=\"Move ticket ${t.id}\"` (page.html:276) which does include the ticket number and opens a keyboard-reachable status menu without dragging. But the 'Assign to me' button has no aria-label, only visible text 'Assign to me' (page.html:302), so its accessible name does not include the ticket number as required."
+    },
+    {
+      "item": "An empty column shows a short message instead of blank space, a search or filter with no matches offers to clear it, and loading and failed-load (with retry) states exist",
+      "pass": false,
+      "evidence": "emptyColumnState() (page.html:312-318) shows 'No tickets match the current filters.' when a column is empty, satisfying the first clause, but it contains no button/link to clear the active search or filters (the header's #reset-filters button exists globally but is not surfaced from the empty state). There is no loading skeleton state and no failed-load/retry state anywhere in the script — the app only ever renders the fully-loaded static ticket array."
+    },
+    {
+      "item": "Every relative time (such as \"Updated 3h ago\") also exposes the exact date, time and timezone, in a <time datetime> element or a title attribute",
+      "pass": false,
+      "evidence": "SLA relative-time text is rendered as plain `<span class=\"tabular-nums\">${sla.label}</span>` (page.html:298) with no <time> element or title attribute carrying the exact timestamp. The detail panel shows absolute 'Opened ... Due ...' text via toLocaleString() (page.html:547) but that is plain text, not a <time datetime> element or title attribute, and omits timezone."
+    }
+  ],
+  "tells": [
+    "tracked-uppercase-labels — the status move-menu header `<p class=\"px-3 py-1 text-[11px] font-medium uppercase tracking-wide text-slate-400\">Move to</p>` (page.html:281)",
+    "oversized-radius — board columns use `rounded-xl` (12px); audit.json flags `div#board > section.flex.h-full:nth-of-type(1)` at 12px vs an 8px max, and reports 4 distinct radii (4/6/8/12px) in use",
+    "card-in-card — white `ticket-card` cards sit inside rounded `bg-slate-50/70` column containers, which themselves sit inside the page's slate-100 background, nesting three card-like surfaces"
+  ],
+  "notes": "Core kanban mechanics (search, priority/assignee filtering, drag-and-drop plus keyboard menu for status changes, detail panel, add-ticket form) are implemented and functional, but several SLA/accessibility/empty-state requirements from the checklist are only partially implemented or missing outright, most notably: no named SLA target, no paused timer for waiting tickets, no SLA-state filter, no 'Me' filter option, and no exact-timestamp exposure for relative SLA text.",
+  "blind": true
+}

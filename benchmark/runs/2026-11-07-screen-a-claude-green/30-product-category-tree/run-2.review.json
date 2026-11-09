@@ -1,0 +1,56 @@
+{
+  "brief": "30-product-category-tree",
+  "run": 2,
+  "items": [
+    {
+      "item": "Each category in the tree shows a product count, the page states whether counts include subcategories, and in the sample data every parent's total equals its own products plus the totals of its children",
+      "pass": false,
+      "evidence": "Tree rows render `fmtCount(totalCount(r.id))` (page.html:363) and totalCount() correctly sums own+children recursively (e.g. Thời trang shows 3.240 = 1.120+1.850+270, verified in full.png), so counts and the math invariant hold. But nowhere does the UI state that the number includes subcategories: the tree count has no label/tooltip, and the detail panel only distinguishes 'Sản phẩm riêng' vs 'Tổng sản phẩm' (page.html:417-421) in the rare case a category has both its own products AND children — for the vast majority of categories (own=0, has children, e.g. 'Thời trang') only an unlabeled 'Tổng sản phẩm' appears with no explanation of what it aggregates."
+    },
+    {
+      "item": "The tree exposes its structure to screen readers (role=\"tree\" and \"treeitem\", or nested lists) with aria-expanded on parent nodes and the selected node marked, and nodes can be expanded, collapsed and selected from the keyboard",
+      "pass": true,
+      "evidence": "`<div id=\"tree\" role=\"tree\" ...>` (page.html:70) with rows rendered as `role=\"treeitem\"` plus `aria-expanded`, `aria-selected`, `aria-level/setsize/posinset` (page.html:357-358). Keydown handler implements ArrowUp/Down/Left/Right, Home/End, Enter/Space-to-select, and typeahead (page.html:509-547)."
+    },
+    {
+      "item": "Searching by name keeps the ancestors of each matching category visible and expanded so its place in the hierarchy is clear, and a search with no matches says so",
+      "pass": true,
+      "evidence": "visibleRows() adds `ancestorsOf(m.id)` to the visible set and forces `isExpanded = matched ? true : ...` for every row while searching (page.html:301-313). No-match case shows `#no-match` with text `Không có danh mục nào khớp với \"...\"` (page.html:341-346)."
+    },
+    {
+      "item": "The detail panel shows the selected category's full path (such as \"Home › Kitchen › Cookware\"), name, URL slug, parent, visibility status, product count with a link to those products, and the last modified date and user",
+      "pass": false,
+      "evidence": "Breadcrumb path (page.html:397-401), name (h2, page.html:406), and status badge (page.html:407) and last-modified line 'Cập nhật lần cuối bởi ... · date' (page.html:459) are present. But there is no URL slug field — only a 'Mã danh mục' (category code) label (page.html:409), and the 'Xem tất cả N sản phẩm →' link only renders when `products.length`, i.e. only for categories with `ownCount>0` (page.html:394,431); most parent categories (ownCount=0, e.g. 'Thời trang', 'Điện tử' subtree roots) show a total count with no link to view those products at all."
+    },
+    {
+      "item": "Hidden or inactive categories are marked in the tree with a text label or icon (such as \"Hidden\"), not only by greying out",
+      "pass": true,
+      "evidence": "Tree row appends `cat.status !== 'active' ? ' (${STATUS_LABEL[cat.status]})' : ''` (page.html:362), visible in full.png as '(Ngừng kinh doanh)' next to 'Thể thao & Du lịch' and '(Nháp)' next to 'Công nghệ xanh'."
+    },
+    {
+      "item": "Deleting a category that still has products or subcategories is blocked or requires choosing where to move them, and the confirmation names the category and the counts affected",
+      "pass": true,
+      "evidence": "blockReason() builds a message like `Không thể xóa \"${cat.name}\": còn ${own} sản phẩm và ${kids} danh mục con...` and confirmDelete() hides the OK button when a reason exists, leaving only 'Đóng' (page.html:368-377, 586-608) — deletion is fully blocked and the dialog names the category plus affected counts."
+    },
+    {
+      "item": "A category can be given a new parent without drag-and-drop (a parent picker or \"Move to…\" action), and the picker excludes the category itself and its own descendants",
+      "pass": false,
+      "evidence": "In edit mode the parent field is forced read-only: `$('f-parent-readonly').classList.remove('hidden'); $('f-parent').classList.add('hidden');` (page.html:669-671), so an existing category's parent cannot be changed at all. The editable `<select id=\"f-parent\">` only appears for brand-new root categories (mode 'add-root'). No 'Move to…' action exists in the overflow menu (page.html:100-104)."
+    },
+    {
+      "item": "Selecting another category while the detail form has unsaved edits asks to save or discard first",
+      "pass": false,
+      "evidence": "selectCategory() (page.html:482-490) and the tree click handler (page.html:493-507) switch selection immediately with no dirty-check; there is no form-dirty tracking, beforeunload guard, or discard/save prompt anywhere in the script."
+    },
+    {
+      "item": "With nothing selected the detail panel shows a prompt instead of blank fields, a catalogue with no categories offers to create the first one, and the tree has loading and load-error-with-retry states",
+      "pass": true,
+      "evidence": "No selection renders 'Chọn một danh mục để xem chi tiết' with a 'Thêm danh mục' button (page.html:381-388, visible in first.png). Empty catalogue state shows 'Chưa có danh mục nào' plus an add button (page.html:76-80). Loading state shows a skeleton list with `aria-busy=\"true\"` (page.html:81-83) and error state shows a `role=\"alert\"` message with a 'Thử lại' retry button (page.html:84-88)."
+    }
+  ],
+  "tells": [
+    "card-in-card — the detail panel (already a bordered rounded-md section, page.html:92) nests a further bordered 'rounded-md border border-slate-200' stat grid (page.html:417) and a separately bordered 'rounded-md border border-slate-200' product table (page.html:434), stacking bordered boxes inside a bordered box"
+  ],
+  "notes": "Core tree/search/a11y/empty-loading-error mechanics are solid and the parent/child product-count math is internally consistent in the sample data. The weakest areas are editing workflows: no reparenting UI for existing categories, no unsaved-changes guard, and the detail panel omits a URL slug and a reliable 'view products' link for aggregate (parent) categories.",
+  "blind": true
+}

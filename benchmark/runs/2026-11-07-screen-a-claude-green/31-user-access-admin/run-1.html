@@ -1,0 +1,522 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Users · Acme Admin</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+  [hidden] { display: none !important; }
+  .tnum { font-variant-numeric: tabular-nums; }
+  @media print {
+    aside, nav, button, input, select, [data-no-print] { display: none !important; }
+    main { padding: 0 !important; }
+  }
+</style>
+</head>
+<body class="bg-white text-sm text-slate-900 antialiased">
+<div class="flex min-h-screen">
+  <aside class="w-56 shrink-0 border-r border-slate-200 bg-slate-50">
+    <div class="flex h-12 items-center px-4 font-semibold">Acme Admin</div>
+    <nav aria-label="Main" class="px-2 pb-4">
+      <p class="px-2 pb-1 pt-3 text-xs font-medium text-slate-600">Workspace</p>
+      <a href="#" class="flex h-8 items-center rounded px-2 text-slate-700 hover:bg-slate-100">Overview</a>
+      <a href="#" class="flex h-8 items-center rounded px-2 text-slate-700 hover:bg-slate-100">Billing</a>
+      <p class="px-2 pb-1 pt-3 text-xs font-medium text-slate-600">Access</p>
+      <a href="#" aria-current="page" class="flex h-8 items-center rounded bg-slate-200 px-2 font-medium">Users</a>
+      <a href="#" class="flex h-8 items-center rounded px-2 text-slate-700 hover:bg-slate-100">Roles &amp; permissions</a>
+      <a href="#" class="flex h-8 items-center rounded px-2 text-slate-700 hover:bg-slate-100">Audit log</a>
+      <p class="px-2 pb-1 pt-3 text-xs font-medium text-slate-600">Configuration</p>
+      <a href="#" class="flex h-8 items-center rounded px-2 text-slate-700 hover:bg-slate-100">Settings</a>
+    </nav>
+  </aside>
+
+  <main class="min-w-0 flex-1 px-6 py-4">
+    <header class="flex items-center justify-between gap-4">
+      <h1 class="text-xl font-semibold">Users</h1>
+      <div class="flex items-center gap-2">
+        <button type="button" id="btn-invite" class="h-8 rounded bg-blue-700 px-3 font-medium text-white hover:bg-blue-800">Invite user</button>
+      </div>
+    </header>
+
+    <div class="mt-3 flex gap-1 border-b border-slate-200" role="group" aria-label="Status" id="tabs"></div>
+
+    <div class="mt-3 flex flex-wrap items-center gap-2">
+      <input type="search" id="q" aria-label="Search users by name or email" placeholder="Search name or email" class="h-8 w-72 rounded border border-slate-300 px-2">
+      <label class="sr-only" for="f-role">Role</label>
+      <select id="f-role" class="h-8 rounded border border-slate-300 bg-white px-2">
+        <option value="">All roles</option><option>Administrator</option><option>Member</option><option>Viewer</option>
+      </select>
+      <div id="chips" class="flex flex-wrap items-center gap-1"></div>
+    </div>
+
+    <p class="mt-3 text-slate-600" data-result-count><span id="result-count" class="tnum">0</span> users</p>
+
+    <div id="bulk" hidden class="mt-2 flex h-10 items-center gap-3 rounded-md border border-blue-200 bg-blue-50 px-3" role="region" aria-label="Bulk actions">
+      <span><span id="bulk-count" class="tnum">0</span> selected</span>
+      <button type="button" id="bulk-all" class="text-blue-700 underline">Select all <span id="bulk-all-count" class="tnum">0</span> matching</button>
+      <button type="button" id="bulk-deactivate" class="h-7 rounded border border-red-300 bg-white px-2 text-red-700 hover:bg-red-50">Deactivate selected</button>
+      <button type="button" id="bulk-clear" class="ml-auto text-blue-700 underline">Clear selection</button>
+    </div>
+    <span id="bulk-announce" role="status" class="sr-only"></span>
+
+    <section data-region="users" class="mt-2" aria-label="Users">
+      <div data-state="ready" class="overflow-x-auto rounded-md border border-slate-200">
+        <table class="w-full border-collapse">
+          <caption class="sr-only">Users</caption>
+          <thead class="bg-slate-50 text-slate-700">
+            <tr class="h-10 border-b border-slate-200">
+              <th scope="col" class="w-10 px-3 text-left"><input type="checkbox" id="select-page" class="h-4 w-4" aria-label="Select all users on this page"></th>
+              <th scope="col" class="px-3 text-left font-medium" data-col="name"><button type="button" data-sort="name">Name</button></th>
+              <th scope="col" class="px-3 text-left font-medium">Email</th>
+              <th scope="col" class="px-3 text-left font-medium">Role</th>
+              <th scope="col" class="px-3 text-left font-medium">Status</th>
+              <th scope="col" class="px-3 text-left font-medium" data-col="lastSignIn"><button type="button" data-sort="lastSignIn">Last sign-in</button></th>
+              <th scope="col" class="w-12 px-3"><span class="sr-only">Actions</span></th>
+            </tr>
+          </thead>
+          <tbody id="rows"></tbody>
+        </table>
+      </div>
+      <div data-state="empty" hidden class="rounded-md border border-dashed border-slate-300 px-6 py-10 text-center">
+        <p class="font-medium" id="empty-title">No users match these filters</p>
+        <p class="mt-1 text-slate-600" id="empty-text">Try another status or search, or clear the filters.</p>
+        <button type="button" id="empty-action" class="mt-3 h-8 rounded border border-slate-300 bg-white px-3 hover:bg-slate-50">Clear filters</button>
+      </div>
+      <div data-state="loading" aria-busy="true" hidden class="rounded-md border border-slate-200" aria-label="Loading users">
+        <div class="h-10 border-b border-slate-200 bg-slate-50"></div>
+        <div id="skeleton"></div>
+      </div>
+      <div data-state="error" hidden class="rounded-md border border-red-200 bg-red-50 px-4 py-3 text-red-800" role="alert">
+        <p class="font-medium">Users could not be loaded.</p>
+        <p class="mt-1">Check your connection, then try again.</p>
+        <button type="button" id="retry" class="mt-2 h-8 rounded border border-red-300 bg-white px-3 text-red-800 hover:bg-red-100">Retry</button>
+      </div>
+
+      <div id="pager" class="mt-2 flex items-center justify-end gap-3 text-slate-700">
+        <label for="page-size">Rows per page</label>
+        <select id="page-size" class="h-8 rounded border border-slate-300 bg-white px-2"><option>20</option><option>50</option><option>100</option></select>
+        <span id="page-range" class="tnum"></span>
+        <button type="button" id="prev" class="h-8 w-8 rounded border border-slate-300 bg-white" aria-label="Previous page">‹</button>
+        <button type="button" id="next" class="h-8 w-8 rounded border border-slate-300 bg-white" aria-label="Next page">›</button>
+      </div>
+    </section>
+  </main>
+</div>
+
+<div id="menu" role="menu" hidden class="fixed z-20 w-48 rounded-md border border-slate-200 bg-white py-1 shadow-md"></div>
+
+<div id="backdrop" hidden class="fixed inset-0 z-30 bg-slate-900/40"></div>
+
+<!-- Destructive confirmation (deactivate / cancel invite) -->
+<div id="confirm" role="alertdialog" aria-modal="true" aria-labelledby="confirm-title" aria-describedby="confirm-text" hidden class="fixed left-1/2 top-24 z-40 w-[440px] -translate-x-1/2 rounded-lg border border-slate-200 bg-white p-5 shadow-lg">
+  <h2 id="confirm-title" class="text-base font-semibold"></h2>
+  <p id="confirm-text" class="mt-2 text-slate-700"></p>
+  <div class="mt-4 flex justify-end gap-2">
+    <button type="button" id="confirm-cancel" class="h-8 rounded border border-slate-300 bg-white px-3 hover:bg-slate-50">Cancel</button>
+    <button type="button" id="confirm-ok" class="h-8 rounded bg-red-700 px-3 font-medium text-white hover:bg-red-800"></button>
+  </div>
+</div>
+
+<!-- Invite user dialog -->
+<div id="invite" role="dialog" aria-modal="true" aria-labelledby="invite-title" hidden class="fixed left-1/2 top-20 z-40 w-[440px] -translate-x-1/2 rounded-lg border border-slate-200 bg-white p-5 shadow-lg">
+  <h2 id="invite-title" class="text-base font-semibold">Invite user</h2>
+  <p class="mt-1 text-sm text-slate-600">* Required</p>
+  <form id="invite-form" novalidate class="mt-3 space-y-4">
+    <div class="space-y-1">
+      <label for="inv-name" class="block text-sm font-medium">Full name <span aria-hidden="true">*</span></label>
+      <input id="inv-name" name="name" type="text" class="h-8 w-full rounded border border-slate-300 px-2" aria-required="true" aria-describedby="inv-name-error">
+      <p id="inv-name-error" class="hidden items-center gap-1 text-sm text-red-700"></p>
+    </div>
+    <div class="space-y-1">
+      <label for="inv-email" class="block text-sm font-medium">Email <span aria-hidden="true">*</span></label>
+      <input id="inv-email" name="email" type="email" placeholder="name@company.com" class="h-8 w-full rounded border border-slate-300 px-2" aria-required="true" aria-describedby="inv-email-error">
+      <p id="inv-email-error" class="hidden items-center gap-1 text-sm text-red-700"></p>
+    </div>
+    <div class="space-y-1">
+      <label for="inv-role" class="block text-sm font-medium">Role <span aria-hidden="true">*</span></label>
+      <select id="inv-role" name="role" class="h-8 w-full rounded border border-slate-300 bg-white px-2">
+        <option value="Administrator">Administrator</option>
+        <option value="Member" selected>Member</option>
+        <option value="Viewer">Viewer</option>
+      </select>
+      <p class="text-sm text-slate-600">Administrators can invite, deactivate and reset passwords for any user.</p>
+    </div>
+    <div class="flex items-center justify-end gap-2 border-t border-slate-200 pt-3">
+      <button type="button" id="invite-cancel" class="h-8 rounded border border-slate-300 bg-white px-3 hover:bg-slate-50">Cancel</button>
+      <button type="submit" id="invite-send" class="h-8 rounded bg-blue-700 px-3 font-medium text-white hover:bg-blue-800">Send invite</button>
+    </div>
+  </form>
+</div>
+
+<div id="toast" role="status" aria-live="polite" class="fixed bottom-4 right-4 z-50"></div>
+
+<script>
+  const LOCALE = 'en-US';
+  const NOW = new Date('2026-11-07T16:00:00Z');
+  const dateFmt = new Intl.DateTimeFormat(LOCALE, { day: '2-digit', month: '2-digit', year: 'numeric' });
+  const timeFmt = new Intl.DateTimeFormat(LOCALE, { hour: 'numeric', minute: '2-digit' });
+  const rtf = new Intl.RelativeTimeFormat(LOCALE, { numeric: 'auto' });
+  const fmtCount = (n) => new Intl.NumberFormat(LOCALE).format(n);
+
+  function fmtAbsolute(iso) {
+    const d = new Date(iso);
+    return `${dateFmt.format(d)}, ${timeFmt.format(d)}`;
+  }
+  function fmtRelative(iso) {
+    const s = (new Date(iso).getTime() - NOW.getTime()) / 1000;
+    const a = Math.abs(s);
+    const [n, unit] = a < 60 ? [0, 'second'] : a < 3600 ? [s / 60, 'minute'] : a < 86400 ? [s / 3600, 'hour'] : [s / 86400, 'day'];
+    return rtf.format(Math.round(n), unit);
+  }
+  function fmtLastSignIn(iso) {
+    if (!iso) return '<span class="text-slate-500" aria-label="Not set">—</span>';
+    const days = (NOW.getTime() - new Date(iso).getTime()) / 86400000;
+    const abs = fmtAbsolute(iso);
+    return days < 7 ? `${abs} · ${fmtRelative(iso)}` : abs;
+  }
+
+  // Mock data: a workspace's user accounts.
+  const TONE = { Active: 'bg-green-50 text-green-800', Invited: 'bg-blue-50 text-blue-800', Deactivated: 'bg-slate-100 text-slate-700' };
+
+  let idCounter = 0;
+  function u(name, email, role, status, lastSignIn, extra) {
+    idCounter++;
+    return Object.assign({ id: 'usr-' + idCounter, name, email, role, status, lastSignIn }, extra);
+  }
+  let users = [
+    u('Avery Chen', 'avery.chen@acme.io', 'Administrator', 'Active', '2026-11-07T15:42:00Z', { you: true }),
+    u('Jordan Patel', 'jordan.patel@acme.io', 'Administrator', 'Active', '2026-11-07T13:05:00Z'),
+    u('Morgan Lee', 'morgan.lee@acme.io', 'Member', 'Active', '2026-11-07T08:30:00Z'),
+    u('Taylor Nguyen', 'taylor.nguyen@acme.io', 'Member', 'Active', '2026-11-06T18:50:00Z'),
+    u('Riley Johnson', 'riley.johnson@acme.io', 'Member', 'Active', '2026-11-06T09:15:00Z'),
+    u('Casey Kim', 'casey.kim@acme.io', 'Viewer', 'Active', '2026-11-05T14:00:00Z'),
+    u('Jamie Rodriguez', 'jamie.rodriguez@acme.io', 'Member', 'Active', '2026-11-05T11:20:00Z'),
+    u('Drew Thompson', 'drew.thompson@acme.io', 'Member', 'Active', '2026-11-04T17:10:00Z'),
+    u('Sydney Carter', 'sydney.carter@acme.io', 'Viewer', 'Active', '2026-11-03T10:05:00Z'),
+    u('Reese Martinez', 'reese.martinez@acme.io', 'Member', 'Active', '2026-11-02T09:00:00Z'),
+    u('Hayden Wright', 'hayden.wright@acme.io', 'Member', 'Active', '2026-11-01T16:40:00Z'),
+    u('Skyler Brooks', 'skyler.brooks@acme.io', 'Viewer', 'Active', '2026-10-31T12:00:00Z'),
+    u('Parker Diaz', 'parker.diaz@acme.io', 'Member', 'Active', '2026-10-28T09:00:00Z'),
+    u('Rowan Mitchell', 'rowan.mitchell@acme.io', 'Member', 'Active', '2026-10-20T09:00:00Z'),
+    u('Emerson Clark', 'emerson.clark@acme.io', 'Member', 'Active', '2026-10-15T09:00:00Z'),
+    u('Finley Adams', 'finley.adams@acme.io', 'Viewer', 'Active', '2026-10-10T09:00:00Z'),
+    u('Harper Scott', 'harper.scott@acme.io', 'Member', 'Active', '2026-09-30T09:00:00Z'),
+    u('Quinn Bennett', 'quinn.bennett@acme.io', 'Member', 'Active', '2026-09-15T09:00:00Z'),
+    u('Elliot Price', 'elliot.price@acme.io', 'Member', 'Active', '2026-08-20T09:00:00Z'),
+    u('Dana Foster', 'dana.foster@acme.io', 'Member', 'Invited', null),
+    u('Jesse Coleman', 'jesse.coleman@acme.io', 'Viewer', 'Invited', null),
+    u('Robin Ortiz', 'robin.ortiz@acme.io', 'Member', 'Invited', null),
+    u('Blake Simmons', 'blake.simmons@acme.io', 'Member', 'Invited', null),
+    u('Peyton Hayes', 'peyton.hayes@acme.io', 'Member', 'Deactivated', '2026-07-05T09:00:00Z'),
+    u('Marley Russell', 'marley.russell@acme.io', 'Viewer', 'Deactivated', '2026-06-18T09:00:00Z'),
+    u('Sawyer Bishop', 'sawyer.bishop@acme.io', 'Member', 'Deactivated', '2026-05-02T09:00:00Z'),
+  ];
+
+  const params = new URLSearchParams(location.search);
+  const forced = params.get('state');
+  const ui = { tab: params.get('status') || 'All', q: params.get('q') || '', role: params.get('role') || '', sort: 'lastSignIn', dir: 'desc', page: 1, size: 20, selected: new Set(), allMatching: false };
+  if (forced === 'empty') users = [];
+
+  const $ = (id) => document.getElementById(id);
+  const announce = (html) => { $('toast').innerHTML = `<div class="flex items-center gap-3 rounded-md border border-slate-200 bg-white px-4 py-3 shadow-md">${html}</div>`; clearTimeout(announce.t); announce.t = setTimeout(() => ($('toast').innerHTML = ''), 8000); };
+  const show = (state) => document.querySelectorAll('[data-region="users"] [data-state]').forEach((e) => (e.hidden = e.dataset.state !== state));
+
+  function matching() {
+    const q = ui.q.trim().toLowerCase();
+    return users.filter((x) => (ui.tab === 'All' || x.status === ui.tab) && (!ui.role || x.role === ui.role) && (!q || (x.name + ' ' + x.email).toLowerCase().includes(q)));
+  }
+  function sorted(list) {
+    const k = ui.sort, d = ui.dir === 'asc' ? 1 : -1;
+    return [...list].sort((a, b) => {
+      if (k === 'lastSignIn') {
+        const av = a.lastSignIn ? new Date(a.lastSignIn).getTime() : -Infinity;
+        const bv = b.lastSignIn ? new Date(b.lastSignIn).getTime() : -Infinity;
+        return (av - bv) * d;
+      }
+      return (a[k].localeCompare(b[k])) * d;
+    });
+  }
+  function syncUrl() {
+    const p = new URLSearchParams();
+    if (ui.tab !== 'All') p.set('status', ui.tab);
+    if (ui.q) p.set('q', ui.q);
+    if (ui.role) p.set('role', ui.role);
+    if (forced) p.set('state', forced);
+    history.replaceState(null, '', p.toString() ? '?' + p : location.pathname);
+  }
+
+  function renderTabs() {
+    const STATUSES = ['Active', 'Invited', 'Deactivated'];
+    const counts = Object.fromEntries(['All', ...STATUSES].map((s) => [s, s === 'All' ? users.length : users.filter((x) => x.status === s).length]));
+    $('tabs').innerHTML = ['All', ...STATUSES].map((s) => `<button type="button" data-tab="${s}" aria-pressed="${ui.tab === s}" class="h-9 border-b-2 px-3 ${ui.tab === s ? 'border-blue-700 font-medium text-slate-900' : 'border-transparent text-slate-700 hover:text-slate-900'}">${s} <span class="tnum text-slate-600">${fmtCount(counts[s])}</span></button>`).join('');
+  }
+  function renderChips() {
+    const chips = [];
+    if (ui.q) chips.push(['q', `Search: ${ui.q}`]);
+    if (ui.role) chips.push(['role', `Role: ${ui.role}`]);
+    $('chips').innerHTML = chips.map(([k, t]) => `<span class="inline-flex h-6 items-center gap-1 rounded-full bg-slate-100 pl-2 pr-1 text-slate-700">${t}<button type="button" data-chip="${k}" class="h-6 w-6 rounded-full hover:bg-slate-200" aria-label="Remove filter ${t}">×</button></span>`).join('') + (chips.length ? '<button type="button" id="clear-all" class="h-6 px-2 text-blue-700 underline">Clear all</button>' : '');
+  }
+
+  function initials(name) {
+    return name.split(' ').filter(Boolean).slice(0, 2).map((p) => p[0].toUpperCase()).join('');
+  }
+
+  function rowActions(x) {
+    const items = [];
+    if (x.status === 'Active') {
+      items.push(['reset', 'Reset password']);
+      if (!x.you) items.push(['deactivate', 'Deactivate', true]);
+    } else if (x.status === 'Invited') {
+      items.push(['resend', 'Resend invite']);
+      items.push(['cancel-invite', 'Cancel invite', true]);
+    } else if (x.status === 'Deactivated') {
+      items.push(['reactivate', 'Reactivate']);
+    }
+    return items;
+  }
+
+  function render() {
+    syncUrl();
+    renderTabs();
+    renderChips();
+    const list = sorted(matching());
+    const selectable = list.filter((x) => !x.you);
+    $('result-count').textContent = fmtCount(list.length);
+    $('result-count').nextSibling.textContent = ` user${list.length === 1 ? '' : 's'}`;
+    const selectedCount = ui.allMatching ? selectable.length : ui.selected.size;
+    $('bulk').hidden = !selectedCount;
+    $('bulk-count').textContent = fmtCount(selectedCount);
+    $('bulk-all-count').textContent = fmtCount(selectable.length);
+    $('bulk-all').hidden = ui.allMatching || selectable.length <= ui.size;
+    $('bulk-announce').textContent = selectedCount ? `${fmtCount(selectedCount)} user${selectedCount === 1 ? '' : 's'} selected` : '';
+
+    document.querySelectorAll('th[data-col]').forEach((th) => th.setAttribute('aria-sort', th.dataset.col === ui.sort ? (ui.dir === 'asc' ? 'ascending' : 'descending') : 'none'));
+
+    if (!list.length) {
+      const firstUse = users.length === 0;
+      $('empty-title').textContent = firstUse ? 'No users yet' : 'No users match these filters';
+      $('empty-text').textContent = firstUse ? 'Users you invite to this workspace appear here.' : 'Try another status or search, or clear the filters.';
+      $('empty-action').textContent = firstUse ? 'Invite user' : 'Clear filters';
+      show('empty');
+      $('pager').hidden = true;
+      return;
+    }
+    show('ready');
+    $('pager').hidden = false;
+    const pages = Math.max(1, Math.ceil(list.length / ui.size));
+    ui.page = Math.min(ui.page, pages);
+    const start = (ui.page - 1) * ui.size;
+    const rows = list.slice(start, start + ui.size);
+    $('page-range').textContent = `${fmtCount(start + 1)}–${fmtCount(start + rows.length)} of ${fmtCount(list.length)}`;
+    $('prev').disabled = ui.page === 1;
+    $('next').disabled = ui.page === pages;
+    $('rows').innerHTML = rows.map((x) => `<tr class="h-10 border-b border-slate-200 last:border-0 hover:bg-slate-50">
+        <td class="px-3">${x.you ? '' : `<input type="checkbox" class="h-4 w-4" data-select="${x.id}" ${ui.allMatching || ui.selected.has(x.id) ? 'checked' : ''} aria-label="Select ${x.name}">`}</td>
+        <td class="px-3"><div class="flex items-center gap-2"><span class="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-slate-200 text-xs font-medium text-slate-700" aria-hidden="true">${initials(x.name)}</span><span>${x.name}${x.you ? ' <span class="text-slate-500">(you)</span>' : ''}</span></div></td>
+        <td class="whitespace-nowrap px-3"><a href="mailto:${x.email}" class="text-slate-700 hover:underline">${x.email}</a></td>
+        <td class="whitespace-nowrap px-3 text-slate-700">${x.role}</td>
+        <td class="px-3"><span class="inline-flex h-6 items-center whitespace-nowrap rounded-full px-2 text-xs font-medium leading-5 ${TONE[x.status]}">${x.status}</span></td>
+        <td class="tnum whitespace-nowrap px-3 text-slate-700">${fmtLastSignIn(x.lastSignIn)}</td>
+        <td class="px-3 text-right"><button type="button" data-menu="${x.id}" aria-haspopup="menu" aria-expanded="false" aria-label="Actions for ${x.name}" class="h-8 w-8 rounded hover:bg-slate-100">⋯</button></td>
+      </tr>`).join('');
+    const ids = rows.filter((x) => !x.you).map((x) => x.id);
+    const onPage = ids.filter((id) => ui.allMatching || ui.selected.has(id)).length;
+    $('select-page').checked = ids.length > 0 && onPage === ids.length;
+    $('select-page').indeterminate = onPage > 0 && onPage < ids.length;
+  }
+
+  function userById(id) { return users.find((x) => x.id === id); }
+
+  function openConfirm({ title, text, okLabel, onConfirm }) {
+    $('confirm-title').textContent = title;
+    $('confirm-text').textContent = text;
+    $('confirm-ok').textContent = okLabel;
+    $('backdrop').hidden = $('confirm').hidden = false;
+    $('confirm-cancel').focus();
+    $('confirm-ok').onclick = onConfirm;
+  }
+  function closeConfirm() { $('backdrop').hidden = $('confirm').hidden = true; }
+
+  function confirmDeactivateOne(id) {
+    const x = userById(id);
+    openConfirm({
+      title: `Deactivate ${x.name}?`,
+      text: `${x.name} will immediately lose access to Acme Admin. You can reactivate the account later.`,
+      okLabel: 'Deactivate user',
+      onConfirm: () => {
+        x.status = 'Deactivated';
+        ui.selected.delete(id);
+        closeConfirm();
+        render();
+        announce(`<span>${x.name} deactivated.</span><button type="button" id="undo" class="font-medium text-blue-700 underline">Undo</button>`);
+        $('undo').onclick = () => { x.status = 'Active'; render(); announce(`<span>${x.name} reactivated.</span>`); };
+      },
+    });
+  }
+  function confirmDeactivateBulk(ids) {
+    openConfirm({
+      title: `Deactivate ${fmtCount(ids.length)} users?`,
+      text: `They will immediately lose access to Acme Admin. You can reactivate them later.`,
+      okLabel: `Deactivate ${fmtCount(ids.length)} users`,
+      onConfirm: () => {
+        ids.forEach((id) => { const x = userById(id); if (x) x.status = 'Deactivated'; });
+        ui.selected.clear();
+        ui.allMatching = false;
+        closeConfirm();
+        render();
+        announce(`<span>${fmtCount(ids.length)} users deactivated.</span>`);
+      },
+    });
+  }
+  function confirmCancelInvite(id) {
+    const x = userById(id);
+    openConfirm({
+      title: `Cancel invite for ${x.name}?`,
+      text: `${x.email} won't be able to join Acme Admin using this invite link.`,
+      okLabel: 'Cancel invite',
+      onConfirm: () => {
+        users = users.filter((y) => y.id !== id);
+        closeConfirm();
+        render();
+        announce(`<span>Invite for ${x.name} cancelled.</span>`);
+      },
+    });
+  }
+
+  // Events
+  $('tabs').addEventListener('click', (e) => { const b = e.target.closest('[data-tab]'); if (b) { ui.tab = b.dataset.tab; ui.page = 1; ui.selected.clear(); ui.allMatching = false; render(); } });
+  let qTimer;
+  $('q').addEventListener('input', (e) => { clearTimeout(qTimer); qTimer = setTimeout(() => { ui.q = e.target.value; ui.page = 1; ui.selected.clear(); ui.allMatching = false; render(); }, 250); });
+  $('f-role').addEventListener('change', (e) => { ui.role = e.target.value; ui.page = 1; ui.selected.clear(); ui.allMatching = false; render(); });
+  $('chips').addEventListener('click', (e) => {
+    const c = e.target.closest('[data-chip]');
+    if (c) { ui[c.dataset.chip] = ''; if (c.dataset.chip === 'q') $('q').value = ''; if (c.dataset.chip === 'role') $('f-role').value = ''; render(); }
+    if (e.target.id === 'clear-all') clearFilters();
+  });
+  function clearFilters() { ui.q = ''; ui.role = ''; ui.tab = 'All'; $('q').value = ''; $('f-role').value = ''; render(); $('q').focus(); }
+  $('empty-action').addEventListener('click', () => (users.length ? clearFilters() : $('btn-invite').click()));
+  document.querySelector('thead').addEventListener('click', (e) => {
+    const b = e.target.closest('[data-sort]');
+    if (!b) return;
+    ui.dir = ui.sort === b.dataset.sort && ui.dir === 'asc' ? 'desc' : 'asc';
+    ui.sort = b.dataset.sort;
+    render();
+  });
+  $('select-page').addEventListener('change', (e) => {
+    document.querySelectorAll('[data-select]').forEach((c) => (e.target.checked ? ui.selected.add(c.dataset.select) : ui.selected.delete(c.dataset.select)));
+    if (!e.target.checked) ui.allMatching = false;
+    render();
+  });
+  $('rows').addEventListener('change', (e) => { const c = e.target.closest('[data-select]'); if (c) { c.checked ? ui.selected.add(c.dataset.select) : ui.selected.delete(c.dataset.select); ui.allMatching = false; render(); } });
+  $('bulk-all').addEventListener('click', () => { ui.allMatching = true; render(); });
+  $('bulk-clear').addEventListener('click', () => { ui.selected.clear(); ui.allMatching = false; render(); $('select-page').focus(); });
+  $('bulk-deactivate').addEventListener('click', () => {
+    const ids = ui.allMatching ? sorted(matching()).filter((x) => !x.you).map((x) => x.id) : [...ui.selected];
+    confirmDeactivateBulk(ids);
+  });
+  $('page-size').addEventListener('change', (e) => { ui.size = Number(e.target.value); ui.page = 1; render(); });
+  $('prev').addEventListener('click', () => { ui.page--; render(); });
+  $('next').addEventListener('click', () => { ui.page++; render(); });
+  $('retry').addEventListener('click', () => { location.search = ''; });
+
+  let menuFor = null;
+  $('rows').addEventListener('click', (e) => {
+    const b = e.target.closest('[data-menu]');
+    if (!b) return;
+    menuFor = b.dataset.menu;
+    const x = userById(menuFor);
+    const items = rowActions(x);
+    $('menu').innerHTML = items.map(([act, label, danger]) =>
+      `<button type="button" role="menuitem" data-act="${act}" class="block h-8 w-full px-3 text-left hover:bg-slate-100 ${danger ? 'border-t border-slate-200 text-red-700' : ''}">${label}</button>`
+    ).join('');
+    const r = b.getBoundingClientRect();
+    Object.assign($('menu').style, { top: r.bottom + 4 + 'px', left: r.right - 192 + 'px' });
+    $('menu').hidden = false;
+    b.setAttribute('aria-expanded', 'true');
+    $('menu').querySelector('button')?.focus();
+  });
+  $('menu').addEventListener('click', (e) => {
+    const a = e.target.closest('[data-act]');
+    if (!a) return;
+    $('menu').hidden = true;
+    const id = menuFor;
+    const x = userById(id);
+    if (a.dataset.act === 'reset') {
+      announce(`<span>Password reset link sent to ${x.email}.</span>`);
+    } else if (a.dataset.act === 'resend') {
+      announce(`<span>Invitation resent to ${x.email}.</span>`);
+    } else if (a.dataset.act === 'deactivate') {
+      confirmDeactivateOne(id);
+    } else if (a.dataset.act === 'cancel-invite') {
+      confirmCancelInvite(id);
+    } else if (a.dataset.act === 'reactivate') {
+      x.status = 'Active';
+      render();
+      announce(`<span>${x.name} reactivated.</span>`);
+    }
+  });
+  document.addEventListener('click', (e) => {
+    if (!e.target.closest('#menu, [data-menu]')) $('menu').hidden = true;
+  });
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape') { closeConfirm(); closeInvite(); $('menu').hidden = true; } });
+  $('confirm-cancel').addEventListener('click', closeConfirm);
+
+  // Invite dialog
+  function openInvite() {
+    $('invite-form').reset();
+    $('inv-role').value = 'Member';
+    clearInviteErrors();
+    $('backdrop').hidden = $('invite').hidden = false;
+    $('inv-name').focus();
+  }
+  function closeInvite() { $('backdrop').hidden = $('invite').hidden = true; }
+  function clearInviteErrors() {
+    ['name', 'email'].forEach((f) => { $(`inv-${f}`).removeAttribute('aria-invalid'); $(`inv-${f}`).classList.remove('border-red-500'); $(`inv-${f}-error`).classList.add('hidden'); $(`inv-${f}-error`).textContent = ''; });
+  }
+  function fieldError(field, message) {
+    const input = $(`inv-${field}`);
+    const err = $(`inv-${field}-error`);
+    input.setAttribute('aria-invalid', 'true');
+    input.classList.add('border-red-500');
+    err.textContent = message;
+    err.classList.remove('hidden');
+    err.classList.add('flex');
+  }
+  $('btn-invite').addEventListener('click', openInvite);
+  $('invite-cancel').addEventListener('click', closeInvite);
+  $('invite-form').addEventListener('submit', (e) => {
+    e.preventDefault();
+    clearInviteErrors();
+    const name = $('inv-name').value.trim();
+    const email = $('inv-email').value.trim();
+    const role = $('inv-role').value;
+    const errors = [];
+    if (!name) errors.push(['name', 'Enter the person’s full name']);
+    if (!email) errors.push(['email', 'Enter an email like name@company.com']);
+    else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) errors.push(['email', 'Enter an email like name@company.com']);
+    else {
+      const existing = users.find((x) => x.email.toLowerCase() === email.toLowerCase());
+      if (existing) errors.push(['email', `Email already used by ${existing.name}`]);
+    }
+    if (errors.length) {
+      errors.forEach(([f, m]) => fieldError(f, m));
+      $(`inv-${errors[0][0]}`).focus();
+      return;
+    }
+    idCounter++;
+    users.unshift({ id: 'usr-' + idCounter, name, email, role, status: 'Invited', lastSignIn: null });
+    closeInvite();
+    ui.tab = 'All';
+    render();
+    announce(`<span>Invitation sent to ${email}.</span>`);
+  });
+  // Initial state
+  $('skeleton').innerHTML = Array.from({ length: 8 }, () => '<div class="flex h-10 items-center gap-4 border-b border-slate-200 px-3"><div class="h-5 w-5 rounded-full bg-slate-200"></div><div class="h-3 w-32 rounded bg-slate-200"></div><div class="h-3 w-48 rounded bg-slate-200"></div><div class="ml-auto h-3 w-20 rounded bg-slate-200"></div></div>').join('');
+  $('q').value = ui.q;
+  $('f-role').value = ui.role;
+  if (forced === 'loading' || forced === 'error') { show(forced); $('pager').hidden = true; renderTabs(); $('result-count').textContent = '—'; }
+  else render();
+</script>
+</body>
+</html>

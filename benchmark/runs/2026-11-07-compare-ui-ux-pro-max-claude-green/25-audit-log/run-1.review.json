@@ -1,0 +1,60 @@
+{
+  "brief": "25-audit-log",
+  "run": 1,
+  "items": [
+    {
+      "item": "Each entry shows when, who (the person's name and account, or \"System\" or the integration's name for automated changes), the action, the affected record (type plus ID or name) and the outcome (such as Success, Failed or Denied) in text",
+      "pass": true,
+      "evidence": "rowHtml() renders relative time + actor name/role, e.action label, e.resource.name/type/id, and statusPill(e.status) text 'Success'/'Failed'; openDrawer() additionally shows actor.email (account) via drawerActor innerHTML '...actor.email + \" · \" + actor.role...'. ACTORS array includes { name: \"System\", email: \"system@company.com\", role: \"Automated process\" } for automated events."
+    },
+    {
+      "item": "Timestamps give the date and the time to the second with the time zone stated (such as \"05/11/2026 14:32:07 UTC+7\"), and entries are listed newest first",
+      "pass": false,
+      "evidence": "Row text shows only relative time via relativeTime() e.g. 'Xd ago'/'Xm ago'; the full date is only in the title tooltip and in the drawer via formatDateFull(): `d.toLocaleString(undefined, { dateStyle: \"full\", timeStyle: \"medium\" })` — this never passes a timeZoneName option, so no time zone (e.g. 'UTC+7') is ever stated anywhere on the page. Newest-first ordering itself is correct (`EVENTS.sort(function(a,b){ return new Date(b.timestamp) - new Date(a.timestamp); })`), but the time-zone/seconds requirement fails."
+    },
+    {
+      "item": "An update entry shows each changed field with its old and new value side by side under \"Before\" and \"After\" labels, so the change reads correctly without relying on colour",
+      "pass": true,
+      "evidence": "Drawer 'What changed' table header: `<th>Field</th><th>Before</th><th>After</th>`, populated by drawerChangesBody rows `<td>field</td><td class=\"text-rose-600\">before</td><td class=\"text-emerald-600\">after</td>` — the Before/After column headers make the change legible without needing the colour cue."
+    },
+    {
+      "item": "Passwords, tokens and other secret fields never appear in clear text; their changes are shown masked (such as \"•••••• changed\")",
+      "pass": false,
+      "evidence": "No masking mechanism exists anywhere in the script. Secret-adjacent actions (user.password_reset, api_key.created, api_key.revoked) are not marked `changeable:true` in ACTION_DEFS, so they never populate a changes array, and CHANGE_VALUES/buildChange() contain no password/token field or masking logic (no '•' pattern anywhere in the file). The feature is simply not implemented."
+    },
+    {
+      "item": "Filters cover a date range with presets, the actor, the action type and the record type, a search box finds a record by its ID, and the number of matching entries is shown",
+      "pass": false,
+      "evidence": "Toolbar has #dateRangeSelect (Today/Last 7 days/Last 30 days/All time/Custom), #actorSelect, #categorySelect (action category grouping), #statusSelect/#severitySelect, and #searchInput whose matchesFilters() includes `e.resource.id` in the searched haystack, plus rangeText 'Showing X–Y of Z events'. However there is no record-type (resource type: User/API Key/Subscription/etc.) filter anywhere in the toolbar — only actor, category, status, severity and date are selectable."
+    },
+    {
+      "item": "Entries are read-only: no edit or delete control appears on any entry, and the page states that the log cannot be altered",
+      "pass": false,
+      "evidence": "No edit/delete buttons exist on rows or in the drawer (only the '.details-btn' view-details control and 'View raw event (JSON)' <details>). But no text anywhere on the page states that the log is immutable/cannot be altered — no such copy exists in the header description, drawer, or elsewhere."
+    },
+    {
+      "item": "Export to CSV or Excel covers exactly the entries matching the current filters, and the export control states how many entries it will include",
+      "pass": false,
+      "evidence": "exportBtn handler builds the CSV from `state.filtered` (the currently filtered set), which is correct, but the button's visible label is always the static text 'Export CSV' — it never states a count of entries to be exported."
+    },
+    {
+      "item": "The log is a table with column header cells, and each entry's details open from a keyboard-operable control (a button with aria-expanded or a link) rather than only from a click on the row",
+      "pass": true,
+      "evidence": "`<table id=\"auditTable\">` with `<th scope=\"col\">` header cells (renderHead()/sortHeader()). Details open only via `<button type=\"button\" class=\"details-btn\" aria-label=\"View details for event ...\">`; the tableBody click handler explicitly checks `ev.target.closest('.details-btn')`, so clicking elsewhere on the row does nothing."
+    },
+    {
+      "item": "Filters that match nothing show a message with a clear-filters action, and a loading state and an error state with retry are built in",
+      "pass": false,
+      "evidence": "emptyStateHtml() correctly shows 'No matching events' plus a '#emptyClearBtn' Clear filters button when filters are active. However there is no loading-state UI for the table data itself (only a spin animation on the manual Refresh icon button) and no error state or retry control exists anywhere in the markup or script."
+    }
+  ],
+  "tells": [
+    "kpi-icon-tiles",
+    "initials-avatar-non-person",
+    "tracked-uppercase-labels",
+    "rainbow-status",
+    "card-in-card"
+  ],
+  "notes": "Stat row (#statsGrid) is a classic kpi-icon-tiles pattern (icon chip + uppercase label + big number) for Total events/Failed actions/Critical severity/Unique actors. initials() generates a two-letter avatar for the 'System' actor (a non-person automated process) exactly like a human avatar. Uppercase tracking-wide labels appear throughout (stat captions, drawer <dt> labels). Category badges assign 9 distinct hues (violet/amber/blue/indigo/cyan/emerald/slate/teal/fuchsia) to categories — a rainbow-status style colour scheme. The drawer nests bordered 'Actor'/'Resource' boxes inside the already-panelled drawer surface (card-in-card). Automated audit.json also flags real defects worth noting: text-contrast failures (33, e.g. location text at 2.56:1), uppercase-text warnings, and two-line/stacked table rows.",
+  "blind": true
+}

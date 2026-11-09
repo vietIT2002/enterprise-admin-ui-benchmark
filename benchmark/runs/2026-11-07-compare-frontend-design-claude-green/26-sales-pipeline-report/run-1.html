@@ -1,0 +1,532 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Sales Pipeline Report — Q4 2026</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+  tailwind.config = {
+    theme: {
+      extend: {
+        fontFamily: {
+          display: ['Space Grotesk', 'sans-serif'],
+          sans: ['IBM Plex Sans', 'sans-serif'],
+        },
+      },
+    },
+  };
+</script>
+<style>
+  :root {
+    --canvas: #EEF1F6;
+    --surface: #FFFFFF;
+    --ink: #141B2C;
+    --slate: #5B6578;
+    --slate-soft: #8891A1;
+    --line: #DCE1E8;
+    --line-soft: #E8EBF0;
+    --teal-50: #E4F3F2;
+    --teal-200: #AED9D6;
+    --teal-400: #4FA6A3;
+    --teal-600: #0D7A82;
+    --teal-700: #0A5F66;
+    --amber: #B9762E;
+    --amber-50: #F7ECDC;
+    --brick: #9C3F3A;
+    --brick-50: #F3E4E2;
+  }
+
+  html { font-family: 'IBM Plex Sans', sans-serif; }
+
+  .funnel-fill {
+    width: 0%;
+    transition: width 900ms cubic-bezier(0.22, 1, 0.36, 1);
+  }
+  .funnel-fill.is-ready { width: var(--target-width); }
+
+  .rep-fill {
+    width: var(--target-width);
+  }
+
+  select {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='%235B6578' stroke-width='1.6'%3E%3Cpath d='M4 6l4 4 4-4'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 0.65rem center;
+    background-size: 0.85rem;
+    -webkit-appearance: none;
+    appearance: none;
+  }
+
+  th[data-sort] { cursor: pointer; user-select: none; }
+  th[data-sort]:hover .th-label { color: var(--ink); }
+
+  tbody tr.ledger-row:hover { background: var(--teal-50); }
+
+  @media (prefers-reduced-motion: reduce) {
+    .funnel-fill { transition: none; }
+  }
+</style>
+</head>
+<body class="bg-[var(--canvas)] text-[var(--ink)] antialiased">
+
+  <div class="max-w-[1360px] mx-auto px-5 sm:px-8 py-8 lg:py-10">
+
+    <!-- Letterhead -->
+    <header class="flex flex-wrap items-end justify-between gap-6 border-b border-[var(--line)] pb-7 mb-7">
+      <div>
+        <h1 class="font-display text-[2rem] sm:text-[2.5rem] leading-none font-semibold tracking-tight text-[var(--ink)]">Sales pipeline report</h1>
+        <p class="mt-2 text-[15px] text-[var(--slate)]">Q4 2026, October 1 through December 31. Generated November 7, 2026.</p>
+      </div>
+      <div class="flex items-center gap-3">
+        <button id="exportBtn" type="button"
+          class="font-display text-sm font-semibold bg-[var(--ink)] text-white px-4 py-2.5 rounded hover:bg-[var(--teal-700)] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--teal-600)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--canvas)]">
+          Export CSV
+        </button>
+      </div>
+    </header>
+
+    <!-- KPI ledger strip -->
+    <section aria-label="Quarter summary" class="mb-7 bg-[var(--surface)] border border-[var(--line)] rounded">
+      <div class="grid grid-cols-2 sm:grid-cols-5 divide-y sm:divide-y-0 divide-x-0 sm:divide-x divide-[var(--line)]">
+        <div class="px-5 py-5 border-b sm:border-b-0 border-[var(--line)]">
+          <p id="kpiOpenValue" class="font-display tabular-nums text-[1.8rem] font-semibold text-[var(--ink)]">$0</p>
+          <p class="mt-1 text-sm text-[var(--slate)]">Open pipeline value</p>
+        </div>
+        <div class="px-5 py-5 border-b sm:border-b-0 border-[var(--line)]">
+          <p id="kpiWeighted" class="font-display tabular-nums text-[1.8rem] font-semibold text-[var(--teal-600)]">$0</p>
+          <p class="mt-1 text-sm text-[var(--slate)]">Weighted forecast</p>
+        </div>
+        <div class="px-5 py-5 border-b sm:border-b-0 border-[var(--line)]">
+          <p id="kpiWinRate" class="font-display tabular-nums text-[1.8rem] font-semibold text-[var(--ink)]">0%</p>
+          <p class="mt-1 text-sm text-[var(--slate)]">Win rate this quarter</p>
+        </div>
+        <div class="px-5 py-5 border-b sm:border-b-0 border-[var(--line)]">
+          <p id="kpiOpenCount" class="font-display tabular-nums text-[1.8rem] font-semibold text-[var(--ink)]">0</p>
+          <p id="kpiStalledNote" class="mt-1 text-sm text-[var(--slate)]">&nbsp;</p>
+        </div>
+        <div class="px-5 py-5">
+          <p id="kpiAvgDeal" class="font-display tabular-nums text-[1.8rem] font-semibold text-[var(--ink)]">$0</p>
+          <p class="mt-1 text-sm text-[var(--slate)]">Average deal size</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- Filters -->
+    <section aria-label="Filters" class="mb-7 flex flex-wrap items-end gap-4 bg-[var(--surface)] border border-[var(--line)] rounded px-5 py-4">
+      <div class="flex flex-col gap-1">
+        <label for="filterRep" class="text-sm text-[var(--slate)]">Salesperson</label>
+        <select id="filterRep" class="border border-[var(--line)] rounded pl-3 pr-8 py-2 text-sm bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--teal-600)]">
+          <option value="">All salespeople</option>
+          <option>Maya Chen</option>
+          <option>Derek Osei</option>
+          <option>Priya Nair</option>
+          <option>Jon Castellano</option>
+          <option>Sofia Marchetti</option>
+          <option>Ben Okafor</option>
+        </select>
+      </div>
+      <div class="flex flex-col gap-1">
+        <label for="filterStage" class="text-sm text-[var(--slate)]">Stage</label>
+        <select id="filterStage" class="border border-[var(--line)] rounded pl-3 pr-8 py-2 text-sm bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--teal-600)]">
+          <option value="">All stages</option>
+          <option>Qualification</option>
+          <option>Discovery</option>
+          <option>Proposal</option>
+          <option>Negotiation</option>
+          <option>Closed Won</option>
+          <option>Closed Lost</option>
+        </select>
+      </div>
+      <div class="flex flex-col gap-1 flex-1 min-w-[180px]">
+        <label for="filterSearch" class="text-sm text-[var(--slate)]">Search company</label>
+        <input id="filterSearch" type="text" placeholder="Type a company name"
+          class="border border-[var(--line)] rounded px-3 py-2 text-sm bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--teal-600)]">
+      </div>
+      <button id="clearFiltersBtn" type="button"
+        class="hidden text-sm font-medium text-[var(--teal-600)] hover:text-[var(--teal-700)] underline underline-offset-2 pb-2.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--teal-600)] rounded">
+        Clear filters
+      </button>
+    </section>
+
+    <!-- Two column: stage + salesperson -->
+    <section class="grid grid-cols-1 lg:grid-cols-[1.15fr_1fr] gap-6 mb-7">
+
+      <div class="bg-[var(--surface)] border border-[var(--line)] rounded p-5">
+        <h2 class="font-display text-lg font-semibold mb-1">Pipeline by stage</h2>
+        <p class="text-sm text-[var(--slate)] mb-5">Open opportunities, grouped by where they sit in the process.</p>
+        <div id="funnelWrap" class="space-y-4"></div>
+        <p id="funnelEmpty" class="hidden text-sm text-[var(--slate)] mt-2">No open deals match these filters.</p>
+      </div>
+
+      <div class="bg-[var(--surface)] border border-[var(--line)] rounded p-5">
+        <h2 class="font-display text-lg font-semibold mb-1">Pipeline by salesperson</h2>
+        <p class="text-sm text-[var(--slate)] mb-5">Open value and quarter win rate per rep.</p>
+        <div class="overflow-x-auto">
+          <table class="w-full text-sm">
+            <thead>
+              <tr class="text-left text-[var(--slate)] border-b border-[var(--line)]">
+                <th class="py-2 pr-3 font-medium">Rep</th>
+                <th class="py-2 pr-3 font-medium text-right">Deals</th>
+                <th class="py-2 pr-3 font-medium text-right">Pipeline</th>
+                <th class="py-2 pr-3 font-medium text-right">Weighted</th>
+                <th class="py-2 pl-3 font-medium text-right">Win rate</th>
+              </tr>
+            </thead>
+            <tbody id="repTableBody"></tbody>
+          </table>
+        </div>
+        <p id="repEmpty" class="hidden text-sm text-[var(--slate)] mt-2">No deals match these filters.</p>
+      </div>
+
+    </section>
+
+    <!-- Deal ledger -->
+    <section class="bg-[var(--surface)] border border-[var(--line)] rounded p-5 mb-6">
+      <div class="flex flex-wrap items-baseline justify-between gap-2 mb-5">
+        <div>
+          <h2 class="font-display text-lg font-semibold mb-1">Deal ledger</h2>
+          <p class="text-sm text-[var(--slate)]">Every tracked opportunity. Click a column to sort.</p>
+        </div>
+        <p id="ledgerCount" class="text-sm text-[var(--slate)]"></p>
+      </div>
+      <div class="overflow-x-auto">
+        <table class="w-full text-sm min-w-[820px]">
+          <thead>
+            <tr class="text-left text-[var(--slate)] border-b border-[var(--line)]" id="ledgerHead">
+              <th data-sort="deal" class="py-2 pr-3 font-medium"><span class="th-label">Deal</span></th>
+              <th data-sort="rep" class="py-2 pr-3 font-medium"><span class="th-label">Salesperson</span></th>
+              <th data-sort="stage" class="py-2 pr-3 font-medium"><span class="th-label">Stage</span></th>
+              <th data-sort="amount" class="py-2 pr-3 font-medium text-right"><span class="th-label">Amount</span></th>
+              <th data-sort="weighted" class="py-2 pr-3 font-medium text-right"><span class="th-label">Weighted</span></th>
+              <th data-sort="close" class="py-2 pr-3 font-medium"><span class="th-label">Expected close</span></th>
+              <th data-sort="status" class="py-2 pl-3 font-medium"><span class="th-label">Status</span></th>
+            </tr>
+          </thead>
+          <tbody id="ledgerBody"></tbody>
+        </table>
+      </div>
+      <div id="ledgerEmpty" class="hidden text-center py-10">
+        <p class="text-[var(--ink)] font-medium">No deals match these filters.</p>
+        <p class="text-sm text-[var(--slate)] mt-1">Clear a filter to see more of the pipeline.</p>
+      </div>
+    </section>
+
+    <!-- Methodology footnote -->
+    <footer class="text-sm text-[var(--slate-soft)] border-t border-[var(--line)] pt-5 pb-2 max-w-[640px]">
+      Weighted value is the deal amount multiplied by its stage's win probability: Qualification 10%, Discovery 25%, Proposal 50%, Negotiation 75%. Win rate counts deals closed won or lost during Q4 2026. A deal is flagged stalled after 14 days with no logged activity.
+    </footer>
+
+  </div>
+
+<script>
+  const REPS = ["Maya Chen", "Derek Osei", "Priya Nair", "Jon Castellano", "Sofia Marchetti", "Ben Okafor"];
+
+  const STAGE_ORDER = ["Qualification", "Discovery", "Proposal", "Negotiation", "Closed Won", "Closed Lost"];
+  const OPEN_STAGES = ["Qualification", "Discovery", "Proposal", "Negotiation"];
+  const STAGE_PROB = { "Qualification": 0.10, "Discovery": 0.25, "Proposal": 0.50, "Negotiation": 0.75, "Closed Won": 1, "Closed Lost": 0 };
+  const STAGE_FILL = { "Qualification": "#C9E4E2", "Discovery": "#8FC6C2", "Proposal": "#4FA6A3", "Negotiation": "#0A5F66" };
+
+  const TODAY = new Date("2026-11-07T00:00:00");
+
+  const DEALS = [
+    { id: 1, company: "Ironclad Logistics", type: "New Business", rep: "Maya Chen", stage: "Qualification", amount: 42000, close: "2026-12-15", activity: "2026-11-05" },
+    { id: 2, company: "Bluepeak Analytics", type: "Platform Upgrade", rep: "Derek Osei", stage: "Discovery", amount: 68000, close: "2026-11-30", activity: "2026-11-04" },
+    { id: 3, company: "Nimbus Health Systems", type: "Enterprise Rollout", rep: "Priya Nair", stage: "Proposal", amount: 155000, close: "2026-11-20", activity: "2026-11-06" },
+    { id: 4, company: "Fernwood Capital", type: "Renewal", rep: "Jon Castellano", stage: "Negotiation", amount: 96000, close: "2026-11-14", activity: "2026-11-06" },
+    { id: 5, company: "Larkspur Robotics", type: "New Business", rep: "Sofia Marchetti", stage: "Qualification", amount: 28000, close: "2026-12-20", activity: "2026-10-30" },
+    { id: 6, company: "Haldane Industrial", type: "Expansion", rep: "Ben Okafor", stage: "Discovery", amount: 54000, close: "2026-12-05", activity: "2026-11-01" },
+    { id: 7, company: "Quillon Media Group", type: "New Business", rep: "Maya Chen", stage: "Closed Won", amount: 37000, close: "2026-10-22", activity: "2026-10-22" },
+    { id: 8, company: "Birchwood Insurance", type: "Platform Migration", rep: "Derek Osei", stage: "Proposal", amount: 112000, close: "2026-12-10", activity: "2026-11-03" },
+    { id: 9, company: "Delta Fabrication", type: "New Business", rep: "Priya Nair", stage: "Negotiation", amount: 84000, close: "2026-11-18", activity: "2026-11-05" },
+    { id: 10, company: "Crestline Retail", type: "Pilot Conversion", rep: "Jon Castellano", stage: "Qualification", amount: 19000, close: "2026-12-28", activity: "2026-10-19" },
+    { id: 11, company: "Palisade Energy", type: "Multi-year Renewal", rep: "Sofia Marchetti", stage: "Closed Won", amount: 210000, close: "2026-10-30", activity: "2026-10-30" },
+    { id: 12, company: "Windham Legal Partners", type: "New Business", rep: "Ben Okafor", stage: "Discovery", amount: 46000, close: "2026-12-08", activity: "2026-11-02" },
+    { id: 13, company: "Thorncrest Biotech", type: "Enterprise Upgrade", rep: "Maya Chen", stage: "Proposal", amount: 178000, close: "2026-12-02", activity: "2026-11-06" },
+    { id: 14, company: "Granite Peak Manufacturing", type: "New Business", rep: "Derek Osei", stage: "Qualification", amount: 33000, close: "2026-12-18", activity: "2026-10-25" },
+    { id: 15, company: "Solace Wellness", type: "Add-on Seats", rep: "Priya Nair", stage: "Closed Lost", amount: 15000, close: "2026-10-15", activity: "2026-10-15" },
+    { id: 16, company: "Marrow Studios", type: "New Business", rep: "Jon Castellano", stage: "Discovery", amount: 61000, close: "2026-11-28", activity: "2026-11-04" },
+    { id: 17, company: "Oakridge Financial", type: "Platform Upsell", rep: "Sofia Marchetti", stage: "Negotiation", amount: 132000, close: "2026-11-22", activity: "2026-11-05" },
+    { id: 18, company: "Vireo Telecom", type: "New Business", rep: "Ben Okafor", stage: "Qualification", amount: 24000, close: "2026-12-24", activity: "2026-09-28" },
+    { id: 19, company: "Stonegate Realty", type: "Expansion", rep: "Maya Chen", stage: "Proposal", amount: 89000, close: "2026-12-01", activity: "2026-10-20" },
+    { id: 20, company: "Copperline Industrial", type: "New Business", rep: "Derek Osei", stage: "Closed Won", amount: 58000, close: "2026-10-08", activity: "2026-10-08" },
+    { id: 21, company: "Fathom Data", type: "Pilot Conversion", rep: "Priya Nair", stage: "Discovery", amount: 41000, close: "2026-12-12", activity: "2026-11-01" },
+    { id: 22, company: "Brightwell Education", type: "New Business", rep: "Jon Castellano", stage: "Qualification", amount: 17000, close: "2026-12-30", activity: "2026-11-03" },
+    { id: 23, company: "Kestrel Aerospace", type: "Enterprise Rollout", rep: "Sofia Marchetti", stage: "Negotiation", amount: 221000, close: "2026-11-25", activity: "2026-11-06" },
+    { id: 24, company: "Harlow Consumer Goods", type: "New Business", rep: "Ben Okafor", stage: "Closed Lost", amount: 29000, close: "2026-10-26", activity: "2026-10-26" },
+    { id: 25, company: "Ironclad Logistics", type: "Expansion", rep: "Maya Chen", stage: "Proposal", amount: 72000, close: "2026-11-29", activity: "2026-10-22" },
+    { id: 26, company: "Bluepeak Analytics", type: "Add-on Seats", rep: "Derek Osei", stage: "Qualification", amount: 22000, close: "2026-12-22", activity: "2026-10-29" },
+    { id: 27, company: "Nimbus Health Systems", type: "Add-on Seats", rep: "Priya Nair", stage: "Discovery", amount: 36000, close: "2026-12-06", activity: "2026-11-02" },
+    { id: 28, company: "Fernwood Capital", type: "New Desk", rep: "Jon Castellano", stage: "Qualification", amount: 26000, close: "2026-12-19", activity: "2026-11-04" },
+    { id: 29, company: "Larkspur Robotics", type: "Expansion", rep: "Sofia Marchetti", stage: "Discovery", amount: 49000, close: "2026-11-27", activity: "2026-10-31" },
+    { id: 30, company: "Haldane Industrial", type: "Renewal", rep: "Ben Okafor", stage: "Closed Won", amount: 64000, close: "2026-10-12", activity: "2026-10-12" },
+    { id: 31, company: "Quillon Media Group", type: "Upsell", rep: "Maya Chen", stage: "Proposal", amount: 51000, close: "2026-12-04", activity: "2026-11-01" },
+    { id: 32, company: "Birchwood Insurance", type: "Add-on Seats", rep: "Derek Osei", stage: "Qualification", amount: 18000, close: "2026-12-27", activity: "2026-10-15" },
+    { id: 33, company: "Delta Fabrication", type: "Expansion", rep: "Priya Nair", stage: "Discovery", amount: 57000, close: "2026-11-26", activity: "2026-11-03" },
+    { id: 34, company: "Crestline Retail", type: "New Business", rep: "Jon Castellano", stage: "Negotiation", amount: 93000, close: "2026-11-16", activity: "2026-11-05" },
+    { id: 35, company: "Palisade Energy", type: "Add-on Seats", rep: "Sofia Marchetti", stage: "Closed Lost", amount: 21000, close: "2026-10-19", activity: "2026-10-19" },
+    { id: 36, company: "Windham Legal Partners", type: "Expansion", rep: "Ben Okafor", stage: "Proposal", amount: 66000, close: "2026-12-07", activity: "2026-11-02" },
+    { id: 37, company: "Thorncrest Biotech", type: "Pilot Conversion", rep: "Maya Chen", stage: "Qualification", amount: 31000, close: "2026-12-23", activity: "2026-11-06" },
+    { id: 38, company: "Granite Peak Manufacturing", type: "Multi-year Renewal", rep: "Derek Osei", stage: "Closed Won", amount: 142000, close: "2026-10-29", activity: "2026-10-29" },
+    { id: 39, company: "Marrow Studios", type: "Add-on Seats", rep: "Jon Castellano", stage: "Qualification", amount: 14000, close: "2026-12-29", activity: "2026-10-21" },
+    { id: 40, company: "Oakridge Financial", type: "New Desk", rep: "Sofia Marchetti", stage: "Discovery", amount: 39000, close: "2026-12-09", activity: "2026-11-04" },
+    { id: 41, company: "Vireo Telecom", type: "Expansion", rep: "Ben Okafor", stage: "Proposal", amount: 104000, close: "2026-11-21", activity: "2026-11-01" },
+    { id: 42, company: "Stonegate Realty", type: "New Business", rep: "Maya Chen", stage: "Qualification", amount: 23000, close: "2026-12-26", activity: "2026-11-05" },
+    { id: 43, company: "Fathom Data", type: "Upsell", rep: "Priya Nair", stage: "Negotiation", amount: 76000, close: "2026-11-19", activity: "2026-11-06" },
+    { id: 44, company: "Kestrel Aerospace", type: "Add-on Seats", rep: "Derek Osei", stage: "Closed Won", amount: 48000, close: "2026-10-17", activity: "2026-10-17" },
+    { id: 45, company: "Brightwell Education", type: "Expansion", rep: "Jon Castellano", stage: "Discovery", amount: 44000, close: "2026-12-11", activity: "2026-10-28" },
+  ];
+
+  const state = { rep: "", stage: "", q: "", sortKey: "amount", sortDir: "desc" };
+
+  const fmtUSD = (n) => "$" + Math.round(n).toLocaleString("en-US");
+  const fmtUSDCompact = (n) => new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", notation: "compact", maximumFractionDigits: 2 }).format(n);
+  const fmtPct = (n) => (Math.round(n * 1000) / 10) + "%";
+  const fmtDate = (s) => new Date(s + "T00:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric" });
+  const isOpen = (stage) => OPEN_STAGES.includes(stage);
+  const daysSince = (s) => Math.round((TODAY - new Date(s + "T00:00:00")) / 86400000);
+  const isStalled = (d) => isOpen(d.stage) && daysSince(d.activity) > 14;
+
+  function matchesBase(d) {
+    if (state.rep && d.rep !== state.rep) return false;
+    if (state.q && !d.company.toLowerCase().includes(state.q.toLowerCase())) return false;
+    return true;
+  }
+
+  function getFilteredPipeline() {
+    return DEALS.filter((d) => matchesBase(d) && (!state.stage || d.stage === state.stage));
+  }
+
+  function getFilteredForWinRate() {
+    return DEALS.filter((d) => matchesBase(d) && !isOpen(d.stage));
+  }
+
+  function computeKPIs(pipelineSet, winRateSet) {
+    const open = pipelineSet.filter((d) => isOpen(d.stage));
+    const openValue = open.reduce((s, d) => s + d.amount, 0);
+    const weighted = open.reduce((s, d) => s + d.amount * STAGE_PROB[d.stage], 0);
+    const won = winRateSet.filter((d) => d.stage === "Closed Won").length;
+    const lost = winRateSet.filter((d) => d.stage === "Closed Lost").length;
+    const winRate = won + lost > 0 ? won / (won + lost) : 0;
+    const stalled = open.filter(isStalled).length;
+    return {
+      openValue,
+      weighted,
+      winRate,
+      openCount: open.length,
+      avgDeal: open.length ? openValue / open.length : 0,
+      stalled,
+    };
+  }
+
+  function renderKPIs(k) {
+    document.getElementById("kpiOpenValue").textContent = fmtUSDCompact(k.openValue);
+    document.getElementById("kpiWeighted").textContent = fmtUSDCompact(k.weighted);
+    document.getElementById("kpiWinRate").textContent = fmtPct(k.winRate);
+    document.getElementById("kpiOpenCount").textContent = k.openCount;
+    document.getElementById("kpiAvgDeal").textContent = fmtUSDCompact(k.avgDeal);
+    const note = document.getElementById("kpiStalledNote");
+    if (k.stalled > 0) {
+      note.textContent = k.stalled + (k.stalled === 1 ? " deal stalled 14+ days" : " deals stalled 14+ days");
+      note.className = "mt-1 text-sm text-[var(--amber)] font-medium";
+    } else {
+      note.textContent = "No deals stalled";
+      note.className = "mt-1 text-sm text-[var(--slate)]";
+    }
+  }
+
+  function renderFunnel(pipelineSet) {
+    const open = pipelineSet.filter((d) => isOpen(d.stage));
+    const rows = OPEN_STAGES.map((stage) => {
+      const deals = open.filter((d) => d.stage === stage);
+      const value = deals.reduce((s, d) => s + d.amount, 0);
+      return { stage, count: deals.length, value };
+    });
+    const max = Math.max(1, ...rows.map((r) => r.value));
+    const wrap = document.getElementById("funnelWrap");
+    const totalValue = rows.reduce((s, r) => s + r.value, 0);
+    document.getElementById("funnelEmpty").classList.toggle("hidden", totalValue > 0);
+    wrap.innerHTML = rows.map((r) => {
+      const pct = Math.max(2, (r.value / max) * 100);
+      return `
+        <div>
+          <div class="flex items-baseline justify-between text-sm mb-1.5">
+            <span class="font-medium text-[var(--ink)]">${r.stage}</span>
+            <span class="text-[var(--slate)] tabular-nums">${r.count} deal${r.count === 1 ? "" : "s"} &middot; ${fmtUSDCompact(r.value)}</span>
+          </div>
+          <div class="h-2.5 rounded-sm bg-[var(--line-soft)] overflow-hidden">
+            <div class="funnel-fill h-full rounded-sm" style="--target-width:${pct}%; background:${STAGE_FILL[r.stage]};"></div>
+          </div>
+        </div>`;
+    }).join("");
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        wrap.querySelectorAll(".funnel-fill").forEach((el) => el.classList.add("is-ready"));
+      });
+    });
+  }
+
+  function renderReps(pipelineSet, winRateSet) {
+    const open = pipelineSet.filter((d) => isOpen(d.stage));
+    const repsInView = REPS.filter((r) => open.some((d) => d.rep === r) || winRateSet.some((d) => d.rep === r));
+    const rows = repsInView.map((rep) => {
+      const repOpen = open.filter((d) => d.rep === rep);
+      const value = repOpen.reduce((s, d) => s + d.amount, 0);
+      const weighted = repOpen.reduce((s, d) => s + d.amount * STAGE_PROB[d.stage], 0);
+      const won = winRateSet.filter((d) => d.rep === rep && d.stage === "Closed Won").length;
+      const lost = winRateSet.filter((d) => d.rep === rep && d.stage === "Closed Lost").length;
+      const winRate = won + lost > 0 ? won / (won + lost) : null;
+      return { rep, count: repOpen.length, value, weighted, winRate };
+    }).sort((a, b) => b.value - a.value);
+
+    const maxValue = Math.max(1, ...rows.map((r) => r.value));
+    const body = document.getElementById("repTableBody");
+    document.getElementById("repEmpty").classList.toggle("hidden", rows.length > 0);
+    body.innerHTML = rows.map((r) => {
+      const pct = r.value > 0 ? Math.max(3, (r.value / maxValue) * 100) : 0;
+      return `
+        <tr class="border-b border-[var(--line-soft)] last:border-0">
+          <td class="py-2.5 pr-3 relative">
+            <div class="rep-fill absolute inset-y-0 left-0 bg-[var(--teal-50)]" style="--target-width:${pct}%;"></div>
+            <span class="relative font-medium">${r.rep}</span>
+          </td>
+          <td class="py-2.5 pr-3 text-right tabular-nums text-[var(--slate)]">${r.count}</td>
+          <td class="py-2.5 pr-3 text-right tabular-nums">${fmtUSD(r.value)}</td>
+          <td class="py-2.5 pr-3 text-right tabular-nums text-[var(--teal-600)]">${fmtUSD(r.weighted)}</td>
+          <td class="py-2.5 pl-3 text-right tabular-nums">${r.winRate === null ? "—" : fmtPct(r.winRate)}</td>
+        </tr>`;
+    }).join("");
+  }
+
+  function sortRows(rows) {
+    const { sortKey, sortDir } = state;
+    const dir = sortDir === "asc" ? 1 : -1;
+    const value = (d) => {
+      switch (sortKey) {
+        case "deal": return d.company + " " + d.type;
+        case "rep": return d.rep;
+        case "stage": return STAGE_ORDER.indexOf(d.stage);
+        case "amount": return d.amount;
+        case "weighted": return d.amount * STAGE_PROB[d.stage];
+        case "close": return d.close;
+        case "status": return isOpen(d.stage) ? (isStalled(d) ? 0 : 1) : 2;
+        default: return 0;
+      }
+    };
+    return [...rows].sort((a, b) => {
+      const va = value(a), vb = value(b);
+      if (va < vb) return -1 * dir;
+      if (va > vb) return 1 * dir;
+      return 0;
+    });
+  }
+
+  function statusBadge(d) {
+    if (d.stage === "Closed Won") return `<span class="text-[var(--teal-700)] font-medium">Won</span>`;
+    if (d.stage === "Closed Lost") return `<span class="text-[var(--brick)] font-medium">Lost</span>`;
+    if (isStalled(d)) return `<span class="text-[var(--amber)] font-medium">Stalled, ${daysSince(d.activity)}d</span>`;
+    return `<span class="text-[var(--slate)]">On track</span>`;
+  }
+
+  function renderLedgerHead() {
+    document.querySelectorAll("#ledgerHead th").forEach((th) => {
+      const key = th.dataset.sort;
+      const label = th.querySelector(".th-label");
+      const base = label.textContent.replace(/ ▲| ▼/g, "");
+      if (key === state.sortKey) {
+        label.textContent = base + (state.sortDir === "asc" ? " ▲" : " ▼");
+        th.classList.add("text-[var(--ink)]");
+      } else {
+        label.textContent = base;
+        th.classList.remove("text-[var(--ink)]");
+      }
+    });
+  }
+
+  function renderLedger(pipelineSet) {
+    const rows = sortRows(pipelineSet);
+    const body = document.getElementById("ledgerBody");
+    document.getElementById("ledgerEmpty").classList.toggle("hidden", rows.length > 0);
+    document.getElementById("ledgerCount").textContent = rows.length + (rows.length === 1 ? " deal" : " deals") + " shown";
+    body.innerHTML = rows.map((d) => `
+      <tr class="ledger-row border-b border-[var(--line-soft)] last:border-0">
+        <td class="py-2.5 pr-3">
+          <div class="font-medium">${d.company}</div>
+          <div class="text-[var(--slate)] text-xs mt-0.5">${d.type}</div>
+        </td>
+        <td class="py-2.5 pr-3 text-[var(--slate)]">${d.rep}</td>
+        <td class="py-2.5 pr-3 text-[var(--slate)]">${d.stage}</td>
+        <td class="py-2.5 pr-3 text-right tabular-nums">${fmtUSD(d.amount)}</td>
+        <td class="py-2.5 pr-3 text-right tabular-nums text-[var(--teal-600)]">${fmtUSD(d.amount * STAGE_PROB[d.stage])}</td>
+        <td class="py-2.5 pr-3 text-[var(--slate)] tabular-nums">${fmtDate(d.close)}</td>
+        <td class="py-2.5 pl-3">${statusBadge(d)}</td>
+      </tr>`).join("");
+    renderLedgerHead();
+  }
+
+  function renderAll() {
+    const pipelineSet = getFilteredPipeline();
+    const winRateSet = getFilteredForWinRate();
+    renderKPIs(computeKPIs(pipelineSet, winRateSet));
+    renderFunnel(pipelineSet);
+    renderReps(pipelineSet, winRateSet);
+    renderLedger(pipelineSet);
+
+    const anyFilter = state.rep || state.stage || state.q;
+    document.getElementById("clearFiltersBtn").classList.toggle("hidden", !anyFilter);
+  }
+
+  function exportCSV() {
+    const rows = sortRows(getFilteredPipeline());
+    const header = ["Company", "Deal Type", "Salesperson", "Stage", "Amount", "Probability", "Weighted Value", "Expected Close", "Last Activity", "Status"];
+    const lines = [header];
+    rows.forEach((d) => {
+      const status = d.stage === "Closed Won" ? "Won" : d.stage === "Closed Lost" ? "Lost" : isStalled(d) ? `Stalled ${daysSince(d.activity)}d` : "On track";
+      lines.push([
+        d.company, d.type, d.rep, d.stage, d.amount,
+        STAGE_PROB[d.stage], Math.round(d.amount * STAGE_PROB[d.stage]),
+        d.close, d.activity, status,
+      ]);
+    });
+    const csv = lines.map((row) => row.map((v) => `"${String(v).replace(/"/g, '""')}"`).join(",")).join("\r\n");
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "sales-pipeline-q4-2026.csv";
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }
+
+  document.getElementById("filterRep").addEventListener("change", (e) => { state.rep = e.target.value; renderAll(); });
+  document.getElementById("filterStage").addEventListener("change", (e) => { state.stage = e.target.value; renderAll(); });
+  document.getElementById("filterSearch").addEventListener("input", (e) => { state.q = e.target.value; renderAll(); });
+  document.getElementById("clearFiltersBtn").addEventListener("click", () => {
+    state.rep = ""; state.stage = ""; state.q = "";
+    document.getElementById("filterRep").value = "";
+    document.getElementById("filterStage").value = "";
+    document.getElementById("filterSearch").value = "";
+    renderAll();
+  });
+  document.getElementById("exportBtn").addEventListener("click", exportCSV);
+  document.getElementById("ledgerHead").addEventListener("click", (e) => {
+    const th = e.target.closest("th[data-sort]");
+    if (!th) return;
+    const key = th.dataset.sort;
+    if (state.sortKey === key) {
+      state.sortDir = state.sortDir === "asc" ? "desc" : "asc";
+    } else {
+      state.sortKey = key;
+      state.sortDir = "asc";
+    }
+    renderLedger(getFilteredPipeline());
+  });
+
+  renderAll();
+</script>
+</body>
+</html>

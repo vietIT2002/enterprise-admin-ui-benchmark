@@ -1,0 +1,659 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Pipeline bán hàng · CRM Nexus</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+  [hidden] { display: none !important; }
+  .tnum { font-variant-numeric: tabular-nums; }
+  @page { size: A4 landscape; margin: 12mm 10mm 14mm; }
+  @media print {
+    html, body { background: #fff; }
+    aside, nav, button, input, select, .no-print, #toast, #backdrop, #confirm, #more-panel, #menu { display: none !important; }
+    main { padding: 0 !important; margin: 0 !important; max-width: none !important; }
+    table { border-collapse: collapse; width: 100%; }
+    thead { display: table-header-group; }
+    tfoot { display: table-row-group; }
+    tr { break-inside: avoid; }
+    h1, h2 { break-after: avoid; }
+    * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  }
+</style>
+</head>
+<body class="bg-white text-sm text-slate-900 antialiased">
+<div class="flex min-h-screen">
+  <aside class="w-56 shrink-0 border-r border-slate-200 bg-slate-50 no-print">
+    <div class="flex h-12 items-center px-4 font-semibold">CRM Nexus</div>
+    <nav aria-label="Điều hướng chính" class="px-2 pb-4">
+      <p class="px-2 pb-1 pt-3 text-xs font-medium text-slate-600">Bán hàng</p>
+      <a href="#" class="flex h-8 items-center rounded px-2 text-slate-700 hover:bg-slate-100">Cơ hội</a>
+      <a href="#" class="flex h-8 items-center rounded px-2 text-slate-700 hover:bg-slate-100">Khách hàng</a>
+      <a href="#" aria-current="page" class="flex h-8 items-center rounded bg-slate-200 px-2 font-medium">Báo cáo</a>
+      <p class="px-2 pb-1 pt-3 text-xs font-medium text-slate-600">Hệ thống</p>
+      <a href="#" class="flex h-8 items-center rounded px-2 text-slate-700 hover:bg-slate-100">Người dùng</a>
+      <a href="#" class="flex h-8 items-center rounded px-2 text-slate-700 hover:bg-slate-100">Cài đặt</a>
+    </nav>
+  </aside>
+
+  <main class="min-w-0 flex-1 px-6 py-4">
+    <nav aria-label="Breadcrumb" class="text-xs text-slate-600 no-print">
+      <ol class="flex items-center gap-1">
+        <li><a href="#" class="hover:underline">CRM Nexus</a></li>
+        <li aria-hidden="true">/</li>
+        <li><a href="#" class="hover:underline">Báo cáo</a></li>
+        <li aria-hidden="true">/</li>
+        <li class="text-slate-900">Pipeline bán hàng</li>
+      </ol>
+    </nav>
+
+    <header class="mt-1 flex items-start justify-between gap-4">
+      <div>
+        <h1 class="text-xl font-semibold" id="report-title">Pipeline bán hàng · <span id="period-label">Quý 4/2026</span></h1>
+        <p class="mt-1 text-slate-600" id="basis-line">Số tiền tính bằng VND, theo cơ hội đang mở dự kiến chốt trong kỳ đã chọn · Cập nhật <span id="updated-at" class="tnum"></span></p>
+      </div>
+      <div class="flex shrink-0 items-center gap-2 no-print">
+        <button type="button" id="btn-print" class="h-8 rounded border border-slate-300 bg-white px-3 hover:bg-slate-50">In báo cáo</button>
+        <button type="button" id="btn-export" class="h-8 rounded bg-blue-700 px-3 font-medium text-white hover:bg-blue-800">Xuất <span id="export-count" class="tnum">0</span> cơ hội</button>
+      </div>
+    </header>
+
+    <!-- Filters -->
+    <div class="mt-4 flex flex-wrap items-center gap-2 no-print" role="group" aria-label="Kỳ báo cáo">
+      <div class="flex h-8 items-center rounded border border-slate-300 bg-white p-0.5" id="period-tabs"></div>
+      <div id="custom-range" hidden class="flex items-center gap-1">
+        <label class="sr-only" for="date-from">Từ ngày</label>
+        <input type="date" id="date-from" class="h-8 rounded border border-slate-300 px-2">
+        <span class="text-slate-500">–</span>
+        <label class="sr-only" for="date-to">Đến ngày</label>
+        <input type="date" id="date-to" class="h-8 rounded border border-slate-300 px-2">
+      </div>
+    </div>
+
+    <div class="mt-2 flex flex-wrap items-center gap-2">
+      <label class="sr-only" for="q">Tìm cơ hội theo tên hoặc khách hàng</label>
+      <input type="search" id="q" aria-label="Tìm cơ hội theo tên hoặc khách hàng" placeholder="Tìm tên cơ hội, khách hàng" class="h-8 w-72 rounded border border-slate-300 px-2 no-print">
+
+      <div class="relative no-print">
+        <button type="button" id="btn-rep" aria-haspopup="listbox" aria-expanded="false" class="h-8 rounded border border-slate-300 bg-white px-3 hover:bg-slate-50">Nhân viên: <span id="rep-trigger-label">Tất cả</span></button>
+        <div id="rep-panel" role="listbox" aria-label="Lọc theo nhân viên kinh doanh" aria-multiselectable="true" hidden class="absolute z-20 mt-1 w-64 max-h-72 overflow-y-auto rounded-md border border-slate-200 bg-white p-2 shadow-md"></div>
+      </div>
+
+      <div class="relative no-print">
+        <button type="button" id="btn-stage" aria-haspopup="listbox" aria-expanded="false" class="h-8 rounded border border-slate-300 bg-white px-3 hover:bg-slate-50">Giai đoạn: <span id="stage-trigger-label">Tất cả</span></button>
+        <div id="stage-panel" role="listbox" aria-label="Lọc theo giai đoạn" aria-multiselectable="true" hidden class="absolute z-20 mt-1 w-64 max-h-72 overflow-y-auto rounded-md border border-slate-200 bg-white p-2 shadow-md"></div>
+      </div>
+
+      <div class="relative no-print">
+        <button type="button" id="btn-more" class="h-8 rounded border border-slate-300 bg-white px-3 hover:bg-slate-50">Thêm bộ lọc</button>
+        <div id="more-panel" hidden class="absolute z-20 mt-1 w-80 rounded-md border border-slate-200 bg-white p-3 shadow-md">
+          <div class="grid gap-3">
+            <div>
+              <label class="block text-xs font-medium text-slate-700" for="f-source">Nguồn cơ hội</label>
+              <select id="f-source" class="mt-1 h-8 w-full rounded border border-slate-300 bg-white px-2">
+                <option value="">Tất cả nguồn</option>
+              </select>
+            </div>
+            <div class="flex items-end gap-2">
+              <div class="flex-1">
+                <label class="block text-xs font-medium text-slate-700" for="f-value-min">Giá trị từ (₫)</label>
+                <input type="number" min="0" step="1000000" id="f-value-min" class="mt-1 h-8 w-full rounded border border-slate-300 px-2">
+              </div>
+              <div class="flex-1">
+                <label class="block text-xs font-medium text-slate-700" for="f-value-max">Đến (₫)</label>
+                <input type="number" min="0" step="1000000" id="f-value-max" class="mt-1 h-8 w-full rounded border border-slate-300 px-2">
+              </div>
+            </div>
+          </div>
+          <div class="mt-3 flex justify-between border-t border-slate-200 pt-3">
+            <button type="button" id="more-reset" class="h-8 rounded border border-slate-300 bg-white px-3 hover:bg-slate-50">Đặt lại</button>
+            <button type="button" id="more-apply" class="h-8 rounded bg-blue-700 px-3 font-medium text-white hover:bg-blue-800">Áp dụng</button>
+          </div>
+        </div>
+      </div>
+
+      <div id="chips" class="flex flex-wrap items-center gap-1"></div>
+    </div>
+
+    <!-- View switch + summary -->
+    <div class="mt-3 flex flex-wrap items-center justify-between gap-2">
+      <div class="flex h-8 items-center rounded border border-slate-300 bg-white p-0.5 no-print" role="group" aria-label="Xem theo">
+        <button type="button" data-view="rep" aria-pressed="true" class="h-7 rounded px-3 text-slate-700">Theo nhân viên kinh doanh</button>
+        <button type="button" data-view="stage" aria-pressed="false" class="h-7 rounded px-3 text-slate-700">Theo giai đoạn</button>
+      </div>
+    </div>
+
+    <p class="mt-3 text-slate-600" data-result-count>
+      <span id="result-count" class="tnum">0</span> cơ hội đang mở ·
+      Giá trị pipeline <span id="result-value" class="tnum"></span> ·
+      Dự báo có trọng số <span id="result-weighted" class="tnum"></span> ·
+      Tỷ lệ thắng (kỳ này) <span id="result-winrate" class="tnum"></span>
+    </p>
+    <p id="live-count" role="status" class="sr-only"></p>
+
+    <section data-region="pipeline" class="mt-2" aria-label="Pipeline cơ hội">
+      <div data-state="ready" class="overflow-x-auto rounded-md border border-slate-200">
+        <table class="w-full border-collapse">
+          <caption class="sr-only">Cơ hội đang mở theo nhân viên kinh doanh và giai đoạn</caption>
+          <thead class="bg-slate-50 text-slate-700">
+            <tr class="h-10 border-b border-slate-200">
+              <th scope="col" class="px-3 text-left font-medium" data-col="name"><button type="button" data-sort="name">Tên</button></th>
+              <th scope="col" class="px-3 text-left font-medium" id="th-dim">Giai đoạn</th>
+              <th scope="col" class="px-3 text-left font-medium">Khách hàng</th>
+              <th scope="col" class="px-3 text-left font-medium">Dự kiến chốt</th>
+              <th scope="col" class="px-3 text-right font-medium" data-col="count"><button type="button" data-sort="count" class="w-full text-right">Số cơ hội</button></th>
+              <th scope="col" class="px-3 text-right font-medium" data-col="value"><button type="button" data-sort="value" class="w-full text-right">Giá trị (₫)</button></th>
+              <th scope="col" class="px-3 text-right font-medium" data-col="weighted"><button type="button" data-sort="weighted" class="w-full text-right">Có trọng số (₫)</button></th>
+              <th scope="col" class="px-3 text-right font-medium" data-col="share"><button type="button" data-sort="share" class="w-full text-right">Tỷ trọng</button></th>
+              <th scope="col" class="px-3 text-right font-medium" data-col="winrate"><button type="button" data-sort="winrate" class="w-full text-right">Tỷ lệ thắng (kỳ)</button></th>
+            </tr>
+          </thead>
+          <tbody id="rows"></tbody>
+          <tfoot id="tfoot"></tfoot>
+        </table>
+      </div>
+      <div data-state="empty" hidden class="rounded-md border border-dashed border-slate-300 px-6 py-10 text-center">
+        <p class="font-medium" id="empty-title">Không có cơ hội nào khớp với các bộ lọc này</p>
+        <p class="mt-1 text-slate-600" id="empty-text">Hãy kiểm tra chính tả, mở rộng kỳ báo cáo hoặc bỏ một vài bộ lọc.</p>
+        <button type="button" id="empty-action" class="mt-3 h-8 rounded border border-slate-300 bg-white px-3 hover:bg-slate-50">Xóa bộ lọc</button>
+      </div>
+      <div data-state="loading" aria-busy="true" hidden class="rounded-md border border-slate-200" aria-label="Đang tải pipeline">
+        <div class="h-10 border-b border-slate-200 bg-slate-50"></div>
+        <div id="skeleton"></div>
+      </div>
+      <div data-state="error" hidden class="rounded-md border border-red-200 bg-red-50 px-4 py-3 text-red-800" role="alert">
+        <p class="font-medium">Không thể tải dữ liệu pipeline.</p>
+        <p class="mt-1">Kiểm tra kết nối mạng, sau đó thử lại.</p>
+        <button type="button" id="retry" class="mt-2 h-8 rounded border border-red-300 bg-white px-3 text-red-800 hover:bg-red-100">Thử lại</button>
+      </div>
+    </section>
+    <p class="mt-2 text-xs text-slate-500 no-print">Nhấp vào một dòng để xem danh sách cơ hội chi tiết. Xuất file tải đúng dữ liệu đang hiển thị theo bộ lọc hiện tại.</p>
+  </main>
+</div>
+
+<div id="backdrop" hidden class="fixed inset-0 z-30 bg-slate-900/40"></div>
+<div id="toast" role="status" aria-live="polite" class="fixed bottom-4 right-4 z-50"></div>
+
+<script>
+(function () {
+  const LOCALE = 'vi-VN';
+  const TIME_ZONE = 'Asia/Ho_Chi_Minh';
+  const $ = (id) => document.getElementById(id);
+
+  // ---------- formatters ----------
+  const nfAmount0 = new Intl.NumberFormat(LOCALE, { maximumFractionDigits: 0 });
+  const nfCount = new Intl.NumberFormat(LOCALE);
+  const nfPercent1 = new Intl.NumberFormat(LOCALE, { style: 'percent', maximumFractionDigits: 1 });
+  const fmtAmount = (n) => nfAmount0.format(Math.round(n));
+  const fmtMoney = (n) => fmtAmount(n) + ' ₫';
+  const fmtCount = (n) => nfCount.format(n);
+  const fmtPercent = (n) => nfPercent1.format(n);
+  const fmtEmpty = () => '—';
+  const fmtDate = (iso) => new Intl.DateTimeFormat(LOCALE, { day: '2-digit', month: '2-digit', year: 'numeric' }).format(new Date(iso + 'T00:00:00'));
+  const fmtDateTime = (d) => {
+    const date = new Intl.DateTimeFormat(LOCALE, { day: '2-digit', month: '2-digit', year: 'numeric', timeZone: TIME_ZONE }).format(d);
+    const time = new Intl.DateTimeFormat(LOCALE, { hour: '2-digit', minute: '2-digit', hourCycle: 'h23', timeZone: TIME_ZONE }).format(d);
+    return date + ' ' + time;
+  };
+  const foldVi = (s) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/đ/g, 'd').replace(/Đ/g, 'D').toLowerCase();
+  const toISO = (d) => d.toISOString().slice(0, 10);
+  const addDays = (d, n) => { const r = new Date(d); r.setDate(r.getDate() + n); return r; };
+
+  // ---------- seeded RNG (stable mock data across reloads) ----------
+  function mulberry32(seed) {
+    return function () {
+      seed |= 0; seed = (seed + 0x6D2B79F5) | 0;
+      let t = Math.imul(seed ^ (seed >>> 15), 1 | seed);
+      t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+  }
+  const rnd = mulberry32(20261107);
+  const pick = (arr) => arr[Math.floor(rnd() * arr.length)];
+  const pickWeighted = (items, weights) => {
+    const total = weights.reduce((a, b) => a + b, 0);
+    let r = rnd() * total;
+    for (let i = 0; i < items.length; i++) { r -= weights[i]; if (r <= 0) return items[i]; }
+    return items[items.length - 1];
+  };
+  const randInt = (min, max) => Math.floor(min + rnd() * (max - min + 1));
+
+  // ---------- reference data ----------
+  const REPS = [
+    { id: 'u1', name: 'Nguyễn Văn An' },
+    { id: 'u2', name: 'Trần Thị Bích' },
+    { id: 'u3', name: 'Lê Hoàng Nam' },
+    { id: 'u4', name: 'Phạm Thu Hà' },
+    { id: 'u5', name: 'Đỗ Minh Quân' },
+    { id: 'u6', name: 'Vũ Thị Lan' },
+    { id: 'u7', name: 'Hoàng Đức Thắng' },
+    { id: 'u8', name: 'Bùi Thị Mai' },
+  ];
+  const REP_BY_ID = Object.fromEntries(REPS.map((r) => [r.id, r]));
+  const REP_WIN_BIAS = { u1: 0.62, u2: 0.70, u3: 0.48, u4: 0.58, u5: 0.52, u6: 0.66, u7: 0.44, u8: 0.60 };
+
+  const STAGES = [
+    { key: 'prospecting', name: 'Tiếp cận', prob: 0.10 },
+    { key: 'qualification', name: 'Xác định nhu cầu', prob: 0.25 },
+    { key: 'proposal', name: 'Đề xuất giải pháp', prob: 0.50 },
+    { key: 'negotiation', name: 'Đàm phán hợp đồng', prob: 0.75 },
+    { key: 'commit', name: 'Chờ ký hợp đồng', prob: 0.90 },
+  ];
+  const STAGE_BY_KEY = Object.fromEntries(STAGES.map((s) => [s.key, s]));
+
+  const CUSTOMERS = [
+    'Công ty TNHH Minh Phát', 'Tập đoàn Hòa Bình Logistics', 'Dược phẩm An Khang', 'Thép Sài Gòn JSC',
+    'Khách sạn Blue Lotus', 'Siêu thị Bình Minh Mart', 'Xây dựng Đại Nam', 'Phần mềm Sao Việt',
+    'Thực phẩm Sạch Xanh', 'Vận tải Phương Nam', 'Bất động sản Phú Gia', 'Giáo dục Tân Á',
+    'Bảo hiểm Thịnh Vượng', 'Dệt may Thành Công', 'Điện máy Việt Tiến', 'Gốm sứ Minh Long II',
+    'Cảng vụ Hải An', 'Chuỗi cà phê Nắng Mai', 'Nội thất Phúc Khang', 'Y tế Hồng Phúc',
+  ];
+  const DEALS = [
+    'Triển khai hệ thống CRM', 'Gói giải pháp ERP toàn diện', 'Tư vấn chuyển đổi số', 'Nâng cấp hạ tầng Cloud',
+    'Phần mềm quản lý kho', 'Dịch vụ bảo trì hàng năm', 'Giải pháp chữ ký số', 'Hệ thống chấm công nhân sự',
+    'Tích hợp cổng thanh toán', 'Nền tảng chăm sóc khách hàng', 'Hệ thống quản lý bán lẻ', 'Gói bảo mật dữ liệu',
+  ];
+  const SOURCES = ['Giới thiệu', 'Website', 'Sự kiện', 'Telesales', 'Đối tác'];
+
+  // ---------- mock opportunities (open pipeline) ----------
+  const TODAY = new Date();
+  TODAY.setHours(0, 0, 0, 0);
+
+  const OPEN_STAGE_WEIGHTS = [30, 26, 22, 14, 8];
+  const OPPS = Array.from({ length: 96 }, (_, i) => {
+    const stage = pickWeighted(STAGES, OPEN_STAGE_WEIGHTS);
+    const owner = pick(REPS);
+    const customer = pick(CUSTOMERS);
+    const deal = pick(DEALS);
+    const jitter = (rnd() - 0.5) * 0.06;
+    const probability = Math.min(0.95, Math.max(0.05, Math.round((stage.prob + jitter) * 20) / 20));
+    const base = 150_000_000 + Math.pow(rnd(), 1.6) * 3_400_000_000;
+    const value = Math.round(base / 10_000_000) * 10_000_000;
+    const offsetDays = rnd() < 0.14 ? -randInt(1, 35) : randInt(0, 165);
+    const expectedCloseDate = toISO(addDays(TODAY, offsetDays));
+    const createdDate = toISO(addDays(new Date(expectedCloseDate + 'T00:00:00'), -randInt(25, 200)));
+    return {
+      id: 'CH-' + String(2026100 + i),
+      name: deal + ' – ' + customer,
+      customer,
+      ownerId: owner.id,
+      stageKey: stage.key,
+      probability,
+      value,
+      source: pick(SOURCES),
+      createdDate,
+      expectedCloseDate,
+    };
+  });
+
+  // ---------- mock closed deals (for win rate in period) ----------
+  const CLOSED = Array.from({ length: 260 }, (_, i) => {
+    const owner = pick(REPS);
+    const closeDate = toISO(addDays(TODAY, -randInt(0, 470)));
+    const outcome = rnd() < REP_WIN_BIAS[owner.id] ? 'won' : 'lost';
+    return { id: 'KQ-' + String(5000 + i), ownerId: owner.id, closeDate, outcome };
+  });
+
+  // ---------- period ----------
+  function quarterOf(date) {
+    const y = date.getFullYear();
+    const q = Math.floor(date.getMonth() / 3);
+    const start = new Date(y, q * 3, 1);
+    const end = new Date(y, q * 3 + 3, 0);
+    return { start, end, label: 'Quý ' + (q + 1) + '/' + y };
+  }
+  const thisQuarter = quarterOf(TODAY);
+  const lastQuarter = quarterOf(new Date(thisQuarter.start.getFullYear(), thisQuarter.start.getMonth() - 1, 1));
+  const thisYear = { start: new Date(TODAY.getFullYear(), 0, 1), end: new Date(TODAY.getFullYear(), 11, 31), label: 'Năm ' + TODAY.getFullYear() };
+
+  function periodRange() {
+    if (ui.period === 'lastQuarter') return lastQuarter;
+    if (ui.period === 'thisYear') return thisYear;
+    if (ui.period === 'custom' && ui.customFrom && ui.customTo) {
+      return { start: new Date(ui.customFrom + 'T00:00:00'), end: new Date(ui.customTo + 'T00:00:00'), label: fmtDate(ui.customFrom) + ' – ' + fmtDate(ui.customTo) };
+    }
+    return thisQuarter;
+  }
+  function withinRange(iso, start, end) {
+    const t = new Date(iso + 'T00:00:00').getTime();
+    return t >= start.getTime() && t <= end.getTime();
+  }
+
+  // ---------- UI state ----------
+  const params = new URLSearchParams(location.search);
+  const forced = params.get('state');
+  const ui = {
+    period: params.get('period') || 'thisQuarter',
+    customFrom: params.get('from') || '',
+    customTo: params.get('to') || '',
+    q: params.get('q') || '',
+    reps: new Set(params.getAll('rep')),
+    stages: new Set(params.getAll('stage')),
+    source: params.get('source') || '',
+    valueMin: params.get('vmin') ? Number(params.get('vmin')) : null,
+    valueMax: params.get('vmax') ? Number(params.get('vmax')) : null,
+    view: params.get('view') === 'stage' ? 'stage' : 'rep',
+    sort: params.get('sort') || 'value',
+    dir: params.get('dir') || 'desc',
+    expanded: new Set(),
+  };
+  let opportunities = OPPS;
+  if (forced === 'empty') opportunities = [];
+
+  const announce = (html) => { $('toast').innerHTML = '<div class="flex items-center gap-3 rounded-md border border-slate-200 bg-white px-4 py-3 shadow-md">' + html + '</div>'; clearTimeout(announce.t); announce.t = setTimeout(() => ($('toast').innerHTML = ''), 6000); };
+  const show = (state) => document.querySelectorAll('[data-region="pipeline"] > [data-state]').forEach((e) => (e.hidden = e.dataset.state !== state));
+
+  function syncUrl() {
+    const p = new URLSearchParams();
+    if (ui.period !== 'thisQuarter') p.set('period', ui.period);
+    if (ui.period === 'custom') { if (ui.customFrom) p.set('from', ui.customFrom); if (ui.customTo) p.set('to', ui.customTo); }
+    if (ui.q) p.set('q', ui.q);
+    ui.reps.forEach((r) => p.append('rep', r));
+    ui.stages.forEach((s) => p.append('stage', s));
+    if (ui.source) p.set('source', ui.source);
+    if (ui.valueMin != null) p.set('vmin', String(ui.valueMin));
+    if (ui.valueMax != null) p.set('vmax', String(ui.valueMax));
+    if (ui.view !== 'rep') p.set('view', ui.view);
+    if (ui.sort !== 'value' || ui.dir !== 'desc') { p.set('sort', ui.sort); p.set('dir', ui.dir); }
+    if (forced) p.set('state', forced);
+    history.replaceState(null, '', p.toString() ? '?' + p : location.pathname);
+  }
+
+  // ---------- filtering ----------
+  function filteredOpps() {
+    const { start, end } = periodRange();
+    const q = foldVi(ui.q.trim());
+    return opportunities.filter((o) => {
+      if (!withinRange(o.expectedCloseDate, start, end)) return false;
+      if (ui.reps.size && !ui.reps.has(o.ownerId)) return false;
+      if (ui.stages.size && !ui.stages.has(o.stageKey)) return false;
+      if (ui.source && o.source !== ui.source) return false;
+      if (ui.valueMin != null && o.value < ui.valueMin) return false;
+      if (ui.valueMax != null && o.value > ui.valueMax) return false;
+      if (q && !foldVi(o.name + ' ' + o.customer).includes(q)) return false;
+      return true;
+    });
+  }
+  function filteredClosed(repId) {
+    const { start, end } = periodRange();
+    return CLOSED.filter((c) => withinRange(c.closeDate, start, end) && (!repId || c.ownerId === repId) && (!ui.reps.size || ui.reps.has(c.ownerId)));
+  }
+  function winRateOf(closed) {
+    const won = closed.filter((c) => c.outcome === 'won').length;
+    const lost = closed.filter((c) => c.outcome === 'lost').length;
+    return won + lost ? won / (won + lost) : null;
+  }
+
+  // ---------- grouping ----------
+  function buildGroups(list) {
+    const by = new Map();
+    for (const o of list) {
+      const key = ui.view === 'rep' ? o.ownerId : o.stageKey;
+      if (!by.has(key)) by.set(key, []);
+      by.get(key).push(o);
+    }
+    const totalValue = list.reduce((s, o) => s + o.value, 0);
+    const groups = Array.from(by, ([key, opps]) => {
+      const value = opps.reduce((s, o) => s + o.value, 0);
+      const weighted = opps.reduce((s, o) => s + o.value * o.probability, 0);
+      const name = ui.view === 'rep' ? REP_BY_ID[key].name : STAGE_BY_KEY[key].name;
+      const winRate = ui.view === 'rep' ? winRateOf(filteredClosed(key)) : null;
+      return {
+        key, name, count: opps.length, value, weighted,
+        share: totalValue ? value / totalValue : 0,
+        winRate,
+        opps: opps.slice().sort((a, b) => new Date(a.expectedCloseDate) - new Date(b.expectedCloseDate)),
+      };
+    });
+    const dir = ui.dir === 'asc' ? 1 : -1;
+    const keyFn = { name: (g) => g.name, count: (g) => g.count, value: (g) => g.value, weighted: (g) => g.weighted, share: (g) => g.share, winrate: (g) => (g.winRate == null ? -1 : g.winRate) }[ui.sort] || ((g) => g.value);
+    groups.sort((a, b) => (keyFn(a) > keyFn(b) ? dir : keyFn(a) < keyFn(b) ? -dir : 0));
+    return groups;
+  }
+
+  function dayStatus(iso) {
+    const days = Math.round((new Date(iso + 'T00:00:00') - TODAY) / 86400000);
+    if (days < 0) return { tone: 'text-red-700', text: 'Quá hạn ' + Math.abs(days) + ' ngày' };
+    if (days === 0) return { tone: 'text-amber-700', text: 'Hôm nay' };
+    if (days <= 14) return { tone: 'text-amber-700', text: 'còn ' + days + ' ngày' };
+    return { tone: 'text-slate-500', text: 'còn ' + days + ' ngày' };
+  }
+
+  function renderPeriodTabs() {
+    const opts = [['thisQuarter', thisQuarter.label], ['lastQuarter', lastQuarter.label], ['thisYear', thisYear.label], ['custom', 'Tùy chỉnh']];
+    $('period-tabs').innerHTML = opts.map(([k, label]) => '<button type="button" data-period="' + k + '" aria-pressed="' + (ui.period === k) + '" class="h-7 rounded px-3 ' + (ui.period === k ? 'bg-blue-700 font-medium text-white' : 'text-slate-700 hover:bg-slate-100') + '">' + label + '</button>').join('');
+    $('custom-range').hidden = ui.period !== 'custom';
+  }
+  function renderViewTabs() {
+    document.querySelectorAll('[data-view]').forEach((b) => {
+      const active = b.dataset.view === ui.view;
+      b.setAttribute('aria-pressed', String(active));
+      b.className = 'h-7 rounded px-3 ' + (active ? 'bg-blue-700 font-medium text-white' : 'text-slate-700 hover:bg-slate-100');
+    });
+    $('th-dim').textContent = ui.view === 'rep' ? 'Giai đoạn' : 'Nhân viên kinh doanh';
+  }
+  function renderCheckPanel(panel, items, selectedSet, namePrefix) {
+    panel.innerHTML = items.map((it) => (
+      '<label class="flex h-8 items-center gap-2 rounded px-2 hover:bg-slate-50"><input type="checkbox" value="' + it.key + '" ' + (selectedSet.has(it.key) ? 'checked' : '') + ' data-' + namePrefix + '="' + it.key + '" class="h-4 w-4">' + it.label + '</label>'
+    )).join('');
+  }
+  function renderFilterTriggers() {
+    $('rep-trigger-label').textContent = ui.reps.size ? ui.reps.size + ' đã chọn' : 'Tất cả';
+    $('stage-trigger-label').textContent = ui.stages.size ? ui.stages.size + ' đã chọn' : 'Tất cả';
+    $('btn-more').textContent = (ui.source || ui.valueMin != null || ui.valueMax != null) ? 'Thêm bộ lọc (' + [ui.source, ui.valueMin, ui.valueMax].filter((v) => v != null && v !== '').length + ')' : 'Thêm bộ lọc';
+  }
+  function renderChips() {
+    const chips = [];
+    if (ui.q) chips.push(['q', 'Tìm kiếm: ' + ui.q]);
+    ui.reps.forEach((id) => chips.push(['rep:' + id, 'Nhân viên: ' + REP_BY_ID[id].name]));
+    ui.stages.forEach((k) => chips.push(['stage:' + k, 'Giai đoạn: ' + STAGE_BY_KEY[k].name]));
+    if (ui.source) chips.push(['source', 'Nguồn: ' + ui.source]);
+    if (ui.valueMin != null) chips.push(['vmin', 'Từ: ' + fmtMoney(ui.valueMin)]);
+    if (ui.valueMax != null) chips.push(['vmax', 'Đến: ' + fmtMoney(ui.valueMax)]);
+    $('chips').innerHTML = chips.map(([k, t]) => (
+      '<span class="inline-flex h-6 items-center gap-1 rounded-full bg-slate-100 pl-2 pr-1 text-xs text-slate-700">' + t +
+      '<button type="button" data-chip="' + k + '" class="flex h-6 w-6 items-center justify-center rounded-full hover:bg-slate-200" aria-label="Xóa bộ lọc ' + t + '">×</button></span>'
+    )).join('') + (chips.length ? '<button type="button" id="clear-all" class="h-6 px-2 text-blue-700 underline">Xóa bộ lọc</button>' : '');
+  }
+
+  function groupRowHtml(g) {
+    const expanded = ui.expanded.has(g.key);
+    return (
+      '<tr class="h-10 cursor-pointer border-b border-slate-200 bg-slate-50 hover:bg-slate-100" data-group="' + g.key + '">' +
+        '<td class="px-3"><button type="button" aria-expanded="' + expanded + '" aria-label="' + (expanded ? 'Thu gọn' : 'Mở rộng') + ' ' + g.name + '" class="flex items-center gap-2 font-medium"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="shrink-0 transition-transform ' + (expanded ? 'rotate-90' : '') + '" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>' + g.name + '</button></td>' +
+        '<td class="px-3 text-slate-500">' + fmtEmpty() + '</td>' +
+        '<td class="px-3 text-slate-500">' + fmtEmpty() + '</td>' +
+        '<td class="px-3 text-slate-500">' + fmtEmpty() + '</td>' +
+        '<td class="tnum px-3 text-right">' + fmtCount(g.count) + '</td>' +
+        '<td class="tnum px-3 text-right">' + fmtAmount(g.value) + '</td>' +
+        '<td class="tnum px-3 text-right">' + fmtAmount(g.weighted) + '</td>' +
+        '<td class="tnum px-3 text-right">' + fmtPercent(g.share) + '</td>' +
+        '<td class="tnum px-3 text-right">' + (g.winRate == null ? '<span class="text-slate-500">' + fmtEmpty() + '</span>' : fmtPercent(g.winRate)) + '</td>' +
+      '</tr>'
+    );
+  }
+  function detailRowHtml(o, groupKey) {
+    const ds = dayStatus(o.expectedCloseDate);
+    const dim = ui.view === 'rep' ? STAGE_BY_KEY[o.stageKey].name : REP_BY_ID[o.ownerId].name;
+    return (
+      '<tr class="h-10 border-b border-slate-200 last:border-0 hover:bg-slate-50" data-detail-of="' + groupKey + '">' +
+        '<td class="max-w-72 truncate px-3 pl-9" title="' + o.name + '"><a href="#' + o.id + '" class="text-blue-700 hover:underline">' + o.id + '</a> · ' + o.name + '</td>' +
+        '<td class="whitespace-nowrap px-3"><span class="inline-flex h-6 items-center rounded-full bg-blue-50 px-2 text-xs font-medium text-blue-800">' + dim + '</span></td>' +
+        '<td class="max-w-48 truncate px-3" title="' + o.customer + '">' + o.customer + '</td>' +
+        '<td class="whitespace-nowrap px-3"><time datetime="' + o.expectedCloseDate + '" class="tnum">' + fmtDate(o.expectedCloseDate) + '</time> · <span class="' + ds.tone + '">' + ds.text + '</span></td>' +
+        '<td class="tnum px-3 text-right text-slate-500">' + fmtEmpty() + '</td>' +
+        '<td class="tnum px-3 text-right">' + fmtAmount(o.value) + '</td>' +
+        '<td class="tnum px-3 text-right">' + fmtAmount(Math.round(o.value * o.probability)) + '</td>' +
+        '<td class="tnum px-3 text-right text-slate-500">' + fmtEmpty() + '</td>' +
+        '<td class="tnum px-3 text-right text-slate-500">' + fmtEmpty() + '</td>' +
+      '</tr>'
+    );
+  }
+
+  function render() {
+    syncUrl();
+    renderPeriodTabs();
+    renderViewTabs();
+    renderFilterTriggers();
+    renderChips();
+    $('period-label').textContent = periodRange().label;
+
+    const list = filteredOpps();
+    const totalValue = list.reduce((s, o) => s + o.value, 0);
+    const totalWeighted = list.reduce((s, o) => s + o.value * o.probability, 0);
+    const overallWinRate = winRateOf(filteredClosed(ui.reps.size === 1 ? Array.from(ui.reps)[0] : null));
+
+    $('result-count').textContent = fmtCount(list.length);
+    $('result-value').textContent = fmtMoney(totalValue);
+    $('result-weighted').textContent = fmtMoney(totalWeighted);
+    $('result-winrate').textContent = overallWinRate == null ? fmtEmpty() : fmtPercent(overallWinRate);
+    $('live-count').textContent = list.length + ' cơ hội khớp với bộ lọc hiện tại';
+    $('export-count').textContent = fmtCount(list.length);
+
+    document.querySelectorAll('th[data-col]').forEach((th) => th.setAttribute('aria-sort', th.dataset.col === ui.sort ? (ui.dir === 'asc' ? 'ascending' : 'descending') : 'none'));
+
+    if (!list.length) {
+      const anyFilter = ui.q || ui.reps.size || ui.stages.size || ui.source || ui.valueMin != null || ui.valueMax != null;
+      if (anyFilter) {
+        $('empty-title').textContent = 'Không có cơ hội nào khớp với các bộ lọc này';
+        $('empty-text').textContent = 'Hãy kiểm tra chính tả, mở rộng kỳ báo cáo hoặc bỏ một vài bộ lọc.';
+        $('empty-action').textContent = 'Xóa bộ lọc';
+      } else {
+        $('empty-title').textContent = 'Không có cơ hội nào dự kiến chốt trong ' + periodRange().label;
+        $('empty-text').textContent = 'Thử đổi sang một kỳ báo cáo khác.';
+        $('empty-action').textContent = 'Đổi kỳ báo cáo';
+      }
+      show('empty');
+      return;
+    }
+    show('ready');
+
+    const groups = buildGroups(list);
+    if (ui.q.trim()) groups.forEach((g) => ui.expanded.add(g.key));
+    $('rows').innerHTML = groups.map((g) => groupRowHtml(g) + (ui.expanded.has(g.key) ? g.opps.map((o) => detailRowHtml(o, g.key)).join('') : '')).join('');
+
+    const grandWinRate = winRateOf(filteredClosed(null));
+    $('tfoot').innerHTML = (
+      '<tr class="h-10 border-t-2 border-slate-300 font-medium">' +
+        '<td class="px-3">Tổng</td>' +
+        '<td class="px-3 text-slate-500">' + fmtEmpty() + '</td>' +
+        '<td class="px-3 text-slate-500">' + fmtEmpty() + '</td>' +
+        '<td class="px-3 text-slate-500">' + fmtEmpty() + '</td>' +
+        '<td class="tnum px-3 text-right">' + fmtCount(list.length) + '</td>' +
+        '<td class="tnum px-3 text-right">' + fmtAmount(totalValue) + '</td>' +
+        '<td class="tnum px-3 text-right">' + fmtAmount(totalWeighted) + '</td>' +
+        '<td class="tnum px-3 text-right">' + fmtPercent(1) + '</td>' +
+        '<td class="tnum px-3 text-right">' + (grandWinRate == null ? fmtEmpty() : fmtPercent(grandWinRate)) + '</td>' +
+      '</tr>'
+    );
+  }
+
+  // ---------- filter panels ----------
+  renderCheckPanel($('rep-panel'), REPS.map((r) => ({ key: r.id, label: r.name })), ui.reps, 'rep-opt');
+  renderCheckPanel($('stage-panel'), STAGES.map((s) => ({ key: s.key, label: s.name })), ui.stages, 'stage-opt');
+  $('f-source').innerHTML = '<option value="">Tất cả nguồn</option>' + SOURCES.map((s) => '<option' + (ui.source === s ? ' selected' : '') + '>' + s + '</option>').join('');
+  $('f-value-min').value = ui.valueMin != null ? ui.valueMin : '';
+  $('f-value-max').value = ui.valueMax != null ? ui.valueMax : '';
+  $('date-from').value = ui.customFrom;
+  $('date-to').value = ui.customTo;
+
+  function closeAllPanels() { $('rep-panel').hidden = $('stage-panel').hidden = $('more-panel').hidden = true; document.querySelectorAll('[aria-haspopup="listbox"]').forEach((b) => b.setAttribute('aria-expanded', 'false')); }
+  function togglePanel(btn, panel) {
+    const willOpen = panel.hidden;
+    closeAllPanels();
+    panel.hidden = !willOpen;
+    btn.setAttribute('aria-expanded', String(willOpen));
+  }
+  $('btn-rep').addEventListener('click', () => togglePanel($('btn-rep'), $('rep-panel')));
+  $('btn-stage').addEventListener('click', () => togglePanel($('btn-stage'), $('stage-panel')));
+  $('btn-more').addEventListener('click', () => togglePanel($('btn-more'), $('more-panel')));
+  document.addEventListener('click', (e) => { if (!e.target.closest('#rep-panel, #btn-rep, #stage-panel, #btn-stage, #more-panel, #btn-more')) closeAllPanels(); });
+  $('rep-panel').addEventListener('change', (e) => { const c = e.target.closest('[data-rep-opt]'); if (c) { c.checked ? ui.reps.add(c.dataset.repOpt) : ui.reps.delete(c.dataset.repOpt); render(); } });
+  $('stage-panel').addEventListener('change', (e) => { const c = e.target.closest('[data-stage-opt]'); if (c) { c.checked ? ui.stages.add(c.dataset.stageOpt) : ui.stages.delete(c.dataset.stageOpt); render(); } });
+  $('more-apply').addEventListener('click', () => {
+    ui.source = $('f-source').value;
+    ui.valueMin = $('f-value-min').value ? Number($('f-value-min').value) : null;
+    ui.valueMax = $('f-value-max').value ? Number($('f-value-max').value) : null;
+    closeAllPanels();
+    render();
+    $('btn-more').focus();
+  });
+  $('more-reset').addEventListener('click', () => { $('f-source').value = ''; $('f-value-min').value = ''; $('f-value-max').value = ''; });
+
+  $('period-tabs').addEventListener('click', (e) => { const b = e.target.closest('[data-period]'); if (b) { ui.period = b.dataset.period; render(); } });
+  $('date-from').addEventListener('change', (e) => { ui.customFrom = e.target.value; render(); });
+  $('date-to').addEventListener('change', (e) => { ui.customTo = e.target.value; render(); });
+  document.querySelectorAll('[data-view]').forEach((b) => b.addEventListener('click', () => { ui.view = b.dataset.view; ui.expanded.clear(); render(); }));
+
+  let qTimer;
+  $('q').addEventListener('input', (e) => { clearTimeout(qTimer); qTimer = setTimeout(() => { ui.q = e.target.value; render(); }, 300); });
+
+  $('chips').addEventListener('click', (e) => {
+    const c = e.target.closest('[data-chip]');
+    if (c) {
+      const k = c.dataset.chip;
+      if (k === 'q') { ui.q = ''; $('q').value = ''; }
+      else if (k.startsWith('rep:')) ui.reps.delete(k.slice(4));
+      else if (k.startsWith('stage:')) ui.stages.delete(k.slice(6));
+      else if (k === 'source') ui.source = '';
+      else if (k === 'vmin') ui.valueMin = null;
+      else if (k === 'vmax') ui.valueMax = null;
+      render();
+    }
+    if (e.target.id === 'clear-all') clearFilters();
+  });
+  function clearFilters() {
+    ui.q = ''; ui.reps.clear(); ui.stages.clear(); ui.source = ''; ui.valueMin = null; ui.valueMax = null;
+    $('q').value = ''; $('f-source').value = ''; $('f-value-min').value = ''; $('f-value-max').value = '';
+    document.querySelectorAll('[data-rep-opt], [data-stage-opt]').forEach((c) => (c.checked = false));
+    render();
+  }
+  $('empty-action').addEventListener('click', () => {
+    const anyFilter = ui.q || ui.reps.size || ui.stages.size || ui.source || ui.valueMin != null || ui.valueMax != null;
+    if (anyFilter) clearFilters(); else { ui.period = 'thisQuarter'; render(); }
+  });
+
+  document.querySelector('thead').addEventListener('click', (e) => {
+    const b = e.target.closest('[data-sort]');
+    if (!b) return;
+    ui.dir = ui.sort === b.dataset.sort && ui.dir === 'asc' ? 'desc' : 'asc';
+    ui.sort = b.dataset.sort;
+    render();
+  });
+
+  $('rows').addEventListener('click', (e) => {
+    const tr = e.target.closest('[data-group]');
+    if (!tr) return;
+    const key = tr.dataset.group;
+    ui.expanded.has(key) ? ui.expanded.delete(key) : ui.expanded.add(key);
+    render();
+  });
+
+  $('btn-export').addEventListener('click', () => announce('<span>Đã bắt đầu xuất file: ' + $('result-count').textContent + ' cơ hội theo bộ lọc hiện tại.</span>'));
+  $('btn-print').addEventListener('click', () => window.print());
+  $('retry').addEventListener('click', () => { location.search = ''; });
+
+  let prevExpanded = null;
+  window.addEventListener('beforeprint', () => { prevExpanded = new Set(ui.expanded); buildGroups(filteredOpps()).forEach((g) => ui.expanded.add(g.key)); render(); });
+  window.addEventListener('afterprint', () => { if (prevExpanded) { ui.expanded = prevExpanded; prevExpanded = null; render(); } });
+
+  // ---------- initial state ----------
+  $('updated-at').textContent = fmtDateTime(new Date());
+  $('skeleton').innerHTML = Array.from({ length: 8 }, () => '<div class="flex h-10 items-center gap-4 border-b border-slate-200 px-3"><div class="h-3 w-40 rounded bg-slate-200"></div><div class="h-3 w-24 rounded bg-slate-200"></div><div class="ml-auto h-3 w-24 rounded bg-slate-200"></div></div>').join('');
+  $('q').value = ui.q;
+
+  if (forced === 'loading' || forced === 'error') {
+    show(forced);
+    $('result-count').textContent = '—';
+    $('result-value').textContent = '—'; $('result-weighted').textContent = '—'; $('result-winrate').textContent = '—';
+    renderPeriodTabs(); renderViewTabs(); renderFilterTriggers();
+    $('period-label').textContent = periodRange().label;
+    $('updated-at').textContent = fmtDateTime(new Date());
+  } else {
+    render();
+  }
+})();
+</script>
+</body>
+</html>

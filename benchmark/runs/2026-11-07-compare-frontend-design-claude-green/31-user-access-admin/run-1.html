@@ -1,0 +1,554 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>User accounts · Fathom Admin</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+  :root{
+    --ink:#1A2130; --slate:#5B6472; --faint:#8A9099;
+    --paper:#F1F2EE; --surface:#FFFFFF; --line:#DADDD6;
+    --accent:#2A5BA8; --accent-dark:#1F477F;
+    --good:#2F7A4F; --warn:#B4780C; --bad:#A23B2E;
+  }
+  body{ font-family:'IBM Plex Sans', ui-sans-serif, system-ui, sans-serif; background:var(--paper); color:var(--ink); }
+  .mono{ font-family:'IBM Plex Mono', ui-monospace, SFMono-Regular, monospace; }
+  input[type="checkbox"]{ accent-color:var(--accent); width:16px; height:16px; }
+  *:focus-visible{ outline:2px solid var(--accent); outline-offset:2px; border-radius:2px; }
+  .drawer{ transition: transform 280ms cubic-bezier(.3,.7,.3,1); }
+  .drawer.closed{ transform: translateX(100%); }
+  .backdrop{ transition: opacity 220ms ease; }
+  .scrim-hidden{ opacity:0; pointer-events:none; }
+  @media (prefers-reduced-motion: reduce){
+    .drawer, .backdrop{ transition:none !important; }
+  }
+  tbody tr:hover{ background:#F7F8F5; }
+  ::selection{ background:#CFE0F3; }
+</style>
+</head>
+<body class="min-h-screen">
+
+<header class="bg-white border-b border-[var(--line)]">
+  <div class="max-w-6xl mx-auto px-6 h-14 flex items-center justify-between">
+    <div class="flex items-center gap-3">
+      <div class="w-7 h-7 rounded-[4px] bg-[var(--ink)] text-white flex items-center justify-center text-sm font-semibold">F</div>
+      <span class="font-semibold text-[15px]">Fathom</span>
+      <span class="w-px h-5 bg-[var(--line)]"></span>
+      <span class="text-sm text-[var(--slate)]">Admin console</span>
+    </div>
+    <div class="flex items-center gap-2">
+      <div class="w-7 h-7 rounded-[4px] bg-[#E3E8EF] text-[var(--ink)] flex items-center justify-center text-xs font-semibold">PN</div>
+      <span class="text-sm text-[var(--ink)]">Priya Natarajan</span>
+    </div>
+  </div>
+</header>
+
+<main class="max-w-6xl mx-auto px-6 py-8">
+
+  <div class="flex items-start justify-between gap-6 flex-wrap">
+    <div>
+      <h1 class="text-2xl font-semibold text-[var(--ink)]">User accounts</h1>
+      <p id="accountSummary" class="text-sm text-[var(--slate)] mt-1">&nbsp;</p>
+    </div>
+    <button id="inviteOpenBtn" class="shrink-0 inline-flex items-center gap-2 bg-[var(--accent)] hover:bg-[var(--accent-dark)] text-white text-sm font-medium px-4 py-2 rounded-md">
+      <svg width="15" height="15" viewBox="0 0 16 16" fill="none"><path d="M8 3v10M3 8h10" stroke="white" stroke-width="1.6" stroke-linecap="round"/></svg>
+      Invite person
+    </button>
+  </div>
+
+  <div class="mt-6 flex items-center gap-3 flex-wrap">
+    <div class="relative">
+      <svg class="absolute left-3 top-1/2 -translate-y-1/2" width="15" height="15" viewBox="0 0 16 16" fill="none"><circle cx="7" cy="7" r="5" stroke="#8A9099" stroke-width="1.4"/><path d="M11 11l3.5 3.5" stroke="#8A9099" stroke-width="1.4" stroke-linecap="round"/></svg>
+      <input id="searchInput" type="text" placeholder="Search by name or email" class="w-72 pl-9 pr-3 py-2 text-sm bg-white border border-[var(--line)] rounded-md placeholder:text-[var(--faint)]">
+    </div>
+    <select id="roleFilter" class="text-sm bg-white border border-[var(--line)] rounded-md px-3 py-2 text-[var(--ink)]">
+      <option value="all">All roles</option>
+      <option value="Owner">Owner</option>
+      <option value="Admin">Admin</option>
+      <option value="Member">Member</option>
+      <option value="Viewer">Viewer</option>
+    </select>
+    <select id="statusFilter" class="text-sm bg-white border border-[var(--line)] rounded-md px-3 py-2 text-[var(--ink)]">
+      <option value="all">All statuses</option>
+      <option value="Active">Active</option>
+      <option value="Invited">Invited</option>
+      <option value="Suspended">Suspended</option>
+    </select>
+  </div>
+
+  <div id="bulkBar" class="hidden mt-4 flex items-center justify-between bg-[#E9EEF5] border border-[#C9D8EB] rounded-md px-4 py-2.5">
+    <span id="bulkCount" class="text-sm text-[var(--ink)] font-medium">0 selected</span>
+    <div class="flex items-center gap-2">
+      <button id="bulkResetBtn" class="text-sm font-medium text-[var(--ink)] hover:text-[var(--accent-dark)] px-2 py-1">Reset password</button>
+      <button id="bulkDeactivateBtn" class="text-sm font-medium text-[var(--bad)] hover:text-[#7E2E24] px-2 py-1">Deactivate</button>
+      <button id="bulkCancelBtn" class="text-sm text-[var(--slate)] hover:text-[var(--ink)] px-2 py-1">Cancel</button>
+    </div>
+  </div>
+
+  <div class="mt-4 bg-white border border-[var(--line)] rounded-md overflow-x-auto">
+    <table class="w-full text-sm min-w-[780px]">
+      <thead>
+        <tr class="border-b border-[var(--line)]">
+          <th class="w-10 py-3 pl-4"><input id="selectAllCheckbox" type="checkbox"></th>
+          <th class="text-left py-3 pr-3 font-medium text-[var(--slate)]">Name</th>
+          <th class="text-left py-3 pr-3 font-medium text-[var(--slate)] w-32">Role</th>
+          <th class="text-left py-3 pr-3 font-medium text-[var(--slate)] w-32">Status</th>
+          <th class="text-left py-3 pr-3 font-medium text-[var(--slate)] w-36">Last sign-in</th>
+          <th class="w-12 py-3 pr-4"></th>
+        </tr>
+      </thead>
+      <tbody id="tableBody" class="divide-y divide-[var(--line)]"></tbody>
+    </table>
+  </div>
+
+</main>
+
+<div id="actionMenu" class="hidden fixed z-30 w-48 bg-white border border-[var(--line)] rounded-md shadow-lg py-1 text-sm"></div>
+
+<div id="inviteBackdrop" class="backdrop scrim-hidden fixed inset-0 bg-black/30 z-40"></div>
+<aside id="inviteDrawer" class="drawer closed fixed top-0 right-0 h-full w-full max-w-[400px] bg-white border-l border-[var(--line)] z-50 flex flex-col">
+  <div class="flex items-center justify-between px-6 py-5 border-b border-[var(--line)]">
+    <h2 class="text-base font-semibold text-[var(--ink)]">Invite someone</h2>
+    <button id="inviteCloseBtn" class="text-[var(--slate)] hover:text-[var(--ink)] w-7 h-7 flex items-center justify-center rounded-md" aria-label="Close">
+      <svg width="15" height="15" viewBox="0 0 16 16" fill="none"><path d="M3 3l10 10M13 3L3 13" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+    </button>
+  </div>
+  <form id="inviteForm" class="flex-1 flex flex-col px-6 py-5 gap-5">
+    <div>
+      <label for="inviteEmail" class="block text-sm font-medium text-[var(--ink)] mb-1.5">Email</label>
+      <input id="inviteEmail" type="email" required placeholder="name@company.com" class="w-full px-3 py-2 text-sm border border-[var(--line)] rounded-md placeholder:text-[var(--faint)]">
+    </div>
+    <div>
+      <label for="inviteRole" class="block text-sm font-medium text-[var(--ink)] mb-1.5">Role</label>
+      <select id="inviteRole" class="w-full px-3 py-2 text-sm border border-[var(--line)] rounded-md">
+        <option value="Member">Member</option>
+        <option value="Admin">Admin</option>
+        <option value="Viewer">Viewer</option>
+      </select>
+    </div>
+    <p class="text-sm text-[var(--slate)] -mt-1">They'll get an email with a link to set up their account and sign in.</p>
+    <div class="flex-1"></div>
+    <div class="flex items-center gap-2 pt-4 border-t border-[var(--line)]">
+      <button type="submit" class="bg-[var(--accent)] hover:bg-[var(--accent-dark)] text-white text-sm font-medium px-4 py-2 rounded-md">Send invite</button>
+      <button type="button" id="inviteCancelBtn" class="text-sm text-[var(--slate)] hover:text-[var(--ink)] px-4 py-2">Cancel</button>
+    </div>
+  </form>
+</aside>
+
+<div id="confirmBackdrop" class="hidden fixed inset-0 bg-black/30 z-40"></div>
+<div id="confirmModal" class="hidden fixed z-50 inset-0 items-center justify-center p-4">
+  <div class="bg-white border border-[var(--line)] rounded-md max-w-sm w-full p-6">
+    <h3 id="confirmTitle" class="text-base font-semibold text-[var(--ink)]"></h3>
+    <p id="confirmBody" class="text-sm text-[var(--slate)] mt-2"></p>
+    <div class="flex items-center justify-end gap-2 mt-6">
+      <button id="confirmCancelBtn" class="text-sm text-[var(--slate)] hover:text-[var(--ink)] px-4 py-2">Cancel</button>
+      <button id="confirmActionBtn" class="text-sm font-medium px-4 py-2 rounded-md text-white"></button>
+    </div>
+  </div>
+</div>
+
+<div id="roleBackdrop" class="hidden fixed inset-0 bg-black/30 z-40"></div>
+<div id="roleModal" class="hidden fixed z-50 inset-0 items-center justify-center p-4">
+  <div class="bg-white border border-[var(--line)] rounded-md max-w-sm w-full p-6">
+    <h3 id="roleModalTitle" class="text-base font-semibold text-[var(--ink)]"></h3>
+    <div class="mt-4">
+      <label for="roleModalSelect" class="block text-sm font-medium text-[var(--ink)] mb-1.5">Role</label>
+      <select id="roleModalSelect" class="w-full px-3 py-2 text-sm border border-[var(--line)] rounded-md">
+        <option value="Admin">Admin</option>
+        <option value="Member">Member</option>
+        <option value="Viewer">Viewer</option>
+      </select>
+    </div>
+    <div class="flex items-center justify-end gap-2 mt-6">
+      <button id="roleCancelBtn" class="text-sm text-[var(--slate)] hover:text-[var(--ink)] px-4 py-2">Cancel</button>
+      <button id="roleSaveBtn" class="bg-[var(--accent)] hover:bg-[var(--accent-dark)] text-white text-sm font-medium px-4 py-2 rounded-md">Save</button>
+    </div>
+  </div>
+</div>
+
+<div id="toastContainer" class="fixed bottom-4 right-4 z-[60] flex flex-col gap-2 items-end"></div>
+
+<script>
+(function(){
+
+  var ROLE_DOT = { Owner:'#1A2130', Admin:'#2A5BA8', Member:'#5B6472', Viewer:'#8A9099' };
+  var STATUS_DOT = { Active:'#2F7A4F', Invited:'#B4780C', Suspended:'#A23B2E' };
+  var TINTS = ['#E3E8EF','#E9E6DC','#DCE7E2','#EFE1D3','#E6DEE6'];
+
+  var users = [
+    mk('Priya Natarajan','priya.natarajan@fathom.io','Owner','Active','2 hours ago'),
+    mk('Marcus Webb','marcus.webb@fathom.io','Admin','Active','Yesterday'),
+    mk('Elena Fischer','elena.fischer@fathom.io','Member','Invited','Never'),
+    mk('Dan O’Rourke','dan.orourke@fathom.io','Member','Suspended','44 days ago'),
+    mk('Sofia Marchetti','sofia.marchetti@fathom.io','Admin','Active','3 hours ago'),
+    mk('Tariq Haidari','tariq.haidari@fathom.io','Viewer','Active','5 days ago'),
+    mk('Grace Lindqvist','grace.lindqvist@fathom.io','Member','Active','Just now'),
+    mk('Benjamin Okafor','benjamin.okafor@fathom.io','Member','Invited','Never'),
+    mk('Hana Kobayashi','hana.kobayashi@fathom.io','Admin','Active','Yesterday'),
+    mk('Liam Fitzgerald','liam.fitzgerald@fathom.io','Member','Suspended','112 days ago'),
+    mk('Noor Abbasi','noor.abbasi@fathom.io','Viewer','Active','6 days ago'),
+    mk('Caleb Strand','caleb.strand@fathom.io','Member','Active','2 days ago'),
+    mk('Yara Haddad','yara.haddad@fathom.io','Member','Invited','Never'),
+    mk('Oscar Lindgren','oscar.lindgren@fathom.io','Admin','Active','8 hours ago'),
+    mk('Priyanka Deshmukh','priyanka.deshmukh@fathom.io','Member','Active','1 hour ago'),
+    mk('Trevor Mbeki','trevor.mbeki@fathom.io','Viewer','Suspended','30 days ago')
+  ];
+  var nextId = users.length + 1;
+
+  function mk(name, email, role, status, lastSignIn){
+    return { id: '', name:name, email:email, role:role, status:status, lastSignIn:lastSignIn };
+  }
+  users.forEach(function(u, i){ u.id = String(i+1); });
+
+  var state = { query:'', role:'all', status:'all', selected:{} };
+
+  function initials(name){
+    var parts = name.replace('’','\'').split(' ');
+    return (parts[0][0] + (parts[parts.length-1][0]||'')).toUpperCase();
+  }
+  function tintFor(name){
+    var sum = 0;
+    for (var i=0;i<name.length;i++) sum += name.charCodeAt(i);
+    return TINTS[sum % TINTS.length];
+  }
+  function byId(id){
+    for (var i=0;i<users.length;i++) if (users[i].id === id) return users[i];
+    return null;
+  }
+  function escapeHtml(s){
+    return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  }
+
+  function filteredUsers(){
+    var q = state.query.trim().toLowerCase();
+    return users.filter(function(u){
+      if (state.role !== 'all' && u.role !== state.role) return false;
+      if (state.status !== 'all' && u.status !== state.status) return false;
+      if (q && u.name.toLowerCase().indexOf(q) === -1 && u.email.toLowerCase().indexOf(q) === -1) return false;
+      return true;
+    });
+  }
+
+  function dot(color){
+    return '<span class="inline-block w-1.5 h-1.5 rounded-full mr-1.5" style="background:'+color+'"></span>';
+  }
+
+  function rowHtml(u){
+    var checked = state.selected[u.id] ? ' checked' : '';
+    var lastSignInClass = u.lastSignIn === 'Never' ? 'text-[var(--faint)]' : 'text-[var(--slate)]';
+    return (
+      '<tr data-id="'+u.id+'">' +
+      '<td class="pl-4 py-3"><input type="checkbox" data-row-checkbox data-id="'+u.id+'"'+checked+'></td>' +
+      '<td class="py-3 pr-3">' +
+        '<div class="flex items-center gap-3">' +
+          '<div class="w-8 h-8 rounded-[6px] flex items-center justify-center text-xs font-semibold text-[var(--ink)]" style="background:'+tintFor(u.name)+'">'+initials(u.name)+'</div>' +
+          '<div class="min-w-0">' +
+            '<div class="text-[var(--ink)] font-medium truncate">'+escapeHtml(u.name)+'</div>' +
+            '<div class="mono text-xs text-[var(--slate)] truncate">'+escapeHtml(u.email)+'</div>' +
+          '</div>' +
+        '</div>' +
+      '</td>' +
+      '<td class="py-3 pr-3 text-[var(--ink)]">'+dot(ROLE_DOT[u.role])+u.role+'</td>' +
+      '<td class="py-3 pr-3 text-[var(--ink)]">'+dot(STATUS_DOT[u.status])+u.status+'</td>' +
+      '<td class="py-3 pr-3 mono text-xs '+lastSignInClass+'">'+u.lastSignIn+'</td>' +
+      '<td class="py-3 pr-4 text-right">' +
+        '<button data-menu-toggle data-id="'+u.id+'" class="w-7 h-7 rounded-md hover:bg-[#F1F2EE] inline-flex items-center justify-center text-[var(--slate)]" aria-label="Actions for '+escapeHtml(u.name)+'">' +
+          '<svg width="15" height="15" viewBox="0 0 16 16" fill="none"><circle cx="3" cy="8" r="1.3" fill="currentColor"/><circle cx="8" cy="8" r="1.3" fill="currentColor"/><circle cx="13" cy="8" r="1.3" fill="currentColor"/></svg>' +
+        '</button>' +
+      '</td>' +
+      '</tr>'
+    );
+  }
+
+  function render(){
+    var list = filteredUsers();
+    var body = document.getElementById('tableBody');
+    if (list.length === 0){
+      body.innerHTML = '<tr><td colspan="6" class="py-10 text-center text-sm text-[var(--slate)]">No one matches your search. Try a different name, email, or filter.</td></tr>';
+    } else {
+      body.innerHTML = list.map(rowHtml).join('');
+    }
+
+    var invitedCount = users.filter(function(u){ return u.status === 'Invited'; }).length;
+    document.getElementById('accountSummary').textContent =
+      users.length + (users.length === 1 ? ' account' : ' accounts') + ' · ' +
+      invitedCount + (invitedCount === 1 ? ' pending invite' : ' pending invites');
+
+    var selectedIds = Object.keys(state.selected).filter(function(id){ return state.selected[id]; });
+    var bulkBar = document.getElementById('bulkBar');
+    if (selectedIds.length > 0){
+      bulkBar.classList.remove('hidden');
+      document.getElementById('bulkCount').textContent = selectedIds.length + (selectedIds.length === 1 ? ' selected' : ' selected');
+    } else {
+      bulkBar.classList.add('hidden');
+    }
+
+    var visibleIds = list.map(function(u){ return u.id; });
+    var allChecked = visibleIds.length > 0 && visibleIds.every(function(id){ return state.selected[id]; });
+    document.getElementById('selectAllCheckbox').checked = allChecked;
+
+    closeActionMenu();
+  }
+
+  document.getElementById('searchInput').addEventListener('input', function(e){
+    state.query = e.target.value; render();
+  });
+  document.getElementById('roleFilter').addEventListener('change', function(e){
+    state.role = e.target.value; render();
+  });
+  document.getElementById('statusFilter').addEventListener('change', function(e){
+    state.status = e.target.value; render();
+  });
+  document.getElementById('selectAllCheckbox').addEventListener('change', function(e){
+    var checked = e.target.checked;
+    filteredUsers().forEach(function(u){ state.selected[u.id] = checked; });
+    render();
+  });
+  document.getElementById('bulkCancelBtn').addEventListener('click', function(){
+    state.selected = {}; render();
+  });
+
+  document.getElementById('tableBody').addEventListener('change', function(e){
+    var cb = e.target.closest('[data-row-checkbox]');
+    if (!cb) return;
+    state.selected[cb.getAttribute('data-id')] = cb.checked;
+    render();
+  });
+  document.getElementById('tableBody').addEventListener('click', function(e){
+    var btn = e.target.closest('[data-menu-toggle]');
+    if (btn){
+      e.stopPropagation();
+      var id = btn.getAttribute('data-id');
+      openActionMenu(id, btn);
+    }
+  });
+
+  var actionMenu = document.getElementById('actionMenu');
+  var activeMenuUserId = null;
+
+  function menuItem(label, action, id, danger){
+    return '<button data-action="'+action+'" data-id="'+id+'" class="w-full text-left px-3 py-2 hover:bg-[#F1F2EE] '+(danger ? 'text-[var(--bad)]' : 'text-[var(--ink)]')+'">'+label+'</button>';
+  }
+
+  function openActionMenu(id, btn){
+    var u = byId(id);
+    if (!u) return;
+    var items = [];
+    if (u.status === 'Active'){
+      items.push(menuItem('Reset password', 'reset', id));
+      if (u.role !== 'Owner') items.push(menuItem('Change role', 'role', id));
+      if (u.role !== 'Owner') items.push(menuItem('Deactivate account', 'deactivate', id, true));
+    } else if (u.status === 'Suspended'){
+      items.push(menuItem('Reactivate account', 'reactivate', id));
+      items.push(menuItem('Reset password', 'reset', id));
+      items.push(menuItem('Change role', 'role', id));
+    } else if (u.status === 'Invited'){
+      items.push(menuItem('Resend invite', 'resend', id));
+      items.push(menuItem('Revoke invite', 'revoke', id, true));
+    }
+    actionMenu.innerHTML = items.join('');
+    var rect = btn.getBoundingClientRect();
+    actionMenu.style.top = (rect.bottom + 6) + 'px';
+    actionMenu.style.left = Math.max(8, rect.right - 192) + 'px';
+    actionMenu.classList.remove('hidden');
+    activeMenuUserId = id;
+  }
+  function closeActionMenu(){
+    actionMenu.classList.add('hidden');
+    activeMenuUserId = null;
+  }
+  actionMenu.addEventListener('click', function(e){
+    var item = e.target.closest('[data-action]');
+    if (!item) return;
+    var action = item.getAttribute('data-action');
+    var id = item.getAttribute('data-id');
+    closeActionMenu();
+    if (action === 'reset') doResetPassword([id]);
+    else if (action === 'deactivate') openConfirm([id], 'deactivate');
+    else if (action === 'reactivate') doReactivate(id);
+    else if (action === 'resend') doResend(id);
+    else if (action === 'revoke') openConfirm([id], 'revoke');
+    else if (action === 'role') openRoleModal(id);
+  });
+  document.addEventListener('click', function(e){
+    if (!actionMenu.classList.contains('hidden') && !actionMenu.contains(e.target) && !e.target.closest('[data-menu-toggle]')){
+      closeActionMenu();
+    }
+  });
+  window.addEventListener('scroll', closeActionMenu, true);
+
+  function doResetPassword(ids){
+    ids.forEach(function(id){});
+    var names = ids.map(function(id){ return byId(id).name; });
+    if (ids.length === 1) toast('Password reset email sent to ' + names[0] + '.');
+    else toast('Password reset emails sent to ' + ids.length + ' people.');
+    state.selected = {}; render();
+  }
+  function doReactivate(id){
+    var u = byId(id);
+    u.status = 'Active';
+    u.lastSignIn = u.lastSignIn === 'Never' ? 'Never' : u.lastSignIn;
+    toast(u.name + '’s account has been reactivated.');
+    render();
+  }
+  function doResend(id){
+    var u = byId(id);
+    toast('Invite resent to ' + u.email + '.');
+  }
+  function doDeactivate(ids){
+    ids.forEach(function(id){ byId(id).status = 'Suspended'; });
+    if (ids.length === 1) toast(byId(ids[0]).name + '’s account has been deactivated.');
+    else toast(ids.length + ' accounts have been deactivated.');
+    state.selected = {}; render();
+  }
+  function doRevoke(id){
+    var u = byId(id);
+    users = users.filter(function(x){ return x.id !== id; });
+    toast('Invite to ' + u.email + ' has been revoked.');
+    delete state.selected[id];
+    render();
+  }
+
+  var confirmBackdrop = document.getElementById('confirmBackdrop');
+  var confirmModal = document.getElementById('confirmModal');
+  var confirmTitle = document.getElementById('confirmTitle');
+  var confirmBody = document.getElementById('confirmBody');
+  var confirmActionBtn = document.getElementById('confirmActionBtn');
+  var pendingConfirm = null;
+
+  function openConfirm(ids, mode){
+    pendingConfirm = { ids:ids, mode:mode };
+    if (mode === 'deactivate'){
+      var who = ids.length === 1 ? byId(ids[0]).name : (ids.length + ' accounts');
+      confirmTitle.textContent = ids.length === 1 ? ('Deactivate ' + who + '?') : ('Deactivate ' + who + '?');
+      confirmBody.textContent = (ids.length === 1 ? 'They' : 'They') + ' will immediately lose access to Fathom. You can reactivate the account at any time.';
+      confirmActionBtn.textContent = 'Deactivate';
+      confirmActionBtn.className = 'text-sm font-medium px-4 py-2 rounded-md text-white bg-[var(--bad)] hover:bg-[#7E2E24]';
+    } else if (mode === 'revoke'){
+      var u = byId(ids[0]);
+      confirmTitle.textContent = 'Revoke invite to ' + u.name + '?';
+      confirmBody.textContent = 'The invite link sent to ' + u.email + ' will stop working.';
+      confirmActionBtn.textContent = 'Revoke invite';
+      confirmActionBtn.className = 'text-sm font-medium px-4 py-2 rounded-md text-white bg-[var(--bad)] hover:bg-[#7E2E24]';
+    }
+    confirmBackdrop.classList.remove('hidden');
+    confirmModal.classList.remove('hidden');
+    confirmModal.classList.add('flex');
+  }
+  function closeConfirm(){
+    confirmBackdrop.classList.add('hidden');
+    confirmModal.classList.add('hidden');
+    confirmModal.classList.remove('flex');
+    pendingConfirm = null;
+  }
+  document.getElementById('confirmCancelBtn').addEventListener('click', closeConfirm);
+  confirmBackdrop.addEventListener('click', closeConfirm);
+  confirmActionBtn.addEventListener('click', function(){
+    if (!pendingConfirm) return;
+    if (pendingConfirm.mode === 'deactivate') doDeactivate(pendingConfirm.ids);
+    else if (pendingConfirm.mode === 'revoke') doRevoke(pendingConfirm.ids[0]);
+    closeConfirm();
+  });
+
+  var roleBackdrop = document.getElementById('roleBackdrop');
+  var roleModal = document.getElementById('roleModal');
+  var roleModalTitle = document.getElementById('roleModalTitle');
+  var roleModalSelect = document.getElementById('roleModalSelect');
+  var pendingRoleId = null;
+
+  function openRoleModal(id){
+    var u = byId(id);
+    pendingRoleId = id;
+    roleModalTitle.textContent = 'Change role for ' + u.name;
+    roleModalSelect.value = u.role === 'Owner' ? 'Admin' : u.role;
+    roleBackdrop.classList.remove('hidden');
+    roleModal.classList.remove('hidden');
+    roleModal.classList.add('flex');
+  }
+  function closeRoleModal(){
+    roleBackdrop.classList.add('hidden');
+    roleModal.classList.add('hidden');
+    roleModal.classList.remove('flex');
+    pendingRoleId = null;
+  }
+  document.getElementById('roleCancelBtn').addEventListener('click', closeRoleModal);
+  roleBackdrop.addEventListener('click', closeRoleModal);
+  document.getElementById('roleSaveBtn').addEventListener('click', function(){
+    if (!pendingRoleId) return;
+    var u = byId(pendingRoleId);
+    u.role = roleModalSelect.value;
+    toast('Role updated for ' + u.name + '.');
+    closeRoleModal();
+    render();
+  });
+
+  document.getElementById('bulkResetBtn').addEventListener('click', function(){
+    var ids = Object.keys(state.selected).filter(function(id){ return state.selected[id]; });
+    if (ids.length) doResetPassword(ids);
+  });
+  document.getElementById('bulkDeactivateBtn').addEventListener('click', function(){
+    var ids = Object.keys(state.selected).filter(function(id){ return state.selected[id] && byId(id).status !== 'Owner'; })
+      .filter(function(id){ return byId(id).role !== 'Owner'; });
+    if (ids.length) openConfirm(ids, 'deactivate');
+  });
+
+  var inviteDrawer = document.getElementById('inviteDrawer');
+  var inviteBackdrop = document.getElementById('inviteBackdrop');
+  function openInvite(){
+    inviteBackdrop.classList.remove('scrim-hidden');
+    inviteDrawer.classList.remove('closed');
+    document.getElementById('inviteEmail').focus();
+  }
+  function closeInvite(){
+    inviteBackdrop.classList.add('scrim-hidden');
+    inviteDrawer.classList.add('closed');
+    document.getElementById('inviteForm').reset();
+  }
+  document.getElementById('inviteOpenBtn').addEventListener('click', openInvite);
+  document.getElementById('inviteCloseBtn').addEventListener('click', closeInvite);
+  document.getElementById('inviteCancelBtn').addEventListener('click', closeInvite);
+  inviteBackdrop.addEventListener('click', closeInvite);
+  document.getElementById('inviteForm').addEventListener('submit', function(e){
+    e.preventDefault();
+    var email = document.getElementById('inviteEmail').value.trim();
+    var role = document.getElementById('inviteRole').value;
+    var name = email.split('@')[0].split(/[._]/).map(function(p){
+      return p.charAt(0).toUpperCase() + p.slice(1);
+    }).join(' ');
+    var u = { id:String(nextId++), name:name || email, email:email, role:role, status:'Invited', lastSignIn:'Never' };
+    users.unshift(u);
+    toast('Invite sent to ' + email + '.');
+    closeInvite();
+    render();
+  });
+
+  document.addEventListener('keydown', function(e){
+    if (e.key !== 'Escape') return;
+    closeActionMenu();
+    if (!inviteDrawer.classList.contains('closed')) closeInvite();
+    if (!confirmModal.classList.contains('hidden')) closeConfirm();
+    if (!roleModal.classList.contains('hidden')) closeRoleModal();
+  });
+
+  var toastContainer = document.getElementById('toastContainer');
+  function toast(message){
+    var el = document.createElement('div');
+    el.className = 'bg-[var(--ink)] text-white text-sm px-4 py-2.5 rounded-md shadow-lg max-w-xs';
+    el.textContent = message;
+    toastContainer.appendChild(el);
+    setTimeout(function(){
+      el.style.transition = 'opacity 200ms ease';
+      el.style.opacity = '0';
+      setTimeout(function(){ el.remove(); }, 200);
+    }, 3200);
+  }
+
+  render();
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,58 @@
+{
+  "brief": "22-room-booking-calendar",
+  "run": 1,
+  "items": [
+    {
+      "item": "The day view lists rooms as rows, each labelled with its capacity (and its floor or equipment), against a time axis that covers working hours and is labelled at least every hour",
+      "pass": false,
+      "evidence": "renderDayView() sets grid.style.gridTemplateColumns = `64px repeat(${visibleRooms.length}, minmax(190px, 1fr))` and gridTemplateRows = `64px repeat(${SLOT_COUNT}, ${ROW_H}px)` — rooms are laid out as COLUMNS with time running down the ROWS (7:00 AM–7:00 PM, labelled hourly), the opposite orientation required. Additionally, when the shown date is today (isToday true, which it is since state.currentDate = REAL_TODAY), the per-room header renders `statusHtml` as 'Free now'/'Busy until X' instead of capacity/floor — capacity/floor text ('${room.capacity} seats · ${room.floor}') is only shown on non-today dates, so on first load no capacity/floor is visible in the grid itself (only in the separate room-chip row above)."
+    },
+    {
+      "item": "A Day / Week switch marks the active view (aria-pressed, aria-selected or aria-current), Previous / Today / Next controls move the range, and a heading states the date or date range on screen (such as \"Mon 2 – Sun 8 Nov 2026\")",
+      "pass": true,
+      "evidence": "#viewDayBtn/#viewWeekBtn toggle aria-pressed in updateToolbar(); #prevBtn/#todayBtn/#nextBtn change state.currentDate and re-render; h1#dateLabel shows 'Monday, November 9, 2026' in day view or a 'MMM d – MMM d, yyyy' range in week view."
+    },
+    {
+      "item": "Each booking shows its title or organiser and its start–end time as text, and its block covers exactly that stretch of the time axis (a 09:30–11:00 booking spans one and a half hours)",
+      "pass": true,
+      "evidence": "Booking block innerHTML renders `${formatTime12(b.start)} – ${formatTime12(b.end)}`, title and organizer as text; block.style.gridRow = `${rowStart} / span ${rowSpan}` where rowSpan = (endMin-startMin)/SLOT_MIN, so e.g. the 9:00–10:00 'Product Roadmap Review' block spans exactly 2 half-hour rows, matching the screenshot."
+    },
+    {
+      "item": "Filters for minimum capacity and for equipment (such as projector or video conferencing) narrow the rooms listed, and the number of matching rooms is shown",
+      "pass": false,
+      "evidence": "No minimum-capacity input or equipment filter exists anywhere in page.html. #roomFilterRow only renders per-room toggle chips (data-room-toggle) that show/hide individual rooms by name; equipment text only appears in a hover `title` tooltip attribute, and there is no 'N rooms match' count shown."
+    },
+    {
+      "item": "Choosing a free slot opens a booking form already filled in with that room, date and start time",
+      "pass": true,
+      "evidence": "Empty day-view cells carry dataset.room/date/start/end; click handler calls openNewBookingModal({room, date, start, end}) which sets #bk-room, #bk-date, #bk-start (and #bk-end) to the prefill values before showing the modal."
+    },
+    {
+      "item": "Saving is blocked with an inline message when the time overlaps another booking of the same room (the message names that booking's time and organiser) or when the end is not after the start",
+      "pass": false,
+      "evidence": "handleBookingSubmit() blocks end<=start with 'End time must be after the start time.' (pass for that half), and blocks overlap via findConflict() with showFormError(`${room.name} is already booked ${formatTime12(conflict.start)}–${formatTime12(conflict.end)} for \"${conflict.title}\". Choose another time or room.`) — this names the conflicting booking's time and TITLE, but never conflict.organizer, so it fails the 'names ... organizer' requirement."
+    },
+    {
+      "item": "Cancelling a booking asks for confirmation in a dialog that names the room, date and time and offers a way to keep the booking",
+      "pass": true,
+      "evidence": "#cancelBookingBtn reveals #cancelConfirmRow ('Cancel this booking?') inside the same role=\"dialog\" detail modal whose header/body already display #detailRoom, #detailTitle and #detailDateTime (room, date, start–end time) for the booking being cancelled; #cancelNoBtn ('Keep it') dismisses the confirmation without cancelling."
+    },
+    {
+      "item": "Free slots and bookings are focusable buttons or links whose accessible names give the room, date, time and status (such as \"Lotus room, Thu 5 Nov, 09:00–09:30, free\"), not click handlers on bare divs",
+      "pass": false,
+      "evidence": "Booking blocks are accessible (role=\"button\", tabindex=\"0\", aria-label with title/time/room/organizer), but free day-view slots are plain `document.createElement('div')` cells with only `cell.dataset.action='new-booking'` and no role, tabindex, or aria-label — i.e. click handlers on bare divs with no accessible name or keyboard focusability (week-view day cells do use real <button> elements with aria-label, but the day view's free-slot cells do not)."
+    },
+    {
+      "item": "When no rooms match the filters, a message with a clear-filters action takes the place of the grid, and loading and error-with-retry states are built in",
+      "pass": false,
+      "evidence": "If all room chips are deselected, renderDayView()/renderWeekView() show a static message 'Select at least one room above to see its schedule.' with no action button inside it (no inline clear/reset control — the separate 'Show all' link exists elsewhere in the toolbar, not as part of this message). There is no capacity/equipment filter to 'match' in the first place (see item 4), and no loading state or error-with-retry UI exists anywhere in the markup or script."
+    }
+  ],
+  "tells": [
+    "glass — modal overlays (#modalOverlay, #detailOverlay) use `bg-slate-900/50 backdrop-blur-sm`",
+    "tracked-uppercase-labels — `<p class=\"text-xs font-semibold uppercase tracking-wide text-slate-500\">Rooms</p>` (also flagged by audit.json uppercase-text violation)",
+    "initials-avatar-non-person — not applicable; JD and organizer initials circles represent actual named people, correctly used"
+  ],
+  "notes": "Demo anchor date (state.currentDate = Nov 9 2026) equals REAL_TODAY, so the day-view room headers show live 'Free now/Busy until' status instead of capacity/floor on first load — only toggling to a different date reveals capacity/floor text in the grid itself. Automated audit.json score 72/100, flags 28 text-contrast failures on the colored room chips/legend and 1 font-size-base failure (11px time labels), both consistent with manual observation.",
+  "blind": true
+}

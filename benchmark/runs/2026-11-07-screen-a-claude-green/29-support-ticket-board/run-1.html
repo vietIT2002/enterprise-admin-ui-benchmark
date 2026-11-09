@@ -1,0 +1,704 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tickets · Helpdesk</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+  [hidden] { display: none !important; }
+  .tnum { font-variant-numeric: tabular-nums; }
+  .clamp2 { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+  @keyframes pulse { 0%,100% { opacity: .55 } 50% { opacity: .2 } }
+  .skel { animation: pulse 1.4s ease-in-out infinite; }
+  @media print {
+    aside, nav, button, input, select, [data-no-print] { display: none !important; }
+    main { padding: 0 !important; }
+  }
+</style>
+</head>
+<body class="h-screen overflow-hidden bg-white text-sm text-slate-900 antialiased">
+<!--
+  Ticket board (enterprise-admin-ui, boards.md). Mock data only; no network calls.
+  Markup contract kept for scripts/check.mjs: data-region with data-state="empty|loading|error" children
+  shown by ?state=, data-result-count next to the filters, Export names its count, a role="status" region.
+-->
+<div class="flex h-screen">
+  <aside class="hidden w-56 shrink-0 flex-col border-r border-slate-200 bg-slate-50 md:flex">
+    <div class="flex h-14 items-center px-4 text-base font-semibold text-slate-900">Helpdesk</div>
+    <nav aria-label="Main" class="flex-1 overflow-y-auto px-2 pb-4">
+      <p class="px-2 pb-1 pt-3 text-xs font-medium text-slate-600">Support</p>
+      <a href="#" aria-current="page" class="flex h-8 items-center rounded bg-slate-200 px-2 font-medium text-slate-900">Tickets</a>
+      <a href="#" class="flex h-8 items-center rounded px-2 text-slate-700 hover:bg-slate-100">Customers</a>
+      <a href="#" class="flex h-8 items-center rounded px-2 text-slate-700 hover:bg-slate-100">Knowledge base</a>
+      <p class="px-2 pb-1 pt-3 text-xs font-medium text-slate-600">Insights</p>
+      <a href="#" class="flex h-8 items-center rounded px-2 text-slate-700 hover:bg-slate-100">Reports</a>
+      <a href="#" class="flex h-8 items-center rounded px-2 text-slate-700 hover:bg-slate-100">Settings</a>
+    </nav>
+  </aside>
+
+  <div class="flex min-w-0 flex-1 flex-col overflow-hidden">
+    <header data-page-header class="shrink-0 border-b border-slate-200 px-6 py-4">
+      <div class="flex items-center justify-between gap-4">
+        <div>
+          <h1 class="text-xl font-semibold text-slate-900">Tickets</h1>
+        </div>
+        <div class="flex items-center gap-2">
+          <button type="button" id="btn-export" class="h-8 rounded border border-slate-300 bg-white px-3 text-sm hover:bg-slate-50">Export <span class="tnum" id="export-label">0 tickets</span></button>
+          <button type="button" id="btn-create" class="h-8 rounded bg-blue-700 px-3 text-sm font-medium text-white hover:bg-blue-800">Create ticket</button>
+        </div>
+      </div>
+    </header>
+
+    <div class="shrink-0 border-b border-slate-200 px-6 py-3">
+      <div class="flex flex-wrap items-center gap-2">
+        <label class="sr-only" for="q">Search tickets</label>
+        <input type="search" id="q" aria-label="Search tickets by number, subject or customer" placeholder="Search tickets" class="h-8 w-72 rounded border border-slate-300 px-2 text-sm">
+        <label class="sr-only" for="f-priority">Priority</label>
+        <select id="f-priority" class="h-8 rounded border border-slate-300 bg-white px-2 text-sm">
+          <option value="">All priorities</option>
+          <option>Urgent</option><option>High</option><option>Medium</option><option>Low</option>
+        </select>
+        <label class="sr-only" for="f-assignee">Assignee</label>
+        <select id="f-assignee" class="h-8 rounded border border-slate-300 bg-white px-2 text-sm">
+          <option value="">All assignees</option>
+        </select>
+        <button type="button" id="f-mine" aria-pressed="false" class="h-8 rounded border border-slate-300 bg-white px-3 text-sm hover:bg-slate-50">Assigned to me</button>
+        <div class="ml-auto flex items-center gap-0.5 rounded-md border border-slate-300 bg-white p-0.5" role="group" aria-label="Board or list view">
+          <button type="button" id="view-board-btn" aria-pressed="true" class="h-7 rounded px-3 text-sm font-medium text-slate-900">Board</button>
+          <button type="button" id="view-list-btn" aria-pressed="false" class="h-7 rounded px-3 text-sm text-slate-600 hover:text-slate-900">List</button>
+        </div>
+      </div>
+      <div id="chips" class="mt-2 flex flex-wrap items-center gap-1"></div>
+      <p class="mt-2 text-slate-600" data-result-count><span id="result-count" class="tnum font-medium text-slate-900">0</span> tickets · <span id="overdue-count" class="tnum font-medium text-red-700">0</span> overdue</p>
+    </div>
+
+    <div id="bulk" hidden class="mx-6 mt-2 flex h-10 shrink-0 items-center gap-3 rounded-md border border-blue-200 bg-blue-50 px-3" role="region" aria-label="Bulk actions">
+      <span><span id="bulk-count" class="tnum">0</span> selected</span>
+      <button type="button" id="bulk-all" class="text-blue-700 underline">Select all <span id="bulk-all-count" class="tnum">0</span> matching</button>
+      <button type="button" id="bulk-clear" class="text-blue-700 underline">Clear selection</button>
+    </div>
+
+    <main class="flex min-h-0 flex-1 flex-col overflow-hidden px-6 py-3">
+      <section data-region="tickets" class="flex min-h-0 flex-1 flex-col" aria-label="Tickets">
+        <div data-state="ready" id="ready" class="flex min-h-0 flex-1 flex-col">
+          <div id="board-view" class="flex min-h-0 flex-1 gap-3 overflow-x-auto pb-2"></div>
+          <div id="list-view" hidden class="flex min-h-0 flex-1 flex-col overflow-y-auto rounded-md border border-slate-200">
+            <table class="w-full border-collapse text-sm">
+              <caption class="sr-only">Tickets</caption>
+              <thead class="sticky top-0 z-10 bg-slate-50 text-slate-700">
+                <tr class="h-10 border-b border-slate-200">
+                  <th scope="col" class="w-10 px-3 text-left"><input type="checkbox" id="list-select-all" class="h-4 w-4" aria-label="Select all tickets"></th>
+                  <th scope="col" class="px-3 text-left font-medium">Ticket</th>
+                  <th scope="col" class="px-3 text-left font-medium">Subject</th>
+                  <th scope="col" class="px-3 text-left font-medium">Customer</th>
+                  <th scope="col" class="px-3 text-left font-medium">Status</th>
+                  <th scope="col" class="px-3 text-left font-medium">Priority</th>
+                  <th scope="col" class="px-3 text-left font-medium">Assignee</th>
+                  <th scope="col" class="px-3 text-left font-medium">SLA</th>
+                  <th scope="col" class="w-12 px-3"><span class="sr-only">Actions</span></th>
+                </tr>
+              </thead>
+              <tbody id="list-rows"></tbody>
+            </table>
+          </div>
+          <div id="no-match" hidden class="flex flex-1 items-center justify-center rounded-md border border-dashed border-slate-300">
+            <div class="px-6 py-10 text-center">
+              <p class="font-medium text-slate-900">No tickets match these filters</p>
+              <p class="mt-1 text-slate-600">Try another search, priority or assignee.</p>
+              <button type="button" id="no-match-clear" class="mt-3 h-8 rounded border border-slate-300 bg-white px-3 hover:bg-slate-50">Clear filters</button>
+            </div>
+          </div>
+        </div>
+
+        <div data-state="empty" hidden class="flex flex-1 items-center justify-center rounded-md border border-dashed border-slate-300">
+          <div class="px-6 py-10 text-center">
+            <p class="font-medium text-slate-900">No tickets yet</p>
+            <p class="mt-1 text-slate-600">Tickets appear here when a customer writes in or an agent opens one.</p>
+            <button type="button" id="empty-create" class="mt-3 h-8 rounded bg-blue-700 px-3 font-medium text-white hover:bg-blue-800">Create ticket</button>
+          </div>
+        </div>
+
+        <div data-state="loading" aria-busy="true" hidden class="flex min-h-0 flex-1 gap-3 overflow-x-auto pb-2" aria-label="Loading tickets">
+          <div id="skeleton" class="flex gap-3"></div>
+        </div>
+
+        <div data-state="error" hidden role="alert" class="flex flex-1 items-center justify-center rounded-md border border-red-200 bg-red-50">
+          <div class="px-6 py-10 text-center text-red-800">
+            <p class="font-medium">Tickets could not be loaded.</p>
+            <p class="mt-1">Check your connection, then try again.</p>
+            <button type="button" id="retry" class="mt-3 h-8 rounded border border-red-300 bg-white px-3 text-red-800 hover:bg-red-100">Retry</button>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+</div>
+
+<!-- Move / row menu -->
+<div id="menu" role="menu" aria-label="Move ticket" hidden class="fixed z-40 w-52 rounded-md border border-slate-200 bg-white py-1 shadow-lg"></div>
+
+<!-- Details side panel -->
+<div id="backdrop" hidden class="fixed inset-0 z-30 bg-slate-900/40"></div>
+<aside id="panel" hidden class="fixed inset-y-0 right-0 z-40 flex w-[520px] max-w-full flex-col border-l border-slate-200 bg-white shadow-lg" role="dialog" aria-modal="true" aria-labelledby="panel-title">
+  <div class="flex items-center justify-between gap-2 border-b border-slate-200 px-5 py-4">
+    <div class="min-w-0">
+      <p class="text-xs text-slate-500" id="panel-code"></p>
+      <h2 id="panel-title" class="truncate text-base font-semibold text-slate-900"></h2>
+    </div>
+    <button type="button" id="panel-close" class="h-8 w-8 shrink-0 rounded hover:bg-slate-100" aria-label="Close ticket details">×</button>
+  </div>
+  <div class="flex-1 overflow-y-auto px-5 py-4" id="panel-body"></div>
+</aside>
+
+<!-- Resolution-note dialog (transition that needs input) -->
+<div id="dlg-resolve" role="alertdialog" aria-modal="true" aria-labelledby="resolve-title" hidden class="fixed left-1/2 top-24 z-50 w-[440px] -translate-x-1/2 rounded-lg border border-slate-200 bg-white p-5 shadow-lg">
+  <h2 id="resolve-title" class="text-base font-semibold text-slate-900">Resolve <span id="resolve-code"></span></h2>
+  <p class="mt-1 text-slate-600">Add a short resolution note before moving this ticket to Resolved.</p>
+  <label class="mt-3 block text-sm font-medium text-slate-900" for="resolve-note">Resolution note <span aria-hidden="true">*</span></label>
+  <textarea id="resolve-note" rows="3" class="mt-1 w-full rounded border border-slate-300 px-2 py-1.5 text-sm"></textarea>
+  <p id="resolve-error" hidden class="mt-1 text-red-700">Add a resolution note to continue.</p>
+  <div class="mt-4 flex justify-end gap-2">
+    <button type="button" id="resolve-cancel" class="h-8 rounded border border-slate-300 bg-white px-3 hover:bg-slate-50">Cancel</button>
+    <button type="button" id="resolve-ok" class="h-8 rounded bg-blue-700 px-3 font-medium text-white hover:bg-blue-800">Mark resolved</button>
+  </div>
+</div>
+
+<!-- Create ticket dialog -->
+<div id="dlg-create" role="dialog" aria-modal="true" aria-labelledby="create-title" hidden class="fixed left-1/2 top-20 z-50 w-[480px] -translate-x-1/2 rounded-lg border border-slate-200 bg-white p-5 shadow-lg">
+  <h2 id="create-title" class="text-base font-semibold text-slate-900">Create ticket</h2>
+  <div class="mt-3">
+    <label class="block text-sm font-medium text-slate-900" for="create-subject">Subject <span aria-hidden="true">*</span></label>
+    <input id="create-subject" type="text" class="mt-1 w-full rounded border border-slate-300 px-2 py-1.5 text-sm">
+    <p id="create-error" hidden class="mt-1 text-red-700">Enter a subject for the ticket.</p>
+  </div>
+  <div class="mt-3">
+    <label class="block text-sm font-medium text-slate-900" for="create-customer">Customer</label>
+    <input id="create-customer" type="text" class="mt-1 w-full rounded border border-slate-300 px-2 py-1.5 text-sm" placeholder="Customer name">
+  </div>
+  <div class="mt-3 flex gap-3">
+    <div class="flex-1">
+      <label class="block text-sm font-medium text-slate-900" for="create-priority">Priority</label>
+      <select id="create-priority" class="mt-1 h-8 w-full rounded border border-slate-300 bg-white px-2 text-sm">
+        <option>Low</option><option selected>Medium</option><option>High</option><option>Urgent</option>
+      </select>
+    </div>
+    <div class="flex-1">
+      <label class="block text-sm font-medium text-slate-900" for="create-assignee">Assignee</label>
+      <select id="create-assignee" class="mt-1 h-8 w-full rounded border border-slate-300 bg-white px-2 text-sm">
+        <option value="">Unassigned</option>
+      </select>
+    </div>
+  </div>
+  <div class="mt-5 flex justify-end gap-2">
+    <button type="button" id="create-cancel" class="h-8 rounded border border-slate-300 bg-white px-3 hover:bg-slate-50">Cancel</button>
+    <button type="button" id="create-ok" class="h-8 rounded bg-blue-700 px-3 font-medium text-white hover:bg-blue-800">Create ticket</button>
+  </div>
+</div>
+
+<div id="toast" role="status" aria-live="polite" class="fixed bottom-4 right-4 z-50"></div>
+
+<script>
+  // ---------- setup & formatting ----------
+  const NOW = new Date(2026, 10, 7, 9, 30, 0);
+  const $ = (id) => document.getElementById(id);
+  const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  const pad2 = (n) => String(n).padStart(2, '0');
+  const fmtDM = (d) => `${pad2(d.getDate())}/${pad2(d.getMonth() + 1)}`;
+  const fmtDMY = (d) => `${pad2(d.getDate())}/${pad2(d.getMonth() + 1)}/${d.getFullYear()}`;
+  const fmtTime = (d) => `${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
+  const fmtDateTime = (d) => `${fmtDM(d)} ${fmtTime(d)}`;
+  const fmtCount = (n) => new Intl.NumberFormat('en-US').format(n);
+  const addHours = (d, h) => new Date(d.getTime() + h * 3600000);
+  const rand = (a, b) => Math.random() * (b - a) + a;
+  const randInt = (a, b) => Math.floor(rand(a, b + 1));
+  const pick = (arr) => arr[randInt(0, arr.length - 1)];
+  function shuffle(arr) { for (let i = arr.length - 1; i > 0; i--) { const j = randInt(0, i); [arr[i], arr[j]] = [arr[j], arr[i]]; } return arr; }
+  function initials(name) { if (!name) return '?'; const p = name.trim().split(/\s+/); return (p[0][0] + (p[1] ? p[1][0] : '')).toUpperCase(); }
+
+  // ---------- columns & tones ----------
+  const COLUMNS = [
+    { id: 'new', label: 'New' },
+    { id: 'open', label: 'Open' },
+    { id: 'in_progress', label: 'In progress', limit: 6 },
+    { id: 'waiting', label: 'Waiting on customer' },
+    { id: 'resolved', label: 'Resolved' },
+    { id: 'closed', label: 'Closed', collapsible: true },
+  ];
+  const COL = Object.fromEntries(COLUMNS.map((c) => [c.id, c]));
+  const PRIORITY_TONE = { Low: 'bg-slate-100 text-slate-700', Medium: 'bg-blue-50 text-blue-800', High: 'bg-amber-50 text-amber-800', Urgent: 'bg-red-50 text-red-800' };
+  const STATUS_TONE = { new: 'bg-slate-100 text-slate-700', open: 'bg-blue-50 text-blue-800', in_progress: 'bg-blue-50 text-blue-800', waiting: 'bg-amber-50 text-amber-800', resolved: 'bg-green-50 text-green-800', closed: 'bg-slate-100 text-slate-700' };
+  const SLA_HOURS = { Urgent: 4, High: 8, Medium: 24, Low: 72 };
+  const PRIORITIES = ['Low', 'Low', 'Medium', 'Medium', 'Medium', 'High', 'High', 'Urgent'];
+
+  // ---------- mock data ----------
+  const AGENTS = ['Priya Shah', 'Marcus Webb', 'Elena Torres', 'Jamal Carter', 'Sofia Rossi'];
+  const CURRENT_AGENT = 'Priya Shah';
+  const CUSTOMERS = [
+    { name: 'Dana Whitfield', company: 'Northwind Retail', email: 'dana.whitfield@northwindretail.com', phone: '+14155550132' },
+    { name: 'Marco Alvares', company: 'Blue Lotus Hotel', email: 'marco.alvares@bluelotushotel.com', phone: '+12125550178' },
+    { name: 'Priyanka Rao', company: 'Summit Logistics', email: 'priyanka.rao@summitlogistics.com', phone: '+13125550199' },
+    { name: 'Tom Becker', company: 'Clearwater Insurance', email: 'tom.becker@clearwaterins.com', phone: '+16465550145' },
+    { name: 'Aiko Tanaka', company: 'Lumen Analytics', email: 'aiko.tanaka@lumenanalytics.io', phone: '+16505550162' },
+    { name: 'Sven Olsen', company: 'Fjord Outdoor Gear', email: 'sven.olsen@fjordgear.com', phone: '+15035550118' },
+    { name: 'Grace Mensah', company: 'Harborview Clinic', email: 'grace.mensah@harborviewclinic.org', phone: '+17185550183' },
+    { name: 'Diego Fuentes', company: 'Pioneer Freight', email: 'diego.fuentes@pioneerfreight.com', phone: '+17135550127' },
+  ];
+  const SUBJECTS = [
+    'Cannot reset account password', 'Invoice #4521 missing attachment', 'App crashes on login (iOS)',
+    'Billing discrepancy for October', 'Export to CSV fails for large reports', 'Request: add new user seat',
+    'VPN connection drops every 10 minutes', 'Feature request: dark mode', 'Unable to upload files over 10MB',
+    'Duplicate charge on card ending 4421', 'SSO login redirect loop', 'Slow dashboard load times',
+    'Need admin access to workspace', 'Email notifications not arriving', 'API rate limit errors on integration',
+    'Password reset email not received', 'Mobile app crashes on Android 14', 'Integration with Salesforce broken',
+    'Report data mismatch after sync', 'Account locked after failed logins',
+  ];
+
+  function buildActivity(status, createdAt, updatedAt, assignee) {
+    const acts = [{ who: 'System', action: 'Ticket created', at: createdAt }];
+    if (assignee) acts.push({ who: 'System', action: `Assigned to ${assignee}`, at: addHours(createdAt, 0.5) });
+    if (status !== 'new') acts.push({ who: assignee || 'System', action: 'Started working on the ticket', at: addHours(createdAt, 1) });
+    if (status === 'waiting') acts.push({ who: assignee || 'System', action: 'Waiting on customer for more information', at: addHours(createdAt, 2) });
+    if (status === 'resolved') acts.push({ who: assignee || 'System', action: 'Marked as resolved', at: updatedAt });
+    if (status === 'closed') acts.push({ who: assignee || 'System', action: 'Closed the ticket', at: updatedAt });
+    return acts;
+  }
+
+  const STATUS_PLAN = shuffle([
+    ...Array(8).fill('new'), ...Array(9).fill('open'), ...Array(9).fill('in_progress'),
+    ...Array(7).fill('waiting'), ...Array(8).fill('resolved'), ...Array(6).fill('closed'),
+  ]);
+
+  let TICKETS = STATUS_PLAN.map((status, i) => {
+    const priority = pick(PRIORITIES);
+    const ageHours = rand(1, 220);
+    const createdAt = addHours(NOW, -ageHours);
+    const dueAt = addHours(createdAt, SLA_HOURS[priority]);
+    const customer = pick(CUSTOMERS);
+    const assignee = status === 'new' && Math.random() < 0.4 ? null : pick(AGENTS);
+    const activitySpan = Math.max(1, ageHours - 0.5);
+    const updatedAt = status === 'resolved' || status === 'closed' ? addHours(createdAt, rand(1, activitySpan)) : addHours(createdAt, rand(0.25, Math.min(activitySpan, 48)));
+    return {
+      id: 'TKT-' + (1001 + i),
+      subject: pick(SUBJECTS),
+      customerName: customer.name,
+      customerCompany: customer.company,
+      customerEmail: customer.email,
+      customerPhone: customer.phone,
+      priority, status, assignee, createdAt, dueAt, updatedAt,
+      activity: buildActivity(status, createdAt, updatedAt, assignee),
+    };
+  });
+
+  $('f-assignee').insertAdjacentHTML('beforeend', AGENTS.map((a) => `<option>${esc(a)}</option>`).join('') + '<option value="__unassigned">Unassigned</option>');
+  $('create-assignee').insertAdjacentHTML('beforeend', AGENTS.map((a) => `<option>${esc(a)}</option>`).join(''));
+
+  // ---------- SLA presentation ----------
+  function slaView(t) {
+    if (t.status === 'resolved' || t.status === 'closed') {
+      const days = Math.floor((NOW - t.updatedAt) / 86400000);
+      const when = days <= 0 ? 'today' : days === 1 ? 'yesterday' : `${days}d ago`;
+      return { label: `${t.status === 'resolved' ? 'Resolved' : 'Closed'} ${when}`, tone: 'text-slate-600' };
+    }
+    const diff = t.dueAt - NOW;
+    const hrs = Math.abs(diff) / 3600000;
+    if (diff < 0) {
+      const word = hrs < 24 ? `${Math.max(1, Math.round(hrs))}h` : `${Math.round(hrs / 24)}d`;
+      return { label: `Overdue by ${word}`, tone: 'text-red-700 font-medium' };
+    }
+    if (hrs <= 4) {
+      const mins = Math.round(diff / 60000);
+      const word = hrs < 1 ? `${mins}m` : `${Math.round(hrs)}h`;
+      return { label: `Due in ${word}`, tone: 'text-amber-800 font-medium' };
+    }
+    const word = hrs < 24 ? `${Math.round(hrs)}h` : `${Math.round(hrs / 24)}d`;
+    return { label: `Due in ${word}`, tone: 'text-slate-600' };
+  }
+  function isOverdue(t) { return t.status !== 'resolved' && t.status !== 'closed' && t.dueAt < NOW; }
+
+  // ---------- ui state ----------
+  const params = new URLSearchParams(location.search);
+  const forced = params.get('state');
+  const ui = {
+    q: params.get('q') || '', priority: params.get('priority') || '', assignee: params.get('assignee') || '',
+    mine: params.get('mine') === '1', view: params.get('view') === 'list' ? 'list' : 'board',
+    ticket: params.get('ticket') || null, closedExpanded: false,
+    selected: new Set(), allMatching: false,
+  };
+  if (forced === 'empty') TICKETS = [];
+
+  function syncUrl() {
+    const p = new URLSearchParams();
+    if (ui.q) p.set('q', ui.q);
+    if (ui.priority) p.set('priority', ui.priority);
+    if (ui.assignee) p.set('assignee', ui.assignee);
+    if (ui.mine) p.set('mine', '1');
+    if (ui.view !== 'board') p.set('view', ui.view);
+    if (ui.ticket) p.set('ticket', ui.ticket);
+    if (forced) p.set('state', forced);
+    history.replaceState(null, '', p.toString() ? '?' + p : location.pathname);
+  }
+
+  function matching() {
+    const q = ui.q.trim().toLowerCase();
+    return TICKETS.filter((t) =>
+      (!q || (t.id + ' ' + t.subject + ' ' + t.customerName + ' ' + t.customerCompany).toLowerCase().includes(q)) &&
+      (!ui.priority || t.priority === ui.priority) &&
+      (!ui.assignee || (ui.assignee === '__unassigned' ? !t.assignee : t.assignee === ui.assignee)) &&
+      (!ui.mine || t.assignee === CURRENT_AGENT)
+    );
+  }
+  const PRIORITY_RANK = { Urgent: 0, High: 1, Medium: 2, Low: 3 };
+  function sortTickets(list) { return [...list].sort((a, b) => PRIORITY_RANK[a.priority] - PRIORITY_RANK[b.priority] || a.dueAt - b.dueAt); }
+  function groupByStatus(list) {
+    const g = {}; COLUMNS.forEach((c) => (g[c.id] = []));
+    for (const t of list) (g[t.status] = g[t.status] || []).push(t);
+    for (const k in g) g[k] = sortTickets(g[k]);
+    return g;
+  }
+
+  // ---------- toast / announce ----------
+  function announce(html) {
+    $('toast').innerHTML = `<div class="flex items-center gap-3 rounded-md border border-slate-200 bg-white px-4 py-3 shadow-lg">${html}</div>`;
+    clearTimeout(announce.t);
+    announce.t = setTimeout(() => ($('toast').innerHTML = ''), 6000);
+  }
+
+  // ---------- card & column markup ----------
+  function cardHTML(t) {
+    const sla = slaView(t);
+    const assigneeName = t.assignee || 'Unassigned';
+    const ariaLabel = `${t.id} – ${t.subject}. Priority ${t.priority}. ${t.assignee ? 'Assigned to ' + t.assignee : 'Unassigned'}. ${sla.label}.`;
+    return `<li data-card="${t.id}">
+      <div class="relative rounded-md border border-slate-200 bg-white p-3 hover:border-slate-300" draggable="true" data-drag="${t.id}">
+        <button type="button" class="block w-full pr-6 text-left" data-open="${t.id}" aria-label="${esc(ariaLabel)}">
+          <div class="flex items-center gap-2">
+            <span class="text-xs text-slate-500">${t.id}</span>
+            <span class="inline-flex h-5 items-center rounded-full px-2 text-xs font-medium ${PRIORITY_TONE[t.priority]}">${t.priority}</span>
+          </div>
+          <p class="clamp2 mt-1 text-sm font-medium text-slate-900" title="${esc(t.subject)}">${esc(t.subject)}</p>
+          <p class="mt-1 truncate text-sm text-slate-600" title="${esc(t.customerName)}">${esc(t.customerName)}</p>
+          <div class="mt-2 flex items-center justify-between gap-2">
+            <span class="flex min-w-0 items-center gap-1.5 text-sm text-slate-700">
+              <span class="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-slate-200 text-[10px] font-medium text-slate-700">${initials(t.assignee)}</span>
+              <span class="truncate">${esc(assigneeName)}</span>
+            </span>
+            <span class="shrink-0 text-sm ${sla.tone}" title="${esc(fmtDateTime(t.dueAt))}">${sla.label}</span>
+          </div>
+        </button>
+        <button type="button" class="absolute right-2 top-2 flex h-6 w-6 items-center justify-center rounded text-slate-500 hover:bg-slate-100" data-menu="${t.id}" aria-haspopup="menu" aria-expanded="false" aria-label="Actions for ${t.id}">⋯</button>
+      </div>
+    </li>`;
+  }
+
+  function columnHTML(col, tickets) {
+    const count = tickets.length;
+    const over = col.limit && count > col.limit;
+    if (col.collapsible && !ui.closedExpanded) {
+      return `<section aria-labelledby="col-${col.id}" class="flex w-14 shrink-0 flex-col items-center rounded-md border border-slate-200 bg-slate-50 py-2">
+        <button type="button" id="col-${col.id}" class="flex flex-1 flex-col items-center gap-2 text-slate-600 hover:text-slate-900" data-expand="${col.id}" aria-expanded="false" aria-label="Expand ${col.label} column, ${count} tickets">
+          <span class="mt-1 [writing-mode:vertical-rl] text-sm font-medium">${col.label}</span>
+          <span class="tabular-nums text-xs text-slate-500">${count}</span>
+        </button>
+      </section>`;
+    }
+    const headerCount = `<span class="tabular-nums ${over ? 'text-amber-800 font-medium' : 'text-slate-600'}">${count}${col.limit ? ` / ${col.limit}` : ''}</span>` + (over ? ` <span class="text-amber-800 font-medium">Over limit</span>` : '');
+    const body = tickets.length ? tickets.map(cardHTML).join('') : `<li class="px-2 py-6 text-center text-sm text-slate-500">No tickets in ${col.label.toLowerCase()}</li>`;
+    const collapseBtn = col.collapsible ? `<button type="button" class="text-slate-500 hover:text-slate-700" data-collapse="${col.id}" aria-label="Collapse ${col.label} column">«</button>` : '';
+    return `<section aria-labelledby="col-${col.id}" class="flex w-[300px] shrink-0 flex-col rounded-md border border-slate-200 bg-slate-50" data-column="${col.id}">
+      <h2 id="col-${col.id}" class="sticky top-0 z-10 flex items-center justify-between gap-2 rounded-t-md bg-slate-50 px-3 py-2 text-sm font-medium text-slate-900" title="Sorted by priority, then SLA due date">
+        <span class="truncate">${col.label}</span>
+        <span class="flex items-center gap-1.5">${headerCount}${collapseBtn}</span>
+      </h2>
+      <ol class="min-h-0 flex-1 space-y-2 overflow-y-auto px-2 pb-2" data-dropzone="${col.id}">${body}</ol>
+    </section>`;
+  }
+
+  function rowHTML(t) {
+    const sla = slaView(t);
+    const checked = ui.allMatching || ui.selected.has(t.id);
+    return `<tr class="h-10 border-b border-slate-200 last:border-0 hover:bg-slate-50">
+      <td class="px-3"><input type="checkbox" class="h-4 w-4" data-select="${t.id}" ${checked ? 'checked' : ''} aria-label="Select ${t.id}"></td>
+      <td class="whitespace-nowrap px-3"><button type="button" class="text-blue-700 hover:underline" data-open="${t.id}">${t.id}</button></td>
+      <td class="max-w-72 truncate px-3" title="${esc(t.subject)}">${esc(t.subject)}</td>
+      <td class="max-w-48 truncate px-3" title="${esc(t.customerName)}">${esc(t.customerName)}</td>
+      <td class="whitespace-nowrap px-3"><span class="inline-flex h-6 items-center rounded-full px-2 text-xs font-medium ${STATUS_TONE[t.status]}">${COL[t.status].label}</span></td>
+      <td class="whitespace-nowrap px-3"><span class="inline-flex h-6 items-center rounded-full px-2 text-xs font-medium ${PRIORITY_TONE[t.priority]}">${t.priority}</span></td>
+      <td class="whitespace-nowrap px-3">${esc(t.assignee || 'Unassigned')}</td>
+      <td class="whitespace-nowrap px-3 ${sla.tone}">${sla.label}</td>
+      <td class="px-3 text-right"><button type="button" data-menu="${t.id}" aria-haspopup="menu" aria-expanded="false" aria-label="Actions for ${t.id}" class="h-8 w-8 rounded hover:bg-slate-100">⋯</button></td>
+    </tr>`;
+  }
+
+  // ---------- render ----------
+  function renderChips() {
+    const chips = [];
+    if (ui.q) chips.push(['q', `Search: ${ui.q}`]);
+    if (ui.priority) chips.push(['priority', `Priority: ${ui.priority}`]);
+    if (ui.assignee) chips.push(['assignee', `Assignee: ${ui.assignee === '__unassigned' ? 'Unassigned' : ui.assignee}`]);
+    if (ui.mine) chips.push(['mine', 'Assigned to me']);
+    $('chips').innerHTML = chips.map(([k, t]) => `<span class="inline-flex h-6 items-center gap-1 rounded-full bg-slate-100 pl-2 pr-1 text-slate-700">${esc(t)}<button type="button" data-chip="${k}" class="h-6 w-6 rounded-full hover:bg-slate-200" aria-label="Remove filter ${esc(t)}">×</button></span>`).join('') +
+      (chips.length ? '<button type="button" id="clear-all" class="h-6 px-2 text-blue-700 underline">Clear all</button>' : '');
+  }
+
+  function render() {
+    syncUrl();
+    renderChips();
+    const list = matching();
+    const total = list.length;
+    const overdue = list.filter(isOverdue).length;
+    $('result-count').textContent = fmtCount(total);
+    $('overdue-count').textContent = fmtCount(overdue);
+    const selectedCount = ui.view === 'list' ? (ui.allMatching ? total : ui.selected.size) : 0;
+    $('export-label').textContent = selectedCount ? `${fmtCount(selectedCount)} selected` : `${fmtCount(total)} tickets`;
+    $('bulk').hidden = !selectedCount;
+    $('bulk-count').textContent = fmtCount(selectedCount);
+    $('bulk-all-count').textContent = fmtCount(total);
+    $('bulk-all').hidden = ui.allMatching || total <= ui.selected.size + 1 || ui.view !== 'list';
+
+    $('view-board-btn').setAttribute('aria-pressed', String(ui.view === 'board'));
+    $('view-list-btn').setAttribute('aria-pressed', String(ui.view === 'list'));
+    $('view-board-btn').className = 'h-7 rounded px-3 text-sm ' + (ui.view === 'board' ? 'font-medium text-slate-900 bg-slate-100' : 'text-slate-600 hover:text-slate-900');
+    $('view-list-btn').className = 'h-7 rounded px-3 text-sm ' + (ui.view === 'list' ? 'font-medium text-slate-900 bg-slate-100' : 'text-slate-600 hover:text-slate-900');
+
+    $('board-view').hidden = ui.view !== 'board' || total === 0;
+    $('list-view').hidden = ui.view !== 'list' || total === 0;
+    $('no-match').hidden = total !== 0;
+
+    if (total === 0) {
+      // all tickets filtered out but some exist overall
+    } else if (ui.view === 'board') {
+      const grouped = groupByStatus(list);
+      $('board-view').innerHTML = COLUMNS.map((c) => columnHTML(c, grouped[c.id] || [])).join('');
+    } else {
+      $('list-rows').innerHTML = sortTickets(list).map(rowHTML).join('');
+      const ids = list.map((t) => t.id);
+      const onPage = ids.filter((id) => ui.allMatching || ui.selected.has(id)).length;
+      $('list-select-all').checked = ids.length > 0 && onPage === ids.length;
+      $('list-select-all').indeterminate = onPage > 0 && onPage < ids.length;
+    }
+    renderPanel();
+  }
+
+  // ---------- empty / loading / error (forced states) ----------
+  function showRegionState(state) {
+    document.querySelectorAll('[data-region="tickets"] > [data-state]').forEach((el) => (el.hidden = el.dataset.state !== state));
+  }
+
+  // ---------- move tickets ----------
+  let lastMove = null;
+  function finishMove(id, newStatus) {
+    const t = TICKETS.find((x) => x.id === id);
+    const prevStatus = t.status;
+    t.status = newStatus;
+    t.updatedAt = NOW;
+    t.activity.push({ who: CURRENT_AGENT, action: `Moved to ${COL[newStatus].label}`, at: NOW });
+    lastMove = { id, prevStatus };
+    render();
+    announce(`<span>${t.id} moved to ${esc(COL[newStatus].label)}.</span><button type="button" id="undo-move" class="font-medium text-blue-700 underline">Undo</button>`);
+    $('undo-move').onclick = () => {
+      t.status = lastMove.prevStatus;
+      t.activity.push({ who: CURRENT_AGENT, action: `Moved back to ${COL[lastMove.prevStatus].label}`, at: NOW });
+      render();
+      announce(`<span>${t.id} restored to ${esc(COL[lastMove.prevStatus].label)}.</span>`);
+    };
+  }
+  function requestMove(id, newStatus) {
+    const t = TICKETS.find((x) => x.id === id);
+    if (!t || t.status === newStatus) return;
+    if (newStatus === 'resolved') {
+      $('resolve-code').textContent = t.id;
+      $('resolve-note').value = '';
+      $('resolve-error').hidden = true;
+      $('backdrop').hidden = $('dlg-resolve').hidden = false;
+      $('resolve-note').focus();
+      $('resolve-ok').onclick = () => {
+        if (!$('resolve-note').value.trim()) { $('resolve-error').hidden = false; $('resolve-note').focus(); return; }
+        t.activity.push({ who: CURRENT_AGENT, action: `Resolution note: ${$('resolve-note').value.trim()}`, at: NOW });
+        closeDialogs();
+        finishMove(id, newStatus);
+      };
+    } else {
+      finishMove(id, newStatus);
+    }
+  }
+  function closeDialogs() { $('backdrop').hidden = $('dlg-resolve').hidden = $('dlg-create').hidden = true; }
+
+  // ---------- move menu ----------
+  let menuFor = null;
+  function openMenu(ticketId, anchorEl) {
+    const t = TICKETS.find((x) => x.id === ticketId);
+    menuFor = ticketId;
+    const items = COLUMNS.filter((c) => c.id !== t.status).map((c) => `<button type="button" role="menuitem" data-move="${c.id}" class="block h-8 w-full px-3 text-left hover:bg-slate-100">${esc(c.label)}</button>`).join('');
+    $('menu').innerHTML = `<p class="px-3 py-1 text-xs font-medium text-slate-500">Move to…</p>${items}`;
+    const r = anchorEl.getBoundingClientRect();
+    const top = Math.min(r.bottom + 4, window.innerHeight - 260);
+    const left = Math.min(r.left, window.innerWidth - 216);
+    Object.assign($('menu').style, { top: top + 'px', left: left + 'px' });
+    $('menu').hidden = false;
+    anchorEl.setAttribute('aria-expanded', 'true');
+    $('menu').querySelector('button[role="menuitem"]').focus();
+  }
+  function closeMenu() {
+    $('menu').hidden = true;
+    document.querySelectorAll('[aria-expanded="true"]').forEach((b) => b.setAttribute('aria-expanded', 'false'));
+  }
+
+  // ---------- side panel ----------
+  function openPanel(id) { ui.ticket = id; syncUrl(); renderPanel(); }
+  function closePanel() { ui.ticket = null; syncUrl(); renderPanel(); }
+  function renderPanel() {
+    const t = ui.ticket ? TICKETS.find((x) => x.id === ui.ticket) : null;
+    const dialogOpen = !$('dlg-resolve').hidden || !$('dlg-create').hidden;
+    if (!t) { $('panel').hidden = true; $('backdrop').hidden = !dialogOpen; return; }
+    $('panel').hidden = false;
+    $('backdrop').hidden = false;
+    $('panel-code').textContent = t.id;
+    $('panel-title').textContent = t.subject;
+    const sla = slaView(t);
+    const last = t.activity[t.activity.length - 1];
+    $('panel-body').innerHTML = `
+      <div class="space-y-4">
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-xs font-medium text-slate-600" for="panel-status">Status</label>
+            <select id="panel-status" class="mt-1 h-8 w-full rounded border border-slate-300 bg-white px-2 text-sm">
+              ${COLUMNS.map((c) => `<option value="${c.id}" ${c.id === t.status ? 'selected' : ''}>${esc(c.label)}</option>`).join('')}
+            </select>
+          </div>
+          <div>
+            <label class="block text-xs font-medium text-slate-600" for="panel-assignee">Assignee</label>
+            <select id="panel-assignee" class="mt-1 h-8 w-full rounded border border-slate-300 bg-white px-2 text-sm">
+              <option value="" ${!t.assignee ? 'selected' : ''}>Unassigned</option>
+              ${AGENTS.map((a) => `<option ${a === t.assignee ? 'selected' : ''}>${esc(a)}</option>`).join('')}
+            </select>
+          </div>
+        </div>
+        <div>
+          <span class="inline-flex h-6 items-center rounded-full px-2 text-xs font-medium ${PRIORITY_TONE[t.priority]}">${t.priority} priority</span>
+          <span class="ml-2 text-xs ${sla.tone}">${sla.label} · due ${esc(fmtDateTime(t.dueAt))}</span>
+        </div>
+        <div class="rounded-md border border-slate-200 p-3">
+          <p class="text-xs font-medium text-slate-600">Customer</p>
+          <p class="mt-1 font-medium text-slate-900">${esc(t.customerName)} · ${esc(t.customerCompany)}</p>
+          <p class="mt-1"><a class="text-blue-700 hover:underline" href="mailto:${esc(t.customerEmail)}">${esc(t.customerEmail)}</a></p>
+          <p class="mt-0.5"><a class="text-blue-700 hover:underline" href="tel:${esc(t.customerPhone)}">${esc(t.customerPhone)}</a></p>
+        </div>
+        <div>
+          <p class="text-xs font-medium text-slate-600">Description</p>
+          <p class="mt-1 text-slate-800">Customer reports: "${esc(t.subject)}." Needs investigation and a resolution within SLA.</p>
+        </div>
+        <p class="text-xs text-slate-500">Last changed by ${esc(last.who)} on ${esc(fmtDateTime(last.at))}</p>
+        <div>
+          <p class="text-xs font-medium text-slate-600">Activity</p>
+          <ul class="mt-2 space-y-2 border-l border-slate-200 pl-3">
+            ${t.activity.slice().reverse().map((a) => `<li><p class="text-slate-800">${esc(a.action)}</p><p class="text-xs text-slate-500">${esc(a.who)} · ${esc(fmtDateTime(a.at))}</p></li>`).join('')}
+          </ul>
+        </div>
+      </div>`;
+    $('panel-status').onchange = (e) => { const v = e.target.value; if (v !== t.status) requestMove(t.id, v); else renderPanel(); };
+    $('panel-assignee').onchange = (e) => {
+      t.assignee = e.target.value || null;
+      t.activity.push({ who: CURRENT_AGENT, action: `Reassigned to ${t.assignee || 'Unassigned'}`, at: NOW });
+      render();
+      announce(`<span>${t.id} reassigned to ${esc(t.assignee || 'Unassigned')}.</span>`);
+    };
+  }
+
+  // ---------- skeleton ----------
+  $('skeleton').innerHTML = Array.from({ length: 5 }, () => `<div class="flex w-[300px] shrink-0 flex-col rounded-md border border-slate-200 bg-slate-50 p-2">
+    <div class="skel mb-2 h-5 w-24 rounded bg-slate-200"></div>
+    ${Array.from({ length: 3 }, () => '<div class="skel mb-2 h-20 rounded bg-slate-200"></div>').join('')}
+  </div>`).join('');
+
+  // ---------- events ----------
+  let qTimer;
+  $('q').addEventListener('input', (e) => { clearTimeout(qTimer); qTimer = setTimeout(() => { ui.q = e.target.value; render(); }, 220); });
+  $('f-priority').addEventListener('change', (e) => { ui.priority = e.target.value; render(); });
+  $('f-assignee').addEventListener('change', (e) => { ui.assignee = e.target.value; render(); });
+  $('f-mine').addEventListener('click', () => { ui.mine = !ui.mine; $('f-mine').setAttribute('aria-pressed', String(ui.mine)); $('f-mine').className = 'h-8 rounded border px-3 text-sm hover:bg-slate-50 ' + (ui.mine ? 'border-blue-700 bg-blue-50 text-blue-800' : 'border-slate-300 bg-white'); render(); });
+  function clearFilters() { ui.q = ''; ui.priority = ''; ui.assignee = ''; ui.mine = false; $('q').value = ''; $('f-priority').value = ''; $('f-assignee').value = ''; $('f-mine').setAttribute('aria-pressed', 'false'); $('f-mine').className = 'h-8 rounded border border-slate-300 bg-white px-3 text-sm hover:bg-slate-50'; render(); }
+  $('chips').addEventListener('click', (e) => {
+    const c = e.target.closest('[data-chip]');
+    if (c) { ui[c.dataset.chip === 'mine' ? 'mine' : c.dataset.chip] = c.dataset.chip === 'mine' ? false : ''; if (c.dataset.chip === 'q') $('q').value = ''; if (c.dataset.chip === 'priority') $('f-priority').value = ''; if (c.dataset.chip === 'assignee') $('f-assignee').value = ''; render(); }
+    if (e.target.id === 'clear-all') clearFilters();
+  });
+  $('no-match-clear').addEventListener('click', clearFilters);
+  $('empty-create').addEventListener('click', () => $('btn-create').click());
+  $('retry').addEventListener('click', () => { location.search = ''; });
+
+  $('view-board-btn').addEventListener('click', () => { ui.view = 'board'; render(); });
+  $('view-list-btn').addEventListener('click', () => { ui.view = 'list'; render(); });
+
+  $('board-view').addEventListener('click', (e) => {
+    const open = e.target.closest('[data-open]'); if (open) return openPanel(open.dataset.open);
+    const menu = e.target.closest('[data-menu]'); if (menu) return openMenu(menu.dataset.menu, menu);
+    const exp = e.target.closest('[data-expand]'); if (exp) { ui.closedExpanded = true; render(); return; }
+    const col = e.target.closest('[data-collapse]'); if (col) { ui.closedExpanded = false; render(); return; }
+  });
+  $('list-rows').addEventListener('click', (e) => {
+    const open = e.target.closest('[data-open]'); if (open) return openPanel(open.dataset.open);
+    const menu = e.target.closest('[data-menu]'); if (menu) return openMenu(menu.dataset.menu, menu);
+  });
+  $('list-rows').addEventListener('change', (e) => { const c = e.target.closest('[data-select]'); if (c) { c.checked ? ui.selected.add(c.dataset.select) : ui.selected.delete(c.dataset.select); ui.allMatching = false; render(); } });
+  $('list-select-all').addEventListener('change', (e) => {
+    const checked = e.target.checked;
+    document.querySelectorAll('#list-rows [data-select]').forEach((c) => (checked ? ui.selected.add(c.dataset.select) : ui.selected.delete(c.dataset.select)));
+    if (!checked) ui.allMatching = false;
+    render();
+  });
+  $('bulk-all').addEventListener('click', () => { ui.allMatching = true; render(); });
+  $('bulk-clear').addEventListener('click', () => { ui.selected.clear(); ui.allMatching = false; render(); });
+
+  $('menu').addEventListener('click', (e) => { const b = e.target.closest('[data-move]'); if (b) { closeMenu(); requestMove(menuFor, b.dataset.move); } });
+
+  // drag and drop (mouse enhancement; the kebab "Move to…" menu is the accessible, non-drag path)
+  let dragId = null;
+  document.addEventListener('dragstart', (e) => { const d = e.target.closest('[data-drag]'); if (d) { dragId = d.dataset.drag; e.dataTransfer.effectAllowed = 'move'; } });
+  document.addEventListener('dragover', (e) => { if (e.target.closest('[data-dropzone]')) e.preventDefault(); });
+  document.addEventListener('drop', (e) => {
+    const zone = e.target.closest('[data-dropzone]');
+    if (zone && dragId) { e.preventDefault(); requestMove(dragId, zone.dataset.dropzone); dragId = null; }
+  });
+
+  $('panel-close').addEventListener('click', closePanel);
+  $('btn-export').addEventListener('click', () => announce(`<span>Export started: ${esc($('export-label').textContent)}.</span>`));
+  $('btn-create').addEventListener('click', () => { $('create-subject').value = ''; $('create-customer').value = ''; $('create-priority').value = 'Medium'; $('create-assignee').value = ''; $('create-error').hidden = true; $('backdrop').hidden = $('dlg-create').hidden = false; $('create-subject').focus(); });
+  $('create-cancel').addEventListener('click', closeDialogs);
+  $('create-ok').addEventListener('click', () => {
+    const subject = $('create-subject').value.trim();
+    if (!subject) { $('create-error').hidden = false; $('create-subject').focus(); return; }
+    const priority = $('create-priority').value;
+    const assignee = $('create-assignee').value || null;
+    const id = 'TKT-' + (1001 + TICKETS.length + randInt(0, 999));
+    const t = { id, subject, customerName: $('create-customer').value.trim() || 'Unknown customer', customerCompany: '', customerEmail: 'contact@example.com', customerPhone: '+10000000000', priority, status: 'new', createdAt: NOW, dueAt: addHours(NOW, SLA_HOURS[priority]), updatedAt: NOW, activity: buildActivity('new', NOW, NOW, assignee) };
+    t.assignee = assignee;
+    TICKETS.unshift(t);
+    closeDialogs();
+    render();
+    announce(`<span>Ticket ${t.id} created.</span>`);
+  });
+  $('resolve-cancel').addEventListener('click', () => { closeDialogs(); renderPanel(); });
+
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape') { closeDialogs(); closeMenu(); renderPanel(); } });
+  document.addEventListener('click', (e) => { if (!e.target.closest('#menu, [data-menu]')) closeMenu(); });
+  $('backdrop').addEventListener('click', () => { if (!$('dlg-resolve').hidden || !$('dlg-create').hidden) { closeDialogs(); renderPanel(); } else closePanel(); });
+
+  // ---------- initial render ----------
+  $('q').value = ui.q; $('f-priority').value = ui.priority; $('f-assignee').value = ui.assignee;
+  if (ui.mine) { $('f-mine').setAttribute('aria-pressed', 'true'); $('f-mine').className = 'h-8 rounded border border-blue-700 bg-blue-50 px-3 text-sm text-blue-800 hover:bg-slate-50'; }
+  if (forced === 'loading' || forced === 'error') {
+    showRegionState(forced);
+    $('result-count').textContent = '—';
+    $('overdue-count').textContent = '—';
+  } else if (forced === 'empty') {
+    showRegionState('empty');
+    $('result-count').textContent = '0';
+    $('overdue-count').textContent = '0';
+  } else {
+    showRegionState('ready');
+    render();
+  }
+</script>
+</body>
+</html>

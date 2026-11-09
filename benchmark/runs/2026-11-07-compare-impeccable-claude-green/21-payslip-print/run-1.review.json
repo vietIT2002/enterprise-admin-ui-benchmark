@@ -1,0 +1,58 @@
+{
+  "brief": "21-payslip-print",
+  "run": 1,
+  "items": [
+    {
+      "item": "The slip identifies the employer (company name and tax code or address), the employee (full name, employee ID, department, job title) and the pay period together with its payment date",
+      "pass": true,
+      "evidence": "Header shows 'Meridian Technologies, Inc.' with address '480 Harbor View Drive, Suite 310, San Francisco, CA 94105'; Employee dl lists Name 'Alexandra M. Reyes', Employee ID 'ENG-04821', Designation 'Software Engineer II', Department 'Platform Engineering'; Pay Details dl lists Pay Period 'Nov 1 – Nov 30, 2026' and Pay Date 'Nov 28, 2026'."
+    },
+    {
+      "item": "Earnings are itemised — basic salary with its proration (such as \"21 / 22 working days\"), each allowance, and overtime as hours × rate — and Gross pay equals the sum of the earnings lines",
+      "pass": false,
+      "evidence": "data.earnings in the script only has 'Basic Salary' (6250.00, no proration text like '21/22 days'), 'Housing Allowance', 'Transport Allowance', 'Performance Bonus' — there is no overtime line expressed as hours × rate anywhere. Gross sum is correct (6250+1875+400+650=9175 matches #gross-current '$9,175.00') but the proration and overtime requirements are not implemented."
+    },
+    {
+      "item": "Deductions show the employee's social, health and unemployment insurance (each with its rate and contribution base) and personal income tax (with the taxable income it was computed on) apart from other deductions such as salary advances, and Total deductions equals their sum",
+      "pass": false,
+      "evidence": "data.deductions rows 'Social Security (6.2%)' and 'Medicare (1.45%)' show rate only, no contribution base; 'Health Insurance Premium' and 'Federal/State Income Tax' show flat amounts with no taxable-income basis stated; there is no unemployment insurance line at all. Sum is correct (1100+310+568.85+133.04+245+458.75=2815.64 matches #deductions-current) but the itemisation detail required is missing."
+    },
+    {
+      "item": "Net pay equals Gross pay minus Total deductions to the last unit and is the most prominent figure on the slip",
+      "pass": false,
+      "evidence": "Math is correct: netCurrent = grossCurrent - deductionsCurrent = 9175.00 - 2815.64 = 6359.36, shown as '$6,359.36'. However #net-pay-amount (`<p class=\"text-[28px] sm:text-[32px] font-semibold tabular-nums tracking-tight\">`) has no text-color class and its parent div lacks text-white, so it inherits body's text-slate-900 on the brand-navy background — the figure renders as near-black on navy and is barely legible in first.png/full.png, undermining 'most prominent figure'."
+    },
+    {
+      "item": "Amounts line up on the right with fixed-width digits and thousand separators, the currency is named, and decimals suit the currency (none for VND, two for USD) throughout",
+      "pass": true,
+      "evidence": "money() uses `n.toLocaleString('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 2 })`, all numeric cells use `text-right tabular-nums` (audit.json numericCells.misaligned=0, nonTabular=0), producing values like '$100,925.00' with thousand separators, $ currency symbol, and 2 decimals throughout."
+    },
+    {
+      "item": "Earnings and deductions are marked up as tables with header cells or as dt/dd label–value pairs, so a screen reader announces each amount together with its label",
+      "pass": true,
+      "evidence": "Both sections use `<table>` with `<thead><tr><th>Description/Current/YTD</th></tr></thead>` and `<tbody id=\"earnings-body\">`/`id=\"deductions-body\">` rows of `<td>`; employee/pay-details use `<dl><dt>…</dt><dd>…</dd></dl>` pairs."
+    },
+    {
+      "item": "A Print button is present, and the print stylesheet hides the app's sidebar, top bar and buttons, sets an A4 page with @page and keeps the earnings and deductions blocks from splitting across pages",
+      "pass": false,
+      "evidence": "`#print-btn` calls `window.print()`; `.no-print { display:none !important }` hides the sticky toolbar (there is no app sidebar in this standalone page); `@page { size: A4; margin: 12mm; }` is defined. But no `break-inside: avoid`/`page-break-inside: avoid` rule exists anywhere in the stylesheet for the earnings/deductions sections, so nothing prevents those tables from splitting across printed pages."
+    },
+    {
+      "item": "The bank account number is masked except for its last four digits, and the slip carries a \"Confidential\" marking that also appears when printed",
+      "pass": false,
+      "evidence": "Bank Account shows 'Chase •••• 4821' (masked, last 4 visible) — correct. But the Confidential text `<p class=\"no-print text-center ...\">Confidential — for the named employee only...</p>` carries the `no-print` class, which `@media print { .no-print { display:none !important } }` explicitly hides, so the marking disappears when printed instead of 'also appearing when printed'."
+    },
+    {
+      "item": "A period selector switches between months and the heading names the month shown; a month without a payslip shows a message saying so rather than zeros, and loading and error-with-retry states are built in",
+      "pass": false,
+      "evidence": "There is no period-selector control anywhere in the markup — '#pay-period-label' ('November 2026') and all figures are hardcoded from a single static `data` object with no month switching, no empty-month message, and no loading or error/retry UI or logic."
+    }
+  ],
+  "tells": [
+    "glass",
+    "tracked-uppercase-labels",
+    "card-in-card"
+  ],
+  "notes": "glass: toolbar uses `bg-white/90 backdrop-blur` (flagged by audit.json as no-backdrop-blur violation, blur(8px)). tracked-uppercase-labels: 'PAYSLIP', 'EMPLOYEE', 'PAY DETAILS', and table headers 'DESCRIPTION'/'CURRENT'/'YTD' all use `text-[11px] uppercase tracking-[0.1em]`/`tracking-wide` (also flagged by audit.json uppercase-text ×8, several at 2.56:1 contrast). card-in-card: the navy rounded Net Pay panel is a distinct card nested inside the outer white payslip-sheet card (which itself uses a drop shadow rather than a border, per audit.json surface-shadow violation). Audit score 68/100 with additional unrequested findings: text-contrast errors ×11 and type-scale warning (10 distinct font sizes) not covered by the checklist above.",
+  "blind": true
+}

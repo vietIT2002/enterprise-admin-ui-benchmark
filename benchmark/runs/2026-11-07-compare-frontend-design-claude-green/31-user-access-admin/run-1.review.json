@@ -1,0 +1,54 @@
+{
+  "brief": "31-user-access-admin",
+  "run": 1,
+  "items": [
+    {
+      "item": "Each row shows the user's name and email, role, status in words (such as Active, Invited, Deactivated, Locked) and whether two-factor sign-in is enabled",
+      "pass": false,
+      "evidence": "rowHtml() renders name, mono email, role with dot(ROLE_DOT[u.role]), and status with dot(STATUS_DOT[u.status]) (e.g. 'Active'/'Invited'/'Suspended' as words) — but there is no 2FA column or indicator anywhere in rowHtml() or the users data model (mk() only stores name, email, role, status, lastSignIn)."
+    },
+    {
+      "item": "Last sign-in uses one date-time format with the timezone stated, relative times also expose the exact time, and an account that has never signed in shows \"Never\" rather than a blank or a 1970 date",
+      "pass": false,
+      "evidence": "Last sign-in values are hardcoded relative strings mixing formats: '2 hours ago', 'Yesterday', 'Just now', '44 days ago' (mk() calls). The <td> just outputs u.lastSignIn with no title/tooltip attribute exposing an exact timestamp, and no timezone is stated anywhere. 'Never' is correctly shown for Elena Fischer/Benjamin Okafor/Yara Haddad, but the timezone/exact-time requirement is unmet."
+    },
+    {
+      "item": "Users can be found by searching name or email and filtered by role, status and inactivity (such as no sign-in for 90+ days), with the number of matching users shown",
+      "pass": false,
+      "evidence": "#searchInput filters by name/email and #roleFilter/#statusFilter filter by role and status (filteredUsers()), but there is no inactivity filter (e.g. 'no sign-in 90+ days') option anywhere. #accountSummary always renders the unfiltered total: 'users.length + ... accounts · ' + invitedCount + ' pending invites', never the filtered/match count."
+    },
+    {
+      "item": "The invite form requires an email and a role, labels both fields, and shows an inline error for a malformed address or one that already has an account",
+      "pass": false,
+      "evidence": "#inviteEmail has 'required' and type=\"email\", and both fields have <label> elements, but the submit handler (inviteForm 'submit' listener) only reads the values and creates the user — there is no inline error element and no malformed/duplicate-email check anywhere in the script."
+    },
+    {
+      "item": "Deactivation asks for confirmation that names the user and states the effect (active sessions ended, sign-in blocked, data kept), and a deactivated user is offered Reactivate instead",
+      "pass": false,
+      "evidence": "openConfirm('deactivate') names the user in the title ('Deactivate ' + who + '?') but confirmBody only says 'They will immediately lose access to Fathom. You can reactivate the account at any time.' — it never explicitly states active sessions are ended or that data is kept. Reactivate is offered for Suspended users via menuItem('Reactivate account', 'reactivate', id)."
+    },
+    {
+      "item": "The signed-in administrator's own row is marked (such as \"You\") and cannot be deactivated or lose the admin role, and the last remaining administrator cannot be deactivated, with the disabled action explaining why",
+      "pass": false,
+      "evidence": "The header shows the signed-in admin 'Priya Natarajan' (Owner), but rowHtml() never marks her row with 'You' or similar. openActionMenu() only special-cases role==='Owner' (hides Change role/Deactivate for the single Owner); every Admin (Marcus Webb, Sofia Marchetti, Hana Kobayashi, Oscar Lindgren) still gets a 'Deactivate account' item with no last-remaining-admin check or disabled/explained state."
+    },
+    {
+      "item": "Password reset sends a reset link to the user's email address, which the confirmation names, and the administrator never sees, sets or types the new password",
+      "pass": false,
+      "evidence": "doResetPassword() shows toast('Password reset email sent to ' + names[0] + '.') where names[0] is byId(id).name — the confirmation names the person, not the email address it was sent to. No password field is ever shown to the admin (pass criterion met for that part only)."
+    },
+    {
+      "item": "Row actions are buttons or a keyboard-operable menu whose accessible names include the user (such as \"Actions for Mai Nguyen\"), and the outcome of an action is announced in an aria-live or role=\"status\" region",
+      "pass": false,
+      "evidence": "The toggle button has aria-label='Actions for '+escapeHtml(u.name) (e.g. \"Actions for Mai Nguyen\"), satisfying the naming half. But outcomes are shown via toast(): '<div id=\"toastContainer\" class=\"fixed bottom-4 right-4 z-[60] flex flex-col gap-2 items-end\">' and the generated toast <div> — neither has aria-live or role=\"status\", so action outcomes are not announced to assistive tech."
+    },
+    {
+      "item": "A search with no matching users shows a message with a way to clear it, and loading and failed-load states with a retry exist",
+      "pass": false,
+      "evidence": "render() shows 'No one matches your search. Try a different name, email, or filter.' when filteredUsers() is empty, but no clear/reset control is offered alongside it. There is no loading state and no failed-load/retry state anywhere in the script — users is a static in-memory array with no fetch logic at all."
+    }
+  ],
+  "tells": [],
+  "notes": "Data is a static in-memory array (no fetch/loading/error states by construction). Status model only has Active/Invited/Suspended — no 'Deactivated' or 'Locked' labels, and 'Suspended' is used as the deactivated state. Audit flagged 3 text-contrast failures on Last sign-in cells (3.22:1 vs 4.5:1 required) and that emails aren't mailto: links; no gradient/glass/emoji/uppercase-label template tells were detected and none were found on manual inspection — the page reads as a fairly bespoke, restrained admin UI rather than a templated dashboard.",
+  "blind": true
+}

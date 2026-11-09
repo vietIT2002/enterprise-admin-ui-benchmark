@@ -16,6 +16,7 @@ Detailed reports:
 - [NEWTYPES](runs/2026-11-06-newtypes-after-claude-green/NEWTYPES.md) (reports, printable documents, calendars, boards and trees)
 - [HELDOUT3](runs/2026-11-06-heldout3-claude-green/HELDOUT3.md) (six briefs written without reading the skill, reviewed blind)
 - [HELDOUT4](runs/2026-11-06-heldout4-new-claude-green/HELDOUT4.md) (six more independent briefs; v0.5.8 against a check-before-finish candidate, reviewed blind)
+- [COMPARE](runs/2026-11-07-compare-blind/COMPARE.md) (this skill against frontend-design, ui-ux-pro-max and impeccable on the same 12 independent briefs, reviewed blind)
 
 ![Orders list before and after](../docs/img/before-after-01-orders-list.png)
 
@@ -189,6 +190,20 @@ A second run from the Vietnamese prompts settled it:
 | Pages written to the wrong folder | 3/12 | 12/12 |
 
 The candidate was reverted (16cbb10). See [HELDOUT4](runs/2026-11-06-heldout4-new-claude-green/HELDOUT4.md).
+
+## Against other skills
+
+On the 12 independent briefs of HELDOUT3 and HELDOUT4, three popular design skills built the same screens with the same prompt and tools, and every page was reviewed blind.
+
+| Setup | Checklist | UI behaviour |
+|---|---|---|
+| enterprise-admin-ui v0.5.8 | **44%** | **51%** |
+| ui-ux-pro-max | 30% | 29% |
+| impeccable | 19% | 18% |
+| No skill | 19% | 14% |
+| frontend-design | 18% | 14% |
+
+These are management screens, this skill's home ground, and no skill could run its scripts. See [COMPARE](runs/2026-11-07-compare-blind/COMPARE.md).
 
 ## Limitations
 

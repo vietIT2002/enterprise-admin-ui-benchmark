@@ -1,0 +1,748 @@
+<!DOCTYPE html>
+<html lang="en" class="h-full">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Support Ticket Board · Helpdesk</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+      animation-duration: 0.001ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.001ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+  .thin-scroll::-webkit-scrollbar { width: 8px; height: 8px; }
+  .thin-scroll::-webkit-scrollbar-track { background: transparent; }
+  .thin-scroll::-webkit-scrollbar-thumb { background-color: rgb(203 213 225); border-radius: 9999px; }
+  html, body { height: 100%; }
+</style>
+</head>
+<body class="h-full flex flex-col overflow-hidden bg-slate-100 text-slate-900 antialiased">
+
+<a href="#board" class="sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-50 focus:rounded-md focus:bg-indigo-600 focus:px-3 focus:py-2 focus:text-sm focus:font-medium focus:text-white">Skip to ticket board</a>
+
+<!-- Header -->
+<header class="flex-none border-b border-slate-200 bg-white">
+  <div class="flex flex-wrap items-center gap-3 px-4 sm:px-6 py-3">
+    <div class="flex items-center gap-2.5 mr-2">
+      <span class="flex h-9 w-9 items-center justify-center rounded-lg bg-indigo-600 text-white">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-5 w-5" aria-hidden="true"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
+      </span>
+      <div>
+        <h1 class="text-base font-semibold text-slate-900 leading-tight">Support Ticket Board</h1>
+        <p class="text-xs text-slate-500 leading-tight">Helpdesk workspace</p>
+      </div>
+    </div>
+
+    <div class="flex flex-1 flex-wrap items-center gap-2 justify-end">
+      <div class="relative">
+        <label for="searchInput" class="sr-only">Search tickets by customer, company or subject</label>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><path d="m20 20-3.5-3.5"></path></svg>
+        <input id="searchInput" type="search" placeholder="Search tickets…" class="h-9 w-48 sm:w-64 rounded-md border border-slate-300 bg-white pl-8 pr-3 text-sm text-slate-700 placeholder:text-slate-400 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/40">
+      </div>
+
+      <label for="priorityFilter" class="sr-only">Filter by priority</label>
+      <select id="priorityFilter" class="h-9 rounded-md border border-slate-300 bg-white px-2.5 text-sm text-slate-700 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/40">
+        <option value="all">All priorities</option>
+        <option value="urgent">Urgent</option>
+        <option value="high">High</option>
+        <option value="medium">Medium</option>
+        <option value="low">Low</option>
+      </select>
+
+      <label for="assigneeFilter" class="sr-only">Filter by assignee</label>
+      <select id="assigneeFilter" class="h-9 rounded-md border border-slate-300 bg-white px-2.5 text-sm text-slate-700 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/40">
+        <option value="all">Everyone</option>
+        <option value="unassigned">Unassigned</option>
+      </select>
+
+      <button id="newTicketBtn" type="button" class="flex h-9 items-center gap-1.5 rounded-md bg-indigo-600 px-3.5 text-sm font-medium text-white shadow-sm hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-4 w-4" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg>
+        New ticket
+      </button>
+    </div>
+  </div>
+
+  <!-- Stats strip -->
+  <div class="grid grid-cols-2 gap-2 border-t border-slate-100 px-4 sm:px-6 py-2.5 sm:grid-cols-4">
+    <div class="flex items-center gap-2 rounded-md bg-slate-50 px-3 py-1.5">
+      <span class="text-sm font-semibold text-slate-800" id="statTotal">0</span>
+      <span class="text-xs text-slate-500">open tickets</span>
+    </div>
+    <div class="flex items-center gap-2 rounded-md bg-slate-50 px-3 py-1.5">
+      <span class="text-sm font-semibold text-slate-800" id="statUnassigned">0</span>
+      <span class="text-xs text-slate-500">unassigned</span>
+    </div>
+    <div class="flex items-center gap-2 rounded-md bg-red-50 px-3 py-1.5">
+      <span class="text-sm font-semibold text-red-700" id="statBreached">0</span>
+      <span class="text-xs text-red-600">SLA breached</span>
+    </div>
+    <div class="flex items-center gap-2 rounded-md bg-emerald-50 px-3 py-1.5">
+      <span class="text-sm font-semibold text-emerald-700" id="statResolved">0</span>
+      <span class="text-xs text-emerald-600">resolved</span>
+    </div>
+  </div>
+</header>
+
+<!-- Board -->
+<main id="boardWrapper" class="flex-1 min-h-0 overflow-x-auto overflow-y-hidden thin-scroll px-4 sm:px-6 py-4">
+  <div id="board" class="flex h-full items-stretch gap-4 snap-x snap-mandatory" aria-label="Ticket columns by status"></div>
+</main>
+
+<!-- Toast region -->
+<div id="toastRegion" class="pointer-events-none fixed bottom-4 right-4 z-50 flex flex-col gap-2" aria-live="polite" role="status"></div>
+
+<!-- Ticket detail modal -->
+<div id="ticketModal" class="hidden fixed inset-0 z-40 flex items-center justify-center bg-slate-900/50 p-4">
+  <div id="ticketModalPanel" role="dialog" aria-modal="true" aria-labelledby="ticketModalTitle" class="max-h-[90vh] w-full max-w-lg overflow-y-auto thin-scroll rounded-xl bg-white shadow-xl">
+    <div class="flex items-center justify-between border-b border-slate-200 px-5 py-4">
+      <h2 id="ticketModalTitle" class="text-sm font-semibold text-slate-500">Ticket details</h2>
+      <button id="ticketModalClose" type="button" aria-label="Close ticket details" class="flex h-8 w-8 items-center justify-center rounded-md text-slate-400 hover:bg-slate-100 hover:text-slate-600 focus:outline-none focus:ring-2 focus:ring-indigo-500">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-5 w-5" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"></path></svg>
+      </button>
+    </div>
+    <div id="ticketModalContent" class="px-5 py-4"></div>
+  </div>
+</div>
+
+<!-- New ticket modal -->
+<div id="newTicketModal" class="hidden fixed inset-0 z-40 flex items-center justify-center bg-slate-900/50 p-4">
+  <div id="newTicketModalPanel" role="dialog" aria-modal="true" aria-labelledby="newTicketModalTitle" class="max-h-[90vh] w-full max-w-lg overflow-y-auto thin-scroll rounded-xl bg-white shadow-xl">
+    <div class="flex items-center justify-between border-b border-slate-200 px-5 py-4">
+      <h2 id="newTicketModalTitle" class="text-sm font-semibold text-slate-800">Create new ticket</h2>
+      <button id="newTicketModalClose" type="button" aria-label="Close new ticket form" class="flex h-8 w-8 items-center justify-center rounded-md text-slate-400 hover:bg-slate-100 hover:text-slate-600 focus:outline-none focus:ring-2 focus:ring-indigo-500">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-5 w-5" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"></path></svg>
+      </button>
+    </div>
+    <form id="newTicketForm" class="space-y-4 px-5 py-4" novalidate>
+      <div>
+        <label for="f-customer" class="mb-1 block text-sm font-medium text-slate-700">Customer name <span class="text-red-600">*</span></label>
+        <input id="f-customer" name="customer" type="text" aria-describedby="err-customer" class="w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/40">
+        <p id="err-customer" class="mt-1 hidden text-xs text-red-600" role="alert"></p>
+      </div>
+      <div class="grid grid-cols-2 gap-3">
+        <div>
+          <label for="f-company" class="mb-1 block text-sm font-medium text-slate-700">Company</label>
+          <input id="f-company" name="company" type="text" class="w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/40">
+        </div>
+        <div>
+          <label for="f-email" class="mb-1 block text-sm font-medium text-slate-700">Email</label>
+          <input id="f-email" name="email" type="email" aria-describedby="err-email" class="w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/40">
+          <p id="err-email" class="mt-1 hidden text-xs text-red-600" role="alert"></p>
+        </div>
+      </div>
+      <div>
+        <label for="f-subject" class="mb-1 block text-sm font-medium text-slate-700">Subject <span class="text-red-600">*</span></label>
+        <input id="f-subject" name="subject" type="text" aria-describedby="err-subject" class="w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/40">
+        <p id="err-subject" class="mt-1 hidden text-xs text-red-600" role="alert"></p>
+      </div>
+      <div>
+        <label for="f-description" class="mb-1 block text-sm font-medium text-slate-700">Description</label>
+        <textarea id="f-description" name="description" rows="3" class="w-full resize-none rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/40"></textarea>
+      </div>
+      <div class="grid grid-cols-3 gap-3">
+        <div>
+          <label for="f-priority" class="mb-1 block text-sm font-medium text-slate-700">Priority</label>
+          <select id="f-priority" name="priority" class="w-full rounded-md border border-slate-300 px-2 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/40">
+            <option value="urgent">Urgent</option>
+            <option value="high">High</option>
+            <option value="medium" selected>Medium</option>
+            <option value="low">Low</option>
+          </select>
+        </div>
+        <div>
+          <label for="f-assignee" class="mb-1 block text-sm font-medium text-slate-700">Assignee</label>
+          <select id="f-assignee" name="assignee" class="w-full rounded-md border border-slate-300 px-2 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/40">
+            <option value="">Unassigned</option>
+          </select>
+        </div>
+        <div>
+          <label for="f-sla" class="mb-1 block text-sm font-medium text-slate-700">SLA window</label>
+          <select id="f-sla" name="sla" class="w-full rounded-md border border-slate-300 px-2 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/40">
+            <option value="4">4 hours</option>
+            <option value="8">8 hours</option>
+            <option value="24" selected>24 hours</option>
+            <option value="48">48 hours</option>
+          </select>
+        </div>
+      </div>
+      <div class="flex justify-end gap-2 border-t border-slate-200 pt-4">
+        <button type="button" id="newTicketCancel" class="h-9 rounded-md border border-slate-300 px-4 text-sm font-medium text-slate-700 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-indigo-500">Cancel</button>
+        <button type="submit" class="h-9 rounded-md bg-indigo-600 px-4 text-sm font-medium text-white hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2">Create ticket</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  var NOW = new Date();
+  function hoursAgo(h) { return new Date(NOW.getTime() - h * 3600000); }
+  function minutesFromNow(m) { return new Date(NOW.getTime() + m * 60000); }
+
+  var STATUSES = [
+    { key: "new", label: "New", bar: "bg-sky-500", chip: "bg-sky-50 text-sky-700" },
+    { key: "open", label: "Open", bar: "bg-indigo-500", chip: "bg-indigo-50 text-indigo-700" },
+    { key: "pending", label: "Pending Customer", bar: "bg-amber-500", chip: "bg-amber-50 text-amber-700" },
+    { key: "resolved", label: "Resolved", bar: "bg-emerald-500", chip: "bg-emerald-50 text-emerald-700" },
+    { key: "closed", label: "Closed", bar: "bg-slate-400", chip: "bg-slate-100 text-slate-600" }
+  ];
+  var STATUS_LABEL = {};
+  STATUSES.forEach(function (s) { STATUS_LABEL[s.key] = s.label; });
+
+  var PRIORITY = {
+    urgent: { label: "Urgent", badge: "bg-red-100 text-red-700 ring-red-600/20", dot: "bg-red-500" },
+    high: { label: "High", badge: "bg-orange-100 text-orange-700 ring-orange-600/20", dot: "bg-orange-500" },
+    medium: { label: "Medium", badge: "bg-amber-100 text-amber-800 ring-amber-600/20", dot: "bg-amber-500" },
+    low: { label: "Low", badge: "bg-slate-100 text-slate-600 ring-slate-500/20", dot: "bg-slate-400" }
+  };
+
+  var AGENTS = [
+    { name: "Priya Natarajan", color: "bg-indigo-500" },
+    { name: "Marcus Chen", color: "bg-teal-500" },
+    { name: "Elena Novak", color: "bg-rose-500" },
+    { name: "Jordan Blake", color: "bg-amber-500" },
+    { name: "Sam O'Connor", color: "bg-cyan-600" },
+    { name: "Aisha Rahman", color: "bg-violet-500" }
+  ];
+
+  var ICON_PATHS = {
+    clock: '<circle cx="12" cy="12" r="9"></circle><path d="M12 7v5l3 3"></path>',
+    alert: '<path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z"></path><path d="M12 9v4"></path><path d="M12 17h.01"></path>',
+    check: '<path d="M20 6 9 17l-5-5"></path>',
+    user: '<path d="M20 21a8 8 0 0 0-16 0"></path><circle cx="12" cy="7" r="4"></circle>',
+    inbox: '<path d="M22 12h-6l-2 3h-4l-2-3H2"></path><path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11Z"></path>'
+  };
+  function icon(name, cls) {
+    return '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="' + cls + ' shrink-0" aria-hidden="true">' + ICON_PATHS[name] + '</svg>';
+  }
+
+  function escapeHtml(str) {
+    return String(str).replace(/[&<>"']/g, function (c) {
+      return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c];
+    });
+  }
+  function initials(name) {
+    return name.split(" ").filter(Boolean).map(function (w) { return w[0]; }).slice(0, 2).join("").toUpperCase();
+  }
+  function firstName(name) { return name.split(" ")[0]; }
+  function findAgent(name) {
+    for (var i = 0; i < AGENTS.length; i++) if (AGENTS[i].name === name) return AGENTS[i];
+    return null;
+  }
+  function formatDuration(ms) {
+    var totalMin = Math.max(0, Math.round(ms / 60000));
+    var days = Math.floor(totalMin / 1440);
+    var hours = Math.floor((totalMin % 1440) / 60);
+    var mins = totalMin % 60;
+    if (days > 0) return days + "d " + hours + "h";
+    if (hours > 0) return hours + "h " + mins + "m";
+    return mins + "m";
+  }
+  function formatDateTime(date) {
+    return date.toLocaleString(undefined, { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
+  }
+
+  // ---- Mock ticket data ----
+  var nextTicketNum = 1032;
+  var ticketsData = [
+    { id: "TCK-1031", customer: { name: "Dana Whitfield", company: "Globex Corporation", email: "dana.whitfield@globex.com" }, subject: "Production API returning 500 on /v2/orders", description: "Customers report intermittent 500 errors when creating new orders via the REST API since the deploy this morning.", priority: "urgent", status: "new", assignee: null, createdAt: hoursAgo(0.4), slaDueAt: minutesFromNow(90) },
+    { id: "TCK-1030", customer: { name: "Marcus Oyelaran", company: "Stark Industries", email: "m.oyelaran@stark-industries.com" }, subject: "Dashboard widgets not loading on Safari", description: "Revenue and usage widgets show a blank spinner indefinitely on Safari 17. Works fine on Chrome and Firefox.", priority: "high", status: "new", assignee: null, createdAt: hoursAgo(1.2), slaDueAt: minutesFromNow(340) },
+    { id: "TCK-1029", customer: { name: "Helen Ruiz", company: "Wayne Enterprises", email: "helen.ruiz@wayne-ent.com" }, subject: "Feature request: bulk export tickets to CSV", description: "Would like the ability to export the full ticket list with active filters applied to CSV for weekly reporting.", priority: "low", status: "new", assignee: "Jordan Blake", createdAt: hoursAgo(3), slaDueAt: minutesFromNow(2700) },
+    { id: "TCK-1028", customer: { name: "Tomasz Kowalski", company: "Hooli", email: "t.kowalski@hooli.com" }, subject: "Billing charged twice this month", description: "Invoice shows two separate charges of $499 on Nov 3rd for the same billing period.", priority: "urgent", status: "new", assignee: null, createdAt: hoursAgo(0.8), slaDueAt: minutesFromNow(-20) },
+    { id: "TCK-1027", customer: { name: "Grace Mensah", company: "Soylent Corp", email: "grace.mensah@soylent.com" }, subject: "Password reset email not arriving", description: "Multiple users at our org report the password reset email never arrives. Checked spam and quarantine folders.", priority: "medium", status: "new", assignee: null, createdAt: hoursAgo(5), slaDueAt: minutesFromNow(1140) },
+
+    { id: "TCK-1024", customer: { name: "Oliver Bennett", company: "Initech", email: "oliver.bennett@initech.com" }, subject: "Cannot reset password via SSO", description: "After enabling SAML SSO for our workspace, the legacy password reset link throws a 404 page.", priority: "high", status: "open", assignee: "Priya Natarajan", createdAt: hoursAgo(6), slaDueAt: minutesFromNow(-45) },
+    { id: "TCK-1023", customer: { name: "Mei Lin Chu", company: "Massive Dynamic", email: "mei.chu@massivedynamic.com" }, subject: "API webhook deliveries failing intermittently", description: "About 1 in 10 webhook events never reach our endpoint. No retry attempts observed in the delivery logs.", priority: "high", status: "open", assignee: "Marcus Chen", createdAt: hoursAgo(9), slaDueAt: minutesFromNow(55) },
+    { id: "TCK-1022", customer: { name: "Sofia Alvarez", company: "Pied Piper", email: "sofia.alvarez@piedpiper.com" }, subject: "Unable to upload attachments over 10MB", description: "The support ticket form rejects attachments above 10MB with a generic error and no explanation.", priority: "medium", status: "open", assignee: "Elena Novak", createdAt: hoursAgo(4), slaDueAt: minutesFromNow(720) },
+    { id: "TCK-1021", customer: { name: "Ben Carter", company: "Cyberdyne Systems", email: "ben.carter@cyberdyne.com" }, subject: "User permissions not syncing with SSO group", description: "Changes to Okta group membership take over 24 hours to reflect in the app's role assignments.", priority: "medium", status: "open", assignee: "Priya Natarajan", createdAt: hoursAgo(12), slaDueAt: minutesFromNow(180) },
+    { id: "TCK-1020", customer: { name: "Nadia Petrov", company: "Acme Corporation", email: "nadia.petrov@acme.com" }, subject: "Slow response times during peak hours", description: "Page load times exceed 8 seconds between 9-10am daily. Correlates with the nightly batch job window.", priority: "high", status: "open", assignee: "Sam O'Connor", createdAt: hoursAgo(7), slaDueAt: minutesFromNow(95) },
+    { id: "TCK-1019", customer: { name: "Lucas Ferreira", company: "Wonka Industries", email: "lucas.ferreira@wonka.com" }, subject: "Mobile app crashes on login (Android 14)", description: "App crashes immediately after entering credentials on a Pixel 8 running Android 14. Reproducible every time.", priority: "urgent", status: "open", assignee: "Aisha Rahman", createdAt: hoursAgo(2), slaDueAt: minutesFromNow(40) },
+
+    { id: "TCK-1015", customer: { name: "Carmen Diaz", company: "Umbrella Corp", email: "carmen.diaz@umbrella-corp.com" }, subject: "Need help migrating from API v1 to v2", description: "Looking for guidance and a realistic timeline on migrating our integration before the v1 sunset date.", priority: "low", status: "pending", assignee: "Jordan Blake", createdAt: hoursAgo(30), slaDueAt: minutesFromNow(3600) },
+    { id: "TCK-1014", customer: { name: "Felix Grant", company: "Stark Industries", email: "felix.grant@stark-industries.com" }, subject: "Export report stuck at 0% for large date ranges", description: "Exporting a 12-month usage report never completes and stays stuck at 0% progress.", priority: "medium", status: "pending", assignee: "Marcus Chen", createdAt: hoursAgo(20), slaDueAt: minutesFromNow(-200) },
+    { id: "TCK-1013", customer: { name: "Ingrid Solberg", company: "Globex Corporation", email: "ingrid.solberg@globex.com" }, subject: "Integration with Salesforce broken after update", description: "Since the v4.2 connector update, lead sync to Salesforce silently fails with no error surfaced to the user.", priority: "high", status: "pending", assignee: "Elena Novak", createdAt: hoursAgo(15), slaDueAt: minutesFromNow(10) },
+    { id: "TCK-1012", customer: { name: "Raj Mehta", company: "Hooli", email: "raj.mehta@hooli.com" }, subject: "Request to increase API rate limit", description: "Our integration hits the 100 req/min cap during nightly syncs. Requesting an increase for our plan tier.", priority: "low", status: "pending", assignee: "Sam O'Connor", createdAt: hoursAgo(40), slaDueAt: minutesFromNow(500) },
+
+    { id: "TCK-1005", customer: { name: "Isabel Costa", company: "Initech", email: "isabel.costa@initech.com" }, subject: "Dark mode toggle not persisting after refresh", description: "Dark mode resets to light every time the page is reloaded, even with the preference saved.", priority: "low", status: "resolved", assignee: "Aisha Rahman", createdAt: hoursAgo(76), resolvedAt: hoursAgo(20), slaMet: true },
+    { id: "TCK-1004", customer: { name: "Walter Huang", company: "Soylent Corp", email: "walter.huang@soylent.com" }, subject: "Subscription renewal failed - card declined", description: "Card on file was declined. Customer updated the card but the subscription still shows past due.", priority: "medium", status: "resolved", assignee: "Priya Natarajan", createdAt: hoursAgo(58), resolvedAt: hoursAgo(10), slaMet: true },
+    { id: "TCK-1003", customer: { name: "Yusuf Demir", company: "Massive Dynamic", email: "yusuf.demir@massivedynamic.com" }, subject: "Missing line items on October statement", description: "October invoice is missing line items for two sub-accounts under the parent organization.", priority: "medium", status: "resolved", assignee: "Marcus Chen", createdAt: hoursAgo(102), resolvedAt: hoursAgo(30), slaMet: false },
+    { id: "TCK-1002", customer: { name: "Priya Shah", company: "Acme Corporation", email: "priya.shah@acme.com" }, subject: "Email notifications arriving duplicated", description: "Users receive each ticket-update email twice within a few seconds of each other.", priority: "high", status: "resolved", assignee: "Elena Novak", createdAt: hoursAgo(50), resolvedAt: hoursAgo(5), slaMet: true },
+
+    { id: "TCK-0998", customer: { name: "Noah Fischer", company: "Wayne Enterprises", email: "noah.fischer@wayne-ent.com" }, subject: "Need SOC 2 report for compliance review", description: "Requesting our latest SOC 2 Type II report ahead of an upcoming vendor security review.", priority: "low", status: "closed", assignee: "Jordan Blake", createdAt: hoursAgo(150), resolvedAt: hoursAgo(96), slaMet: true },
+    { id: "TCK-0995", customer: { name: "Clara Jensen", company: "Wonka Industries", email: "clara.jensen@wonka.com" }, subject: "Cannot delete archived project", description: "An archived project from 2024 cannot be permanently deleted. The delete button stays disabled.", priority: "low", status: "closed", assignee: "Sam O'Connor", createdAt: hoursAgo(260), resolvedAt: hoursAgo(180), slaMet: true },
+    { id: "TCK-0991", customer: { name: "Derek Olumide", company: "Cyberdyne Systems", email: "derek.olumide@cyberdyne.com" }, subject: "Invoice #4521 shows incorrect tax", description: "VAT was applied incorrectly for our EU entity on invoice #4521. Needs a corrected invoice reissued.", priority: "medium", status: "closed", assignee: "Aisha Rahman", createdAt: hoursAgo(360), resolvedAt: hoursAgo(300), slaMet: false }
+  ];
+
+  // ---- DOM refs ----
+  var board = document.getElementById("board");
+  var searchInput = document.getElementById("searchInput");
+  var priorityFilter = document.getElementById("priorityFilter");
+  var assigneeFilter = document.getElementById("assigneeFilter");
+  var statTotal = document.getElementById("statTotal");
+  var statUnassigned = document.getElementById("statUnassigned");
+  var statBreached = document.getElementById("statBreached");
+  var statResolved = document.getElementById("statResolved");
+  var toastRegion = document.getElementById("toastRegion");
+
+  var ticketModal = document.getElementById("ticketModal");
+  var ticketModalPanel = document.getElementById("ticketModalPanel");
+  var ticketModalContent = document.getElementById("ticketModalContent");
+  var ticketModalClose = document.getElementById("ticketModalClose");
+
+  var newTicketModal = document.getElementById("newTicketModal");
+  var newTicketModalPanel = document.getElementById("newTicketModalPanel");
+  var newTicketBtn = document.getElementById("newTicketBtn");
+  var newTicketModalClose = document.getElementById("newTicketModalClose");
+  var newTicketCancel = document.getElementById("newTicketCancel");
+  var newTicketForm = document.getElementById("newTicketForm");
+
+  var currentModalTicketId = null;
+  var lastFocusedEl = null;
+
+  // populate assignee filter + form select from AGENTS
+  AGENTS.forEach(function (a) {
+    var opt1 = document.createElement("option");
+    opt1.value = a.name; opt1.textContent = a.name;
+    assigneeFilter.appendChild(opt1);
+
+    var opt2 = document.createElement("option");
+    opt2.value = a.name; opt2.textContent = a.name;
+    document.getElementById("f-assignee").appendChild(opt2);
+  });
+
+  function findTicket(id) {
+    for (var i = 0; i < ticketsData.length; i++) if (ticketsData[i].id === id) return ticketsData[i];
+    return null;
+  }
+
+  function slaInfo(t, now) {
+    if (t.status === "resolved" || t.status === "closed") {
+      return {
+        type: t.slaMet ? "done-met" : "done-breached",
+        text: t.slaMet ? "Met SLA" : "SLA breached"
+      };
+    }
+    var diff = t.slaDueAt.getTime() - now.getTime();
+    if (diff < 0) return { type: "breached", text: "Overdue by " + formatDuration(-diff) };
+    if (diff < 2 * 3600000) return { type: "risk", text: "Due in " + formatDuration(diff) };
+    return { type: "ok", text: "Due in " + formatDuration(diff) };
+  }
+  var SLA_CLASS = {
+    breached: "border-red-200 bg-red-50 text-red-700",
+    risk: "border-amber-200 bg-amber-50 text-amber-700",
+    ok: "border-emerald-200 bg-emerald-50 text-emerald-700",
+    "done-met": "border-slate-200 bg-slate-100 text-slate-600",
+    "done-breached": "border-red-200 bg-red-50 text-red-600"
+  };
+  var SLA_ICON = { breached: "alert", risk: "clock", ok: "clock", "done-met": "check", "done-breached": "alert" };
+
+  function cardTemplate(t, now) {
+    var p = PRIORITY[t.priority];
+    var sla = slaInfo(t, now);
+    var agent = t.assignee ? findAgent(t.assignee) : null;
+    var assigneeHtml = agent
+      ? '<div class="flex items-center gap-1.5" title="Assigned to ' + escapeHtml(agent.name) + '">' +
+          '<span class="flex h-6 w-6 items-center justify-center rounded-full ' + agent.color + ' text-[11px] font-semibold text-white">' + initials(agent.name) + "</span>" +
+          '<span class="text-xs text-slate-600">' + escapeHtml(firstName(agent.name)) + "</span></div>"
+      : '<div class="flex items-center gap-1.5 text-slate-400" title="Unassigned">' +
+          '<span class="flex h-6 w-6 items-center justify-center rounded-full border border-dashed border-slate-300">' + icon("user", "h-3 w-3") + "</span>" +
+          '<span class="text-xs">Unassigned</span></div>';
+
+    var moveOptions = STATUSES.filter(function (s) { return s.key !== t.status; })
+      .map(function (s) { return '<option value="' + s.key + '">' + s.label + "</option>"; }).join("");
+
+    return (
+      '<div class="group rounded-lg border border-slate-200 bg-white p-3.5 shadow-sm transition-shadow hover:border-slate-300 hover:shadow-md focus-within:ring-2 focus-within:ring-indigo-500" ' +
+        'draggable="true" data-card-id="' + t.id + '" tabindex="0" role="button" ' +
+        'aria-label="Ticket ' + t.id + ': ' + escapeHtml(t.subject) + '. Press Enter to view details.">' +
+        '<div class="mb-2 flex items-center justify-between gap-2">' +
+          '<span class="text-xs font-medium text-slate-400">' + t.id + "</span>" +
+          '<span class="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium ring-1 ring-inset ' + p.badge + '">' +
+            '<span class="h-1.5 w-1.5 rounded-full ' + p.dot + '"></span>' + p.label +
+          "</span>" +
+        "</div>" +
+        '<p class="mb-1 line-clamp-2 text-sm font-semibold leading-snug text-slate-800">' + escapeHtml(t.subject) + "</p>" +
+        '<p class="mb-3 truncate text-xs text-slate-500">' + escapeHtml(t.customer.name) + " · " + escapeHtml(t.customer.company) + "</p>" +
+        '<div class="mb-3 flex items-center justify-between gap-2">' +
+          assigneeHtml +
+          '<span class="inline-flex items-center gap-1 whitespace-nowrap rounded-md border px-1.5 py-0.5 text-[11px] font-medium ' + SLA_CLASS[sla.type] + '">' +
+            icon(SLA_ICON[sla.type], "h-3 w-3") + sla.text +
+          "</span>" +
+        "</div>" +
+        '<label class="sr-only" for="move-' + t.id + '">Move ticket ' + t.id + " to a different status</label>" +
+        '<select id="move-' + t.id + '" data-move-select class="w-full cursor-pointer rounded-md border border-slate-200 bg-slate-50 py-1.5 text-xs text-slate-600 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/40">' +
+          '<option value="" selected disabled>Move to…</option>' + moveOptions +
+        "</select>" +
+      "</div>"
+    );
+  }
+
+  function emptyColumnTemplate() {
+    return (
+      '<div class="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed border-slate-200 py-8 text-center text-slate-400">' +
+        icon("inbox", "h-6 w-6") +
+        '<p class="text-xs">No tickets here</p>' +
+      "</div>"
+    );
+  }
+
+  function columnTemplate(status, tickets, now) {
+    return (
+      '<section class="flex h-full w-[85vw] flex-none flex-col rounded-xl border border-slate-200 bg-slate-50/70 snap-start sm:w-80" aria-label="' + status.label + ' column">' +
+        '<header class="flex flex-none items-center justify-between gap-2 rounded-t-xl border-b border-slate-200 bg-white px-3.5 py-3">' +
+          '<div class="flex items-center gap-2">' +
+            '<span class="h-2.5 w-2.5 rounded-full ' + status.bar + '"></span>' +
+            '<h2 class="text-sm font-semibold text-slate-700">' + status.label + "</h2>" +
+          "</div>" +
+          '<span class="rounded-full ' + status.chip + ' px-2 py-0.5 text-xs font-semibold">' + tickets.length + "</span>" +
+        "</header>" +
+        '<div class="thin-scroll flex-1 space-y-3 overflow-y-auto p-3" data-dropzone="' + status.key + '">' +
+          (tickets.length ? tickets.map(function (t) { return cardTemplate(t, now); }).join("") : emptyColumnTemplate()) +
+        "</div>" +
+      "</section>"
+    );
+  }
+
+  function getFilteredTickets() {
+    var q = searchInput.value.trim().toLowerCase();
+    var pri = priorityFilter.value;
+    var assg = assigneeFilter.value;
+    return ticketsData.filter(function (t) {
+      if (pri !== "all" && t.priority !== pri) return false;
+      if (assg !== "all") {
+        if (assg === "unassigned" && t.assignee) return false;
+        if (assg !== "unassigned" && t.assignee !== assg) return false;
+      }
+      if (q) {
+        var hay = (t.id + " " + t.subject + " " + t.customer.name + " " + t.customer.company).toLowerCase();
+        if (hay.indexOf(q) === -1) return false;
+      }
+      return true;
+    });
+  }
+
+  function render() {
+    var now = new Date();
+    var filtered = getFilteredTickets();
+    board.innerHTML = STATUSES.map(function (s) {
+      return columnTemplate(s, filtered.filter(function (t) { return t.status === s.key; }), now);
+    }).join("");
+    renderStats();
+  }
+
+  function renderStats() {
+    var now = new Date();
+    var activeStatuses = { new: 1, open: 1, pending: 1 };
+    var total = ticketsData.filter(function (t) { return activeStatuses[t.status]; }).length;
+    var unassigned = ticketsData.filter(function (t) { return activeStatuses[t.status] && !t.assignee; }).length;
+    var breached = ticketsData.filter(function (t) { return activeStatuses[t.status] && t.slaDueAt && (t.slaDueAt.getTime() - now.getTime()) < 0; }).length;
+    var resolved = ticketsData.filter(function (t) { return t.status === "resolved"; }).length;
+    statTotal.textContent = total;
+    statUnassigned.textContent = unassigned;
+    statBreached.textContent = breached;
+    statResolved.textContent = resolved;
+  }
+
+  function showToast(message) {
+    var el = document.createElement("div");
+    el.className = "pointer-events-auto flex items-center gap-2 rounded-md bg-slate-900 px-3.5 py-2.5 text-sm text-white shadow-lg transition-opacity";
+    el.textContent = message;
+    toastRegion.appendChild(el);
+    setTimeout(function () {
+      el.classList.add("opacity-0");
+      setTimeout(function () { el.remove(); }, 300);
+    }, 2600);
+  }
+
+  function moveTicket(id, newStatus) {
+    var t = findTicket(id);
+    if (!t || t.status === newStatus) return;
+    t.status = newStatus;
+    if (newStatus === "resolved" || newStatus === "closed") {
+      t.resolvedAt = new Date();
+      t.slaMet = t.slaDueAt ? (t.resolvedAt.getTime() <= t.slaDueAt.getTime()) : true;
+    }
+    render();
+    showToast("Ticket " + id + " moved to " + STATUS_LABEL[newStatus]);
+  }
+
+  // ---- Filters ----
+  searchInput.addEventListener("input", render);
+  priorityFilter.addEventListener("change", render);
+  assigneeFilter.addEventListener("change", render);
+
+  // ---- Board interaction (delegated) ----
+  board.addEventListener("click", function (e) {
+    if (e.target.closest("select")) return;
+    var card = e.target.closest("[data-card-id]");
+    if (!card) return;
+    openTicketModal(card.getAttribute("data-card-id"));
+  });
+
+  board.addEventListener("keydown", function (e) {
+    if (e.target.tagName === "SELECT") return;
+    var card = e.target.closest("[data-card-id]");
+    if (!card) return;
+    if (e.key === "Enter" || e.key === " ") {
+      e.preventDefault();
+      openTicketModal(card.getAttribute("data-card-id"));
+    }
+  });
+
+  board.addEventListener("change", function (e) {
+    var sel = e.target.closest("[data-move-select]");
+    if (!sel || !sel.value) return;
+    var card = sel.closest("[data-card-id]");
+    moveTicket(card.getAttribute("data-card-id"), sel.value);
+  });
+
+  board.addEventListener("dragstart", function (e) {
+    var card = e.target.closest("[data-card-id]");
+    if (!card) return;
+    e.dataTransfer.setData("text/plain", card.getAttribute("data-card-id"));
+    e.dataTransfer.effectAllowed = "move";
+    card.classList.add("opacity-50");
+  });
+  board.addEventListener("dragend", function (e) {
+    var card = e.target.closest("[data-card-id]");
+    if (card) card.classList.remove("opacity-50");
+  });
+  board.addEventListener("dragover", function (e) {
+    var zone = e.target.closest("[data-dropzone]");
+    if (!zone) return;
+    e.preventDefault();
+    zone.classList.add("ring-2", "ring-indigo-400", "bg-indigo-50/60");
+  });
+  board.addEventListener("dragleave", function (e) {
+    var zone = e.target.closest("[data-dropzone]");
+    if (!zone) return;
+    zone.classList.remove("ring-2", "ring-indigo-400", "bg-indigo-50/60");
+  });
+  board.addEventListener("drop", function (e) {
+    var zone = e.target.closest("[data-dropzone]");
+    if (!zone) return;
+    e.preventDefault();
+    zone.classList.remove("ring-2", "ring-indigo-400", "bg-indigo-50/60");
+    var id = e.dataTransfer.getData("text/plain");
+    moveTicket(id, zone.getAttribute("data-dropzone"));
+  });
+
+  // ---- Ticket detail modal ----
+  function buildModalHtml(t) {
+    var p = PRIORITY[t.priority];
+    var statusOptions = STATUSES.map(function (s) {
+      return '<option value="' + s.key + '"' + (s.key === t.status ? " selected" : "") + ">" + s.label + "</option>";
+    }).join("");
+    var priorityOptions = Object.keys(PRIORITY).map(function (k) {
+      return '<option value="' + k + '"' + (k === t.priority ? " selected" : "") + ">" + PRIORITY[k].label + "</option>";
+    }).join("");
+    var assigneeOptions = '<option value=""' + (!t.assignee ? " selected" : "") + ">Unassigned</option>" +
+      AGENTS.map(function (a) {
+        return '<option value="' + escapeHtml(a.name) + '"' + (t.assignee === a.name ? " selected" : "") + ">" + escapeHtml(a.name) + "</option>";
+      }).join("");
+
+    return (
+      '<p class="mb-1 text-xs font-medium text-slate-400">' + t.id + "</p>" +
+      '<h3 class="mb-3 text-lg font-semibold text-slate-900">' + escapeHtml(t.subject) + "</h3>" +
+      '<div id="modalDerived" class="mb-4"></div>' +
+      '<dl class="mb-4 grid grid-cols-2 gap-3 rounded-lg bg-slate-50 p-3 text-sm">' +
+        '<div><dt class="text-xs text-slate-500">Customer</dt><dd class="font-medium text-slate-800">' + escapeHtml(t.customer.name) + "</dd></div>" +
+        '<div><dt class="text-xs text-slate-500">Company</dt><dd class="font-medium text-slate-800">' + escapeHtml(t.customer.company) + "</dd></div>" +
+        '<div><dt class="text-xs text-slate-500">Email</dt><dd class="font-medium text-slate-800">' + escapeHtml(t.customer.email) + "</dd></div>" +
+        '<div><dt class="text-xs text-slate-500">Created</dt><dd class="font-medium text-slate-800">' + formatDateTime(t.createdAt) + "</dd></div>" +
+      "</dl>" +
+      '<p class="mb-4 text-sm leading-relaxed text-slate-600">' + escapeHtml(t.description) + "</p>" +
+      '<div class="grid grid-cols-3 gap-3 border-t border-slate-200 pt-4">' +
+        '<div><label for="modal-status" class="mb-1 block text-xs font-medium text-slate-500">Status</label>' +
+          '<select id="modal-status" data-field="status" class="w-full rounded-md border border-slate-300 px-2 py-1.5 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/40">' + statusOptions + "</select></div>" +
+        '<div><label for="modal-priority" class="mb-1 block text-xs font-medium text-slate-500">Priority</label>' +
+          '<select id="modal-priority" data-field="priority" class="w-full rounded-md border border-slate-300 px-2 py-1.5 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/40">' + priorityOptions + "</select></div>" +
+        '<div><label for="modal-assignee" class="mb-1 block text-xs font-medium text-slate-500">Assignee</label>' +
+          '<select id="modal-assignee" data-field="assignee" class="w-full rounded-md border border-slate-300 px-2 py-1.5 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/40">' + assigneeOptions + "</select></div>" +
+      "</div>"
+    );
+  }
+
+  function updateModalDerived(t) {
+    var derived = document.getElementById("modalDerived");
+    if (!derived) return;
+    var sla = slaInfo(t, new Date());
+    var p = PRIORITY[t.priority];
+    var extra = (t.status === "resolved" || t.status === "closed")
+      ? '<span class="text-xs text-slate-500">Resolved ' + formatDateTime(t.resolvedAt) + "</span>"
+      : "";
+    derived.innerHTML =
+      '<div class="flex flex-wrap items-center gap-2">' +
+        '<span class="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium ring-1 ring-inset ' + p.badge + '">' +
+          '<span class="h-1.5 w-1.5 rounded-full ' + p.dot + '"></span>' + p.label +
+        "</span>" +
+        '<span class="inline-flex items-center gap-1 whitespace-nowrap rounded-md border px-1.5 py-0.5 text-xs font-medium ' + SLA_CLASS[sla.type] + '">' +
+          icon(SLA_ICON[sla.type], "h-3 w-3") + sla.text +
+        "</span>" + extra +
+      "</div>";
+  }
+
+  function openTicketModal(id) {
+    var t = findTicket(id);
+    if (!t) return;
+    currentModalTicketId = id;
+    ticketModalContent.innerHTML = buildModalHtml(t);
+    updateModalDerived(t);
+    lastFocusedEl = document.activeElement;
+    ticketModal.classList.remove("hidden");
+    ticketModalClose.focus();
+  }
+  function closeTicketModal() {
+    ticketModal.classList.add("hidden");
+    currentModalTicketId = null;
+    if (lastFocusedEl && document.body.contains(lastFocusedEl)) lastFocusedEl.focus();
+  }
+
+  ticketModalContent.addEventListener("change", function (e) {
+    var sel = e.target;
+    var t = findTicket(currentModalTicketId);
+    if (!t) return;
+    if (sel.matches('[data-field="status"]')) {
+      moveTicket(t.id, sel.value);
+      updateModalDerived(t);
+    } else if (sel.matches('[data-field="priority"]')) {
+      t.priority = sel.value;
+      render();
+      updateModalDerived(t);
+      showToast("Priority updated for " + t.id);
+    } else if (sel.matches('[data-field="assignee"]')) {
+      t.assignee = sel.value === "" ? null : sel.value;
+      render();
+      updateModalDerived(t);
+      showToast("Assignee updated for " + t.id);
+    }
+  });
+
+  ticketModalClose.addEventListener("click", closeTicketModal);
+  ticketModal.addEventListener("click", function (e) { if (e.target === ticketModal) closeTicketModal(); });
+
+  // ---- New ticket modal ----
+  function openNewTicketModal() {
+    newTicketForm.reset();
+    ["customer", "subject", "email"].forEach(function (f) {
+      document.getElementById("f-" + f).removeAttribute("aria-invalid");
+      var err = document.getElementById("err-" + f);
+      if (err) { err.textContent = ""; err.classList.add("hidden"); }
+    });
+    lastFocusedEl = document.activeElement;
+    newTicketModal.classList.remove("hidden");
+    document.getElementById("f-customer").focus();
+  }
+  function closeNewTicketModal() {
+    newTicketModal.classList.add("hidden");
+    if (lastFocusedEl && document.body.contains(lastFocusedEl)) lastFocusedEl.focus();
+  }
+  newTicketBtn.addEventListener("click", openNewTicketModal);
+  newTicketModalClose.addEventListener("click", closeNewTicketModal);
+  newTicketCancel.addEventListener("click", closeNewTicketModal);
+  newTicketModal.addEventListener("click", function (e) { if (e.target === newTicketModal) closeNewTicketModal(); });
+
+  function setFieldError(field, message) {
+    var input = document.getElementById("f-" + field);
+    var err = document.getElementById("err-" + field);
+    if (message) {
+      input.setAttribute("aria-invalid", "true");
+      input.classList.add("border-red-400");
+      err.textContent = message;
+      err.classList.remove("hidden");
+      return true;
+    }
+    input.removeAttribute("aria-invalid");
+    input.classList.remove("border-red-400");
+    err.textContent = "";
+    err.classList.add("hidden");
+    return false;
+  }
+
+  newTicketForm.addEventListener("submit", function (e) {
+    e.preventDefault();
+    var data = new FormData(newTicketForm);
+    var customer = String(data.get("customer") || "").trim();
+    var company = String(data.get("company") || "").trim();
+    var email = String(data.get("email") || "").trim();
+    var subject = String(data.get("subject") || "").trim();
+    var description = String(data.get("description") || "").trim();
+    var priority = data.get("priority");
+    var assignee = data.get("assignee");
+    var slaHours = Number(data.get("sla"));
+
+    var hasError = false;
+    if (setFieldError("customer", customer ? "" : "Customer name is required.")) hasError = true;
+    if (setFieldError("subject", subject ? "" : "Subject is required.")) hasError = true;
+    var emailOk = !email || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+    if (setFieldError("email", emailOk ? "" : "Enter a valid email address.")) hasError = true;
+
+    if (hasError) {
+      var firstInvalid = newTicketForm.querySelector('[aria-invalid="true"]');
+      if (firstInvalid) firstInvalid.focus();
+      return;
+    }
+
+    var id = "TCK-" + nextTicketNum++;
+    var now = new Date();
+    ticketsData.unshift({
+      id: id,
+      customer: { name: customer, company: company || "—", email: email || "—" },
+      subject: subject,
+      description: description || "No additional description provided.",
+      priority: priority,
+      status: "new",
+      assignee: assignee || null,
+      createdAt: now,
+      slaDueAt: new Date(now.getTime() + slaHours * 3600000)
+    });
+
+    render();
+    closeNewTicketModal();
+    showToast("Ticket " + id + " created");
+  });
+
+  // ---- Escape key + focus trap ----
+  function getFocusable(container) {
+    return Array.prototype.slice.call(
+      container.querySelectorAll('a[href], button, select, input, textarea, [tabindex]:not([tabindex="-1"])')
+    ).filter(function (el) { return !el.disabled && el.offsetParent !== null; });
+  }
+  function trapTab(panel, e) {
+    if (e.key !== "Tab") return;
+    var focusable = getFocusable(panel);
+    if (!focusable.length) return;
+    var first = focusable[0];
+    var last = focusable[focusable.length - 1];
+    if (e.shiftKey && document.activeElement === first) {
+      e.preventDefault(); last.focus();
+    } else if (!e.shiftKey && document.activeElement === last) {
+      e.preventDefault(); first.focus();
+    }
+  }
+
+  document.addEventListener("keydown", function (e) {
+    if (e.key === "Escape") {
+      if (!ticketModal.classList.contains("hidden")) closeTicketModal();
+      else if (!newTicketModal.classList.contains("hidden")) closeNewTicketModal();
+      return;
+    }
+    if (e.key === "Tab") {
+      if (!ticketModal.classList.contains("hidden")) trapTab(ticketModalPanel, e);
+      else if (!newTicketModal.classList.contains("hidden")) trapTab(newTicketModalPanel, e);
+    }
+  });
+
+  // ---- Init ----
+  render();
+  setInterval(render, 60000);
+})();
+</script>
+</body>
+</html>

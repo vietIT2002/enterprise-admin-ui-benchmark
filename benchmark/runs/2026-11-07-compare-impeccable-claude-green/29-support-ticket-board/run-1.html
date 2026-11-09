@@ -1,0 +1,609 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Helpdesk — Ticket Board</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+  tailwind.config = {
+    theme: {
+      extend: {
+        fontFamily: { sans: ['Inter', 'ui-sans-serif', 'system-ui', 'sans-serif'] },
+        colors: {
+          brand: {
+            50: '#eef2ff', 100: '#e0e7ff', 500: '#6366f1', 600: '#4f46e5', 700: '#4338ca'
+          }
+        }
+      }
+    }
+  }
+</script>
+<style>
+  ::selection { background: #c7d2fe; color: #1e1b4b; }
+  html { scrollbar-color: #cbd5e1 transparent; }
+  .col-scroll::-webkit-scrollbar { width: 8px; }
+  .col-scroll::-webkit-scrollbar-track { background: transparent; }
+  .col-scroll::-webkit-scrollbar-thumb { background-color: #cbd5e1; border-radius: 9999px; }
+  .col-scroll::-webkit-scrollbar-thumb:hover { background-color: #94a3b8; }
+  :focus-visible { outline: 2px solid #4f46e5; outline-offset: 2px; border-radius: 4px; }
+  .card-grab { cursor: grab; }
+  .card-grab:active { cursor: grabbing; }
+  .card-dragging { opacity: 0.45; }
+  .drop-active { background-color: #eef2ff; }
+  .panel-enter { transform: translateX(100%); }
+  .panel-shown { transform: translateX(0); }
+  .scrim-enter { opacity: 0; pointer-events: none; }
+  .scrim-shown { opacity: 1; pointer-events: auto; }
+  @keyframes pulse-dot { 0%, 100% { opacity: 1; } 50% { opacity: 0.35; } }
+  .pulse-dot { animation: pulse-dot 1.8s ease-in-out infinite; }
+  @media (prefers-reduced-motion: reduce) {
+    .pulse-dot { animation: none; }
+    * { transition-duration: 0.01ms !important; }
+  }
+</style>
+</head>
+<body class="h-full bg-slate-100 font-sans text-slate-900 antialiased">
+
+<div class="flex h-screen flex-col overflow-hidden">
+
+  <!-- Top bar -->
+  <header class="z-20 flex flex-none items-center gap-4 border-b border-slate-200 bg-white px-5 py-3 shadow-sm">
+    <div class="flex items-center gap-2.5">
+      <div class="flex h-8 w-8 items-center justify-center rounded-lg bg-brand-600 text-sm font-semibold text-white">HD</div>
+      <div class="leading-tight">
+        <h1 class="text-sm font-semibold text-slate-900">Helpdesk</h1>
+        <p class="text-xs text-slate-500">Support ticket board</p>
+      </div>
+    </div>
+
+    <div class="mx-2 h-6 w-px bg-slate-200"></div>
+
+    <!-- Search -->
+    <div class="relative w-72 max-w-xs">
+      <svg class="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-4.35-4.35M11 19a8 8 0 100-16 8 8 0 000 16z"/></svg>
+      <input id="search-input" type="text" placeholder="Search tickets, customers, IDs…"
+        class="w-full rounded-md border border-slate-200 bg-slate-50 py-1.5 pl-8 pr-3 text-sm text-slate-800 placeholder:text-slate-400 focus:border-brand-500 focus:bg-white focus:ring-1 focus:ring-brand-500" />
+    </div>
+
+    <!-- Priority filter -->
+    <div id="priority-filter" class="flex items-center gap-1 rounded-md bg-slate-100 p-1 text-xs font-medium" role="group" aria-label="Filter by priority"></div>
+
+    <!-- Assignee filter -->
+    <select id="assignee-filter" aria-label="Filter by assignee"
+      class="rounded-md border border-slate-200 bg-slate-50 py-1.5 pl-2.5 pr-7 text-sm text-slate-700 focus:border-brand-500 focus:bg-white focus:ring-1 focus:ring-brand-500">
+      <option value="all">All assignees</option>
+      <option value="unassigned">Unassigned</option>
+    </select>
+
+    <button id="reset-filters" type="button" class="rounded-md px-2 py-1.5 text-xs font-medium text-slate-500 hover:bg-slate-100 hover:text-slate-700">
+      Reset
+    </button>
+
+    <div class="flex-1"></div>
+
+    <div id="result-count" class="hidden text-xs text-slate-500 sm:block"></div>
+
+    <div class="flex items-center gap-2 rounded-full bg-slate-50 py-1 pl-1 pr-3">
+      <div class="flex h-7 w-7 items-center justify-center rounded-full bg-violet-500 text-xs font-semibold text-white">PS</div>
+      <span class="text-sm font-medium text-slate-700">Priya Shah</span>
+    </div>
+  </header>
+
+  <!-- Board -->
+  <main class="flex-1 overflow-x-auto overflow-y-hidden px-5 py-4">
+    <div id="board" class="grid h-full grid-flow-col auto-cols-[19rem] gap-4 sm:auto-cols-[21rem]"></div>
+  </main>
+</div>
+
+<!-- Detail panel scrim -->
+<div id="scrim" class="scrim-enter fixed inset-0 z-30 bg-slate-900/30 transition-opacity duration-200"></div>
+
+<!-- Detail panel -->
+<aside id="detail-panel" aria-label="Ticket details"
+  class="panel-enter fixed inset-y-0 right-0 z-40 flex w-full max-w-md flex-col bg-white shadow-2xl transition-transform duration-200 ease-out">
+  <div id="detail-content" class="flex flex-1 flex-col overflow-y-auto"></div>
+</aside>
+
+<script>
+(() => {
+  const now = () => new Date();
+  const HOUR = 3600 * 1000;
+
+  const AGENTS = ['Priya Shah', 'Marcus Chen', 'Elena Torres', 'Sam Okafor', 'Jordan Lee'];
+  const AVATAR_COLORS = {
+    'Priya Shah': 'bg-violet-500', 'Marcus Chen': 'bg-sky-600', 'Elena Torres': 'bg-rose-500',
+    'Sam Okafor': 'bg-emerald-600', 'Jordan Lee': 'bg-amber-500', '_default': 'bg-slate-400'
+  };
+
+  const PRIORITY = {
+    urgent: { label: 'Urgent', text: 'text-rose-700', bg: 'bg-rose-50', ring: 'ring-rose-200' },
+    high:   { label: 'High',   text: 'text-orange-700', bg: 'bg-orange-50', ring: 'ring-orange-200' },
+    medium: { label: 'Medium', text: 'text-sky-700', bg: 'bg-sky-50', ring: 'ring-sky-200' },
+    low:    { label: 'Low',    text: 'text-slate-600', bg: 'bg-slate-100', ring: 'ring-slate-200' },
+  };
+
+  const STATUSES = [
+    { key: 'new', label: 'New', dot: 'bg-slate-400' },
+    { key: 'progress', label: 'In Progress', dot: 'bg-sky-500' },
+    { key: 'waiting', label: 'Waiting on Customer', dot: 'bg-amber-500' },
+    { key: 'resolved', label: 'Resolved', dot: 'bg-emerald-500' },
+  ];
+
+  const CHANNEL_ICON = {
+    email: '<path stroke-linecap="round" stroke-linejoin="round" d="M3 7l9 6 9-6M4 5h16a1 1 0 011 1v12a1 1 0 01-1 1H4a1 1 0 01-1-1V6a1 1 0 011-1z"/>',
+    chat: '<path stroke-linecap="round" stroke-linejoin="round" d="M8 10h.01M12 10h.01M16 10h.01M21 12c0 4.418-4.03 8-9 8-1.08 0-2.11-.17-3.06-.48L3 21l1.6-4.27C3.59 15.42 3 13.77 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/>',
+    phone: '<path stroke-linecap="round" stroke-linejoin="round" d="M3 5a2 2 0 012-2h2.28a1 1 0 01.97.75l1 4a1 1 0 01-.27.95L7.1 10.6a11.04 11.04 0 006.3 6.3l1.9-1.88a1 1 0 01.95-.27l4 1a1 1 0 01.75.97V19a2 2 0 01-2 2h-1C9.72 21 3 14.28 3 6V5z"/>',
+  };
+
+  function mk(id, subject, description, customer, company, channel, priority, status, assignee, createdHoursAgo, slaWindowHours, resolvedAfterHours) {
+    const createdAt = new Date(now().getTime() - createdHoursAgo * HOUR);
+    const slaDueAt = new Date(createdAt.getTime() + slaWindowHours * HOUR);
+    const resolvedAt = resolvedAfterHours != null ? new Date(createdAt.getTime() + resolvedAfterHours * HOUR) : null;
+    return { id, subject, description, customer, company, channel, priority, status, assignee, createdAt, slaDueAt, resolvedAt };
+  }
+
+  let tickets = [
+    mk('TCK-5102', 'SSO certificate expiring next week', 'Our identity provider flagged that the SAML signing certificate on file expires in 7 days. Please send renewal instructions before it lapses for all users.', 'Dana Whitfield', 'Harbor & Vine', 'email', 'high', 'new', null, 2, 22),
+    mk('TCK-5098', 'Mobile app crashes on checkout', 'The iOS app force-closes every time a customer taps "Place order" with more than 3 items in the cart. Reproduced on iOS 18.1 and 18.2.', 'Marco Reyes', 'Pixel Forge Studios', 'phone', 'urgent', 'new', null, 0.4, 4),
+    mk('TCK-5095', 'Need bulk user import template', 'We are onboarding 40 new employees next quarter and would like a CSV template for bulk user creation instead of adding them one by one.', 'Helene Fischer', 'Crestview Dental Group', 'email', 'low', 'new', null, 24, 72),
+    mk('TCK-5090', 'Permissions error accessing shared folder', 'Three team members get "Access denied" when opening the Q3 shared reports folder, even though they were granted viewer access yesterday.', 'Noah Kapoor', 'Cobalt Systems', 'chat', 'medium', 'new', null, 6, 24),
+    mk('TCK-5088', 'Password policy update request', 'Our security team now requires 14-character minimum passwords. Can this be configured per-workspace rather than globally?', 'Aisha Bello', 'TrueNorth Insurance', 'email', 'low', 'new', null, 3, 72),
+
+    mk('TCK-5080', 'API webhook failing with 500 error', 'Every order.created webhook has returned HTTP 500 since this morning. Our integration log shows no payload was received on our end.', 'Tom Vance', 'Cobalt Systems', 'email', 'urgent', 'progress', 'Marcus Chen', 5, 4),
+    mk('TCK-5076', 'Dashboard charts not loading on Safari', 'The revenue and churn charts on the analytics dashboard stay blank on Safari 17+. Chrome and Firefox render correctly.', 'Lucia Moreno', 'Lumen Analytics', 'chat', 'medium', 'progress', 'Elena Torres', 8, 24),
+    mk('TCK-5071', 'Data sync delay from warehouse integration', 'Inventory counts from our 3PL have been 6+ hours stale since Tuesday. This is causing us to oversell low-stock SKUs.', 'Grace Okoye', 'Atlas Freight Co', 'email', 'high', 'progress', 'Sam Okafor', 10, 12),
+    mk('TCK-5066', 'Integration with Shopify returns timeout', 'Syncing more than 500 SKUs from Shopify times out at the 30s mark. Smaller catalogs sync fine.', 'Liam Patterson', 'Solstice Media', 'email', 'high', 'progress', 'Priya Shah', 20, 24),
+    mk('TCK-5061', 'Report scheduler stopped sending emails', 'Weekly summary reports were due Monday 8am and never arrived. Manual "Send now" still works fine.', 'Ivy Sutherland', 'Juniper Health', 'chat', 'medium', 'progress', 'Jordan Lee', 4, 24),
+
+    mk('TCK-5050', 'Refund request for duplicate order', 'Order #88213 was charged twice due to a double-click on checkout. Requesting a refund for the duplicate charge.', 'Carlos Mendez', 'GreenLeaf Grocers', 'email', 'medium', 'waiting', 'Marcus Chen', 24, 48),
+    mk('TCK-5045', 'Billing charged twice this month', 'Our October invoice shows two charges of $1,240. We have only one active subscription on this account.', 'Nina Park', 'Meridian Capital', 'phone', 'high', 'waiting', 'Elena Torres', 28, 24),
+    mk('TCK-5041', 'Missing line items on generated invoice PDF', 'Invoice INV-2291 is missing the last two line items when exported as PDF, though they appear correctly on the web view.', 'Felix Huang', 'Quill & Ink Publishing', 'email', 'low', 'waiting', 'Sam Okafor', 48, 72),
+    mk('TCK-5037', 'Login loop after password reset', 'After resetting my password I am redirected back to the login page in an endless loop. Cleared cookies, same result.', 'Rosa Delgado', 'Fernwood Realty', 'chat', 'urgent', 'waiting', 'Priya Shah', 6, 4),
+
+    mk('TCK-5020', 'Unable to export invoices to CSV', 'Clicking "Export to CSV" on the invoices page did nothing — no download, no error message.', 'Owen Bright', 'Nordfjell Outdoor', 'email', 'medium', 'resolved', 'Jordan Lee', 72, 24, 20),
+    mk('TCK-5015', 'Request to add 3 new seats', 'Please add 3 additional seats to our Pro plan and prorate the billing for the remainder of this cycle.', 'Maya Lindqvist', 'Ridgeline Robotics', 'email', 'low', 'resolved', 'Marcus Chen', 96, 72, 30),
+    mk('TCK-5009', 'Checkout button unresponsive on iOS', 'The "Pay now" button does not respond to taps on iOS Safari after entering a promo code.', 'Victor Osei', 'GreenLeaf Grocers', 'phone', 'urgent', 'resolved', 'Elena Torres', 120, 4, 9),
+    mk('TCK-5003', 'Export job silently failing for large datasets', 'Exports over 50k rows complete with a success toast but the downloaded file is empty.', 'Clara Jansen', 'Lumen Analytics', 'email', 'high', 'resolved', 'Sam Okafor', 144, 24, 18),
+  ];
+
+  let filters = { search: '', priority: 'all', assignee: 'all' };
+  let openTicketId = null;
+  let dragTicketId = null;
+
+  const boardEl = document.getElementById('board');
+  const searchInput = document.getElementById('search-input');
+  const assigneeFilter = document.getElementById('assignee-filter');
+  const priorityFilterEl = document.getElementById('priority-filter');
+  const resultCountEl = document.getElementById('result-count');
+  const panelEl = document.getElementById('detail-panel');
+  const scrimEl = document.getElementById('scrim');
+  const detailContent = document.getElementById('detail-content');
+
+  // Build priority filter chips
+  const PRIORITY_FILTERS = [['all', 'All'], ['urgent', 'Urgent'], ['high', 'High'], ['medium', 'Medium'], ['low', 'Low']];
+  priorityFilterEl.innerHTML = PRIORITY_FILTERS.map(([key, label]) =>
+    `<button type="button" data-priority="${key}" class="priority-chip rounded px-2.5 py-1 transition-colors">${label}</button>`
+  ).join('');
+  priorityFilterEl.addEventListener('click', (e) => {
+    const btn = e.target.closest('[data-priority]');
+    if (!btn) return;
+    filters.priority = btn.dataset.priority;
+    render();
+  });
+
+  AGENTS.forEach(a => {
+    const opt = document.createElement('option');
+    opt.value = a; opt.textContent = a;
+    assigneeFilter.appendChild(opt);
+  });
+
+  searchInput.addEventListener('input', (e) => { filters.search = e.target.value.trim().toLowerCase(); render(); });
+  assigneeFilter.addEventListener('change', (e) => { filters.assignee = e.target.value; render(); });
+  document.getElementById('reset-filters').addEventListener('click', () => {
+    filters = { search: '', priority: 'all', assignee: 'all' };
+    searchInput.value = ''; assigneeFilter.value = 'all';
+    render();
+  });
+
+  function initials(name) {
+    return name.split(' ').map(p => p[0]).join('').slice(0, 2).toUpperCase();
+  }
+
+  function formatDuration(ms) {
+    const abs = Math.abs(ms);
+    const days = Math.floor(abs / (24 * HOUR));
+    const hrs = Math.floor((abs % (24 * HOUR)) / HOUR);
+    const mins = Math.floor((abs % HOUR) / 60000);
+    if (days > 0) return `${days}d ${hrs}h`;
+    if (hrs > 0) return `${hrs}h ${mins}m`;
+    return `${mins}m`;
+  }
+
+  function slaInfo(t) {
+    const total = t.slaDueAt.getTime() - t.createdAt.getTime();
+    if (t.status === 'resolved') {
+      const met = t.resolvedAt.getTime() <= t.slaDueAt.getTime();
+      return {
+        state: met ? 'met' : 'missed',
+        label: met ? 'SLA met' : 'SLA missed',
+        text: met ? 'text-emerald-700' : 'text-rose-700',
+        barColor: met ? 'bg-emerald-500' : 'bg-rose-500',
+        pct: 100,
+      };
+    }
+    const remaining = t.slaDueAt.getTime() - now().getTime();
+    const elapsed = now().getTime() - t.createdAt.getTime();
+    const pct = Math.max(0, Math.min(100, (elapsed / total) * 100));
+    if (remaining < 0) {
+      return { state: 'breached', label: `Breached ${formatDuration(remaining)} ago`, text: 'text-rose-700', barColor: 'bg-rose-500', pct: 100 };
+    }
+    if (remaining <= 2 * HOUR) {
+      return { state: 'risk', label: `Due in ${formatDuration(remaining)}`, text: 'text-amber-700', barColor: 'bg-amber-500', pct };
+    }
+    return { state: 'ok', label: `${formatDuration(remaining)} remaining`, text: 'text-slate-500', barColor: 'bg-slate-300', pct };
+  }
+
+  function channelIcon(channel, cls) {
+    return `<svg class="${cls}" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">${CHANNEL_ICON[channel]}</svg>`;
+  }
+
+  function matchesFilters(t) {
+    if (filters.priority !== 'all' && t.priority !== filters.priority) return false;
+    if (filters.assignee === 'unassigned' && t.assignee) return false;
+    if (filters.assignee !== 'all' && filters.assignee !== 'unassigned' && t.assignee !== filters.assignee) return false;
+    if (filters.search) {
+      const hay = `${t.id} ${t.subject} ${t.customer} ${t.company}`.toLowerCase();
+      if (!hay.includes(filters.search)) return false;
+    }
+    return true;
+  }
+
+  function cardTemplate(t) {
+    const p = PRIORITY[t.priority];
+    const sla = slaInfo(t);
+    const avatarColor = AVATAR_COLORS[t.assignee] || AVATAR_COLORS._default;
+    const otherStatuses = STATUSES.filter(s => s.key !== t.status);
+
+    return `
+    <div class="ticket-card card-grab group rounded-lg border border-slate-200 bg-white p-3 shadow-sm hover:border-slate-300 hover:shadow-md focus-within:border-brand-400"
+         draggable="true" data-id="${t.id}" tabindex="0" role="button" aria-label="Ticket ${t.id}: ${t.subject}">
+      <div class="flex items-start justify-between gap-2">
+        <span class="font-mono text-[11px] tabular-nums text-slate-400">${t.id}</span>
+        <div class="flex items-center gap-1">
+          <span class="inline-flex items-center rounded px-1.5 py-0.5 text-[11px] font-medium ring-1 ring-inset ${p.bg} ${p.text} ${p.ring}">${p.label}</span>
+          <div class="relative">
+            <button type="button" data-menu-toggle="${t.id}" aria-haspopup="true" aria-expanded="false" aria-label="Move ticket ${t.id}"
+              class="menu-toggle rounded p-0.5 text-slate-400 opacity-0 hover:bg-slate-100 hover:text-slate-600 focus-visible:opacity-100 group-hover:opacity-100">
+              <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6h.01M12 12h.01M12 18h.01"/></svg>
+            </button>
+            <div data-menu="${t.id}" class="hidden absolute right-0 top-6 z-10 w-44 rounded-md border border-slate-200 bg-white py-1 shadow-lg">
+              <p class="px-3 py-1 text-[11px] font-medium uppercase tracking-wide text-slate-400">Move to</p>
+              ${otherStatuses.map(s => `<button type="button" data-move="${t.id}" data-target="${s.key}" class="flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm text-slate-700 hover:bg-slate-50"><span class="h-1.5 w-1.5 rounded-full ${s.dot}"></span>${s.label}</button>`).join('')}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <p class="mt-1.5 line-clamp-2 text-sm font-medium leading-snug text-slate-900">${t.subject}</p>
+
+      <div class="mt-2 flex items-center gap-1.5 text-xs text-slate-500">
+        ${channelIcon(t.channel, 'h-3.5 w-3.5 flex-none text-slate-400')}
+        <span class="truncate">${t.customer} · ${t.company}</span>
+      </div>
+
+      <div class="mt-3 flex items-center justify-between gap-2">
+        <div class="flex items-center gap-1.5 text-xs ${sla.text}">
+          <svg class="h-3.5 w-3.5 flex-none" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path stroke-linecap="round" stroke-linejoin="round" d="M12 7v5l3 3"/></svg>
+          <span class="tabular-nums">${sla.label}</span>
+        </div>
+        ${t.assignee
+          ? `<div class="flex h-6 w-6 flex-none items-center justify-center rounded-full ${avatarColor} text-[10px] font-semibold text-white" title="${t.assignee}">${initials(t.assignee)}</div>`
+          : `<button type="button" data-assign="${t.id}" class="flex-none rounded border border-slate-200 px-1.5 py-0.5 text-[11px] font-medium text-slate-500 hover:border-brand-300 hover:bg-brand-50 hover:text-brand-700">Assign to me</button>`
+        }
+      </div>
+
+      <div class="mt-2 h-1 w-full overflow-hidden rounded-full bg-slate-100">
+        <div class="h-full rounded-full ${sla.barColor}" style="width:${sla.pct}%"></div>
+      </div>
+    </div>`;
+  }
+
+  function emptyColumnState() {
+    return `
+    <div class="flex flex-1 flex-col items-center justify-center rounded-lg border border-dashed border-slate-200 px-4 py-10 text-center">
+      <svg class="h-6 w-6 text-slate-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M9 13h6m-6 4h6M5 21h14a2 2 0 002-2V7.414a2 2 0 00-.586-1.414l-3.414-3.414A2 2 0 0015.586 2H5a2 2 0 00-2 2v15a2 2 0 002 2z"/></svg>
+      <p class="mt-2 text-xs text-slate-400">No tickets match the current filters.</p>
+    </div>`;
+  }
+
+  function columnTemplate(status) {
+    const items = tickets.filter(t => t.status === status.key && matchesFilters(t))
+      .sort((a, b) => {
+        // Breached/at-risk first, then soonest due, resolved sorts by most recent
+        if (status.key === 'resolved') return b.resolvedAt - a.resolvedAt;
+        return a.slaDueAt - b.slaDueAt;
+      });
+    const breachedCount = tickets.filter(t => t.status === status.key && slaInfo(t).state === 'breached').length;
+
+    return `
+    <section class="flex h-full min-h-0 flex-col rounded-xl bg-slate-50/70" data-column="${status.key}">
+      <header class="flex flex-none items-center justify-between px-3 py-3">
+        <div class="flex items-center gap-2">
+          <span class="h-2 w-2 rounded-full ${status.dot}"></span>
+          <h2 class="text-sm font-semibold text-slate-700">${status.label}</h2>
+          <span class="rounded-full bg-slate-200/80 px-1.5 py-0.5 text-[11px] font-medium text-slate-500">${items.length}</span>
+        </div>
+        ${breachedCount > 0 ? `<span class="flex items-center gap-1 rounded-full bg-rose-50 px-1.5 py-0.5 text-[11px] font-medium text-rose-600"><span class="h-1.5 w-1.5 rounded-full bg-rose-500 pulse-dot"></span>${breachedCount}</span>` : ''}
+      </header>
+
+      ${status.key === 'new' ? `
+      <div class="px-3 pb-2">
+        <button type="button" id="add-ticket-toggle" class="flex w-full items-center justify-center gap-1.5 rounded-md border border-dashed border-slate-300 py-1.5 text-xs font-medium text-slate-500 hover:border-brand-400 hover:text-brand-700">
+          <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/></svg>
+          Add ticket
+        </button>
+        <form id="add-ticket-form" class="hidden mt-2 space-y-1.5 rounded-md border border-slate-200 bg-white p-2.5 shadow-sm">
+          <input required name="subject" type="text" placeholder="Subject" class="w-full rounded border border-slate-200 px-2 py-1 text-xs focus:border-brand-500 focus:ring-1 focus:ring-brand-500" />
+          <input required name="customer" type="text" placeholder="Customer name" class="w-full rounded border border-slate-200 px-2 py-1 text-xs focus:border-brand-500 focus:ring-1 focus:ring-brand-500" />
+          <input required name="company" type="text" placeholder="Company" class="w-full rounded border border-slate-200 px-2 py-1 text-xs focus:border-brand-500 focus:ring-1 focus:ring-brand-500" />
+          <div class="flex gap-1.5 pt-0.5">
+            <button type="submit" class="flex-1 rounded bg-brand-600 py-1 text-xs font-medium text-white hover:bg-brand-700">Create</button>
+            <button type="button" id="add-ticket-cancel" class="rounded px-2 py-1 text-xs font-medium text-slate-500 hover:bg-slate-100">Cancel</button>
+          </div>
+        </form>
+      </div>` : ''}
+
+      <div class="col-scroll flex-1 min-h-0 overflow-y-auto px-3 pb-3">
+        <div class="flex flex-col gap-2.5 drop-zone rounded-lg" data-status="${status.key}">
+          ${items.length ? items.map(cardTemplate).join('') : ''}
+        </div>
+        ${items.length === 0 ? emptyColumnState() : ''}
+      </div>
+    </section>`;
+  }
+
+  function render() {
+    boardEl.innerHTML = STATUSES.map(columnTemplate).join('');
+    const visible = tickets.filter(matchesFilters).length;
+    resultCountEl.textContent = `${visible} of ${tickets.length} tickets`;
+    resultCountEl.classList.remove('hidden');
+
+    document.querySelectorAll('.priority-chip').forEach(btn => {
+      const active = btn.dataset.priority === filters.priority;
+      btn.classList.toggle('bg-white', active);
+      btn.classList.toggle('shadow-sm', active);
+      btn.classList.toggle('text-slate-900', active);
+      btn.classList.toggle('text-slate-500', !active);
+    });
+    assigneeFilter.value = filters.assignee;
+
+    wireCardEvents();
+    wireColumnDrop();
+    wireAddTicketForm();
+    if (openTicketId) renderDetailPanel(openTicketId);
+  }
+
+  function wireAddTicketForm() {
+    const toggle = document.getElementById('add-ticket-toggle');
+    const form = document.getElementById('add-ticket-form');
+    const cancel = document.getElementById('add-ticket-cancel');
+    if (!toggle) return;
+    toggle.addEventListener('click', () => { toggle.classList.add('hidden'); form.classList.remove('hidden'); form.querySelector('input').focus(); });
+    cancel.addEventListener('click', () => { form.classList.add('hidden'); toggle.classList.remove('hidden'); form.reset(); });
+    form.addEventListener('submit', (e) => {
+      e.preventDefault();
+      const data = new FormData(form);
+      const nextNum = Math.max(...tickets.map(t => parseInt(t.id.split('-')[1], 10))) + 1;
+      tickets.unshift(mk(`TCK-${nextNum}`, data.get('subject'), 'No description provided yet.', data.get('customer'), data.get('company'), 'email', 'medium', 'new', null, 0, 24));
+      render();
+    });
+  }
+
+  function wireCardEvents() {
+    document.querySelectorAll('.ticket-card').forEach(card => {
+      card.addEventListener('dragstart', (e) => {
+        dragTicketId = card.dataset.id;
+        card.classList.add('card-dragging');
+        e.dataTransfer.effectAllowed = 'move';
+      });
+      card.addEventListener('dragend', () => card.classList.remove('card-dragging'));
+      card.addEventListener('click', (e) => {
+        if (e.target.closest('[data-menu-toggle]') || e.target.closest('[data-assign]') || e.target.closest('[data-move]')) return;
+        openTicketId = card.dataset.id;
+        renderDetailPanel(openTicketId);
+      });
+      card.addEventListener('keydown', (e) => {
+        if ((e.key === 'Enter' || e.key === ' ') && !e.target.closest('button')) {
+          e.preventDefault();
+          openTicketId = card.dataset.id;
+          renderDetailPanel(openTicketId);
+        }
+      });
+    });
+
+    document.querySelectorAll('[data-menu-toggle]').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const id = btn.dataset.menuToggle;
+        document.querySelectorAll('[data-menu]').forEach(m => { if (m.dataset.menu !== id) m.classList.add('hidden'); });
+        const menu = document.querySelector(`[data-menu="${id}"]`);
+        menu.classList.toggle('hidden');
+      });
+    });
+
+    document.querySelectorAll('[data-move]').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        setStatus(btn.dataset.move, btn.dataset.target);
+      });
+    });
+
+    document.querySelectorAll('[data-assign]').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const t = tickets.find(t => t.id === btn.dataset.assign);
+        t.assignee = 'Priya Shah';
+        render();
+      });
+    });
+
+    document.addEventListener('click', closeMenus, { once: true });
+  }
+
+  function closeMenus() {
+    document.querySelectorAll('[data-menu]').forEach(m => m.classList.add('hidden'));
+  }
+
+  function wireColumnDrop() {
+    document.querySelectorAll('.drop-zone').forEach(zone => {
+      zone.addEventListener('dragover', (e) => { e.preventDefault(); zone.classList.add('drop-active'); });
+      zone.addEventListener('dragleave', () => zone.classList.remove('drop-active'));
+      zone.addEventListener('drop', (e) => {
+        e.preventDefault();
+        zone.classList.remove('drop-active');
+        if (dragTicketId) setStatus(dragTicketId, zone.dataset.status);
+        dragTicketId = null;
+      });
+    });
+  }
+
+  function setStatus(ticketId, targetStatus) {
+    const t = tickets.find(t => t.id === ticketId);
+    if (!t || t.status === targetStatus) return;
+    t.status = targetStatus;
+    if (targetStatus === 'resolved') t.resolvedAt = now();
+    else t.resolvedAt = null;
+    render();
+  }
+
+  function renderDetailPanel(ticketId) {
+    const t = tickets.find(t => t.id === ticketId);
+    if (!t) { closeDetailPanel(); return; }
+    const p = PRIORITY[t.priority];
+    const sla = slaInfo(t);
+    const avatarColor = AVATAR_COLORS[t.assignee] || AVATAR_COLORS._default;
+
+    const timeline = [
+      { label: `Ticket opened via ${t.channel} by ${t.customer}`, at: t.createdAt },
+      ...(t.assignee ? [{ label: `Assigned to ${t.assignee}`, at: new Date(t.createdAt.getTime() + 20 * 60000) }] : []),
+      ...(t.status === 'waiting' ? [{ label: 'Waiting on customer response', at: new Date(t.createdAt.getTime() + 2 * HOUR) }] : []),
+      ...(t.status === 'resolved' ? [{ label: `Marked resolved by ${t.assignee}`, at: t.resolvedAt }] : []),
+    ];
+
+    detailContent.innerHTML = `
+      <div class="flex flex-none items-start justify-between gap-3 border-b border-slate-200 px-5 py-4">
+        <div>
+          <p class="font-mono text-xs tabular-nums text-slate-400">${t.id}</p>
+          <h2 class="mt-0.5 text-base font-semibold leading-snug text-slate-900">${t.subject}</h2>
+        </div>
+        <button id="close-panel" type="button" aria-label="Close ticket details" class="flex-none rounded p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-600">
+          <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+        </button>
+      </div>
+
+      <div class="flex-1 overflow-y-auto px-5 py-4">
+        <div class="flex flex-wrap items-center gap-2">
+          ${STATUSES.map(s => `<button type="button" data-panel-move="${s.key}" class="rounded-full px-3 py-1 text-xs font-medium transition-colors ${s.key === t.status ? 'bg-brand-600 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}">${s.label}</button>`).join('')}
+        </div>
+
+        <dl class="mt-5 grid grid-cols-2 gap-x-4 gap-y-3 text-sm">
+          <div>
+            <dt class="text-xs font-medium text-slate-400">Customer</dt>
+            <dd class="mt-0.5 text-slate-800">${t.customer}</dd>
+            <dd class="text-xs text-slate-500">${t.company}</dd>
+          </div>
+          <div>
+            <dt class="text-xs font-medium text-slate-400">Channel</dt>
+            <dd class="mt-0.5 flex items-center gap-1.5 text-slate-800">${channelIcon(t.channel, 'h-4 w-4 text-slate-400')}<span class="capitalize">${t.channel}</span></dd>
+          </div>
+          <div>
+            <dt class="text-xs font-medium text-slate-400">Priority</dt>
+            <dd class="mt-1">
+              <select data-priority-select class="rounded border border-slate-200 py-1 pl-2 pr-6 text-xs font-medium focus:border-brand-500 focus:ring-1 focus:ring-brand-500">
+                ${Object.entries(PRIORITY).map(([k, v]) => `<option value="${k}" ${k === t.priority ? 'selected' : ''}>${v.label}</option>`).join('')}
+              </select>
+            </dd>
+          </div>
+          <div>
+            <dt class="text-xs font-medium text-slate-400">Assignee</dt>
+            <dd class="mt-1">
+              <select data-assignee-select class="rounded border border-slate-200 py-1 pl-2 pr-6 text-xs font-medium focus:border-brand-500 focus:ring-1 focus:ring-brand-500">
+                <option value="" ${!t.assignee ? 'selected' : ''}>Unassigned</option>
+                ${AGENTS.map(a => `<option value="${a}" ${a === t.assignee ? 'selected' : ''}>${a}</option>`).join('')}
+              </select>
+            </dd>
+          </div>
+        </dl>
+
+        <div class="mt-5 rounded-lg border border-slate-200 p-3">
+          <div class="flex items-center justify-between">
+            <span class="text-xs font-medium text-slate-400">Service level agreement</span>
+            <span class="text-xs font-semibold ${sla.text}">${sla.label}</span>
+          </div>
+          <div class="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-slate-100">
+            <div class="h-full rounded-full ${sla.barColor}" style="width:${sla.pct}%"></div>
+          </div>
+          <p class="mt-2 text-xs text-slate-500">Opened ${t.createdAt.toLocaleString(undefined, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })} · Due ${t.slaDueAt.toLocaleString(undefined, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}</p>
+        </div>
+
+        <div class="mt-5">
+          <h3 class="text-xs font-medium text-slate-400">Description</h3>
+          <p class="mt-1.5 text-sm leading-relaxed text-slate-700">${t.description}</p>
+        </div>
+
+        <div class="mt-5">
+          <h3 class="text-xs font-medium text-slate-400">Activity</h3>
+          <ul class="mt-2 space-y-3">
+            ${timeline.map(ev => `
+              <li class="flex gap-2.5 text-sm">
+                <span class="mt-1.5 h-1.5 w-1.5 flex-none rounded-full bg-slate-300"></span>
+                <div>
+                  <p class="text-slate-700">${ev.label}</p>
+                  <p class="text-xs text-slate-400">${ev.at.toLocaleString(undefined, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}</p>
+                </div>
+              </li>`).join('')}
+          </ul>
+        </div>
+      </div>
+
+      <div class="flex flex-none items-center gap-2 border-t border-slate-200 px-5 py-3">
+        <div class="flex h-8 w-8 flex-none items-center justify-center rounded-full ${avatarColor} text-xs font-semibold text-white">${t.assignee ? initials(t.assignee) : '—'}</div>
+        <span class="text-sm text-slate-600">${t.assignee ? `Assigned to ${t.assignee}` : 'No agent assigned yet'}</span>
+      </div>
+    `;
+
+    document.getElementById('close-panel').addEventListener('click', closeDetailPanel);
+    detailContent.querySelectorAll('[data-panel-move]').forEach(btn => {
+      btn.addEventListener('click', () => { setStatus(t.id, btn.dataset.panelMove); renderDetailPanel(t.id); });
+    });
+    detailContent.querySelector('[data-priority-select]').addEventListener('change', (e) => {
+      t.priority = e.target.value; render();
+    });
+    detailContent.querySelector('[data-assignee-select]').addEventListener('change', (e) => {
+      t.assignee = e.target.value || null; render();
+    });
+
+    panelEl.classList.remove('panel-enter');
+    panelEl.classList.add('panel-shown');
+    scrimEl.classList.remove('scrim-enter');
+    scrimEl.classList.add('scrim-shown');
+  }
+
+  function closeDetailPanel() {
+    openTicketId = null;
+    panelEl.classList.remove('panel-shown');
+    panelEl.classList.add('panel-enter');
+    scrimEl.classList.remove('scrim-shown');
+    scrimEl.classList.add('scrim-enter');
+  }
+
+  scrimEl.addEventListener('click', closeDetailPanel);
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeDetailPanel(); });
+
+  render();
+  setInterval(render, 60000);
+})();
+</script>
+</body>
+</html>

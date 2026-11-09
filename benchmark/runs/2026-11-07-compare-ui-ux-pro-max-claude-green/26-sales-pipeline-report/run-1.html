@@ -1,0 +1,921 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Sales Pipeline Report · Acme CRM</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+  :root { color-scheme: light; }
+  html, body { background:#F8FAFC; }
+  .skip-link:not(:focus):not(:active){ clip:rect(0 0 0 0); position:absolute; }
+  @media print {
+    body { background:#fff; }
+    .no-print { display:none !important; }
+    .print-break { break-inside: avoid; }
+    main { max-width:100% !important; padding:0 !important; }
+    table { font-size:11px; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    * { transition-duration:0.001ms !important; animation-duration:0.001ms !important; }
+  }
+  .bar-fill { transition: width 400ms ease-out; }
+  details > summary { list-style:none; }
+  details > summary::-webkit-details-marker { display:none; }
+</style>
+</head>
+<body class="min-h-screen text-slate-900 antialiased">
+<a href="#main" class="skip-link bg-blue-600 text-white px-4 py-2 rounded-md absolute top-2 left-2 z-50">Skip to main content</a>
+
+<header class="sticky top-0 z-30 bg-white border-b border-slate-200">
+  <div class="max-w-7xl mx-auto px-4 sm:px-6 py-4 flex flex-wrap items-center justify-between gap-4">
+    <div class="flex items-center gap-3">
+      <div class="h-10 w-10 rounded-lg bg-blue-600 flex items-center justify-center text-white shrink-0" aria-hidden="true">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 17l4-4 4 3 5-7 5 4"/><path d="M3 21h18"/></svg>
+      </div>
+      <div>
+        <h1 class="text-lg font-semibold leading-tight">Sales Pipeline Report</h1>
+        <p class="text-sm text-slate-500 leading-tight">Acme CRM · Open deals by salesperson &amp; stage</p>
+      </div>
+    </div>
+    <div class="flex items-center gap-2 no-print">
+      <span id="lastUpdated" class="hidden sm:inline text-xs text-slate-500 mr-1"></span>
+      <button id="exportCsvBtn" type="button" class="inline-flex items-center gap-2 h-11 px-4 rounded-md border border-slate-300 bg-white text-sm font-medium text-slate-700 hover:bg-slate-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600">
+        <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12m0 0l-4-4m4 4l4-4"/><path d="M4 17v3a1 1 0 001 1h14a1 1 0 001-1v-3"/></svg>
+        Export CSV
+      </button>
+      <button id="printBtn" type="button" class="inline-flex items-center gap-2 h-11 px-4 rounded-md bg-blue-600 text-sm font-medium text-white hover:bg-blue-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-800">
+        <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9V3h12v6"/><rect x="6" y="13" width="12" height="8"/><path d="M6 17H4a1 1 0 01-1-1v-4a1 1 0 011-1h18a1 1 0 011 1v4a1 1 0 01-1 1h-2"/></svg>
+        Print / PDF
+      </button>
+    </div>
+  </div>
+</header>
+
+<main id="main" class="max-w-7xl mx-auto px-4 sm:px-6 py-6 space-y-6">
+
+  <section aria-label="Report filters" class="no-print bg-white border border-slate-200 rounded-xl p-4 shadow-sm">
+    <div class="flex items-center gap-2 mb-3">
+      <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" class="text-slate-500"><path d="M4 6h16M7 12h10M10 18h4"/></svg>
+      <h2 class="text-sm font-semibold text-slate-700">Filters</h2>
+    </div>
+    <div class="flex flex-wrap items-end gap-3">
+      <div class="flex flex-col gap-1">
+        <label for="quarterSelect" class="text-xs font-medium text-slate-600">Quarter</label>
+        <select id="quarterSelect" class="h-11 min-w-[9rem] rounded-md border border-slate-300 bg-white px-3 text-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"></select>
+      </div>
+
+      <div class="flex flex-col gap-1">
+        <span class="text-xs font-medium text-slate-600">Salesperson</span>
+        <details id="repDropdown" class="relative">
+          <summary class="h-11 min-w-[10rem] rounded-md border border-slate-300 bg-white px-3 flex items-center justify-between gap-2 text-sm cursor-pointer select-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600">
+            <span id="repSummaryLabel">All salespeople</span>
+            <svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
+          </summary>
+          <div class="absolute z-20 mt-1 w-56 bg-white border border-slate-200 rounded-md shadow-lg p-2 max-h-72 overflow-y-auto">
+            <label class="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-slate-50 text-sm font-medium border-b border-slate-100 mb-1">
+              <input type="checkbox" id="repSelectAll" class="h-4 w-4 rounded border-slate-300 text-blue-600 focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-600" checked>
+              All salespeople
+            </label>
+            <div id="repCheckboxList" class="space-y-0.5"></div>
+          </div>
+        </details>
+      </div>
+
+      <div class="flex flex-col gap-1">
+        <span class="text-xs font-medium text-slate-600">Stage</span>
+        <details id="stageDropdown" class="relative">
+          <summary class="h-11 min-w-[9rem] rounded-md border border-slate-300 bg-white px-3 flex items-center justify-between gap-2 text-sm cursor-pointer select-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600">
+            <span id="stageSummaryLabel">All stages</span>
+            <svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
+          </summary>
+          <div class="absolute z-20 mt-1 w-52 bg-white border border-slate-200 rounded-md shadow-lg p-2">
+            <label class="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-slate-50 text-sm font-medium border-b border-slate-100 mb-1">
+              <input type="checkbox" id="stageSelectAll" class="h-4 w-4 rounded border-slate-300 text-blue-600 focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-600" checked>
+              All stages
+            </label>
+            <div id="stageCheckboxList" class="space-y-0.5"></div>
+          </div>
+        </details>
+      </div>
+
+      <div class="flex flex-col gap-1 flex-1 min-w-[12rem]">
+        <label for="searchInput" class="text-xs font-medium text-slate-600">Search deal or account</label>
+        <div class="relative">
+          <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
+          <input id="searchInput" type="text" placeholder="e.g. Northwind, Enterprise License" class="h-11 w-full rounded-md border border-slate-300 bg-white pl-9 pr-3 text-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600" />
+        </div>
+      </div>
+
+      <div class="flex flex-col gap-1">
+        <label for="minValue" class="text-xs font-medium text-slate-600">Min value ($)</label>
+        <input id="minValue" type="number" min="0" step="1000" placeholder="0" class="h-11 w-28 rounded-md border border-slate-300 bg-white px-3 text-sm tabular-nums focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600" />
+      </div>
+      <div class="flex flex-col gap-1">
+        <label for="maxValue" class="text-xs font-medium text-slate-600">Max value ($)</label>
+        <input id="maxValue" type="number" min="0" step="1000" placeholder="Any" class="h-11 w-28 rounded-md border border-slate-300 bg-white px-3 text-sm tabular-nums focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600" />
+      </div>
+
+      <button id="resetFiltersBtn" type="button" class="h-11 inline-flex items-center gap-2 px-3 rounded-md text-sm font-medium text-slate-600 hover:bg-slate-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600">
+        <svg aria-hidden="true" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 12a9 9 0 1 0 2.6-6.3M3 4v5h5"/></svg>
+        Reset filters
+      </button>
+    </div>
+    <p id="resultSummary" role="status" aria-live="polite" class="mt-3 text-xs text-slate-500"></p>
+  </section>
+
+  <section aria-label="Key metrics" class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 print-break">
+    <div class="bg-white border border-slate-200 rounded-xl p-4 shadow-sm">
+      <div class="flex items-center gap-2 text-slate-500 text-xs font-medium"><svg aria-hidden="true" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 1v22M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/></svg>Open pipeline value</div>
+      <div id="kpiPipelineValue" class="mt-2 text-2xl font-semibold tabular-nums">$0</div>
+      <div id="kpiPipelineCount" class="mt-1 text-xs text-slate-500"></div>
+    </div>
+    <div class="bg-white border border-slate-200 rounded-xl p-4 shadow-sm">
+      <div class="flex items-center gap-2 text-slate-500 text-xs font-medium"><svg aria-hidden="true" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 17l5-5 4 4 8-9"/><path d="M16 7h5v5"/></svg>Weighted forecast</div>
+      <div id="kpiWeighted" class="mt-2 text-2xl font-semibold tabular-nums">$0</div>
+      <div class="mt-1 text-xs text-slate-500">Probability-adjusted</div>
+    </div>
+    <div class="bg-white border border-slate-200 rounded-xl p-4 shadow-sm">
+      <div class="flex items-center gap-2 text-slate-500 text-xs font-medium"><svg aria-hidden="true" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="4"/></svg>Win rate (quarter)</div>
+      <div id="kpiWinRate" class="mt-2 text-2xl font-semibold tabular-nums">0%</div>
+      <div id="kpiWinRateDetail" class="mt-1 text-xs text-slate-500"></div>
+    </div>
+    <div class="bg-white border border-slate-200 rounded-xl p-4 shadow-sm">
+      <div class="flex items-center gap-2 text-slate-500 text-xs font-medium"><svg aria-hidden="true" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="7" width="18" height="13" rx="2"/><path d="M8 7V5a2 2 0 012-2h4a2 2 0 012 2v2"/></svg>Open deals</div>
+      <div id="kpiOpenDeals" class="mt-2 text-2xl font-semibold tabular-nums">0</div>
+      <div class="mt-1 text-xs text-slate-500">Across selected filters</div>
+    </div>
+    <div class="bg-white border border-slate-200 rounded-xl p-4 shadow-sm">
+      <div class="flex items-center gap-2 text-slate-500 text-xs font-medium"><svg aria-hidden="true" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 19V5M4 19h16M9 15l3-4 3 2 4-6"/></svg>Avg deal size</div>
+      <div id="kpiAvgDeal" class="mt-2 text-2xl font-semibold tabular-nums">$0</div>
+      <div class="mt-1 text-xs text-slate-500">Open pipeline average</div>
+    </div>
+  </section>
+
+  <section aria-label="Pipeline charts" class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+    <div class="bg-white border border-slate-200 rounded-xl p-5 shadow-sm print-break">
+      <div class="flex items-center justify-between mb-1">
+        <h2 class="text-sm font-semibold text-slate-700">Pipeline by stage</h2>
+        <span class="text-xs text-slate-400">Value &amp; deal count</span>
+      </div>
+      <p class="text-xs text-slate-500 mb-4">Funnel of open deals in stage order. Darker bars indicate higher close probability.</p>
+      <div id="funnelChart" class="space-y-1" role="img" aria-label="Funnel chart of open pipeline by stage"></div>
+    </div>
+    <div class="bg-white border border-slate-200 rounded-xl p-5 shadow-sm print-break">
+      <div class="flex items-center justify-between mb-1">
+        <h2 class="text-sm font-semibold text-slate-700">Pipeline by salesperson</h2>
+        <span class="text-xs text-slate-400">Weighted forecast, sorted high → low</span>
+      </div>
+      <p class="text-xs text-slate-500 mb-4">Bar length = weighted forecast. Badge shows this quarter's win rate.</p>
+      <div id="repChart" class="space-y-3" role="img" aria-label="Bar chart of weighted forecast by salesperson"></div>
+    </div>
+  </section>
+
+  <section aria-label="Open deals matrix by salesperson and stage" class="bg-white border border-slate-200 rounded-xl p-5 shadow-sm print-break">
+    <div class="flex items-center justify-between mb-1">
+      <h2 class="text-sm font-semibold text-slate-700">Open deals by salesperson &amp; stage</h2>
+      <span class="text-xs text-slate-400">Click a column to sort</span>
+    </div>
+    <p class="text-xs text-slate-500 mb-4">Each cell shows deal count and pipeline value for that salesperson/stage combination.</p>
+    <div class="overflow-x-auto rounded-lg border border-slate-200">
+      <table class="min-w-full text-sm" id="matrixTable">
+        <caption class="sr-only">Open deal count and value by salesperson and stage, with weighted forecast and win rate</caption>
+        <thead class="bg-slate-50 text-slate-600">
+          <tr id="matrixHeaderRow"></tr>
+        </thead>
+        <tbody id="matrixBody" class="divide-y divide-slate-100"></tbody>
+        <tfoot id="matrixFooter" class="bg-slate-50 font-semibold"></tfoot>
+      </table>
+    </div>
+  </section>
+
+  <section aria-label="Open deal detail list" class="bg-white border border-slate-200 rounded-xl p-5 shadow-sm print-break">
+    <div class="flex items-center justify-between mb-1">
+      <h2 class="text-sm font-semibold text-slate-700">Open deal detail</h2>
+      <span id="dealCountLabel" class="text-xs text-slate-400"></span>
+    </div>
+    <p class="text-xs text-slate-500 mb-4">Filtered, sortable list of individual open opportunities. Overdue deals (past expected close) are flagged.</p>
+    <div class="overflow-x-auto rounded-lg border border-slate-200">
+      <table class="min-w-full text-sm" id="dealsTable">
+        <caption class="sr-only">Individual open deals with salesperson, stage, value, probability, weighted value and expected close date</caption>
+        <thead class="bg-slate-50 text-slate-600">
+          <tr id="dealsHeaderRow"></tr>
+        </thead>
+        <tbody id="dealsBody" class="divide-y divide-slate-100"></tbody>
+      </table>
+    </div>
+    <div id="emptyState" class="hidden text-center py-10">
+      <p class="text-sm font-medium text-slate-700">No deals match your filters</p>
+      <p class="text-xs text-slate-500 mt-1">Try widening the value range or clearing a filter.</p>
+      <button type="button" id="emptyResetBtn" class="mt-3 h-10 px-4 rounded-md bg-blue-600 text-white text-sm font-medium hover:bg-blue-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-800">Reset filters</button>
+    </div>
+  </section>
+
+  <footer class="text-xs text-slate-400 text-center py-4">
+    Mock data for demonstration purposes. Values and names are fictional. &middot; Acme CRM Analytics
+  </footer>
+</main>
+
+<script>
+(function () {
+  "use strict";
+
+  var TODAY = new Date(2026, 10, 7);
+
+  var REPS = [
+    { id: "r1", name: "Priya Shah",      region: "West",  tier: 1.15 },
+    { id: "r2", name: "Marcus Webb",     region: "East",  tier: 0.95 },
+    { id: "r3", name: "Elena Novak",     region: "EMEA",  tier: 1.05 },
+    { id: "r4", name: "Diego Martinez",  region: "LATAM", tier: 0.90 },
+    { id: "r5", name: "Aisha Khan",      region: "East",  tier: 1.20 },
+    { id: "r6", name: "Tom O'Brien",     region: "West",  tier: 0.85 },
+    { id: "r7", name: "Jenna Park",      region: "APAC",  tier: 1.00 },
+    { id: "r8", name: "Omar Haddad",     region: "EMEA",  tier: 1.10 }
+  ];
+
+  var ACCOUNTS = [
+    "Northwind Traders", "Globex Industries", "Initech Solutions", "Umbrella Analytics",
+    "Soylent Foods Corp", "Stark Robotics", "Wayne Logistics", "Wonka Manufacturing",
+    "Acme Dynamics", "Hooli Cloud", "Pied Piper Data", "Massive Dynamic",
+    "Gringotts Financial", "Dunder Mifflin Paper", "Vandelay Industries", "Cyberdyne Systems",
+    "Oscorp Materials", "LexCorp Energy", "Aperture Labs", "Black Mesa Research",
+    "Tyrell Robotics", "Weyland Industries", "Monarch Biotech", "Prestige Worldwide",
+    "Bluth Company", "Sterling Cooper Media", "Gekko & Co Capital", "Nakatomi Trading",
+    "Virtucon Enterprises", "Multinational United"
+  ];
+
+  var PRODUCTS = [
+    "Enterprise License", "Platform Upgrade", "Annual Renewal", "Analytics Add-on",
+    "Team Expansion", "Professional Services", "Multi-Year Contract", "Integration Package",
+    "Premium Support", "API Access Tier"
+  ];
+
+  var OPEN_STAGES = [
+    { key: "qualification", label: "Qualification", prob: 10, badge: "bg-blue-100 text-blue-800 ring-1 ring-inset ring-blue-200", bar: "bg-blue-200" },
+    { key: "discovery",     label: "Discovery",     prob: 25, badge: "bg-blue-100 text-blue-900 ring-1 ring-inset ring-blue-300", bar: "bg-blue-300" },
+    { key: "proposal",      label: "Proposal",      prob: 50, badge: "bg-blue-500 text-white ring-1 ring-inset ring-blue-600",     bar: "bg-blue-500" },
+    { key: "negotiation",   label: "Negotiation",   prob: 75, badge: "bg-blue-700 text-white ring-1 ring-inset ring-blue-800",     bar: "bg-blue-700" }
+  ];
+  var CLOSED_WON  = { key: "closed_won",  label: "Closed Won",  prob: 100 };
+  var CLOSED_LOST = { key: "closed_lost", label: "Closed Lost", prob: 0 };
+
+  var QUARTERS = [
+    { id: "2026-Q1", label: "Q1 2026", start: new Date(2026, 0, 1),  end: new Date(2026, 2, 31) },
+    { id: "2026-Q2", label: "Q2 2026", start: new Date(2026, 3, 1),  end: new Date(2026, 5, 30) },
+    { id: "2026-Q3", label: "Q3 2026", start: new Date(2026, 6, 1),  end: new Date(2026, 8, 30) },
+    { id: "2026-Q4", label: "Q4 2026", start: new Date(2026, 9, 1),  end: new Date(2026, 11, 31) }
+  ];
+
+  function hashString(str) {
+    var h = 0;
+    for (var i = 0; i < str.length; i++) { h = (Math.imul(31, h) + str.charCodeAt(i)) | 0; }
+    return h >>> 0;
+  }
+  function mulberry32(seed) {
+    var a = seed;
+    return function () {
+      a |= 0; a = (a + 0x6D2B79F5) | 0;
+      var t = Math.imul(a ^ (a >>> 15), 1 | a);
+      t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+  }
+  function randInt(rng, min, max) { return Math.floor(rng() * (max - min + 1)) + min; }
+  function pick(rng, arr) { return arr[Math.floor(rng() * arr.length)]; }
+  function addDays(date, days) { var d = new Date(date); d.setDate(d.getDate() + days); return d; }
+  function daysBetween(a, b) { return Math.round((b - a) / 86400000); }
+  function fmtDate(d) { return d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }); }
+  function fmtMoney(n) {
+    if (Math.abs(n) >= 1000000) return "$" + (n / 1000000).toFixed(2) + "M";
+    return "$" + Math.round(n).toLocaleString("en-US");
+  }
+  function fmtMoneyFull(n) { return "$" + Math.round(n).toLocaleString("en-US"); }
+  function clamp(n, lo, hi) { return Math.max(lo, Math.min(hi, n)); }
+
+  var dealsCache = {};
+
+  function generateDealsForQuarter(quarter) {
+    if (dealsCache[quarter.id]) return dealsCache[quarter.id];
+    var rng = mulberry32(hashString(quarter.id) || 1);
+    var deals = [];
+    var dealSeq = 1;
+    var usedAccountsRecent = [];
+
+    function nextAccount() {
+      var acc = pick(rng, ACCOUNTS);
+      var tries = 0;
+      while (usedAccountsRecent.indexOf(acc) !== -1 && tries < 5) { acc = pick(rng, ACCOUNTS); tries++; }
+      usedAccountsRecent.push(acc);
+      if (usedAccountsRecent.length > 4) usedAccountsRecent.shift();
+      return acc;
+    }
+
+    REPS.forEach(function (rep) {
+      var winProb = clamp(0.3 + (rep.tier - 1) * 0.5 + (rng() - 0.5) * 0.15, 0.25, 0.75);
+
+      var openCounts = [
+        randInt(rng, 3, 6),
+        randInt(rng, 3, 5),
+        randInt(rng, 2, 4),
+        randInt(rng, 1, 3)
+      ];
+
+      OPEN_STAGES.forEach(function (stage, stageIdx) {
+        var ranges = [[8000, 60000], [12000, 95000], [20000, 155000], [30000, 230000]];
+        var range = ranges[stageIdx];
+        for (var i = 0; i < openCounts[stageIdx]; i++) {
+          var value = (randInt(rng, range[0], range[1])) * rep.tier;
+          var createdDaysAgo = randInt(rng, 10, 150);
+          var createdDate = addDays(TODAY, -createdDaysAgo);
+          var expectedOffset = randInt(rng, -12, 70);
+          var expectedClose = addDays(TODAY, expectedOffset);
+          if (expectedClose < quarter.start) expectedClose = addDays(quarter.start, randInt(rng, 2, 20));
+          if (expectedClose > quarter.end) expectedClose = addDays(quarter.end, -randInt(rng, 0, 15));
+
+          deals.push({
+            id: quarter.id + "-D" + (dealSeq++),
+            repId: rep.id,
+            repName: rep.name,
+            account: nextAccount(),
+            product: pick(rng, PRODUCTS),
+            stageKey: stage.key,
+            stageLabel: stage.label,
+            probability: stage.prob,
+            value: Math.round(value / 100) * 100,
+            createdDate: createdDate,
+            expectedClose: expectedClose,
+            ageDays: createdDaysAgo,
+            status: "open"
+          });
+        }
+      });
+
+      var closedCount = randInt(rng, 6, 11);
+      var wonCount = Math.round(closedCount * winProb);
+      var lostCount = closedCount - wonCount;
+
+      for (var w = 0; w < wonCount; w++) {
+        var vWon = randInt(rng, 15000, 210000) * rep.tier;
+        var closeDate = addDays(quarter.start, randInt(rng, 0, daysBetween(quarter.start, quarter.end)));
+        if (closeDate > TODAY && quarter.id === "2026-Q4") closeDate = addDays(TODAY, -randInt(rng, 0, 5));
+        deals.push({
+          id: quarter.id + "-D" + (dealSeq++),
+          repId: rep.id, repName: rep.name,
+          account: nextAccount(), product: pick(rng, PRODUCTS),
+          stageKey: CLOSED_WON.key, stageLabel: CLOSED_WON.label, probability: 100,
+          value: Math.round(vWon / 100) * 100,
+          createdDate: addDays(closeDate, -randInt(rng, 20, 110)),
+          expectedClose: closeDate, closedDate: closeDate, ageDays: null,
+          status: "closed_won"
+        });
+      }
+      for (var l = 0; l < lostCount; l++) {
+        var vLost = randInt(rng, 10000, 160000) * rep.tier;
+        var closeDateL = addDays(quarter.start, randInt(rng, 0, daysBetween(quarter.start, quarter.end)));
+        if (closeDateL > TODAY && quarter.id === "2026-Q4") closeDateL = addDays(TODAY, -randInt(rng, 0, 5));
+        deals.push({
+          id: quarter.id + "-D" + (dealSeq++),
+          repId: rep.id, repName: rep.name,
+          account: nextAccount(), product: pick(rng, PRODUCTS),
+          stageKey: CLOSED_LOST.key, stageLabel: CLOSED_LOST.label, probability: 0,
+          value: Math.round(vLost / 100) * 100,
+          createdDate: addDays(closeDateL, -randInt(rng, 20, 110)),
+          expectedClose: closeDateL, closedDate: closeDateL, ageDays: null,
+          status: "closed_lost"
+        });
+      }
+    });
+
+    dealsCache[quarter.id] = deals;
+    return deals;
+  }
+
+  var state = {
+    quarterId: "2026-Q4",
+    reps: new Set(REPS.map(function (r) { return r.id; })),
+    stages: new Set(OPEN_STAGES.map(function (s) { return s.key; })),
+    search: "",
+    minValue: null,
+    maxValue: null,
+    dealSort: { col: "value", dir: "desc" },
+    matrixSort: { col: "pipeline", dir: "desc" }
+  };
+
+  function currentQuarter() {
+    return QUARTERS.filter(function (q) { return q.id === state.quarterId; })[0];
+  }
+
+  function getFilteredDeals() {
+    var all = generateDealsForQuarter(currentQuarter());
+    var search = state.search.trim().toLowerCase();
+    var open = all.filter(function (d) {
+      if (d.status !== "open") return false;
+      if (!state.reps.has(d.repId)) return false;
+      if (!state.stages.has(d.stageKey)) return false;
+      if (state.minValue != null && d.value < state.minValue) return false;
+      if (state.maxValue != null && d.value > state.maxValue) return false;
+      if (search && (d.account + " " + d.product).toLowerCase().indexOf(search) === -1) return false;
+      return true;
+    });
+    var closed = all.filter(function (d) {
+      return d.status !== "open" && state.reps.has(d.repId);
+    });
+    return { open: open, closed: closed, all: all };
+  }
+
+  function computeKpis(open, closed) {
+    var pipelineValue = open.reduce(function (s, d) { return s + d.value; }, 0);
+    var weighted = open.reduce(function (s, d) { return s + d.value * d.probability / 100; }, 0);
+    var won = closed.filter(function (d) { return d.status === "closed_won"; }).length;
+    var lost = closed.filter(function (d) { return d.status === "closed_lost"; }).length;
+    var winRate = (won + lost) > 0 ? (won / (won + lost)) * 100 : null;
+    var avg = open.length > 0 ? pipelineValue / open.length : 0;
+    return { pipelineValue: pipelineValue, weighted: weighted, winRate: winRate, won: won, lost: lost, openCount: open.length, avg: avg };
+  }
+
+  function renderKpis(k) {
+    document.getElementById("kpiPipelineValue").textContent = fmtMoneyFull(k.pipelineValue);
+    document.getElementById("kpiPipelineCount").textContent = k.openCount + " open deal" + (k.openCount === 1 ? "" : "s");
+    document.getElementById("kpiWeighted").textContent = fmtMoneyFull(k.weighted);
+    document.getElementById("kpiWinRate").textContent = k.winRate == null ? "—" : Math.round(k.winRate) + "%";
+    document.getElementById("kpiWinRateDetail").textContent = (k.won + k.lost) > 0 ? (k.won + " won / " + k.lost + " lost") : "No closed deals yet";
+    document.getElementById("kpiOpenDeals").textContent = k.openCount.toLocaleString("en-US");
+    document.getElementById("kpiAvgDeal").textContent = fmtMoneyFull(k.avg);
+  }
+
+  function renderFunnel(open) {
+    var container = document.getElementById("funnelChart");
+    container.innerHTML = "";
+    var byStage = OPEN_STAGES.map(function (stage) {
+      var deals = open.filter(function (d) { return d.stageKey === stage.key; });
+      return { stage: stage, count: deals.length, value: deals.reduce(function (s, d) { return s + d.value; }, 0) };
+    });
+    if (byStage.length === 0 || byStage.every(function (s) { return s.count === 0; })) {
+      container.innerHTML = '<p class="text-sm text-slate-500 py-6 text-center">No open deals match the current filters.</p>';
+      return;
+    }
+    var maxValue = Math.max.apply(null, byStage.map(function (s) { return s.value; }).concat([1]));
+    byStage.forEach(function (row, idx) {
+      var widthPct = Math.max(6, Math.round((row.value / maxValue) * 100));
+      var wrap = document.createElement("div");
+      wrap.className = "py-2";
+      wrap.innerHTML =
+        '<div class="flex items-center justify-between text-xs mb-1">' +
+          '<span class="font-medium text-slate-700 inline-flex items-center gap-1.5">' +
+            '<span class="inline-block h-2 w-2 rounded-full ' + row.stage.bar + '" aria-hidden="true"></span>' +
+            row.stage.label + ' <span class="text-slate-400">(' + row.count + ')</span>' +
+          '</span>' +
+          '<span class="tabular-nums text-slate-600 font-medium">' + fmtMoney(row.value) + '</span>' +
+        '</div>' +
+        '<div class="h-8 w-full bg-slate-100 rounded-md overflow-hidden">' +
+          '<div class="bar-fill h-full ' + row.stage.bar + ' rounded-md flex items-center justify-end pr-2" style="width:' + widthPct + '%">' +
+          '</div>' +
+        '</div>';
+      container.appendChild(wrap);
+
+      if (idx < byStage.length - 1) {
+        var next = byStage[idx + 1];
+        var conv = row.count > 0 ? Math.round((next.count / row.count) * 100) : null;
+        var dropNote = document.createElement("div");
+        var isBigDrop = conv != null && conv < 40;
+        dropNote.className = "flex items-center gap-1.5 pl-1 text-[11px] " + (isBigDrop ? "text-amber-700" : "text-slate-400");
+        dropNote.innerHTML =
+          '<svg aria-hidden="true" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12l7 7 7-7"/></svg>' +
+          (conv == null ? "no data" : conv + "% advanced to " + next.stage.label) +
+          (isBigDrop ? " — largest drop-off" : "");
+        container.appendChild(dropNote);
+      }
+    });
+  }
+
+  function renderRepChart(open, closed) {
+    var container = document.getElementById("repChart");
+    container.innerHTML = "";
+    var rows = REPS.filter(function (r) { return state.reps.has(r.id); }).map(function (rep) {
+      var repOpen = open.filter(function (d) { return d.repId === rep.id; });
+      var repClosed = closed.filter(function (d) { return d.repId === rep.id; });
+      var weighted = repOpen.reduce(function (s, d) { return s + d.value * d.probability / 100; }, 0);
+      var won = repClosed.filter(function (d) { return d.status === "closed_won"; }).length;
+      var lost = repClosed.filter(function (d) { return d.status === "closed_lost"; }).length;
+      var winRate = (won + lost) > 0 ? Math.round((won / (won + lost)) * 100) : null;
+      return { rep: rep, weighted: weighted, winRate: winRate, dealCount: repOpen.length };
+    }).sort(function (a, b) { return b.weighted - a.weighted; });
+
+    if (rows.length === 0) {
+      container.innerHTML = '<p class="text-sm text-slate-500 py-6 text-center">No salespeople selected.</p>';
+      return;
+    }
+    var maxW = Math.max.apply(null, rows.map(function (r) { return r.weighted; }).concat([1]));
+    rows.forEach(function (row) {
+      var pct = row.weighted > 0 ? Math.max(4, Math.round((row.weighted / maxW) * 100)) : 0;
+      var winBadge = row.winRate == null
+        ? '<span class="text-[11px] text-slate-400">no closed deals</span>'
+        : '<span class="text-[11px] font-medium px-1.5 py-0.5 rounded-full ' + (row.winRate >= 50 ? "bg-emerald-100 text-emerald-800" : "bg-amber-100 text-amber-800") + '">' + row.winRate + '% win rate</span>';
+      var div = document.createElement("div");
+      div.innerHTML =
+        '<div class="flex items-center justify-between text-xs mb-1">' +
+          '<span class="font-medium text-slate-700">' + row.rep.name + '<span class="text-slate-400 font-normal"> · ' + row.rep.region + '</span></span>' +
+          winBadge +
+        '</div>' +
+        '<div class="h-7 w-full bg-slate-100 rounded-md overflow-hidden flex items-center">' +
+          '<div class="bar-fill h-full bg-blue-600 rounded-md" style="width:' + pct + '%"></div>' +
+          '<span class="ml-2 text-xs tabular-nums text-slate-600 font-medium">' + fmtMoney(row.weighted) + '</span>' +
+        '</div>' +
+        '<div class="text-[11px] text-slate-400 mt-0.5">' + row.dealCount + ' open deal' + (row.dealCount === 1 ? "" : "s") + '</div>';
+      container.appendChild(div);
+    });
+  }
+
+  function sortIndicator(active, dir) {
+    if (!active) return '<svg aria-hidden="true" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" class="inline opacity-30 ml-0.5"><path d="M7 10l5-5 5 5M7 14l5 5 5-5"/></svg>';
+    return dir === "asc"
+      ? '<svg aria-hidden="true" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" class="inline ml-0.5"><path d="M7 14l5-5 5 5"/></svg>'
+      : '<svg aria-hidden="true" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" class="inline ml-0.5"><path d="M7 10l5 5 5-5"/></svg>';
+  }
+
+  function renderMatrix(open, closed) {
+    var headerRow = document.getElementById("matrixHeaderRow");
+    var body = document.getElementById("matrixBody");
+    var footer = document.getElementById("matrixFooter");
+    var visibleStages = OPEN_STAGES.filter(function (s) { return state.stages.has(s.key); });
+
+    var columns = [{ key: "rep", label: "Salesperson" }].concat(
+      visibleStages.map(function (s) { return { key: "stage:" + s.key, label: s.label }; })
+    ).concat([
+      { key: "pipeline", label: "Pipeline value" },
+      { key: "weighted", label: "Weighted forecast" },
+      { key: "winRate", label: "Win rate" }
+    ]);
+
+    headerRow.innerHTML = "";
+    columns.forEach(function (col) {
+      var th = document.createElement("th");
+      th.scope = "col";
+      th.className = "px-3 py-2 text-left font-semibold text-xs whitespace-nowrap " + (col.key === "rep" ? "" : "cursor-pointer select-none hover:text-slate-900");
+      var isActive = state.matrixSort.col === col.key;
+      th.setAttribute("aria-sort", isActive ? (state.matrixSort.dir === "asc" ? "ascending" : "descending") : "none");
+      th.innerHTML = col.label + (col.key === "rep" ? "" : sortIndicator(isActive, state.matrixSort.dir));
+      if (col.key !== "rep") {
+        th.addEventListener("click", function () {
+          if (state.matrixSort.col === col.key) {
+            state.matrixSort.dir = state.matrixSort.dir === "asc" ? "desc" : "asc";
+          } else {
+            state.matrixSort = { col: col.key, dir: "desc" };
+          }
+          render();
+        });
+      }
+      headerRow.appendChild(th);
+    });
+
+    var rows = REPS.filter(function (r) { return state.reps.has(r.id); }).map(function (rep) {
+      var repOpen = open.filter(function (d) { return d.repId === rep.id; });
+      var repClosed = closed.filter(function (d) { return d.repId === rep.id; });
+      var stageCells = {};
+      visibleStages.forEach(function (s) {
+        var deals = repOpen.filter(function (d) { return d.stageKey === s.key; });
+        stageCells[s.key] = { count: deals.length, value: deals.reduce(function (sum, d) { return sum + d.value; }, 0) };
+      });
+      var pipeline = repOpen.reduce(function (s, d) { return s + d.value; }, 0);
+      var weighted = repOpen.reduce(function (s, d) { return s + d.value * d.probability / 100; }, 0);
+      var won = repClosed.filter(function (d) { return d.status === "closed_won"; }).length;
+      var lost = repClosed.filter(function (d) { return d.status === "closed_lost"; }).length;
+      var winRate = (won + lost) > 0 ? (won / (won + lost)) * 100 : null;
+      return { rep: rep, stageCells: stageCells, pipeline: pipeline, weighted: weighted, winRate: winRate, won: won, lost: lost };
+    });
+
+    var sortKey = state.matrixSort.col, sortDir = state.matrixSort.dir;
+    rows.sort(function (a, b) {
+      var av, bv;
+      if (sortKey === "pipeline") { av = a.pipeline; bv = b.pipeline; }
+      else if (sortKey === "weighted") { av = a.weighted; bv = b.weighted; }
+      else if (sortKey === "winRate") { av = a.winRate == null ? -1 : a.winRate; bv = b.winRate == null ? -1 : b.winRate; }
+      else if (sortKey.indexOf("stage:") === 0) {
+        var sk = sortKey.slice(6);
+        av = a.stageCells[sk] ? a.stageCells[sk].value : 0;
+        bv = b.stageCells[sk] ? b.stageCells[sk].value : 0;
+      } else { av = 0; bv = 0; }
+      return sortDir === "asc" ? av - bv : bv - av;
+    });
+
+    body.innerHTML = "";
+    if (rows.length === 0) {
+      var tr0 = document.createElement("tr");
+      tr0.innerHTML = '<td colspan="' + columns.length + '" class="px-3 py-6 text-center text-slate-500">No salespeople selected.</td>';
+      body.appendChild(tr0);
+    }
+    rows.forEach(function (r) {
+      var tr = document.createElement("tr");
+      tr.className = "hover:bg-slate-50";
+      var cells = '<td class="px-3 py-2 font-medium text-slate-800 whitespace-nowrap">' + r.rep.name + '<div class="text-[11px] text-slate-400">' + r.rep.region + '</div></td>';
+      visibleStages.forEach(function (s) {
+        var c = r.stageCells[s.key];
+        cells += '<td class="px-3 py-2 tabular-nums whitespace-nowrap"><span class="font-medium text-slate-700">' + fmtMoney(c.value) + '</span><span class="text-slate-400"> (' + c.count + ')</span></td>';
+      });
+      cells += '<td class="px-3 py-2 tabular-nums font-medium whitespace-nowrap">' + fmtMoneyFull(r.pipeline) + '</td>';
+      cells += '<td class="px-3 py-2 tabular-nums font-medium whitespace-nowrap">' + fmtMoneyFull(r.weighted) + '</td>';
+      cells += '<td class="px-3 py-2 whitespace-nowrap">' + (r.winRate == null ? '<span class="text-slate-400">—</span>' : '<span class="inline-flex items-center gap-1 ' + (r.winRate >= 50 ? "text-emerald-700" : "text-amber-700") + ' font-medium">' + Math.round(r.winRate) + '%<span class="text-slate-400 font-normal">(' + r.won + 'W/' + r.lost + 'L)</span></span>') + '</td>';
+      tr.innerHTML = cells;
+      body.appendChild(tr);
+    });
+
+    footer.innerHTML = "";
+    if (rows.length > 0) {
+      var totalPipeline = rows.reduce(function (s, r) { return s + r.pipeline; }, 0);
+      var totalWeighted = rows.reduce(function (s, r) { return s + r.weighted; }, 0);
+      var totalWon = rows.reduce(function (s, r) { return s + r.won; }, 0);
+      var totalLost = rows.reduce(function (s, r) { return s + r.lost; }, 0);
+      var totalWinRate = (totalWon + totalLost) > 0 ? Math.round((totalWon / (totalWon + totalLost)) * 100) : null;
+      var ftr = document.createElement("tr");
+      var fcells = '<td class="px-3 py-2">Total</td>';
+      visibleStages.forEach(function (s) {
+        var cnt = rows.reduce(function (sum, r) { return sum + r.stageCells[s.key].count; }, 0);
+        var val = rows.reduce(function (sum, r) { return sum + r.stageCells[s.key].value; }, 0);
+        fcells += '<td class="px-3 py-2 tabular-nums whitespace-nowrap">' + fmtMoney(val) + ' <span class="text-slate-500 font-normal">(' + cnt + ')</span></td>';
+      });
+      fcells += '<td class="px-3 py-2 tabular-nums whitespace-nowrap">' + fmtMoneyFull(totalPipeline) + '</td>';
+      fcells += '<td class="px-3 py-2 tabular-nums whitespace-nowrap">' + fmtMoneyFull(totalWeighted) + '</td>';
+      fcells += '<td class="px-3 py-2 whitespace-nowrap">' + (totalWinRate == null ? "—" : totalWinRate + "%") + '</td>';
+      ftr.innerHTML = fcells;
+      footer.appendChild(ftr);
+    }
+  }
+
+  var DEAL_COLUMNS = [
+    { key: "repName", label: "Salesperson" },
+    { key: "account", label: "Deal / Account" },
+    { key: "stageLabel", label: "Stage" },
+    { key: "value", label: "Value" },
+    { key: "probability", label: "Probability" },
+    { key: "weighted", label: "Weighted value" },
+    { key: "expectedClose", label: "Expected close" },
+    { key: "ageDays", label: "Age (days)" }
+  ];
+
+  function renderDealsHeader() {
+    var row = document.getElementById("dealsHeaderRow");
+    row.innerHTML = "";
+    DEAL_COLUMNS.forEach(function (col) {
+      var th = document.createElement("th");
+      th.scope = "col";
+      th.className = "px-3 py-2 text-left font-semibold text-xs whitespace-nowrap cursor-pointer select-none hover:text-slate-900";
+      var isActive = state.dealSort.col === col.key;
+      th.setAttribute("aria-sort", isActive ? (state.dealSort.dir === "asc" ? "ascending" : "descending") : "none");
+      th.innerHTML = col.label + sortIndicator(isActive, state.dealSort.dir);
+      th.addEventListener("click", function () {
+        if (state.dealSort.col === col.key) {
+          state.dealSort.dir = state.dealSort.dir === "asc" ? "desc" : "asc";
+        } else {
+          state.dealSort = { col: col.key, dir: col.key === "account" || col.key === "repName" || col.key === "stageLabel" ? "asc" : "desc" };
+        }
+        render();
+      });
+      row.appendChild(th);
+    });
+  }
+
+  function renderDealsTable(open) {
+    var body = document.getElementById("dealsBody");
+    var emptyState = document.getElementById("emptyState");
+    var table = document.getElementById("dealsTable");
+    var countLabel = document.getElementById("dealCountLabel");
+    countLabel.textContent = open.length + " deal" + (open.length === 1 ? "" : "s");
+
+    var rows = open.map(function (d) {
+      return {
+        d: d,
+        weighted: d.value * d.probability / 100,
+        overdue: d.expectedClose < TODAY
+      };
+    });
+
+    var col = state.dealSort.col, dir = state.dealSort.dir;
+    rows.sort(function (a, b) {
+      var av, bv;
+      if (col === "weighted") { av = a.weighted; bv = b.weighted; }
+      else if (col === "expectedClose") { av = a.d.expectedClose.getTime(); bv = b.d.expectedClose.getTime(); }
+      else if (col === "ageDays") { av = a.d.ageDays; bv = b.d.ageDays; }
+      else if (typeof a.d[col] === "number") { av = a.d[col]; bv = b.d[col]; }
+      else { av = String(a.d[col]).toLowerCase(); bv = String(b.d[col]).toLowerCase(); }
+      if (av < bv) return dir === "asc" ? -1 : 1;
+      if (av > bv) return dir === "asc" ? 1 : -1;
+      return 0;
+    });
+
+    body.innerHTML = "";
+    if (rows.length === 0) {
+      table.classList.add("hidden");
+      emptyState.classList.remove("hidden");
+      return;
+    }
+    table.classList.remove("hidden");
+    emptyState.classList.add("hidden");
+
+    var stageStyleByKey = {};
+    OPEN_STAGES.forEach(function (s) { stageStyleByKey[s.key] = s.badge; });
+
+    rows.forEach(function (row) {
+      var d = row.d;
+      var tr = document.createElement("tr");
+      tr.className = "hover:bg-slate-50";
+      tr.innerHTML =
+        '<td class="px-3 py-2 whitespace-nowrap">' + d.repName + '</td>' +
+        '<td class="px-3 py-2 whitespace-nowrap"><div class="font-medium text-slate-800">' + d.account + '</div><div class="text-[11px] text-slate-400">' + d.product + '</div></td>' +
+        '<td class="px-3 py-2 whitespace-nowrap"><span class="text-[11px] font-medium px-2 py-0.5 rounded-full ' + stageStyleByKey[d.stageKey] + '">' + d.stageLabel + '</span></td>' +
+        '<td class="px-3 py-2 tabular-nums whitespace-nowrap">' + fmtMoneyFull(d.value) + '</td>' +
+        '<td class="px-3 py-2 tabular-nums whitespace-nowrap">' + d.probability + '%</td>' +
+        '<td class="px-3 py-2 tabular-nums whitespace-nowrap">' + fmtMoneyFull(row.weighted) + '</td>' +
+        '<td class="px-3 py-2 whitespace-nowrap">' +
+          '<span class="' + (row.overdue ? "text-red-700 font-medium" : "text-slate-700") + '">' + fmtDate(d.expectedClose) + '</span>' +
+          (row.overdue ? ' <span class="inline-flex items-center gap-0.5 text-[10px] text-red-700 bg-red-50 px-1.5 py-0.5 rounded-full ring-1 ring-inset ring-red-200 ml-1"><svg aria-hidden="true" width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="9"/><path d="M12 8v5l3 2"/></svg>overdue</span>' : '') +
+        '</td>' +
+        '<td class="px-3 py-2 tabular-nums whitespace-nowrap">' + d.ageDays + '</td>';
+      body.appendChild(tr);
+    });
+  }
+
+  function buildRepCheckboxes() {
+    var list = document.getElementById("repCheckboxList");
+    list.innerHTML = "";
+    REPS.forEach(function (rep) {
+      var label = document.createElement("label");
+      label.className = "flex items-center gap-2 px-2 py-1.5 rounded hover:bg-slate-50 text-sm";
+      label.innerHTML =
+        '<input type="checkbox" data-rep="' + rep.id + '" class="rep-checkbox h-4 w-4 rounded border-slate-300 text-blue-600 focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-600" checked>' +
+        '<span>' + rep.name + '<span class="text-slate-400"> · ' + rep.region + '</span></span>';
+      list.appendChild(label);
+    });
+  }
+  function buildStageCheckboxes() {
+    var list = document.getElementById("stageCheckboxList");
+    list.innerHTML = "";
+    OPEN_STAGES.forEach(function (stage) {
+      var label = document.createElement("label");
+      label.className = "flex items-center gap-2 px-2 py-1.5 rounded hover:bg-slate-50 text-sm";
+      label.innerHTML =
+        '<input type="checkbox" data-stage="' + stage.key + '" class="stage-checkbox h-4 w-4 rounded border-slate-300 text-blue-600 focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-600" checked>' +
+        '<span class="inline-flex items-center gap-1.5"><span class="inline-block h-2 w-2 rounded-full ' + stage.bar + '" aria-hidden="true"></span>' + stage.label + '</span>';
+      list.appendChild(label);
+    });
+  }
+
+  function updateRepSummaryLabel() {
+    var n = state.reps.size;
+    document.getElementById("repSummaryLabel").textContent = n === REPS.length ? "All salespeople" : (n === 0 ? "No salespeople" : n + " of " + REPS.length + " selected");
+  }
+  function updateStageSummaryLabel() {
+    var n = state.stages.size;
+    document.getElementById("stageSummaryLabel").textContent = n === OPEN_STAGES.length ? "All stages" : (n === 0 ? "No stages" : n + " of " + OPEN_STAGES.length + " selected");
+  }
+
+  function csvEscape(val) {
+    var s = String(val);
+    if (/[",\n]/.test(s)) s = '"' + s.replace(/"/g, '""') + '"';
+    return s;
+  }
+
+  function exportCsv(open) {
+    var headers = ["Salesperson", "Region", "Account", "Product", "Stage", "Value", "Probability (%)", "Weighted Value", "Expected Close", "Age (days)"];
+    var repRegion = {};
+    REPS.forEach(function (r) { repRegion[r.id] = r.region; });
+    var lines = [headers.map(csvEscape).join(",")];
+    open.forEach(function (d) {
+      var weighted = Math.round(d.value * d.probability / 100);
+      lines.push([
+        d.repName, repRegion[d.repId], d.account, d.product, d.stageLabel,
+        d.value, d.probability, weighted, d.expectedClose.toISOString().slice(0, 10), d.ageDays
+      ].map(csvEscape).join(","));
+    });
+    var blob = new Blob([lines.join("\n")], { type: "text/csv;charset=utf-8;" });
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement("a");
+    a.href = url;
+    a.download = "sales-pipeline-" + state.quarterId + ".csv";
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }
+
+  function render() {
+    var filtered = getFilteredDeals();
+    var k = computeKpis(filtered.open, filtered.closed);
+    renderKpis(k);
+    renderFunnel(filtered.open);
+    renderRepChart(filtered.open, filtered.closed);
+    renderMatrix(filtered.open, filtered.closed);
+    renderDealsHeader();
+    renderDealsTable(filtered.open);
+
+    var totalOpenAll = filtered.all.filter(function (d) { return d.status === "open"; }).length;
+    document.getElementById("resultSummary").textContent =
+      "Showing " + filtered.open.length + " of " + totalOpenAll + " open deals for " + currentQuarter().label + ".";
+
+    window.__lastFilteredOpen = filtered.open;
+  }
+
+  function init() {
+    var quarterSelect = document.getElementById("quarterSelect");
+    QUARTERS.forEach(function (q) {
+      var opt = document.createElement("option");
+      opt.value = q.id; opt.textContent = q.label;
+      quarterSelect.appendChild(opt);
+    });
+    quarterSelect.value = state.quarterId;
+    quarterSelect.addEventListener("change", function () {
+      state.quarterId = quarterSelect.value;
+      render();
+    });
+
+    buildRepCheckboxes();
+    buildStageCheckboxes();
+
+    document.getElementById("repSelectAll").addEventListener("change", function (e) {
+      document.querySelectorAll(".rep-checkbox").forEach(function (cb) { cb.checked = e.target.checked; });
+      state.reps = e.target.checked ? new Set(REPS.map(function (r) { return r.id; })) : new Set();
+      updateRepSummaryLabel();
+      render();
+    });
+    document.getElementById("repCheckboxList").addEventListener("change", function (e) {
+      if (!e.target.classList.contains("rep-checkbox")) return;
+      var id = e.target.getAttribute("data-rep");
+      if (e.target.checked) state.reps.add(id); else state.reps.delete(id);
+      document.getElementById("repSelectAll").checked = state.reps.size === REPS.length;
+      updateRepSummaryLabel();
+      render();
+    });
+
+    document.getElementById("stageSelectAll").addEventListener("change", function (e) {
+      document.querySelectorAll(".stage-checkbox").forEach(function (cb) { cb.checked = e.target.checked; });
+      state.stages = e.target.checked ? new Set(OPEN_STAGES.map(function (s) { return s.key; })) : new Set();
+      updateStageSummaryLabel();
+      render();
+    });
+    document.getElementById("stageCheckboxList").addEventListener("change", function (e) {
+      if (!e.target.classList.contains("stage-checkbox")) return;
+      var key = e.target.getAttribute("data-stage");
+      if (e.target.checked) state.stages.add(key); else state.stages.delete(key);
+      document.getElementById("stageSelectAll").checked = state.stages.size === OPEN_STAGES.length;
+      updateStageSummaryLabel();
+      render();
+    });
+
+    var searchInput = document.getElementById("searchInput");
+    var searchTimer = null;
+    searchInput.addEventListener("input", function () {
+      clearTimeout(searchTimer);
+      searchTimer = setTimeout(function () { state.search = searchInput.value; render(); }, 200);
+    });
+
+    document.getElementById("minValue").addEventListener("input", function (e) {
+      state.minValue = e.target.value === "" ? null : Number(e.target.value);
+      render();
+    });
+    document.getElementById("maxValue").addEventListener("input", function (e) {
+      state.maxValue = e.target.value === "" ? null : Number(e.target.value);
+      render();
+    });
+
+    function resetFilters() {
+      state.reps = new Set(REPS.map(function (r) { return r.id; }));
+      state.stages = new Set(OPEN_STAGES.map(function (s) { return s.key; }));
+      state.search = "";
+      state.minValue = null;
+      state.maxValue = null;
+      searchInput.value = "";
+      document.getElementById("minValue").value = "";
+      document.getElementById("maxValue").value = "";
+      document.getElementById("repSelectAll").checked = true;
+      document.getElementById("stageSelectAll").checked = true;
+      document.querySelectorAll(".rep-checkbox").forEach(function (cb) { cb.checked = true; });
+      document.querySelectorAll(".stage-checkbox").forEach(function (cb) { cb.checked = true; });
+      updateRepSummaryLabel();
+      updateStageSummaryLabel();
+      render();
+    }
+    document.getElementById("resetFiltersBtn").addEventListener("click", resetFilters);
+    document.getElementById("emptyResetBtn").addEventListener("click", resetFilters);
+
+    document.getElementById("exportCsvBtn").addEventListener("click", function () {
+      exportCsv(window.__lastFilteredOpen || []);
+    });
+    document.getElementById("printBtn").addEventListener("click", function () { window.print(); });
+
+    document.addEventListener("click", function (e) {
+      [document.getElementById("repDropdown"), document.getElementById("stageDropdown")].forEach(function (dd) {
+        if (dd.open && !dd.contains(e.target)) dd.open = false;
+      });
+    });
+
+    document.getElementById("lastUpdated").textContent = "Generated " + TODAY.toLocaleString("en-US", { month: "short", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit" });
+
+    updateRepSummaryLabel();
+    updateStageSummaryLabel();
+    render();
+  }
+
+  document.addEventListener("DOMContentLoaded", init);
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,54 @@
+{
+  "brief": "28-shift-roster",
+  "run": 1,
+  "items": [
+    {
+      "item": "The grid header names the week with its date range (such as \"Week 45 · 2–8 Nov 2026\"), every day column shows the weekday and date, and controls move to the previous, next and current week",
+      "pass": true,
+      "evidence": "range-heading shows rangeLabel(weekStart) e.g. '1–7 Nov 2026'; each th shows d.weekdayShort ('Sun', 'Mon'...) plus d.date.getDate(); #prev-btn/#next-btn/#today-btn call addDays(weekStart,-7/7) and startOfWeek(TODAY). No explicit 'Week NN' number is shown, only the date range."
+    },
+    {
+      "item": "Each shift shows its start and end time in one consistent 24-hour format and the role or station (such as \"07:00–15:00 · Cashier\"), and a shift that ends after midnight is marked as ending the next day",
+      "pass": false,
+      "evidence": "fmtTime() uses Intl.DateTimeFormat(LOCALE,{hour:'numeric',minute:'2-digit'}) with LOCALE='en-US', rendering 12-hour times like '8 AM–4 PM' (visible in first.png), not 24-hour. The shift cell label is only `${fmtTime(start)}–${fmtTime(end)}` (renderWeekTable, line ~471) with no role/station in the cell — role only appears in a separate 'Role' column. No logic anywhere compares end<start or flags a next-day shift."
+    },
+    {
+      "item": "Each staff row shows the week's scheduled hours against contracted hours (such as \"36 / 40 h\"), the scheduled figure equals that person's shifts less unpaid breaks, and anyone over or under contract is flagged in words",
+      "pass": false,
+      "evidence": "STAFF objects only have {id,name,role} — no contracted-hours field exists anywhere in the script. The row's Hours cell renders only the summed total: `<td class=\"px-3 text-right tnum\">${hrs}</td>` (e.g. '40', '32'), with no '/40h' comparison, no break deduction, and no over/under text flag."
+    },
+    {
+      "item": "A footer row shows, for each day, the staff count or hours scheduled against the required cover, and days below the requirement are marked in text (such as \"Short 1\")",
+      "pass": true,
+      "evidence": "week-foot-row renders `${count} of ${filteredStaff.length}` per day and, when count < MIN_STAFF (6), appends a text badge 'Below minimum' (renderWeekTable). Caveat: the displayed ratio is against total staff headcount (9), not the actual required-cover number (6), so the cover target itself is never shown to the user, only the shortfall label."
+    },
+    {
+      "item": "The sample data contains at least one rule conflict, such as overlapping shifts for one person or less than 11 hours' rest between a closing and the next opening shift, shown on the affected cell with a written reason",
+      "pass": false,
+      "evidence": "No conflict-detection code exists anywhere in the script (no overlap or rest-gap calculation). Checked the SHIFTS['2026-11-01'] data by hand: no staff member has two shifts on the same day, and the shortest close-to-open gap (e.g. s9 day4 ends 21:00, day5 starts 13:00) is 16h, well over 11h — the sample data contains no conflict at all."
+    },
+    {
+      "item": "Approved leave, days off and public holidays appear as labelled cells (such as \"Annual leave\", \"Day off\") that look different from an empty, unscheduled cell",
+      "pass": false,
+      "evidence": "Only one ad hoc category exists: UNAVAILABLE['2026-11-01'] has a single entry (s4, day 3, reason 'Requested day off') rendered as a dashed 'Unavailable' cell. There is no 'Annual leave' label, no public-holiday indicator, and 'Closed' cells represent the store being shut (day 0), not a staff day off — so leave/public-holiday categories called for by the checklist are absent."
+    },
+    {
+      "item": "The week's status (Draft or Published) is shown, and publishing goes through a confirmation that names the week and the number of unresolved conflicts or warnings",
+      "pass": false,
+      "evidence": "#status-badge shows 'Draft'/'Published' correctly (renderStatusBadge). But the publish confirm dialog text is `${shifts.length} shift(s) across ${staffCount} staff become visible to the team.` — it never names the week (no rangeLabel in the dialog, only used afterward in the toast) and never mentions unresolved conflicts/warnings, since no conflict detection exists at all."
+    },
+    {
+      "item": "The grid is a <table> with staff names as row headers and days as column headers, and each shift or empty cell is keyboard-reachable with an accessible name that includes the person and the date (such as \"Add shift, Lan Pham, Tue 3 Nov\")",
+      "pass": false,
+      "evidence": "Day headers are correctly `<th scope=\"col\">`, but the staff-name cell is rendered as a plain `<td class=\"px-3\">...<span>${staff.name}</span></td>` — not a `<th scope=\"row\">` — so staff names are not semantic row headers. Cells are keyboard-reachable (`role=\"button\" tabindex=\"0\"` plus a keydown handler for Enter/Space) with aria-labels like 'Add shift for Ava Thompson, Sat 7 Nov 2026' that do include person and date."
+    },
+    {
+      "item": "A week with no shifts yet shows a message with a way to start (such as \"Copy last week\"), and a loading state and a load error with a retry button exist",
+      "pass": false,
+      "evidence": "The empty/first-use state (shifts.length===0) shows text 'Add shifts for the week, then publish it...' but its only action button is labelled 'Back to this week' (dataset.mode='today'), which just navigates to the current week rather than offering a way to start (e.g. copy last week) — no such feature exists in the script. The loading (data-state=\"loading\" with #skeleton) and error (data-state=\"error\" with #retry button) states do both exist correctly."
+    }
+  ],
+  "tells": [],
+  "notes": "Visually the page is restrained (audit score 100/100, no gradients/blur/uppercase tracked labels/emoji, radii 4-6px, single primary header action) and I found no clear template tells to flag. The failures are functional/data gaps rather than cosmetic: 12-hour time format instead of 24-hour, no contracted-hours tracking, no conflict/rest-rule detection, no leave/holiday taxonomy, missing row-header semantics, and a publish confirmation that omits the week name and warning count.",
+  "blind": true
+}

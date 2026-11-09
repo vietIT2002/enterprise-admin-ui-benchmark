@@ -1,0 +1,61 @@
+{
+  "brief": "23-recruitment-pipeline",
+  "run": 1,
+  "items": [
+    {
+      "item": "Stage columns run in hiring order (such as Applied → Screening → Interview → Offer → Hired), and rejected or withdrawn candidates are kept out of the active columns, in a separate collapsed column or behind a filter",
+      "pass": true,
+      "evidence": "STAGES array order is applied, screening, interview, offer, hired, rejected (page.html:230-236); renderBoard() computes visibleStages = STAGES.filter(s => s.id !== 'rejected' || filters.showRejected), so the Rejected column is hidden by default and only shown via the 'Show rejected' checkbox filter (page.html:437, 142-144)."
+    },
+    {
+      "item": "Each stage header shows a candidate count that matches the number of cards in that column under the current filters",
+      "pass": true,
+      "evidence": "columnHTML(stage, list) renders '<span ...>' + list.length + '</span>' in the header, and renderBoard() builds that list from the already-filtered candidates (getFiltered()) before passing it to columnHTML (page.html:426, 438-441)."
+    },
+    {
+      "item": "The page names the opening being shown (job title, department, positions to fill and hired so far, such as \"Senior Accountant · Finance · 1 of 2 hired\"), and a selector switches to another opening",
+      "pass": false,
+      "evidence": "Header shows 'Design Department' / 'Senior Product Designer' / '2 of 3 openings filled' (page.html:46-58), satisfying the naming half, but there is no dropdown, link, or control anywhere in the markup or script to switch to a different job opening — only one hard-coded opening exists."
+    },
+    {
+      "item": "Each card gives the candidate's name, application source and days in the current stage, and candidates who have stayed past a stated limit are flagged with a text label or icon rather than colour alone",
+      "pass": false,
+      "evidence": "cardHTML shows c.name and c.source, but the elapsed-time figure is daysAgo(c.appliedDate) (page.html:412-414) — appliedDate is the original application date and is never updated on stage moves (moveCandidate only pushes a timeline entry, page.html:467-481), so it is days since application, not days in the current stage. No overdue threshold, label, or icon exists anywhere in cardHTML."
+    },
+    {
+      "item": "A card can change stage without dragging, through a \"Move to\" menu or buttons that work from the keyboard, and each move is announced through an aria-live region",
+      "pass": true,
+      "evidence": "Card menu renders real <button data-move-to=\"...\" role=\"menuitem\">Move to {label}</button> elements (page.html:380-383), reachable/activatable by keyboard as native buttons; moveCandidate() calls announce(msg) which writes to #live-region (role=\"status\" aria-live=\"polite\", page.html:39, 444-446, 478-479)."
+    },
+    {
+      "item": "Moving a candidate to Rejected opens a confirmation that names the candidate and requires a rejection reason before it completes",
+      "pass": false,
+      "evidence": "The 'Reject candidate' card-menu button (data-reject) and detail-panel 'Reject' button both call moveCandidate(id, 'rejected') directly (page.html:717-718, 780-781) with no confirmation dialog and no reason input; the timeline just logs the fixed string 'Rejected — manually moved' (page.html:472)."
+    },
+    {
+      "item": "Search by candidate name or email and filters by source and by recruiter narrow the board, and the active filters are displayed with a way to clear them",
+      "pass": false,
+      "evidence": "Search matches name/title/email/tags and a Source <select> exists (page.html:114-131, 339-351), but there is no recruiter field on any candidate object and no recruiter filter control anywhere; also the only filter-state feedback is the 'Clear filters' link (page.html:145) — active filters are never summarized as a visible list/chips."
+    },
+    {
+      "item": "Opening a card shows the candidate's contact details, a link to the CV and a stage history listing each move with its date and the person who made it",
+      "pass": false,
+      "evidence": "Detail panel shows email/phone/location (page.html:568-573) but the CV row is plain text — 'Resume on file · ' + c.source — with no <a href> or document link. The timeline list shows entry[1] (label) and fmtDate(entry[0]) only (page.html:531-538); no field in the candidate/timeline data records who made each move."
+    },
+    {
+      "item": "A stage with no candidates keeps its column and shows a placeholder such as \"No candidates\", and loading and error-with-retry states are built in",
+      "pass": false,
+      "evidence": "Empty columns render 'No candidates in this stage' (page.html:429-430), but the script has no loading indicator and no error/retry UI anywhere — data is a hard-coded in-memory array with no async fetch path at all."
+    }
+  ],
+  "tells": [
+    "kpi-icon-tiles — four 'Active Candidates / In Interview / Offers Out / Hired' stat cards each with a colored icon square, number, and caption (page.html:72-109)",
+    "tracked-uppercase-labels — 'Design Department' rendered as text-xs uppercase tracking-wide (page.html:46), also flagged by audit.json's uppercase-text violation",
+    "oversized-radius — rounded-xl (12px) stat tiles/filter panel/board columns exceed the 3-radius/≤8px scale, flagged by audit.json's radius-scale violation",
+    "card-in-card — each stage column is a bg-slate-50 rounded-xl container holding individually bordered white candidate cards (page.html:420-432)",
+    "hover-lift — candidate cards use 'hover:shadow-md hover:border-sky-300 transition-all' (page.html:389)",
+    "rainbow-status — stage dots/chips cycle through slate/sky/indigo/amber/green/red across the six stages with no consistent semantic mapping beyond red=rejected/green=hired (page.html:230-236)"
+  ],
+  "notes": "Mock/static data only — no network calls, no async loading or error paths exist, so any checklist item requiring loading/error/retry behavior necessarily fails. The 'days in stage' figure is actually 'days since application' since appliedDate is never refreshed on stage change.",
+  "blind": true
+}

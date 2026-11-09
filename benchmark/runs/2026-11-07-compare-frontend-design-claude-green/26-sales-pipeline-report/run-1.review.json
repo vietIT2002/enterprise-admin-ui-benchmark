@@ -1,0 +1,54 @@
+{
+  "brief": "26-sales-pipeline-report",
+  "run": 1,
+  "items": [
+    {
+      "item": "The stage breakdown lists stages in pipeline order (not alphabetical), each with its win probability, and each stage's weighted value equals its open value × that probability, with the weighted total equal to the sum of the stages",
+      "pass": false,
+      "evidence": "renderFunnel() (page.html:340-369) iterates OPEN_STAGES in pipeline order (Qualification, Discovery, Proposal, Negotiation — correct order), but each row only renders `${r.count} deal(s) · ${fmtUSDCompact(r.value)}` — no win probability and no weighted value per stage, and no weighted total is shown anywhere in the 'Pipeline by stage' card. The win-probability numbers only appear as prose in the footer footnote, not attached to each stage."
+    },
+    {
+      "item": "Win rate is computed over closed deals only, won ÷ (won + lost), with the counts shown beside it (such as \"38% · 19 of 50 closed\"), and a salesperson with no closed deals shows \"—\" instead of 0% or NaN",
+      "pass": false,
+      "evidence": "computeKPIs() correctly computes winRate = won/(won+lost) over getFilteredForWinRate() (closed-only). renderReps() shows '—' for reps with won+lost===0 (e.g. Jon Castellano row renders '—', confirmed against DEALS data with no Closed Won/Lost for that rep). But neither #kpiWinRate ('66.7%') nor the per-rep Win rate column ever renders a count like 'X of Y closed' — only the bare percentage, so the counts-beside-it requirement is unmet."
+    },
+    {
+      "item": "The by-salesperson table ends in a totals row whose deal count, pipeline value and weighted value equal the sum of its rows and match the overall totals of the stage breakdown",
+      "pass": false,
+      "evidence": "renderReps() (page.html:371-401) builds `body.innerHTML` from `rows.map(...)` only — no totals row is appended to #repTableBody. Screenshot confirms the salesperson table ends after the Derek Osei row with no 'Total' row."
+    },
+    {
+      "item": "The period can be set to this quarter, next quarter or a custom range, the page says which date it applies to (expected close date), and the results can also be narrowed to one salesperson or team",
+      "pass": false,
+      "evidence": "The Filters section (page.html:118-152) only has #filterRep (salesperson), #filterStage, and #filterSearch — no period/quarter control exists; the quarter is hardcoded in the header prose 'Q4 2026, October 1 through December 31'. No team filter exists either. Salesperson narrowing is present but the period-control and team-narrowing requirements are not."
+    },
+    {
+      "item": "Every money value shows its currency (one currency for the whole report) with thousands separators and lines up by digit within its column, and any abbreviated headline figure (such as \"1.2M\") has the full amount available in the table or a title attribute",
+      "pass": false,
+      "evidence": "fmtUSD uses '$' + toLocaleString (thousands separators) and all amount cells use tabular-nums (audit.json numericCells.misaligned=0). However fmtUSDCompact renders abbreviated KPI figures ('$2.32M', '$1.09M', '$64.47K') and no element in the page sets a title attribute (grep for `title=` found zero matches) nor is the exact unrounded total shown elsewhere, so the full amount behind the abbreviated headline numbers is not recoverable."
+    },
+    {
+      "item": "Open deals whose expected close date has already passed are flagged with words (such as \"Close date passed\"), not colour alone, and the number of such deals is shown per salesperson",
+      "pass": false,
+      "evidence": "The only lateness flag implemented is `isStalled(d)` (page.html:290), based on `daysSince(d.activity) > 14` (days since last logged activity), not on the expected close date. statusBadge() only emits 'Stalled, Nd' / 'On track' / 'Won' / 'Lost' — there is no check comparing `d.close` to TODAY, so deals with a passed expected close date are never flagged, and no per-salesperson count of such deals exists."
+    },
+    {
+      "item": "Each stage and salesperson figure drills down to the deals behind it (deal, account, owner, value, stage, close date) through a link or button that is keyboard-focusable and has a descriptive accessible name",
+      "pass": false,
+      "evidence": "Stage rows in #funnelWrap are plain `<div>` elements and salesperson rows in #repTableBody are plain `<tr>`/`<td>` markup with no `<a>`/`<button>` wrapper, `tabindex`, `role=\"button\"`, or click handler attached to them (only the filter selects, clearFiltersBtn, exportBtn, and the ledger column headers have listeners — page.html:505-527). There is no drill-down affordance from stage or salesperson figures to the underlying deals."
+    },
+    {
+      "item": "When the filters match no deals, the page says so, names the active filters and offers to clear them; a loading indicator and a failed-load message with a retry action are also present",
+      "pass": false,
+      "evidence": "#funnelEmpty/#repEmpty/#ledgerEmpty show generic text ('No deals match these filters.' / 'Clear a filter to see more of the pipeline.') without naming which filters are active (e.g. rep='Maya Chen', stage='Qualification'); a separate #clearFiltersBtn does appear when a filter is set, but is not referenced by the empty-state copy. There is no loading indicator anywhere (data renders synchronously from an in-memory DEALS array) and no failed-load/retry UI exists at all."
+    },
+    {
+      "item": "Export (CSV or Excel) produces the deal-level rows for the current filters, and its label or confirmation states the scope (such as \"Export 42 deals · Q4 2026\")",
+      "pass": false,
+      "evidence": "exportCSV() (page.html:481-503) correctly exports `sortRows(getFilteredPipeline())` — deal-level rows honoring the current rep/stage/search filters. However the button (#exportBtn) is statically labeled 'Export CSV' and no confirmation or toast after export states the scope/count, so the required 'Export 42 deals · Q4 2026'-style scope statement is missing."
+    }
+  ],
+  "tells": [],
+  "notes": "Visually polished, restrained 'ledger' aesthetic with no obvious AI-template tells (no greeting header, no KPI icon tiles, no delta pills, no avatars, no gradients/glass, no uppercase tracked labels, no emoji icons, no oversized radii, no hover-lift, no card-in-card). Automated audit score is 86/100 with only text-contrast (amber stalled-badge text at 3.69:1) and a table-row-two-line warning as violations. Despite the clean visual execution, the page fails every functional/semantic checklist item: it implements 'stalled 14+ days since last activity' instead of 'expected close date passed', omits per-stage win probability and weighted figures, has no totals row, no period selector, no drill-down, no loading/retry states, no title attributes on abbreviated currency, and no scope-stating export label.",
+  "blind": true
+}

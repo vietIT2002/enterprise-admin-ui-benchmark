@@ -1,0 +1,717 @@
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Shift Roster — Northgate Store</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+  body { font-feature-settings: "tnum" 1; }
+  ::selection { background:#99f6e4; color:#134e4a; }
+  :focus-visible { outline: 2px solid #0d9488; outline-offset: 2px; border-radius: 6px; }
+  .roster-scroll { scrollbar-color:#cbd5e1 #f8fafc; scrollbar-width: thin; }
+  .roster-scroll::-webkit-scrollbar { height: 10px; }
+  .roster-scroll::-webkit-scrollbar-track { background:#f8fafc; }
+  .roster-scroll::-webkit-scrollbar-thumb { background:#cbd5e1; border-radius:9999px; }
+  .roster-scroll::-webkit-scrollbar-thumb:hover { background:#94a3b8; }
+  #scrollWrap.is-scrolled table .sticky { box-shadow: 6px 0 10px -6px rgba(2,6,23,0.18); }
+  #popover select, #popover input[type="time"] {
+    display:block; width:100%; border-radius:0.5rem; border:1px solid #cbd5e1;
+    padding:0.375rem 0.625rem; font-size:0.875rem; color:#334155; background:#fff;
+  }
+  #popover select:focus, #popover input[type="time"]:focus { border-color:#0d9488; box-shadow:0 0 0 1px #0d9488; }
+  @media print {
+    .no-print { display:none !important; }
+    body { background:#fff; }
+    #scrollWrap { overflow:visible !important; }
+    table .sticky { position:static !important; box-shadow:none !important; }
+  }
+</style>
+
+<body class="min-h-screen bg-slate-50 text-slate-900 antialiased">
+  <a href="#rosterTable" class="sr-only focus:not-sr-only focus:absolute focus:z-50 focus:top-2 focus:left-2 focus:rounded-lg focus:bg-white focus:px-3 focus:py-2 focus:text-sm focus:font-medium focus:text-teal-700 focus:shadow-lg">Skip to roster</a>
+
+  <header class="no-print sticky top-0 z-30 border-b border-slate-200 bg-white/95 backdrop-blur">
+    <div class="mx-auto flex max-w-screen-2xl flex-wrap items-center justify-between gap-4 px-4 py-3 sm:px-6 lg:px-8">
+      <div class="flex items-center gap-3">
+        <span class="flex h-9 w-9 items-center justify-center rounded-lg bg-teal-600 text-sm font-bold text-white">N</span>
+        <div>
+          <h1 class="text-sm font-semibold leading-tight text-slate-900">Northgate Store</h1>
+          <p class="text-[11px] font-medium uppercase tracking-wide text-slate-400">Shift Roster</p>
+        </div>
+      </div>
+
+      <div class="flex items-center gap-1 rounded-lg border border-slate-200 px-1.5 py-1.5">
+        <button type="button" id="prevWeekBtn" class="flex h-7 w-7 items-center justify-center rounded-md text-slate-500 hover:bg-slate-100 disabled:opacity-30 disabled:hover:bg-transparent" aria-label="Previous week">
+          <svg class="h-4 w-4" aria-hidden="true"><use href="#i-chevron-left"/></svg>
+        </button>
+        <span id="weekRange" class="min-w-[150px] px-2 text-center text-sm font-semibold tabular-nums text-slate-900">—</span>
+        <button type="button" id="nextWeekBtn" class="flex h-7 w-7 items-center justify-center rounded-md text-slate-500 hover:bg-slate-100 disabled:opacity-30 disabled:hover:bg-transparent" aria-label="Next week">
+          <svg class="h-4 w-4" aria-hidden="true"><use href="#i-chevron-right"/></svg>
+        </button>
+      </div>
+
+      <div class="flex items-center gap-2">
+        <span id="statusBadge" class="inline-flex items-center gap-1.5 rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-600"></span>
+        <button type="button" id="exportBtn" class="inline-flex items-center gap-2 rounded-lg border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50" aria-label="Export roster as CSV">
+          <svg class="h-4 w-4" aria-hidden="true"><use href="#i-download"/></svg><span class="hidden sm:inline">Export</span>
+        </button>
+        <button type="button" id="printBtn" class="inline-flex items-center gap-2 rounded-lg border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50" aria-label="Print roster">
+          <svg class="h-4 w-4" aria-hidden="true"><use href="#i-printer"/></svg><span class="hidden sm:inline">Print</span>
+        </button>
+        <button type="button" id="publishBtn" class="inline-flex items-center gap-2 rounded-lg bg-teal-600 px-4 py-2 text-sm font-semibold text-white hover:bg-teal-700"></button>
+      </div>
+    </div>
+  </header>
+
+  <main class="mx-auto max-w-screen-2xl px-4 py-6 sm:px-6 lg:px-8">
+
+    <div class="mb-5 grid grid-cols-2 gap-3 sm:grid-cols-4">
+      <div class="flex items-center gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3">
+        <span class="flex h-10 w-10 items-center justify-center rounded-full bg-teal-50 text-teal-600"><svg class="h-5 w-5" aria-hidden="true"><use href="#i-clock"/></svg></span>
+        <div><p id="statHours" class="tabular-nums text-lg font-semibold leading-tight text-slate-900">0h</p><p class="text-xs text-slate-500">Scheduled hours</p></div>
+      </div>
+      <div class="flex items-center gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3">
+        <span class="flex h-10 w-10 items-center justify-center rounded-full bg-sky-50 text-sky-600"><svg class="h-5 w-5" aria-hidden="true"><use href="#i-calendar"/></svg></span>
+        <div><p id="statShifts" class="tabular-nums text-lg font-semibold leading-tight text-slate-900">0</p><p class="text-xs text-slate-500">Shifts this week</p></div>
+      </div>
+      <div class="flex items-center gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3">
+        <span class="flex h-10 w-10 items-center justify-center rounded-full bg-violet-50 text-violet-600"><svg class="h-5 w-5" aria-hidden="true"><use href="#i-users"/></svg></span>
+        <div><p id="statTeam" class="tabular-nums text-lg font-semibold leading-tight text-slate-900">0</p><p class="text-xs text-slate-500">Team members</p></div>
+      </div>
+      <div class="flex items-center gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3">
+        <span id="statGapIcon" class="flex h-10 w-10 items-center justify-center rounded-full bg-slate-100 text-slate-400"><svg class="h-5 w-5" aria-hidden="true"><use href="#i-alert"/></svg></span>
+        <div><p id="statGap" class="tabular-nums text-lg font-semibold leading-tight text-slate-900">0</p><p class="text-xs text-slate-500">Needs coverage</p></div>
+      </div>
+    </div>
+
+    <div class="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+      <div class="flex flex-wrap items-center gap-x-5 gap-y-2 border-b border-slate-100 bg-slate-50/60 px-4 py-2.5 text-xs text-slate-500">
+        <span class="flex items-center gap-1.5"><span class="h-2.5 w-2.5 rounded-full bg-amber-400"></span>Opening</span>
+        <span class="flex items-center gap-1.5"><span class="h-2.5 w-2.5 rounded-full bg-sky-400"></span>Midday</span>
+        <span class="flex items-center gap-1.5"><span class="h-2.5 w-2.5 rounded-full bg-violet-400"></span>Closing</span>
+        <span class="flex items-center gap-1.5"><span class="h-2.5 w-2.5 rounded-full bg-rose-400"></span>Approved time off</span>
+        <span class="flex items-center gap-1.5"><span class="h-2.5 w-2.5 rounded-full border-2 border-dashed border-amber-400"></span>Needs coverage</span>
+      </div>
+
+      <div id="copyBanner" class="hidden border-b border-slate-100 bg-slate-50 px-4 py-3">
+        <div class="flex flex-wrap items-center justify-between gap-3">
+          <div class="flex items-center gap-3">
+            <span class="flex h-9 w-9 items-center justify-center rounded-full bg-slate-200 text-slate-500"><svg class="h-4 w-4" aria-hidden="true"><use href="#i-calendar"/></svg></span>
+            <div>
+              <p class="text-sm font-medium text-slate-700">This week hasn't been scheduled yet.</p>
+              <p class="text-xs text-slate-500">Start from last week's pattern, then adjust what's changed.</p>
+            </div>
+          </div>
+          <button type="button" id="copyLastWeekBtn" class="inline-flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50">
+            <svg class="h-4 w-4" aria-hidden="true"><use href="#i-copy"/></svg>Copy last week's shifts
+          </button>
+        </div>
+      </div>
+
+      <div id="scrollWrap" class="roster-scroll overflow-x-auto">
+        <table id="rosterTable" class="w-full min-w-[1000px] border-collapse text-sm">
+          <caption class="sr-only">Weekly shift roster for Northgate Store: staff listed by row, days of the week by column</caption>
+          <thead><tr id="dayHeaderRow"></tr></thead>
+          <tbody id="rosterBody"></tbody>
+          <tfoot id="rosterFoot"></tfoot>
+        </table>
+      </div>
+    </div>
+
+    <p class="mt-3 text-xs text-slate-400">Click any day to add, edit, or remove a shift. Changes save to this draft automatically until you publish.</p>
+  </main>
+
+  <footer class="no-print mx-auto max-w-screen-2xl px-4 pb-10 sm:px-6 lg:px-8">
+    <p class="text-xs text-slate-400">Shift Roster is an internal scheduling tool for store managers. Publishing a week notifies the team.</p>
+  </footer>
+
+  <div id="toastContainer" aria-live="polite" class="no-print fixed bottom-5 right-5 z-50 flex flex-col gap-2"></div>
+  <div id="popover" class="hidden fixed z-50 w-72 rounded-xl border border-slate-200 bg-white p-4 shadow-lg" role="dialog" aria-label="Edit shift"></div>
+
+  <svg class="hidden" aria-hidden="true">
+    <symbol id="i-chevron-left" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></symbol>
+    <symbol id="i-chevron-right" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></symbol>
+    <symbol id="i-plus" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></symbol>
+    <symbol id="i-x" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></symbol>
+    <symbol id="i-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></symbol>
+    <symbol id="i-check-circle" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><polyline points="8 12.5 11 15.5 16 9"/></symbol>
+    <symbol id="i-clock" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15.5 14"/></symbol>
+    <symbol id="i-users" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3.25"/><path d="M3 19c0-3 2.7-5.25 6-5.25s6 2.25 6 5.25"/><path d="M15.5 6.5c1.4.2 2.5 1.4 2.5 2.9 0 1.4-1 2.6-2.3 2.9"/><path d="M17 13.5c2 .4 3.5 1.9 3.5 4"/></symbol>
+    <symbol id="i-alert" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3.5 21 20H3L12 3.5Z"/><line x1="12" y1="9.5" x2="12" y2="14"/><circle cx="12" cy="17" r="0.9" fill="currentColor" stroke="none"/></symbol>
+    <symbol id="i-printer" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M6.5 9V4.2A.7.7 0 0 1 7.2 3.5h9.6a.7.7 0 0 1 .7.7V9"/><rect x="3.8" y="9" width="16.4" height="7.5" rx="1.3"/><path d="M6.5 15.5V20a.5.5 0 0 0 .5.5h10a.5.5 0 0 0 .5-.5v-4.5"/></symbol>
+    <symbol id="i-download" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3.5v11"/><polyline points="7.5 10.5 12 15 16.5 10.5"/><path d="M4.5 16.5V19a1.5 1.5 0 0 0 1.5 1.5h12a1.5 1.5 0 0 0 1.5-1.5v-2.5"/></symbol>
+    <symbol id="i-calendar" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="5" width="17" height="15.5" rx="2"/><line x1="3.5" y1="9.5" x2="20.5" y2="9.5"/><line x1="8" y1="3" x2="8" y2="6.5"/><line x1="16" y1="3" x2="16" y2="6.5"/></symbol>
+    <symbol id="i-copy" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect x="8.5" y="8.5" width="11.5" height="11.5" rx="1.5"/><path d="M5.5 15V5.8A1.3 1.3 0 0 1 6.8 4.5H16"/></symbol>
+  </svg>
+
+  <script>
+  (function(){
+    'use strict';
+
+    var DAY_NAMES = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+    var SECTIONS = ['Sales Floor','Register','Fitting Room','Stockroom','Back Office'];
+    var TODAY = new Date(2026,10,7);
+
+    var STAFF = [
+      {id:1, name:'Priya Nair', role:'Store Manager', initials:'PN'},
+      {id:2, name:'Marcus Webb', role:'Assistant Manager', initials:'MW'},
+      {id:3, name:'Sofia Delgado', role:'Senior Sales Associate', initials:'SD'},
+      {id:4, name:'Jamal Carter', role:'Sales Associate', initials:'JC'},
+      {id:5, name:'Ellie Chen', role:'Sales Associate', initials:'EC'},
+      {id:6, name:'Tomás Rivera', role:'Cashier', initials:'TR'},
+      {id:7, name:'Hannah Brooks', role:'Cashier', initials:'HB'},
+      {id:8, name:'Noah Patel', role:'Stock Associate', initials:'NP'},
+      {id:9, name:'Grace Kim', role:'Sales Associate · Part-time', initials:'GK'}
+    ];
+
+    var TEMPLATES = {
+      OM:{start:'08:00',end:'16:00',section:'Sales Floor'},
+      OR:{start:'08:00',end:'16:00',section:'Register'},
+      OS:{start:'06:00',end:'14:00',section:'Stockroom'},
+      MGR:{start:'09:00',end:'17:00',section:'Back Office'},
+      CMGR:{start:'13:00',end:'21:00',section:'Back Office'},
+      MF:{start:'11:00',end:'19:00',section:'Sales Floor'},
+      MR:{start:'11:00',end:'19:00',section:'Register'},
+      MFIT:{start:'11:00',end:'19:00',section:'Fitting Room'},
+      CF:{start:'14:00',end:'22:00',section:'Sales Floor'},
+      CR:{start:'14:00',end:'22:00',section:'Register'},
+      PT:{start:'12:00',end:'17:00',section:'Sales Floor'}
+    };
+
+    function buildShift(code){
+      if(!code || code === 'OFF') return null;
+      if(code === 'LEAVE') return {leave:true};
+      var t = TEMPLATES[code];
+      return {start:t.start, end:t.end, section:t.section};
+    }
+    function buildPattern(codes){ return codes.map(buildShift); }
+
+    var PATTERNS = {
+      '-1': {
+        1:['MGR','MGR','MGR','OFF','MGR','CMGR','OFF'],
+        2:['OFF','CMGR','OFF','CMGR','CMGR','MGR','MGR'],
+        3:['OM','MF','MF','OFF','OM','CF','OFF'],
+        4:['OFF','OM','OM','MF','OFF','CF','OM'],
+        5:['MFIT','OFF','CF','MFIT','CF','OFF','MF'],
+        6:['OR','MR','OFF','OR','MR','CR','OFF'],
+        7:['CR','OFF','OR','CR','OFF','OR','MR'],
+        8:['OFF','OS','OS','OFF','OS','OS','OFF'],
+        9:['OFF','PT','OFF','PT','OFF','PT','OFF']
+      },
+      '0': {
+        1:['MGR','MGR','OFF','MGR','MGR','CMGR','OFF'],
+        2:['OFF','CMGR','CMGR','OFF','CMGR','CMGR','MGR'],
+        3:['OM','OM','OFF','MF','OFF','CF','OFF'],
+        4:['MF','OFF','OM','LEAVE','OFF','OM','CF'],
+        5:['OFF','MFIT','OFF','CF','CF','OFF','MF'],
+        6:['OR','OR','MR','MR','OFF','OFF','CR'],
+        7:['MR','CR','OFF','OR','OR','OFF','OFF'],
+        8:['OS','OS','OFF','OS','OS','OFF','OFF'],
+        9:['OFF','OFF','PT','OFF','PT','PT','OFF']
+      }
+    };
+
+    var OPEN_SHIFT_GAPS = { '0': {day:5, section:'Register', start:'14:00', end:'22:00'} };
+    var STATUS_BY_KEY = { '-1':'published', '0':'draft', '1':'unscheduled' };
+
+    var state = { offset: 0, weeks: {} };
+
+    function cloneShift(s){ return s ? Object.assign({}, s) : null; }
+
+    function makeWeek(offset){
+      var key = String(offset);
+      var pattern = PATTERNS[key];
+      var shifts = {};
+      STAFF.forEach(function(person){
+        var codes = pattern ? pattern[person.id] : null;
+        shifts[person.id] = codes ? buildPattern(codes) : [null,null,null,null,null,null,null];
+      });
+      return {
+        shifts: shifts,
+        openGap: OPEN_SHIFT_GAPS[key] ? Object.assign({}, OPEN_SHIFT_GAPS[key]) : null,
+        status: STATUS_BY_KEY[key] || 'unscheduled',
+        publishedAt: key === '-1' ? 'Nov 1, 2026 · 5:42 PM' : null
+      };
+    }
+
+    function getWeek(offset){
+      var key = String(offset);
+      if(!state.weeks[key]) state.weeks[key] = makeWeek(offset);
+      return state.weeks[key];
+    }
+
+    var BASE_MONDAY = new Date(2026, 10, 9);
+    function weekStart(offset){
+      var d = new Date(BASE_MONDAY.getTime());
+      d.setDate(d.getDate() + offset*7);
+      return d;
+    }
+    var MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    function fmtMonthDay(d){ return MONTHS[d.getMonth()] + ' ' + d.getDate(); }
+    function fmtRange(offset){
+      var start = weekStart(offset);
+      var end = new Date(start.getTime()); end.setDate(end.getDate()+6);
+      if(start.getMonth() === end.getMonth()){
+        return fmtMonthDay(start) + '–' + end.getDate() + ', ' + end.getFullYear();
+      }
+      return fmtMonthDay(start) + ' – ' + fmtMonthDay(end) + ', ' + end.getFullYear();
+    }
+    function dayDate(offset, dayIndex){
+      var d = weekStart(offset);
+      d.setDate(d.getDate() + dayIndex);
+      return d;
+    }
+    function sameDate(a,b){
+      return a.getFullYear()===b.getFullYear() && a.getMonth()===b.getMonth() && a.getDate()===b.getDate();
+    }
+
+    function toMinutes(hhmm){
+      var p = hhmm.split(':');
+      return parseInt(p[0],10)*60 + parseInt(p[1],10);
+    }
+    function duration(shift){
+      if(!shift || shift.leave) return 0;
+      return (toMinutes(shift.end) - toMinutes(shift.start)) / 60;
+    }
+    function fmt12(hhmm){
+      var p = hhmm.split(':');
+      var h = parseInt(p[0],10);
+      var m = p[1];
+      var suffix = h >= 12 ? 'PM' : 'AM';
+      h = h % 12; if(h === 0) h = 12;
+      return h + (m === '00' ? '' : ':' + m) + ' ' + suffix;
+    }
+    function formatHours(n){
+      var rounded = Math.round(n*10)/10;
+      return (rounded % 1 === 0 ? rounded.toFixed(0) : rounded.toFixed(1)) + 'h';
+    }
+    function shiftType(shift){
+      var h = parseInt(shift.start.split(':')[0],10);
+      if(h < 10) return 'open';
+      if(h < 13) return 'mid';
+      return 'close';
+    }
+    var TYPE_STYLE = {
+      open:  {bg:'bg-amber-50',  border:'border-amber-200',  text:'text-amber-800'},
+      mid:   {bg:'bg-sky-50',    border:'border-sky-200',    text:'text-sky-800'},
+      close: {bg:'bg-violet-50', border:'border-violet-200', text:'text-violet-800'}
+    };
+
+    function weekIsEmpty(week){
+      var anyShift = STAFF.some(function(p){ return week.shifts[p.id].some(function(s){ return !!s; }); });
+      return !anyShift && !week.openGap;
+    }
+
+    var el = {
+      weekRange: document.getElementById('weekRange'),
+      statusBadge: document.getElementById('statusBadge'),
+      publishBtn: document.getElementById('publishBtn'),
+      tbody: document.getElementById('rosterBody'),
+      tfoot: document.getElementById('rosterFoot'),
+      theadRow: document.getElementById('dayHeaderRow'),
+      statHours: document.getElementById('statHours'),
+      statShifts: document.getElementById('statShifts'),
+      statTeam: document.getElementById('statTeam'),
+      statGap: document.getElementById('statGap'),
+      statGapIcon: document.getElementById('statGapIcon'),
+      copyBanner: document.getElementById('copyBanner'),
+      popover: document.getElementById('popover'),
+      toastContainer: document.getElementById('toastContainer'),
+      scrollWrap: document.getElementById('scrollWrap'),
+      prevBtn: document.getElementById('prevWeekBtn'),
+      nextBtn: document.getElementById('nextWeekBtn'),
+      exportBtn: document.getElementById('exportBtn'),
+      printBtn: document.getElementById('printBtn'),
+      copyBtn: document.getElementById('copyLastWeekBtn')
+    };
+
+    function renderHeaderRow(){
+      var offset = state.offset;
+      var html = '<th scope="col" class="sticky left-0 z-20 w-60 border-b border-slate-200 bg-white px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">Team member</th>';
+      for(var i=0;i<7;i++){
+        var d = dayDate(offset,i);
+        var isToday = sameDate(d, TODAY);
+        html += '<th scope="col" class="min-w-[132px] border-b border-slate-200 px-3 py-3 text-left text-xs font-semibold uppercase tracking-wide ' + (isToday ? 'bg-teal-50/60 text-teal-700' : 'text-slate-500') + '">' +
+          '<div class="flex items-baseline gap-1.5"><span>' + DAY_NAMES[i] + '</span><span class="tabular-nums text-xs font-normal normal-case text-slate-400">' + d.getDate() + '</span></div>' +
+        '</th>';
+      }
+      html += '<th scope="col" class="min-w-[110px] border-b border-slate-200 px-4 py-3 text-right text-xs font-semibold uppercase tracking-wide text-slate-500">Weekly hrs</th>';
+      el.theadRow.innerHTML = html;
+    }
+
+    function renderCell(person, dayIndex, shift){
+      var inner;
+      if(!shift){
+        inner = '<button type="button" data-staff="' + person.id + '" data-day="' + dayIndex + '" class="cell-btn flex h-16 w-full items-center justify-center rounded-lg text-slate-300 transition-colors hover:bg-teal-50 hover:text-teal-600 focus-visible:bg-teal-50 focus-visible:text-teal-600" aria-label="Add shift for ' + person.name + ' on ' + DAY_NAMES[dayIndex] + '"><svg class="h-4 w-4" aria-hidden="true"><use href="#i-plus"/></svg></button>';
+      } else if(shift.leave){
+        inner = '<button type="button" data-staff="' + person.id + '" data-day="' + dayIndex + '" class="cell-btn flex h-16 w-full flex-col items-center justify-center gap-0.5 rounded-lg border border-rose-200 bg-rose-50 px-1 text-rose-700 transition-colors hover:border-rose-300 focus-visible:border-rose-300" aria-label="Approved time off for ' + person.name + ' on ' + DAY_NAMES[dayIndex] + '"><span class="text-xs font-semibold">Time off</span><span class="text-[11px] text-rose-500">Approved</span></button>';
+      } else {
+        var style = TYPE_STYLE[shiftType(shift)];
+        inner = '<button type="button" data-staff="' + person.id + '" data-day="' + dayIndex + '" class="cell-btn flex h-16 w-full flex-col items-center justify-center gap-0.5 rounded-lg border ' + style.border + ' ' + style.bg + ' ' + style.text + ' px-1 transition-colors hover:brightness-95 focus-visible:brightness-95" aria-label="' + person.name + ', ' + DAY_NAMES[dayIndex] + ', ' + fmt12(shift.start) + ' to ' + fmt12(shift.end) + ', ' + shift.section + '">' +
+          '<span class="tabular-nums text-xs font-semibold">' + fmt12(shift.start) + '–' + fmt12(shift.end) + '</span>' +
+          '<span class="max-w-full truncate text-[11px] uppercase tracking-wide opacity-80">' + shift.section + '</span>' +
+        '</button>';
+      }
+      return '<td class="border-b border-slate-100 p-1.5 align-middle">' + inner + '</td>';
+    }
+
+    function renderOpenRow(week){
+      var html = '<tr class="bg-amber-50/30">';
+      html += '<th scope="row" class="sticky left-0 z-10 border-b border-slate-100 bg-amber-50/60 px-4 py-3 text-left align-top">' +
+        '<div class="flex items-center gap-3">' +
+          '<span class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-amber-100 text-amber-600"><svg class="h-4 w-4" aria-hidden="true"><use href="#i-alert"/></svg></span>' +
+          '<span class="min-w-0"><span class="block text-sm font-medium text-slate-900">Open shift</span><span class="block text-xs text-slate-500">Unassigned coverage</span></span>' +
+        '</div>' +
+      '</th>';
+      for(var i=0;i<7;i++){
+        if(week.openGap && week.openGap.day === i){
+          var g = week.openGap;
+          html += '<td class="border-b border-slate-100 p-1.5 align-middle"><button type="button" data-gap="1" class="cell-btn flex h-16 w-full flex-col items-center justify-center gap-0.5 rounded-lg border-2 border-dashed border-amber-300 bg-amber-50 px-1 text-amber-700 transition-colors hover:border-amber-400 focus-visible:border-amber-400" aria-label="Open shift needing coverage on ' + DAY_NAMES[i] + ', ' + fmt12(g.start) + ' to ' + fmt12(g.end) + ', ' + g.section + '">' +
+            '<span class="tabular-nums text-xs font-semibold">' + fmt12(g.start) + '–' + fmt12(g.end) + '</span>' +
+            '<span class="text-[11px] uppercase tracking-wide opacity-80">' + g.section + '</span>' +
+          '</button></td>';
+        } else {
+          html += '<td class="border-b border-slate-100 p-1.5 text-center align-middle"><span class="text-sm text-slate-300" aria-hidden="true">–</span></td>';
+        }
+      }
+      html += '<td class="border-b border-slate-100 px-4 py-3"></td>';
+      html += '</tr>';
+      return html;
+    }
+
+    function renderBody(){
+      var week = getWeek(state.offset);
+      var html = '';
+      STAFF.forEach(function(person){
+        var rowShifts = week.shifts[person.id];
+        var weekly = rowShifts.reduce(function(sum,s){ return sum + duration(s); },0);
+        html += '<tr class="group/row">';
+        html += '<th scope="row" class="sticky left-0 z-10 border-b border-slate-100 bg-white px-4 py-3 text-left align-top group-hover/row:bg-slate-50">' +
+          '<div class="flex items-center gap-3">' +
+            '<span class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-teal-600/10 text-xs font-semibold text-teal-700">' + person.initials + '</span>' +
+            '<span class="min-w-0"><span class="block truncate text-sm font-medium text-slate-900">' + person.name + '</span><span class="block truncate text-xs text-slate-500">' + person.role + '</span></span>' +
+          '</div>' +
+        '</th>';
+        for(var i=0;i<7;i++){ html += renderCell(person, i, rowShifts[i]); }
+        html += '<td class="border-b border-slate-100 px-4 py-3 text-right align-middle"><span class="tabular-nums text-sm font-semibold text-slate-900">' + formatHours(weekly) + '</span></td>';
+        html += '</tr>';
+      });
+      html += renderOpenRow(week);
+      el.tbody.innerHTML = html;
+    }
+
+    function renderFoot(){
+      var week = getWeek(state.offset);
+      var dayTotals = [0,0,0,0,0,0,0];
+      STAFF.forEach(function(p){
+        week.shifts[p.id].forEach(function(s,i){ dayTotals[i] += duration(s); });
+      });
+      var grand = dayTotals.reduce(function(a,b){return a+b;},0);
+      var html = '<tr class="bg-slate-50">';
+      html += '<th scope="row" class="sticky left-0 z-10 border-t border-slate-200 bg-slate-50 px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">Scheduled hours</th>';
+      for(var i=0;i<7;i++){
+        html += '<td class="border-t border-slate-200 px-3 py-3 text-left"><span class="tabular-nums text-sm font-semibold text-slate-700">' + formatHours(dayTotals[i]) + '</span></td>';
+      }
+      html += '<td class="border-t border-slate-200 px-4 py-3 text-right"><span class="tabular-nums text-sm font-bold text-slate-900">' + formatHours(grand) + '</span></td>';
+      html += '</tr>';
+      el.tfoot.innerHTML = html;
+      return grand;
+    }
+
+    function renderStats(week, grandHours){
+      var shiftCount = 0;
+      STAFF.forEach(function(p){ week.shifts[p.id].forEach(function(s){ if(s && !s.leave) shiftCount++; }); });
+      var gapCount = week.openGap ? 1 : 0;
+      el.statHours.textContent = formatHours(grandHours);
+      el.statShifts.textContent = String(shiftCount);
+      el.statTeam.textContent = String(STAFF.length);
+      el.statGap.textContent = String(gapCount);
+      el.statGapIcon.className = gapCount > 0
+        ? 'flex h-10 w-10 items-center justify-center rounded-full bg-amber-100 text-amber-600'
+        : 'flex h-10 w-10 items-center justify-center rounded-full bg-slate-100 text-slate-400';
+    }
+
+    var publishBtnBase = 'inline-flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-semibold transition-colors';
+    var statusMap = {
+      unscheduled: {label:'Not scheduled', classes:'bg-slate-100 text-slate-600', icon:'i-calendar'},
+      draft: {label:'Draft', classes:'bg-slate-100 text-slate-600', icon:'i-clock'},
+      changed: {label:'Unpublished changes', classes:'bg-amber-50 text-amber-700', icon:'i-clock'},
+      published: {label:'Published', classes:'bg-emerald-50 text-emerald-700', icon:'i-check-circle'}
+    };
+
+    function renderStatus(week){
+      var cfg = statusMap[week.status] || statusMap.draft;
+      el.statusBadge.className = 'inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium ' + cfg.classes;
+      el.statusBadge.innerHTML = '<svg class="h-3.5 w-3.5" aria-hidden="true"><use href="#' + cfg.icon + '"/></svg><span>' + cfg.label + '</span>';
+
+      if(week.status === 'published'){
+        el.publishBtn.disabled = true;
+        el.publishBtn.innerHTML = '<svg class="h-4 w-4" aria-hidden="true"><use href="#i-check"/></svg><span>Published</span>';
+        el.publishBtn.className = publishBtnBase + ' bg-slate-100 text-slate-400 cursor-default';
+      } else if(weekIsEmpty(week)){
+        el.publishBtn.disabled = true;
+        el.publishBtn.innerHTML = '<span>Add shifts to publish</span>';
+        el.publishBtn.className = publishBtnBase + ' bg-slate-100 text-slate-400 cursor-default';
+      } else {
+        el.publishBtn.disabled = false;
+        el.publishBtn.innerHTML = '<span>' + (week.status === 'changed' ? 'Republish week' : 'Publish week') + '</span>';
+        el.publishBtn.className = publishBtnBase + ' bg-teal-600 text-white hover:bg-teal-700';
+      }
+    }
+
+    function renderCopyBanner(week){
+      el.copyBanner.classList.toggle('hidden', !weekIsEmpty(week));
+    }
+
+    function updateScrollShadow(){
+      el.scrollWrap.classList.toggle('is-scrolled', el.scrollWrap.scrollLeft > 2);
+    }
+
+    function renderAll(){
+      var week = getWeek(state.offset);
+      el.weekRange.textContent = fmtRange(state.offset);
+      el.prevBtn.disabled = state.offset <= -1;
+      el.nextBtn.disabled = state.offset >= 1;
+      renderHeaderRow();
+      renderBody();
+      var grand = renderFoot();
+      renderStats(week, grand);
+      renderStatus(week);
+      renderCopyBanner(week);
+      updateScrollShadow();
+    }
+
+    function setShift(staffId, dayIndex, shift){
+      var week = getWeek(state.offset);
+      week.shifts[staffId][dayIndex] = shift;
+      if(week.status === 'published') week.status = 'changed';
+      else if(week.status === 'unscheduled') week.status = 'draft';
+      renderAll();
+    }
+
+    function toast(message, icon){
+      var t = document.createElement('div');
+      t.className = 'flex items-center gap-2 rounded-lg bg-slate-900 px-4 py-2.5 text-sm text-white shadow-lg opacity-0 translate-y-2 transition-all duration-300';
+      t.innerHTML = '<svg class="h-4 w-4 text-teal-300" aria-hidden="true"><use href="#' + (icon || 'i-check') + '"/></svg><span>' + message + '</span>';
+      el.toastContainer.appendChild(t);
+      requestAnimationFrame(function(){ t.classList.remove('opacity-0','translate-y-2'); });
+      setTimeout(function(){
+        t.classList.add('opacity-0');
+        setTimeout(function(){ t.remove(); }, 300);
+      }, 3200);
+    }
+
+    function positionPopover(anchor){
+      el.popover.classList.remove('hidden');
+      el.popover.style.visibility = 'hidden';
+      el.popover.style.left = '0px';
+      el.popover.style.top = '0px';
+      var rect = anchor.getBoundingClientRect();
+      var pw = el.popover.offsetWidth;
+      var ph = el.popover.offsetHeight;
+      var left = rect.left + rect.width/2 - pw/2;
+      left = Math.max(12, Math.min(left, window.innerWidth - pw - 12));
+      var top = rect.bottom + 8;
+      if(top + ph > window.innerHeight - 12) top = rect.top - ph - 8;
+      top = Math.max(12, top);
+      el.popover.style.left = left + 'px';
+      el.popover.style.top = top + 'px';
+      el.popover.style.visibility = 'visible';
+    }
+
+    function showPopover(){
+      document.addEventListener('mousedown', outsideClick, true);
+      document.addEventListener('keydown', onEscape, true);
+      var firstFocusable = el.popover.querySelector('select, input, button');
+      if(firstFocusable) firstFocusable.focus();
+    }
+    function closePopover(){
+      el.popover.classList.add('hidden');
+      document.removeEventListener('mousedown', outsideClick, true);
+      document.removeEventListener('keydown', onEscape, true);
+    }
+    function outsideClick(e){
+      if(el.popover.contains(e.target)) return;
+      closePopover();
+    }
+    function onEscape(e){ if(e.key === 'Escape') closePopover(); }
+
+    function openShiftPopover(anchor, staffId, dayIndex){
+      var week = getWeek(state.offset);
+      var shift = week.shifts[staffId][dayIndex];
+      var person = STAFF.filter(function(p){ return p.id === staffId; })[0];
+      var isLeave = !!(shift && shift.leave);
+      var sectionVal = shift && !shift.leave ? shift.section : SECTIONS[0];
+      var startVal = shift && !shift.leave ? shift.start : '09:00';
+      var endVal = shift && !shift.leave ? shift.end : '17:00';
+
+      var sectionOptions = SECTIONS.map(function(s){
+        return '<option value="' + s + '"' + (s === sectionVal ? ' selected' : '') + '>' + s + '</option>';
+      }).join('');
+
+      el.popover.innerHTML =
+        '<div class="mb-3 flex items-center justify-between">' +
+          '<h3 class="text-sm font-semibold text-slate-900">' + person.name + ' · ' + DAY_NAMES[dayIndex] + '</h3>' +
+          '<button type="button" id="pClose" class="rounded-md p-1 text-slate-400 hover:text-slate-600" aria-label="Close"><svg class="h-4 w-4" aria-hidden="true"><use href="#i-x"/></svg></button>' +
+        '</div>' +
+        '<div id="pFields" class="space-y-3' + (isLeave ? ' hidden' : '') + '">' +
+          '<div><label class="mb-1 block text-xs font-medium text-slate-500" for="pSection">Section</label>' +
+          '<select id="pSection">' + sectionOptions + '</select></div>' +
+          '<div class="grid grid-cols-2 gap-2">' +
+            '<div><label class="mb-1 block text-xs font-medium text-slate-500" for="pStart">Start</label><input type="time" id="pStart" value="' + startVal + '"></div>' +
+            '<div><label class="mb-1 block text-xs font-medium text-slate-500" for="pEnd">End</label><input type="time" id="pEnd" value="' + endVal + '"></div>' +
+          '</div>' +
+          '<p id="pError" class="hidden text-xs text-rose-600">End time must be after start time.</p>' +
+        '</div>' +
+        '<p id="pLeaveNote" class="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-700' + (isLeave ? '' : ' hidden') + '">Marked as approved time off. No shift will be scheduled this day.</p>' +
+        '<button type="button" id="pToggleLeave" class="mt-3 text-xs font-medium text-slate-500 underline underline-offset-2 hover:text-slate-700">' + (isLeave ? 'Use a regular shift instead' : 'Mark as approved time off instead') + '</button>' +
+        '<div class="mt-4 flex items-center justify-between border-t border-slate-100 pt-3">' +
+          (shift ? '<button type="button" id="pRemove" class="text-sm font-medium text-rose-600 hover:text-rose-700">Remove</button>' : '<span></span>') +
+          '<div class="flex gap-2">' +
+            '<button type="button" id="pCancel" class="rounded-lg border border-slate-200 px-3 py-1.5 text-sm text-slate-600 hover:bg-slate-50">Cancel</button>' +
+            '<button type="button" id="pSave" class="rounded-lg bg-teal-600 px-3 py-1.5 text-sm font-semibold text-white hover:bg-teal-700">Save</button>' +
+          '</div>' +
+        '</div>';
+
+      el.popover.dataset.leave = isLeave ? '1' : '0';
+      positionPopover(anchor);
+      showPopover();
+
+      document.getElementById('pClose').addEventListener('click', closePopover);
+      document.getElementById('pCancel').addEventListener('click', closePopover);
+      document.getElementById('pToggleLeave').addEventListener('click', function(){
+        var makingLeave = el.popover.dataset.leave !== '1';
+        el.popover.dataset.leave = makingLeave ? '1' : '0';
+        document.getElementById('pFields').classList.toggle('hidden', makingLeave);
+        document.getElementById('pLeaveNote').classList.toggle('hidden', !makingLeave);
+        this.textContent = makingLeave ? 'Use a regular shift instead' : 'Mark as approved time off instead';
+      });
+      var removeBtn = document.getElementById('pRemove');
+      if(removeBtn){
+        removeBtn.addEventListener('click', function(){
+          setShift(staffId, dayIndex, null);
+          closePopover();
+        });
+      }
+      document.getElementById('pSave').addEventListener('click', function(){
+        if(el.popover.dataset.leave === '1'){
+          setShift(staffId, dayIndex, {leave:true});
+        } else {
+          var section = document.getElementById('pSection').value;
+          var start = document.getElementById('pStart').value;
+          var end = document.getElementById('pEnd').value;
+          if(!start || !end || toMinutes(end) <= toMinutes(start)){
+            document.getElementById('pError').classList.remove('hidden');
+            return;
+          }
+          setShift(staffId, dayIndex, {start:start, end:end, section:section});
+        }
+        closePopover();
+      });
+    }
+
+    function openGapPopover(anchor){
+      var week = getWeek(state.offset);
+      var g = week.openGap;
+      el.popover.innerHTML =
+        '<div class="mb-3 flex items-center justify-between">' +
+          '<h3 class="text-sm font-semibold text-slate-900">Open shift</h3>' +
+          '<button type="button" id="pClose" class="rounded-md p-1 text-slate-400 hover:text-slate-600" aria-label="Close"><svg class="h-4 w-4" aria-hidden="true"><use href="#i-x"/></svg></button>' +
+        '</div>' +
+        '<p class="text-sm text-slate-600">' + DAY_NAMES[g.day] + ' · ' + fmt12(g.start) + '–' + fmt12(g.end) + ' · ' + g.section + '</p>' +
+        '<p class="mt-1 text-xs text-slate-400">No one is scheduled for this shift yet.</p>' +
+        '<div class="mt-4 flex items-center justify-end gap-2 border-t border-slate-100 pt-3">' +
+          '<button type="button" id="pCancel" class="rounded-lg border border-slate-200 px-3 py-1.5 text-sm text-slate-600 hover:bg-slate-50">Close</button>' +
+          '<button type="button" id="pMarkCovered" class="rounded-lg bg-teal-600 px-3 py-1.5 text-sm font-semibold text-white hover:bg-teal-700">Mark as covered</button>' +
+        '</div>';
+      positionPopover(anchor);
+      showPopover();
+      document.getElementById('pClose').addEventListener('click', closePopover);
+      document.getElementById('pCancel').addEventListener('click', closePopover);
+      document.getElementById('pMarkCovered').addEventListener('click', function(){
+        week.openGap = null;
+        if(week.status === 'published') week.status = 'changed';
+        renderAll();
+        closePopover();
+        toast('Shift marked as covered.', 'i-check');
+      });
+    }
+
+    function copyFromWeek0(targetOffset){
+      var source = getWeek(0);
+      var target = getWeek(targetOffset);
+      STAFF.forEach(function(p){ target.shifts[p.id] = source.shifts[p.id].map(cloneShift); });
+      target.openGap = source.openGap ? Object.assign({}, source.openGap) : null;
+      target.status = 'draft';
+      renderAll();
+      toast('Copied last week’s pattern into ' + fmtRange(targetOffset) + '.', 'i-copy');
+    }
+
+    function formatNow(){
+      var d = new Date();
+      var h = d.getHours(); var m = d.getMinutes();
+      var suffix = h >= 12 ? 'PM' : 'AM';
+      h = h % 12; if(h === 0) h = 12;
+      return MONTHS[d.getMonth()] + ' ' + d.getDate() + ', ' + d.getFullYear() + ' · ' + h + ':' + (m<10?'0':'') + m + ' ' + suffix;
+    }
+
+    el.tbody.addEventListener('click', function(e){
+      var btn = e.target.closest('.cell-btn');
+      if(!btn) return;
+      if(btn.dataset.gap){ openGapPopover(btn); }
+      else { openShiftPopover(btn, parseInt(btn.dataset.staff,10), parseInt(btn.dataset.day,10)); }
+    });
+
+    el.publishBtn.addEventListener('click', function(){
+      var week = getWeek(state.offset);
+      if(week.status === 'published' || weekIsEmpty(week)) return;
+      week.status = 'published';
+      week.publishedAt = formatNow();
+      renderAll();
+      toast('Week of ' + fmtRange(state.offset) + ' published to the team.', 'i-check-circle');
+    });
+
+    el.prevBtn.addEventListener('click', function(){
+      if(state.offset > -1){ state.offset -= 1; closePopover(); renderAll(); }
+    });
+    el.nextBtn.addEventListener('click', function(){
+      if(state.offset < 1){ state.offset += 1; closePopover(); renderAll(); }
+    });
+    el.copyBtn.addEventListener('click', function(){ copyFromWeek0(state.offset); });
+    el.printBtn.addEventListener('click', function(){ window.print(); });
+    el.scrollWrap.addEventListener('scroll', updateScrollShadow, {passive:true});
+
+    el.exportBtn.addEventListener('click', function(){
+      var week = getWeek(state.offset);
+      var rows = [['Team member','Role','Mon','Tue','Wed','Thu','Fri','Sat','Sun','Weekly hours']];
+      STAFF.forEach(function(p){
+        var cells = week.shifts[p.id].map(function(s){
+          if(!s) return 'Off';
+          if(s.leave) return 'Time off';
+          return fmt12(s.start) + '-' + fmt12(s.end) + ' ' + s.section;
+        });
+        var weekly = week.shifts[p.id].reduce(function(sum,s){ return sum + duration(s); },0);
+        rows.push([p.name, p.role].concat(cells).concat([formatHours(weekly)]));
+      });
+      var csv = rows.map(function(r){
+        return r.map(function(v){
+          var str = String(v);
+          var needsQuotes = /[",\n]/.test(str);
+          var escaped = str.replace(/"/g,'""');
+          return needsQuotes ? '"' + escaped + '"' : escaped;
+        }).join(',');
+      }).join('\r\n');
+      var blob = new Blob([csv], {type:'text/csv;charset=utf-8;'});
+      var url = URL.createObjectURL(blob);
+      var a = document.createElement('a');
+      a.href = url;
+      a.download = 'roster-' + weekStart(state.offset).toISOString().slice(0,10) + '.csv';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      toast('Roster exported as CSV.', 'i-download');
+    });
+
+    renderAll();
+  })();
+  </script>
+</body>

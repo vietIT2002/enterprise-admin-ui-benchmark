@@ -1,0 +1,665 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Audit log — Admin</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+  tailwind.config = {
+    theme: {
+      extend: {
+        colors: {
+          canvas: '#F5F6F8',
+          surface: '#FFFFFF',
+          ink: { 900: '#161A22', 700: '#333A47', 500: '#5B6472', 400: '#8690A0' },
+          line: '#E2E5EA',
+          'line-strong': '#CBD0D8',
+          accent: { 50: '#F3F6FB', 100: '#E8EEF6', 600: '#2A5EA8', 700: '#1F4E8C' },
+          good: { 100: '#E4F3EA', 700: '#1C7A4D' },
+          bad: { 100: '#FBEAEA', 700: '#AD3A3A' },
+          warn: { 700: '#96650F' },
+          plum: { 700: '#6B4C8A' },
+        },
+        fontFamily: {
+          sans: ['"IBM Plex Sans"', 'sans-serif'],
+          mono: ['"IBM Plex Mono"', 'monospace'],
+        },
+      },
+    },
+  };
+</script>
+<style>
+  html { font-family: 'IBM Plex Sans', sans-serif; }
+  ::selection { background: #D7E3F2; }
+
+  /* custom scrollbar for the table wrapper */
+  .table-scroll::-webkit-scrollbar { height: 8px; width: 8px; }
+  .table-scroll::-webkit-scrollbar-thumb { background: #CBD0D8; border-radius: 4px; }
+  .table-scroll::-webkit-scrollbar-track { background: transparent; }
+
+  .detail-row td { padding: 0 !important; }
+  .detail-wrap {
+    display: grid;
+    grid-template-rows: 0fr;
+    transition: grid-template-rows 180ms ease;
+  }
+  .detail-row[data-open="true"] .detail-wrap { grid-template-rows: 1fr; }
+  .detail-inner { overflow: hidden; min-height: 0; }
+
+  .chevron { transition: transform 150ms ease; }
+  .chevron[data-open="true"] { transform: rotate(90deg); }
+
+  button, input, a { transition: background-color 120ms ease, border-color 120ms ease, color 120ms ease; }
+
+  @media (prefers-reduced-motion: reduce) {
+    .detail-wrap, .chevron, button, input, a { transition: none !important; }
+  }
+
+  input[type="checkbox"], input[type="radio"] { accent-color: #2A5EA8; }
+
+  :focus-visible { outline: 2px solid #2A5EA8; outline-offset: 2px; }
+</style>
+</head>
+<body class="bg-canvas text-ink-900 min-h-screen">
+
+<!-- Top bar -->
+<header class="border-b border-line bg-surface">
+  <div class="max-w-[1400px] mx-auto px-6 py-5 flex flex-wrap items-start justify-between gap-4">
+    <div>
+      <p class="text-xs text-ink-400 mb-1">Admin / Audit log</p>
+      <h1 class="text-xl font-semibold tracking-tight">Audit log</h1>
+      <p class="text-sm text-ink-500 mt-1 max-w-[52ch]">Every change to users, billing, access and configuration across the workspace, recorded as it happens.</p>
+    </div>
+    <div class="flex items-center gap-4">
+      <div class="text-right">
+        <p class="text-sm font-medium text-ink-900">2,418 events on file</p>
+        <p class="text-xs text-ink-400">Retained for 12 months</p>
+      </div>
+      <div class="w-px self-stretch bg-line"></div>
+      <button id="exportBtn" class="inline-flex items-center gap-2 rounded border border-line-strong bg-surface px-3 py-2 text-sm font-medium text-ink-700 hover:bg-canvas hover:border-ink-400">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="shrink-0"><path d="M12 3v12"/><path d="M7 10l5 5 5-5"/><path d="M5 21h14"/></svg>
+        Export CSV
+      </button>
+    </div>
+  </div>
+</header>
+
+<div class="max-w-[1400px] mx-auto px-6 py-6 flex items-start gap-6">
+
+  <!-- Mobile filter toggle -->
+  <button id="mobileFilterToggle" class="md:hidden fixed bottom-5 right-5 z-20 rounded-full bg-ink-900 text-white px-4 py-3 text-sm font-medium shadow-lg">
+    Filters
+  </button>
+
+  <!-- Filter rail -->
+  <aside id="filterRail" class="hidden md:block w-72 shrink-0 bg-surface border border-line rounded-md p-4 sticky top-6 self-start max-h-[calc(100vh-3rem)] overflow-y-auto">
+    <div class="flex items-center justify-between mb-4">
+      <h2 class="text-sm font-medium text-ink-900">Filters</h2>
+      <button id="clearFiltersBtn" class="text-xs font-medium text-accent-600 hover:text-accent-700">Clear all</button>
+    </div>
+
+    <!-- Date range -->
+    <fieldset class="mb-5">
+      <legend class="text-[13px] font-medium text-ink-700 mb-2">Date range</legend>
+      <div class="flex flex-col gap-1" id="dateRangeGroup">
+        <button data-range="today" class="range-btn text-left text-sm px-2 py-1.5 rounded">Today</button>
+        <button data-range="7d" class="range-btn text-left text-sm px-2 py-1.5 rounded">Last 7 days</button>
+        <button data-range="30d" class="range-btn text-left text-sm px-2 py-1.5 rounded">Last 30 days</button>
+        <button data-range="all" class="range-btn text-left text-sm px-2 py-1.5 rounded">All time</button>
+      </div>
+    </fieldset>
+
+    <label class="flex items-center gap-2 mb-5 text-sm text-ink-700 cursor-pointer">
+      <input type="checkbox" id="diffsOnlyCheckbox" class="rounded border-line-strong">
+      Only show changes with before/after values
+    </label>
+
+    <!-- Actor -->
+    <fieldset class="mb-5">
+      <legend class="text-[13px] font-medium text-ink-700 mb-2">Actor</legend>
+      <p class="text-xs text-ink-400 mb-1">People</p>
+      <div id="actorPeopleGroup" class="flex flex-col gap-1.5 mb-3"></div>
+      <p class="text-xs text-ink-400 mb-1">Automated</p>
+      <div id="actorSystemGroup" class="flex flex-col gap-1.5"></div>
+    </fieldset>
+
+    <!-- Action type -->
+    <fieldset class="mb-5">
+      <legend class="text-[13px] font-medium text-ink-700 mb-2">Action type</legend>
+      <div id="actionGroup" class="flex flex-col gap-1.5"></div>
+    </fieldset>
+
+    <!-- Entity type -->
+    <fieldset>
+      <legend class="text-[13px] font-medium text-ink-700 mb-2">Entity type</legend>
+      <div id="entityGroup" class="flex flex-col gap-1.5"></div>
+    </fieldset>
+  </aside>
+
+  <!-- Main content -->
+  <main class="flex-1 min-w-0">
+
+    <!-- Toolbar -->
+    <div class="bg-surface border border-line rounded-md p-3 mb-3">
+      <div class="flex items-center gap-3">
+        <div class="relative flex-1">
+          <svg class="absolute left-3 top-1/2 -translate-y-1/2 text-ink-400" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
+          <label for="searchInput" class="sr-only">Search the audit log</label>
+          <input id="searchInput" type="text" placeholder="Search by actor, entity, request ID or description"
+            class="w-full pl-9 pr-3 py-2 text-sm rounded border border-line-strong bg-canvas focus:bg-surface focus:border-accent-600">
+        </div>
+      </div>
+      <div id="chipRow" class="flex flex-wrap gap-2 mt-3 empty:mt-0"></div>
+    </div>
+
+    <p id="resultSummary" class="text-sm text-ink-500 mb-2" aria-live="polite"></p>
+
+    <!-- Table -->
+    <div class="bg-surface border border-line rounded-md overflow-hidden">
+      <div class="table-scroll overflow-x-auto">
+        <table class="w-full text-sm border-collapse min-w-[900px]">
+          <thead>
+            <tr class="border-b border-line text-left text-ink-500">
+              <th class="w-9"></th>
+              <th class="py-2.5 px-3 font-medium">Time</th>
+              <th class="py-2.5 px-3 font-medium">Actor</th>
+              <th class="py-2.5 px-3 font-medium">Action</th>
+              <th class="py-2.5 px-3 font-medium">Entity</th>
+              <th class="py-2.5 px-3 font-medium">Summary</th>
+              <th class="py-2.5 px-3 font-medium hidden lg:table-cell">IP address</th>
+            </tr>
+          </thead>
+          <tbody id="tableBody"></tbody>
+        </table>
+      </div>
+      <div id="emptyState" class="hidden p-10 text-center">
+        <p class="text-ink-900 font-medium mb-1">No events match these filters</p>
+        <p class="text-ink-500 text-sm mb-4">Try widening the date range, or clear a filter to see more results.</p>
+        <button id="emptyClearBtn" class="text-sm font-medium text-accent-600 hover:text-accent-700">Clear all filters</button>
+      </div>
+    </div>
+
+    <!-- Pagination -->
+    <div class="flex items-center justify-between mt-3 text-sm text-ink-500">
+      <p id="pageSummary"></p>
+      <div class="flex items-center gap-2">
+        <button id="prevPageBtn" class="rounded border border-line-strong px-3 py-1.5 disabled:opacity-40 disabled:cursor-not-allowed hover:bg-surface">Previous</button>
+        <span id="pageIndicator" class="px-1"></span>
+        <button id="nextPageBtn" class="rounded border border-line-strong px-3 py-1.5 disabled:opacity-40 disabled:cursor-not-allowed hover:bg-surface">Next</button>
+      </div>
+    </div>
+  </main>
+</div>
+
+<script>
+(function () {
+  "use strict";
+  const now = Date.now();
+  const PAGE_SIZE = 10;
+
+  const ACTIONS = {
+    created:   { label: "Created",        color: "#2A5EA8" },
+    updated:   { label: "Updated",        color: "#96650F" },
+    deleted:   { label: "Deleted",        color: "#AD3A3A" },
+    granted:   { label: "Granted access", color: "#6B4C8A" },
+    revoked:   { label: "Revoked access", color: "#6B4C8A" },
+    signed_in: { label: "Signed in",      color: "#5B6472" },
+    exported:  { label: "Exported data",  color: "#5B6472" },
+    disabled:  { label: "Disabled",       color: "#AD3A3A" },
+  };
+
+  const ACTORS = {
+    jordan: { name: "Jordan Alvarez", email: "jordan.alvarez@company.com", type: "human", role: "Security admin" },
+    priya:  { name: "Priya Nair",     email: "priya.nair@company.com",     type: "human", role: "Super admin" },
+    marcus: { name: "Marcus Chen",    email: "marcus.chen@company.com",    type: "human", role: "Billing admin" },
+    elena:  { name: "Elena Petrova",  email: "elena.petrova@company.com",  type: "human", role: "Workspace owner" },
+    sam:    { name: "Sam Okafor",     email: "sam.okafor@company.com",     type: "human", role: "Support admin" },
+    stripe: { name: "Stripe webhook",       type: "system", role: "Payment relay" },
+    scim:   { name: "SCIM provisioning",    type: "system", role: "Identity sync" },
+    okta:   { name: "Okta SSO sync",        type: "system", role: "Identity sync" },
+    keyjob: { name: "Scheduled key rotation", type: "system", role: "Background job" },
+  };
+
+  const RAW = [
+    { id:"e1",  offsetMin:3,    actor:"jordan", action:"updated",   entityType:"Role",            entityName:"Workspace Editor role", entityId:"role_editor_workspace",
+      summary:"Expanded the Editor role to include invite permissions.", ip:"203.0.113.77", client:"Chrome 131 on macOS 15", requestId:"req_120ff7a1",
+      diff:[{field:"Permissions", before:"Read, write", after:"Read, write, invite"}] },
+    { id:"e2",  offsetMin:41,   actor:"stripe", action:"updated",   entityType:"Billing plan",     entityName:"Acme Corp", entityId:"plan_acme_corp",
+      summary:"Payment method updated automatically after the card on file expired.", ip:"198.51.100.21", client:"Stripe webhook relay", requestId:"req_2b88fa10",
+      diff:[{field:"Card on file", before:"Visa ending 4242", after:"Visa ending 9981"},{field:"Status", before:"Past due", after:"Active"}] },
+    { id:"e3",  offsetMin:72,   actor:"marcus", action:"granted",   entityType:"User account",     entityName:"lee.harmon@partner.io", entityId:"usr_lee_harmon",
+      summary:"Granted billing viewer access to an external partner account.", ip:"203.0.113.77", client:"Chrome 131 on macOS 15", requestId:"req_9c3dd041", diff:null },
+    { id:"e4",  offsetMin:125,  actor:"priya",  action:"created",   entityType:"API key",          entityName:"ci-deploy-prod", entityId:"key_ci_deploy_prod",
+      summary:"Created a production deploy key for the CI pipeline.", ip:"203.0.113.77", client:"Chrome 131 on macOS 15", requestId:"req_1144ab02", diff:null },
+    { id:"e5",  offsetMin:160,  actor:"sam",    action:"signed_in", entityType:"Session",          entityName:"Sign-in session", entityId:"sess_8f21",
+      summary:"Signed in from a device not seen on this account before.", ip:"192.0.2.146", client:"Chrome 131 on Windows 11", requestId:"req_55aa3c9b", diff:null },
+    { id:"e6",  offsetMin:190,  actor:"scim",   action:"deleted",   entityType:"User account",     entityName:"temp.contractor@company.com", entityId:"usr_temp_contractor",
+      summary:"Removed a deprovisioned contractor account after offboarding.", ip:"198.51.100.30", client:"SCIM sync agent", requestId:"req_e02f71d4", diff:null },
+    { id:"e7",  offsetMin:242,  actor:"elena",  action:"updated",   entityType:"Feature flag",     entityName:"new-invoice-pdf", entityId:"flag_new_invoice_pdf",
+      summary:"Rolled the invoice PDF flag out to all workspaces.", ip:"203.0.113.19", client:"Firefox 132 on Windows 11", requestId:"req_0ad471cc",
+      diff:[{field:"Rollout", before:"10% of workspaces", after:"100% of workspaces"}] },
+    { id:"e8",  offsetMin:318,  actor:"jordan", action:"revoked",   entityType:"User account",     entityName:"intern.rivera@company.com", entityId:"usr_intern_rivera",
+      summary:"Revoked billing access for an intern account at contract end.", ip:"203.0.113.60", client:"Safari 18 on macOS 15", requestId:"req_8b63f102", diff:null },
+    { id:"e9",  offsetMin:360,  actor:"okta",   action:"updated",   entityType:"SSO configuration", entityName:"company-okta", entityId:"sso_company_okta",
+      summary:"Renewed the SSO certificate ahead of its expiry date.", ip:"198.51.100.44", client:"Okta sync agent", requestId:"req_c4102eab",
+      diff:[{field:"Certificate expiry", before:"Nov 10, 2026", after:"Nov 10, 2027"}] },
+    { id:"e10", offsetMin:450,  actor:"priya",  action:"deleted",   entityType:"Webhook",          entityName:"legacy-order-sync", entityId:"whk_legacy_order_sync",
+      summary:"Removed a webhook endpoint pointing to a retired service.", ip:"203.0.113.60", client:"Safari 18 on macOS 15", requestId:"req_f90a21bc", diff:null },
+    { id:"e11", offsetMin:540,  actor:"marcus", action:"updated",   entityType:"Billing plan",     entityName:"Fenwick Labs", entityId:"plan_fenwick_labs",
+      summary:"Moved Fenwick Labs to the Enterprise plan and added seats.", ip:"203.0.113.12", client:"Edge 131 on Windows 11", requestId:"req_3d8cc901",
+      diff:[{field:"Plan", before:"Growth", after:"Enterprise"},{field:"Seats", before:"25", after:"100"}] },
+    { id:"e12", offsetMin:645,  actor:"keyjob", action:"created",   entityType:"API key",          entityName:"internal-metrics-rotated", entityId:"key_internal_metrics",
+      summary:"Rotated an internal metrics key ahead of its expiry.", ip:"192.0.2.9", client:"Scheduled job runner", requestId:"req_aa710c4e", diff:null },
+    { id:"e13", offsetMin:720,  actor:"sam",    action:"exported",  entityType:"User account",     entityName:"User directory export", entityId:"usr_directory_export",
+      summary:"Exported the full user directory for a compliance review.", ip:"203.0.113.91", client:"Chrome 131 on Windows 11", requestId:"req_6612ed9f", diff:null },
+    { id:"e14", offsetMin:1440, actor:"jordan", action:"updated",   entityType:"Team",             entityName:"Platform Engineering", entityId:"team_platform_engineering",
+      summary:"Added three engineers to the Platform Engineering team.", ip:"203.0.113.60", client:"Safari 18 on macOS 15", requestId:"req_bb401a77",
+      diff:[{field:"Members", before:"8", after:"11"}] },
+    { id:"e15", offsetMin:1560, actor:"elena",  action:"created",   entityType:"Team",             entityName:"Data & Analytics", entityId:"team_data_analytics",
+      summary:"Created a new team for the analytics organization.", ip:"198.51.100.5", client:"Chrome 131 on macOS 15", requestId:"req_1e9f4402", diff:null },
+    { id:"e16", offsetMin:1740, actor:"priya",  action:"updated",   entityType:"IP allowlist",      entityName:"office-network", entityId:"ip_office_network",
+      summary:"Added a second CIDR range to the office IP allowlist.", ip:"203.0.113.77", client:"Chrome 131 on macOS 15", requestId:"req_77cc0912",
+      diff:[{field:"Allowed ranges", before:"203.0.113.0/24", after:"203.0.113.0/24, 198.51.100.0/24"}] },
+    { id:"e17", offsetMin:1920, actor:"marcus", action:"signed_in", entityType:"Session",          entityName:"Sign-in session", entityId:"sess_6c04",
+      summary:"Signed in from a previously recognized device.", ip:"198.51.100.12", client:"Safari 18 on iPadOS", requestId:"req_44109abc", diff:null },
+    { id:"e18", offsetMin:2880, actor:"scim",   action:"created",   entityType:"User account",     entityName:"noa.lindgren@company.com", entityId:"usr_noa_lindgren",
+      summary:"Provisioned a new employee account from the Okta directory.", ip:"198.51.100.30", client:"SCIM sync agent", requestId:"req_aa02f731", diff:null },
+    { id:"e19", offsetMin:3060, actor:"jordan", action:"disabled",  entityType:"Integration",      entityName:"Slack notifications", entityId:"int_slack_notifications",
+      summary:"Disabled the Slack integration after a webhook abuse report.", ip:"203.0.113.60", client:"Safari 18 on macOS 15", requestId:"req_99cd04aa", diff:null },
+    { id:"e20", offsetMin:3240, actor:"priya",  action:"updated",   entityType:"Role",             entityName:"Support admin role", entityId:"role_support_admin",
+      summary:"Added read-only impersonation to the Support admin role.", ip:"203.0.113.77", client:"Chrome 131 on macOS 15", requestId:"req_120ff7a1b",
+      diff:[{field:"Permissions", before:"Read", after:"Read, impersonate (read-only)"}] },
+    { id:"e21", offsetMin:4320, actor:"elena",  action:"granted",   entityType:"User account",     entityName:"sam.okafor@company.com", entityId:"usr_sam_okafor",
+      summary:"Granted the Support admin role to a new team member.", ip:"198.51.100.5", client:"Chrome 131 on macOS 15", requestId:"req_decb9931", diff:null },
+    { id:"e22", offsetMin:4560, actor:"stripe", action:"updated",   entityType:"Billing plan",     entityName:"Northbridge Retail", entityId:"plan_northbridge_retail",
+      summary:"Marked Northbridge Retail past due after a failed charge.", ip:"198.51.100.21", client:"Stripe webhook relay", requestId:"req_bb12ac44",
+      diff:[{field:"Status", before:"Active", after:"Past due"}] },
+    { id:"e23", offsetMin:5760, actor:"marcus", action:"deleted",   entityType:"API key",          entityName:"staging-legacy", entityId:"key_staging_legacy",
+      summary:"Removed a staging key inactive for the past 180 days.", ip:"203.0.113.12", client:"Edge 131 on Windows 11", requestId:"req_e671c204", diff:null },
+    { id:"e24", offsetMin:7200, actor:"jordan", action:"revoked",   entityType:"User account",     entityName:"contract.dev@vendor.com", entityId:"usr_contract_dev",
+      summary:"Revoked repository access at the end of a contract.", ip:"203.0.113.77", client:"Chrome 131 on macOS 15", requestId:"req_c902af31", diff:null },
+    { id:"e25", offsetMin:8640, actor:"okta",   action:"updated",   entityType:"SSO configuration", entityName:"company-okta", entityId:"sso_company_okta",
+      summary:"Made multi-factor authentication mandatory for SSO sign-in.", ip:"198.51.100.44", client:"Okta sync agent", requestId:"req_09aacf12",
+      diff:[{field:"Enforced MFA", before:"Optional", after:"Required"}] },
+    { id:"e26", offsetMin:12960, actor:"priya", action:"updated",   entityType:"Billing plan",     entityName:"Acme Corp", entityId:"plan_acme_corp",
+      summary:"Turned on auto-renew for the Acme Corp subscription.", ip:"203.0.113.77", client:"Chrome 131 on macOS 15", requestId:"req_441f0ab9",
+      diff:[{field:"Auto-renew", before:"Off", after:"On"}] },
+    { id:"e27", offsetMin:20160, actor:"sam",   action:"exported",  entityType:"Audit log",        entityName:"Q3 security review export", entityId:"log_q3_security_review",
+      summary:"Exported the audit log for a Q3 security review.", ip:"203.0.113.91", client:"Chrome 131 on Windows 11", requestId:"req_f10239ab", diff:null },
+    { id:"e28", offsetMin:30240, actor:"elena", action:"deleted",   entityType:"Team",             entityName:"Legacy Support", entityId:"team_legacy_support",
+      summary:"Archived and removed the Legacy Support team after a reorg.", ip:"198.51.100.5", client:"Chrome 131 on macOS 15", requestId:"req_7a01cc90", diff:null },
+  ];
+
+  const ENTRIES = RAW.map(e => ({ ...e, ts: now - e.offsetMin * 60000 })).sort((a, b) => b.ts - a.ts);
+
+  function countBy(key) {
+    const counts = {};
+    ENTRIES.forEach(e => { const v = e[key]; counts[v] = (counts[v] || 0) + 1; });
+    return counts;
+  }
+  const actorCounts = countBy("actor");
+  const actionCounts = countBy("action");
+  const entityCounts = countBy("entityType");
+
+  const state = {
+    search: "",
+    range: "30d",
+    diffsOnly: false,
+    actors: new Set(),
+    actions: new Set(),
+    entityTypes: new Set(),
+    page: 1,
+  };
+  const expanded = new Set();
+
+  function formatRelative(min) {
+    if (min < 60) return min + " min ago";
+    if (min < 1440) {
+      const h = Math.floor(min / 60), m = min % 60;
+      return m ? h + "h " + m + "m ago" : h + "h ago";
+    }
+    const d = Math.floor(min / 1440);
+    return d + "d ago";
+  }
+
+  function formatClock(ts) {
+    return new Date(ts).toLocaleTimeString("en-US", { hour12: false, hour: "2-digit", minute: "2-digit", second: "2-digit" });
+  }
+  function formatFull(ts) {
+    return new Date(ts).toLocaleString("en-US", { dateStyle: "long", timeStyle: "medium" });
+  }
+
+  function rangeMinutes(range) {
+    if (range === "today") return 1440;
+    if (range === "7d") return 7 * 1440;
+    if (range === "30d") return 30 * 1440;
+    return Infinity;
+  }
+
+  function escapeHtml(s) {
+    return String(s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+  }
+
+  function matchesSearch(e, q) {
+    if (!q) return true;
+    const actor = ACTORS[e.actor];
+    const haystack = [actor.name, actor.email || "", e.entityName, e.entityId, e.summary, e.requestId, e.entityType].join(" ").toLowerCase();
+    return haystack.includes(q.toLowerCase());
+  }
+
+  function getFiltered() {
+    const maxMin = rangeMinutes(state.range);
+    return ENTRIES.filter(e => {
+      if (e.offsetMin >= maxMin) return false;
+      if (state.diffsOnly && !e.diff) return false;
+      if (state.actors.size && !state.actors.has(e.actor)) return false;
+      if (state.actions.size && !state.actions.has(e.action)) return false;
+      if (state.entityTypes.size && !state.entityTypes.has(e.entityType)) return false;
+      if (!matchesSearch(e, state.search)) return false;
+      return true;
+    });
+  }
+
+  function buildCheckbox(container, { value, label, count, dotColor, group }) {
+    const id = "chk_" + group + "_" + value.replace(/\W+/g, "_");
+    const wrap = document.createElement("label");
+    wrap.className = "flex items-center gap-2 text-sm text-ink-700 cursor-pointer";
+    wrap.innerHTML = `
+      <input type="checkbox" id="${id}" class="rounded border-line-strong shrink-0" data-group="${group}" data-value="${escapeHtml(value)}">
+      ${dotColor ? `<span class="w-2 h-2 rounded-full shrink-0" style="background:${dotColor}"></span>` : ""}
+      <span class="flex-1">${escapeHtml(label)}</span>
+      <span class="text-xs text-ink-400">${count}</span>
+    `;
+    container.appendChild(wrap);
+  }
+
+  function initRailLists() {
+    const peopleWrap = document.getElementById("actorPeopleGroup");
+    const systemWrap = document.getElementById("actorSystemGroup");
+    Object.entries(ACTORS)
+      .sort((a, b) => (actorCounts[b[0]] || 0) - (actorCounts[a[0]] || 0))
+      .forEach(([key, actor]) => {
+        if (!actorCounts[key]) return;
+        buildCheckbox(actor.type === "human" ? peopleWrap : systemWrap, {
+          value: key, label: actor.name, count: actorCounts[key], group: "actors",
+        });
+      });
+
+    const actionWrap = document.getElementById("actionGroup");
+    Object.entries(ACTIONS).forEach(([key, a]) => {
+      if (!actionCounts[key]) return;
+      buildCheckbox(actionWrap, { value: key, label: a.label, count: actionCounts[key], dotColor: a.color, group: "actions" });
+    });
+
+    const entityWrap = document.getElementById("entityGroup");
+    Object.keys(entityCounts).sort().forEach(key => {
+      buildCheckbox(entityWrap, { value: key, label: key, count: entityCounts[key], group: "entityTypes" });
+    });
+
+    document.querySelectorAll('input[type="checkbox"][data-group]').forEach(cb => {
+      cb.addEventListener("change", () => {
+        const set = state[cb.dataset.group];
+        if (cb.checked) set.add(cb.dataset.value); else set.delete(cb.dataset.value);
+        state.page = 1;
+        render();
+      });
+    });
+  }
+
+  function updateRangeButtons() {
+    document.querySelectorAll(".range-btn").forEach(btn => {
+      const active = btn.dataset.range === state.range;
+      btn.className = "range-btn text-left text-sm px-2 py-1.5 rounded " +
+        (active ? "bg-accent-100 text-accent-700 font-medium" : "text-ink-700 hover:bg-canvas");
+    });
+  }
+
+  function renderChips() {
+    const chipRow = document.getElementById("chipRow");
+    const chips = [];
+    state.actors.forEach(v => chips.push({ group: "actors", value: v, label: ACTORS[v].name }));
+    state.actions.forEach(v => chips.push({ group: "actions", value: v, label: ACTIONS[v].label }));
+    state.entityTypes.forEach(v => chips.push({ group: "entityTypes", value: v, label: v }));
+    if (state.diffsOnly) chips.push({ group: "diffsOnly", value: "1", label: "Field changes only" });
+
+    chipRow.innerHTML = chips.map(c => `
+      <button data-chip-group="${c.group}" data-chip-value="${escapeHtml(c.value)}"
+        class="inline-flex items-center gap-1.5 text-xs font-medium bg-accent-100 text-accent-700 border border-accent-100 rounded-full pl-3 pr-2 py-1 hover:border-accent-600">
+        ${escapeHtml(c.label)}
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M18 6 6 18"/><path d="M6 6l12 12"/></svg>
+      </button>
+    `).join("");
+
+    chipRow.querySelectorAll("button[data-chip-group]").forEach(btn => {
+      btn.addEventListener("click", () => {
+        const g = btn.dataset.chipGroup;
+        if (g === "diffsOnly") {
+          state.diffsOnly = false;
+          document.getElementById("diffsOnlyCheckbox").checked = false;
+        } else {
+          state[g].delete(btn.dataset.chipValue);
+          const cb = document.querySelector(`input[data-group="${g}"][data-value="${CSS.escape(btn.dataset.chipValue)}"]`);
+          if (cb) cb.checked = false;
+        }
+        state.page = 1;
+        render();
+      });
+    });
+  }
+
+  function renderDiffTable(diff) {
+    return `
+      <table class="w-full text-xs border-collapse mt-2">
+        <thead>
+          <tr class="text-ink-400 text-left">
+            <th class="font-medium pb-1 pr-4">Field</th>
+            <th class="font-medium pb-1 pr-4">Before</th>
+            <th class="font-medium pb-1">After</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${diff.map(d => `
+            <tr class="border-t border-line">
+              <td class="py-1.5 pr-4 text-ink-700 align-top whitespace-nowrap">${escapeHtml(d.field)}</td>
+              <td class="py-1.5 pr-4 font-mono text-bad-700 align-top">${escapeHtml(d.before)}</td>
+              <td class="py-1.5 font-mono text-good-700 align-top">${escapeHtml(d.after)}</td>
+            </tr>
+          `).join("")}
+        </tbody>
+      </table>
+    `;
+  }
+
+  function entryRowHtml(e) {
+    const actor = ACTORS[e.actor];
+    const action = ACTIONS[e.action];
+    const isOpen = expanded.has(e.id);
+    return `
+      <tr class="border-b border-line hover:bg-accent-50 cursor-pointer" data-row="${e.id}">
+        <td class="pl-3 py-2.5">
+          <svg class="chevron text-ink-400" data-open="${isOpen}" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="m9 6 6 6-6 6"/></svg>
+        </td>
+        <td class="py-2.5 px-3 align-top">
+          <p class="font-mono text-ink-900">${formatClock(e.ts)}</p>
+          <p class="text-xs text-ink-400">${formatRelative(e.offsetMin)}</p>
+        </td>
+        <td class="py-2.5 px-3 align-top">
+          <p class="font-medium text-ink-900">${escapeHtml(actor.name)}</p>
+          <p class="text-xs text-ink-400">${actor.type === "system" ? "Automated &middot; " + escapeHtml(actor.role) : escapeHtml(actor.role)}</p>
+        </td>
+        <td class="py-2.5 px-3 align-top whitespace-nowrap">
+          <span class="inline-flex items-center gap-1.5">
+            <span class="w-2 h-2 rounded-full shrink-0" style="background:${action.color}"></span>
+            ${escapeHtml(action.label)}
+          </span>
+        </td>
+        <td class="py-2.5 px-3 align-top">
+          <p class="text-ink-900">${escapeHtml(e.entityType)}</p>
+          <p class="text-xs text-ink-400 font-mono">${escapeHtml(e.entityName)}</p>
+        </td>
+        <td class="py-2.5 px-3 align-top max-w-[320px]">${escapeHtml(e.summary)}</td>
+        <td class="py-2.5 px-3 align-top font-mono text-ink-400 hidden lg:table-cell">${e.ip}</td>
+      </tr>
+      <tr class="detail-row" data-open="${isOpen}" data-detail-for="${e.id}">
+        <td colspan="7">
+          <div class="detail-wrap">
+            <div class="detail-inner">
+              <div class="bg-canvas border-b border-line px-4 py-4 grid grid-cols-2 sm:grid-cols-4 gap-4 text-xs">
+                <div>
+                  <p class="text-ink-400 mb-0.5">Actor</p>
+                  <p class="text-ink-900">${escapeHtml(actor.type === "human" ? actor.email : actor.role)}</p>
+                </div>
+                <div>
+                  <p class="text-ink-400 mb-0.5">IP address</p>
+                  <p class="font-mono text-ink-900">${e.ip}</p>
+                </div>
+                <div>
+                  <p class="text-ink-400 mb-0.5">Client</p>
+                  <p class="text-ink-900">${escapeHtml(e.client)}</p>
+                </div>
+                <div>
+                  <p class="text-ink-400 mb-0.5">Request ID</p>
+                  <p class="font-mono text-ink-900">${e.requestId}</p>
+                </div>
+                <div class="col-span-2 sm:col-span-4">
+                  <p class="text-ink-400 mb-0.5">Full timestamp</p>
+                  <p class="font-mono text-ink-900">${formatFull(e.ts)}</p>
+                </div>
+                ${e.diff ? `<div class="col-span-2 sm:col-span-4">
+                  <p class="text-ink-400 mb-0.5">Field changes</p>
+                  ${renderDiffTable(e.diff)}
+                </div>` : ""}
+              </div>
+            </div>
+          </div>
+        </td>
+      </tr>
+    `;
+  }
+
+  function render() {
+    updateRangeButtons();
+    renderChips();
+
+    const filtered = getFiltered();
+    const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+    state.page = Math.min(state.page, totalPages);
+    const start = (state.page - 1) * PAGE_SIZE;
+    const pageItems = filtered.slice(start, start + PAGE_SIZE);
+
+    const tbody = document.getElementById("tableBody");
+    const emptyState = document.getElementById("emptyState");
+    const table = tbody.closest("table").parentElement;
+
+    if (!filtered.length) {
+      tbody.innerHTML = "";
+      emptyState.classList.remove("hidden");
+      table.classList.add("hidden");
+    } else {
+      emptyState.classList.add("hidden");
+      table.classList.remove("hidden");
+      tbody.innerHTML = pageItems.map(entryRowHtml).join("");
+    }
+
+    document.getElementById("resultSummary").textContent =
+      filtered.length ? `Showing ${filtered.length} matching event${filtered.length === 1 ? "" : "s"} of ${ENTRIES.length} loaded` : "";
+
+    document.getElementById("pageSummary").textContent = filtered.length
+      ? `Showing ${start + 1}–${Math.min(start + PAGE_SIZE, filtered.length)} of ${filtered.length}`
+      : "";
+    document.getElementById("pageIndicator").textContent = `Page ${state.page} of ${totalPages}`;
+    document.getElementById("prevPageBtn").disabled = state.page <= 1;
+    document.getElementById("nextPageBtn").disabled = state.page >= totalPages;
+
+    window.__currentFiltered = filtered;
+  }
+
+  function bindTableEvents() {
+    document.getElementById("tableBody").addEventListener("click", (ev) => {
+      const row = ev.target.closest("tr[data-row]");
+      if (!row) return;
+      const id = row.dataset.row;
+      if (expanded.has(id)) expanded.delete(id); else expanded.add(id);
+      const dataRow = document.querySelector(`tr[data-row="${id}"]`);
+      const detailRow = document.querySelector(`tr[data-detail-for="${id}"]`);
+      const isOpen = expanded.has(id);
+      detailRow.dataset.open = isOpen;
+      dataRow.querySelector(".chevron").dataset.open = isOpen;
+    });
+  }
+
+  function bindControls() {
+    document.getElementById("searchInput").addEventListener("input", (e) => {
+      state.search = e.target.value;
+      state.page = 1;
+      render();
+    });
+
+    document.getElementById("dateRangeGroup").addEventListener("click", (e) => {
+      const btn = e.target.closest(".range-btn");
+      if (!btn) return;
+      state.range = btn.dataset.range;
+      state.page = 1;
+      render();
+    });
+
+    document.getElementById("diffsOnlyCheckbox").addEventListener("change", (e) => {
+      state.diffsOnly = e.target.checked;
+      state.page = 1;
+      render();
+    });
+
+    function clearAll() {
+      state.search = ""; state.range = "30d"; state.diffsOnly = false; state.page = 1;
+      state.actors.clear(); state.actions.clear(); state.entityTypes.clear();
+      document.getElementById("searchInput").value = "";
+      document.getElementById("diffsOnlyCheckbox").checked = false;
+      document.querySelectorAll('input[type="checkbox"][data-group]').forEach(cb => cb.checked = false);
+      render();
+    }
+    document.getElementById("clearFiltersBtn").addEventListener("click", clearAll);
+    document.getElementById("emptyClearBtn").addEventListener("click", clearAll);
+
+    document.getElementById("prevPageBtn").addEventListener("click", () => { state.page -= 1; render(); });
+    document.getElementById("nextPageBtn").addEventListener("click", () => { state.page += 1; render(); });
+
+    document.getElementById("mobileFilterToggle").addEventListener("click", () => {
+      document.getElementById("filterRail").classList.toggle("hidden");
+    });
+
+    document.getElementById("exportBtn").addEventListener("click", () => {
+      const rows = window.__currentFiltered || ENTRIES;
+      const header = ["Time", "Actor", "Action", "Entity type", "Entity", "Summary", "IP address", "Request ID"];
+      const lines = [header.join(",")];
+      rows.forEach(e => {
+        const actor = ACTORS[e.actor];
+        const action = ACTIONS[e.action];
+        const csvEscape = (v) => `"${String(v).replace(/"/g, '""')}"`;
+        lines.push([
+          csvEscape(formatFull(e.ts)), csvEscape(actor.name), csvEscape(action.label),
+          csvEscape(e.entityType), csvEscape(e.entityName), csvEscape(e.summary), csvEscape(e.ip), csvEscape(e.requestId),
+        ].join(","));
+      });
+      const blob = new Blob([lines.join("\n")], { type: "text/csv;charset=utf-8;" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "audit-log-export.csv";
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    });
+  }
+
+  initRailLists();
+  bindControls();
+  bindTableEvents();
+  render();
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,54 @@
+{
+  "brief": "25-audit-log",
+  "run": 1,
+  "items": [
+    {
+      "item": "Each entry shows when, who (the person's name and account, or \"System\" or the integration's name for automated changes), the action, the affected record (type plus ID or name) and the outcome (such as Success, Failed or Denied) in text",
+      "pass": false,
+      "evidence": "entryRowHtml() renders time, actor.name + role, action.label, entityType + entityName. No outcome/status field exists anywhere in RAW data or the row/detail markup (e.g. e1 has no status; detail panel only adds Actor/IP/Client/Request ID/Full timestamp/Field changes) — there is no Success/Failed/Denied value shown for any entry."
+    },
+    {
+      "item": "Timestamps give the date and the time to the second with the time zone stated (such as \"05/11/2026 14:32:07 UTC+7\"), and entries are listed newest first",
+      "pass": false,
+      "evidence": "formatClock() shows only HH:MM:SS with no date (row shows '16:39:35' + '3 min ago'); formatFull() uses toLocaleString({dateStyle:'long',timeStyle:'medium'}) which yields e.g. 'November 9, 2026 at 4:39:35 PM' with no timezone/offset shown anywhere. Newest-first ordering itself is correct: `ENTRIES = RAW.map(...).sort((a,b)=>b.ts-a.ts)`."
+    },
+    {
+      "item": "An update entry shows each changed field with its old and new value side by side under \"Before\" and \"After\" labels, so the change reads correctly without relying on colour",
+      "pass": true,
+      "evidence": "renderDiffTable() builds a table with `<th>Field</th><th>Before</th><th>After</th>` text headers and one row per diff field (e.g. row e1: 'Permissions | Read, write | Read, write, invite'); labels are textual, not colour-only (colour is an added cue via text-bad-700/text-good-700)."
+    },
+    {
+      "item": "Passwords, tokens and other secret fields never appear in clear text; their changes are shown masked (such as \"••••• changed\")",
+      "pass": false,
+      "evidence": "No password/token/API-key field ever appears in a diff; API key create/delete events (e4, e12, e23) carry diff:null and only a prose summary ('Created a production deploy key…'), so masked-secret rendering is never implemented or demonstrated anywhere in ACTIONS/RAW/renderDiffTable."
+    },
+    {
+      "item": "Filters cover a date range with presets, the actor, the action type and the record type, a search box finds a record by its ID, and the number of matching entries is shown",
+      "pass": true,
+      "evidence": "Date presets `data-range=\"today|7d|30d|all\"`; Actor checkboxes from ACTORS; Action type checkboxes from ACTIONS; Entity type checkboxes from entityCounts; `#searchInput` and matchesSearch() include e.entityId and e.requestId in the searched haystack; `#resultSummary` renders 'Showing 28 matching events of 28 loaded'."
+    },
+    {
+      "item": "Entries are read-only: no edit or delete control appears on any entry, and the page states that the log cannot be altered",
+      "pass": false,
+      "evidence": "No edit/delete controls exist on rows (true), but no text anywhere on the page states the log is immutable/cannot be altered — header copy only says 'recorded as it happens' and '2,418 events on file / Retained for 12 months', with no immutability statement."
+    },
+    {
+      "item": "Export to CSV or Excel covers exactly the entries matching the current filters, and the export control states how many entries it will include",
+      "pass": false,
+      "evidence": "exportBtn handler uses `window.__currentFiltered || ENTRIES` so the CSV does match current filters (pass on scope), but the control's visible label is static 'Export CSV' with no count — it never shows e.g. 'Export 28 entries'."
+    },
+    {
+      "item": "The log is a table with column header cells, and each entry's details open from a keyboard-operable control (a button with aria-expanded or a link) rather than only from a click on the row",
+      "pass": false,
+      "evidence": "Table has proper `<th>` header cells (Time/Actor/Action/Entity/Summary/IP address), but expansion is bound only via `tableBody.addEventListener(\"click\", ev => ev.target.closest('tr[data-row]'))` on the whole `<tr class=\"...cursor-pointer\">`; the chevron is a bare `<svg class=\"chevron\">` inside a `<td>`, not a `<button>`/`<a>`, has no aria-expanded and no keyboard handler, so it cannot be opened via keyboard."
+    },
+    {
+      "item": "Filters that match nothing show a message with a clear-filters action, and a loading state and an error state with retry are built in",
+      "pass": false,
+      "evidence": "`#emptyState` shows 'No events match these filters' plus a '#emptyClearBtn' Clear-all-filters button (pass for empty case), but there is no loading state (no spinner/skeleton markup or logic) and no error state or retry control anywhere in the script or markup."
+    }
+  ],
+  "tells": [],
+  "notes": "Data/UI is static client-side (ENTRIES hardcoded, Date.now() at load) so there is no real loading or error path to exercise. The biggest gaps vs the checklist are structural/missing features rather than styling: no outcome/status field, no timezone on timestamps, no immutability statement, no masked-secret example, keyboard-inaccessible row expansion, and no entry count on the export control. Visual design is restrained IBM Plex Sans/Mono enterprise style with muted per-action colour dots (blue/amber/red/purple/gray) — these read as a legitimate semantic legend rather than a garish rainbow-status pattern, so not flagged as a tell. No greeting header, KPI tiles, avatars, gradients, glass, uppercase tracked labels, emoji icons, sidebar promo, decorative chart, hover-lift, oversized radii, or navy/indigo sidebar were found.",
+  "blind": true
+}

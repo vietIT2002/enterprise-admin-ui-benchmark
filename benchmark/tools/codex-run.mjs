@@ -19,11 +19,11 @@ ${out}
 
 When done, reply with only the file path.`;
 
-export const GREEN = (prompt, out, skillDir = SKILL_DIR) => `A skill for this kind of work is installed at ${skillDir}. Before you start, read its SKILL.md and follow it; open the reference files it points to when your task needs them. Do not read any other files under \`skills/\`, \`docs/\` or \`benchmark/\`, and do not create any file other than the one below.
+export const GREEN = (prompt, out, skillDir = SKILL_DIR, { checks = false } = {}) => `A skill for this kind of work is installed at ${skillDir}. Before you start, read its SKILL.md and follow it; open the reference files it points to when your task needs them. Do not read any other files under \`skills/\`, \`docs/\` or \`benchmark/\`, and do not create any file other than the one below.
 
 Task from a user: "${prompt}"
 
-Constraints: deliver a single self-contained HTML file using Tailwind via CDN (\`<script src="https://cdn.tailwindcss.com"></script>\`) plus vanilla JS with realistic mock data. Do not open a browser, start a server or run tests — write the file once and stop. Write it to:
+Constraints: deliver a single self-contained HTML file using Tailwind via CDN (\`<script src="https://cdn.tailwindcss.com"></script>\`) plus vanilla JS with realistic mock data. ${checks ? 'Do not start a server. You may run node to check the file with a script the skill provides, and then edit the file' : 'Do not open a browser, start a server or run tests — write the file once and stop'}. Write it to:
 ${out}
 
 When done, reply with only the file path.`;

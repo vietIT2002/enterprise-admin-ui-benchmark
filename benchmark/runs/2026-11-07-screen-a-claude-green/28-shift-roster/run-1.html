@@ -1,0 +1,688 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Weekly roster · Northgate Market</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+  [hidden] { display: none !important; }
+  .tnum { font-variant-numeric: tabular-nums; }
+  @media print {
+    aside, nav, button, input, select, [data-no-print] { display: none !important; }
+    main { padding: 0 !important; }
+  }
+</style>
+</head>
+<body class="bg-white text-sm text-slate-900 antialiased">
+<div class="flex min-h-screen">
+  <aside class="w-56 shrink-0 border-r border-slate-200 bg-slate-50">
+    <div class="flex h-12 items-center px-4 font-semibold">Northgate Market</div>
+    <nav aria-label="Main" class="px-2 pb-4">
+      <p class="px-2 pb-1 pt-3 text-xs font-medium text-slate-600">Scheduling</p>
+      <a href="#" aria-current="page" class="flex h-8 items-center rounded bg-slate-200 px-2 font-medium">Weekly roster</a>
+      <a href="#" class="flex h-8 items-center rounded px-2 text-slate-700 hover:bg-slate-100">Time off requests</a>
+      <p class="px-2 pb-1 pt-3 text-xs font-medium text-slate-600">Team</p>
+      <a href="#" class="flex h-8 items-center rounded px-2 text-slate-700 hover:bg-slate-100">Staff directory</a>
+      <a href="#" class="flex h-8 items-center rounded px-2 text-slate-700 hover:bg-slate-100">Roles &amp; permissions</a>
+    </nav>
+  </aside>
+
+  <main class="min-w-0 flex-1 px-6 py-4">
+    <header class="flex flex-wrap items-center justify-between gap-3">
+      <div>
+        <div class="flex items-center gap-2">
+          <h1 class="text-xl font-semibold text-slate-900">Weekly roster</h1>
+          <span id="status-badge" class="inline-flex h-6 items-center rounded-full px-2 text-xs font-medium"></span>
+        </div>
+        <p id="status-note" class="mt-0.5 text-xs text-slate-600"></p>
+      </div>
+      <div class="flex items-center gap-2">
+        <button type="button" id="export-btn" class="h-8 rounded border border-slate-300 bg-white px-3 hover:bg-slate-50">Export 0 shifts</button>
+        <button type="button" id="print-btn" class="h-8 rounded border border-slate-300 bg-white px-3 hover:bg-slate-50">Print</button>
+        <button type="button" id="publish-btn" class="h-8 rounded bg-blue-700 px-3 font-medium text-white hover:bg-blue-800">Publish week</button>
+      </div>
+    </header>
+
+    <div id="toolbar" class="mt-4 flex flex-wrap items-center gap-2">
+      <button type="button" id="today-btn" class="h-8 rounded border border-slate-300 bg-white px-3 hover:bg-slate-50">Today</button>
+      <button type="button" id="prev-btn" aria-label="Previous week" class="h-8 w-8 rounded border border-slate-300 bg-white hover:bg-slate-50">‹</button>
+      <button type="button" id="next-btn" aria-label="Next week" class="h-8 w-8 rounded border border-slate-300 bg-white hover:bg-slate-50">›</button>
+      <h2 id="range-heading" tabindex="-1" aria-live="polite" class="font-semibold text-slate-900"></h2>
+      <div class="ml-auto flex items-center rounded border border-slate-300 bg-white p-0.5" role="group" aria-label="View">
+        <button type="button" id="view-week-btn" aria-pressed="true" class="h-7 rounded px-2 text-slate-700">Week</button>
+        <button type="button" id="view-list-btn" aria-pressed="false" class="h-7 rounded px-2 text-slate-700">List</button>
+      </div>
+    </div>
+
+    <div class="mt-3 flex flex-wrap items-center gap-2">
+      <input type="search" id="q" aria-label="Search staff by name" placeholder="Search staff" class="h-8 w-64 rounded border border-slate-300 px-2">
+      <label class="sr-only" for="f-role">Role</label>
+      <select id="f-role" class="h-8 rounded border border-slate-300 bg-white px-2">
+        <option value="">All roles</option>
+        <option>Store manager</option>
+        <option>Assistant manager</option>
+        <option>Supervisor</option>
+        <option>Cashier</option>
+        <option>Sales associate</option>
+        <option>Stock associate</option>
+      </select>
+      <div id="chips" class="flex flex-wrap items-center gap-1"></div>
+    </div>
+
+    <p class="mt-3 text-slate-600" data-result-count><span id="result-count"></span></p>
+
+    <div class="mt-2 flex flex-wrap items-center gap-4 text-xs text-slate-600">
+      <span class="flex items-center gap-1"><span aria-hidden="true" class="h-3 w-3 rounded-full border-2 border-blue-700"></span>Today</span>
+      <span class="flex items-center gap-1"><span aria-hidden="true" class="h-3 w-3 rounded bg-slate-200"></span>Closed</span>
+      <span class="flex items-center gap-1"><span aria-hidden="true" class="h-3 w-3 rounded border border-dashed border-slate-400"></span>Draft shift, not yet published</span>
+      <span class="flex items-center gap-1"><span aria-hidden="true" class="h-3 w-3 rounded-full bg-amber-500"></span>Below minimum staffing</span>
+    </div>
+
+    <section data-region="roster" class="mt-2" aria-label="Weekly roster">
+      <div data-state="ready">
+        <div id="view-week" class="overflow-x-auto rounded-md border border-slate-200">
+          <table class="w-full border-collapse">
+            <caption class="sr-only">Weekly roster: staff by day</caption>
+            <thead class="bg-slate-50 text-slate-700">
+              <tr id="week-head-row" class="border-b border-slate-200"></tr>
+            </thead>
+            <tbody id="week-rows"></tbody>
+            <tfoot class="bg-slate-50 text-slate-700">
+              <tr id="week-foot-row" class="border-t border-slate-200"></tr>
+            </tfoot>
+          </table>
+        </div>
+        <div id="view-list" hidden class="overflow-x-auto rounded-md border border-slate-200">
+          <table class="w-full border-collapse">
+            <caption class="sr-only">Weekly roster: shift list</caption>
+            <thead class="bg-slate-50 text-slate-700">
+              <tr class="h-10 border-b border-slate-200">
+                <th scope="col" class="px-3 text-left font-medium">Date</th>
+                <th scope="col" class="px-3 text-left font-medium">Staff</th>
+                <th scope="col" class="px-3 text-left font-medium">Role</th>
+                <th scope="col" class="px-3 text-left font-medium">Time</th>
+                <th scope="col" class="px-3 text-right font-medium">Hours</th>
+                <th scope="col" class="px-3 text-left font-medium">Status</th>
+              </tr>
+            </thead>
+            <tbody id="list-rows"></tbody>
+          </table>
+        </div>
+      </div>
+      <div data-state="empty" hidden class="rounded-md border border-dashed border-slate-300 px-6 py-10 text-center">
+        <p class="font-medium" id="empty-title"></p>
+        <p class="mt-1 text-slate-600" id="empty-text"></p>
+        <button type="button" id="empty-action" class="mt-3 h-8 rounded border border-slate-300 bg-white px-3 hover:bg-slate-50"></button>
+      </div>
+      <div data-state="loading" aria-busy="true" hidden class="rounded-md border border-slate-200" aria-label="Loading roster">
+        <div class="h-10 border-b border-slate-200 bg-slate-50"></div>
+        <div id="skeleton"></div>
+      </div>
+      <div data-state="error" hidden class="rounded-md border border-red-200 bg-red-50 px-4 py-3 text-red-800" role="alert">
+        <p class="font-medium">The roster could not be loaded.</p>
+        <p class="mt-1">Check your connection, then try again.</p>
+        <button type="button" id="retry" class="mt-2 h-8 rounded border border-red-300 bg-white px-3 text-red-800 hover:bg-red-100">Retry</button>
+      </div>
+    </section>
+
+    <div id="savebar" hidden class="sticky bottom-0 mt-4 flex items-center justify-end gap-3 border-t border-slate-200 bg-white px-4 py-3">
+      <span class="mr-auto text-slate-700">Unsaved changes</span>
+      <button type="button" id="savebar-cancel" class="h-8 rounded border border-slate-300 bg-white px-3 hover:bg-slate-50">Cancel</button>
+      <button type="button" id="savebar-save" class="h-8 rounded bg-blue-700 px-3 font-medium text-white hover:bg-blue-800">Save draft</button>
+    </div>
+  </main>
+</div>
+
+<div id="panel-backdrop" hidden class="fixed inset-0 z-20 bg-slate-900/40"></div>
+<aside id="shift-panel" hidden role="region" aria-label="Shift details" class="fixed right-0 top-0 z-30 h-full w-96 overflow-y-auto border-l border-slate-200 bg-white p-5 shadow-lg">
+  <div class="flex items-center justify-between">
+    <h2 id="panel-title" class="text-base font-semibold">Shift details</h2>
+    <button type="button" id="panel-close" aria-label="Close panel" class="h-8 w-8 rounded hover:bg-slate-100">×</button>
+  </div>
+
+  <div id="panel-view" class="mt-4 space-y-3">
+    <p><span class="text-slate-600">Staff</span><br><span id="pv-staff" class="font-medium"></span></p>
+    <p><span class="text-slate-600">Date</span><br><span id="pv-date"></span></p>
+    <p><span class="text-slate-600">Role</span><br><span id="pv-role"></span></p>
+    <p><span class="text-slate-600">Time</span><br><span id="pv-time"></span></p>
+    <p><span class="text-slate-600">Status</span><br><span id="pv-status"></span></p>
+    <p id="pv-note" class="hidden text-slate-600"></p>
+    <div class="mt-4 flex gap-2">
+      <button type="button" id="panel-edit" class="h-8 rounded border border-slate-300 bg-white px-3 hover:bg-slate-50">Edit shift</button>
+      <button type="button" id="panel-remove" class="h-8 rounded border border-red-300 bg-white px-3 text-red-700 hover:bg-red-50">Remove shift</button>
+    </div>
+  </div>
+
+  <div id="panel-unavail" class="mt-4 hidden space-y-3">
+    <p><span class="text-slate-600">Staff</span><br><span id="pu-staff" class="font-medium"></span></p>
+    <p><span class="text-slate-600">Date</span><br><span id="pu-date"></span></p>
+    <p class="text-slate-700" id="pu-reason"></p>
+    <button type="button" id="panel-override" class="mt-4 h-8 rounded border border-slate-300 bg-white px-3 hover:bg-slate-50">Schedule anyway</button>
+  </div>
+
+  <form id="panel-form" class="mt-4 hidden space-y-4" novalidate>
+    <p class="text-slate-700"><span class="text-slate-600">Staff</span> <span id="pf-staff" class="font-medium"></span> · <span id="pf-date"></span></p>
+    <div>
+      <label for="pf-role" class="block font-medium text-slate-900">Role</label>
+      <select id="pf-role" class="mt-1 h-8 w-full rounded border border-slate-300 bg-white px-2"></select>
+    </div>
+    <div class="flex gap-3">
+      <div class="flex-1">
+        <label for="pf-start" class="block font-medium text-slate-900">Start time</label>
+        <input type="time" id="pf-start" class="mt-1 h-8 w-full rounded border border-slate-300 px-2">
+      </div>
+      <div class="flex-1">
+        <label for="pf-end" class="block font-medium text-slate-900">End time</label>
+        <input type="time" id="pf-end" class="mt-1 h-8 w-full rounded border border-slate-300 px-2">
+      </div>
+    </div>
+    <div>
+      <label for="pf-notes" class="block font-medium text-slate-900">Notes <span class="text-slate-500">(optional)</span></label>
+      <textarea id="pf-notes" rows="2" class="mt-1 w-full rounded border border-slate-300 px-2 py-1"></textarea>
+    </div>
+    <p id="pf-error" class="hidden text-red-700" role="alert"></p>
+    <div class="flex gap-2">
+      <button type="button" id="pf-cancel" class="h-8 rounded border border-slate-300 bg-white px-3 hover:bg-slate-50">Cancel</button>
+      <button type="submit" id="pf-save" class="h-8 rounded bg-blue-700 px-3 font-medium text-white hover:bg-blue-800">Save shift</button>
+    </div>
+  </form>
+</aside>
+
+<div id="backdrop" hidden class="fixed inset-0 z-40 bg-slate-900/40"></div>
+<div id="confirm" role="alertdialog" aria-modal="true" aria-labelledby="confirm-title" aria-describedby="confirm-text" hidden class="fixed left-1/2 top-24 z-50 w-[420px] -translate-x-1/2 rounded-lg border border-slate-200 bg-white p-5 shadow-lg">
+  <h2 id="confirm-title" class="text-base font-semibold"></h2>
+  <p id="confirm-text" class="mt-2 text-slate-700"></p>
+  <div class="mt-4 flex justify-end gap-2">
+    <button type="button" id="confirm-cancel" class="h-8 rounded border border-slate-300 bg-white px-3 hover:bg-slate-50">Cancel</button>
+    <button type="button" id="confirm-ok" class="h-8 rounded px-3 font-medium"></button>
+  </div>
+</div>
+
+<div id="toast" role="status" aria-live="polite" class="fixed bottom-4 right-4 z-50"></div>
+
+<script>
+  const LOCALE = 'en-US';
+  const TODAY = new Date(2026, 10, 7); // Sat 7 Nov 2026
+  const MIN_STAFF = 6;
+  const $ = (id) => document.getElementById(id);
+
+  const STAFF = [
+    { id: 's1', name: 'Ava Thompson', role: 'Store manager' },
+    { id: 's2', name: 'Marcus Chen', role: 'Assistant manager' },
+    { id: 's3', name: 'Priya Patel', role: 'Supervisor' },
+    { id: 's4', name: 'Liam Carter', role: 'Cashier' },
+    { id: 's5', name: 'Sofia Martinez', role: 'Cashier' },
+    { id: 's6', name: 'Noah Mitchell', role: 'Sales associate' },
+    { id: 's7', name: 'Grace Kim', role: 'Sales associate' },
+    { id: 's8', name: 'Ethan Brooks', role: 'Stock associate' },
+    { id: 's9', name: 'Zoe Nguyen', role: 'Stock associate' },
+  ];
+  const ROLES = ['Store manager', 'Assistant manager', 'Supervisor', 'Cashier', 'Sales associate', 'Stock associate'];
+
+  // Shifts keyed by the ISO date of the week's Sunday. Weeks with no key have never been drafted.
+  const SHIFTS = {
+    '2026-11-01': [
+      { staffId: 's1', day: 1, start: '08:00', end: '16:00', role: 'Store manager' },
+      { staffId: 's1', day: 2, start: '08:00', end: '16:00', role: 'Store manager' },
+      { staffId: 's1', day: 4, start: '08:00', end: '16:00', role: 'Store manager' },
+      { staffId: 's1', day: 5, start: '08:00', end: '16:00', role: 'Store manager' },
+      { staffId: 's1', day: 6, start: '08:00', end: '16:00', role: 'Store manager' },
+      { staffId: 's2', day: 2, start: '11:00', end: '19:00', role: 'Assistant manager' },
+      { staffId: 's2', day: 3, start: '11:00', end: '19:00', role: 'Assistant manager' },
+      { staffId: 's2', day: 4, start: '11:00', end: '19:00', role: 'Assistant manager' },
+      { staffId: 's2', day: 5, start: '11:00', end: '19:00', role: 'Assistant manager' },
+      { staffId: 's2', day: 6, start: '13:00', end: '21:00', role: 'Assistant manager' },
+      { staffId: 's3', day: 1, start: '13:00', end: '21:00', role: 'Supervisor' },
+      { staffId: 's3', day: 3, start: '13:00', end: '21:00', role: 'Supervisor' },
+      { staffId: 's3', day: 4, start: '13:00', end: '21:00', role: 'Supervisor' },
+      { staffId: 's3', day: 5, start: '13:00', end: '21:00', role: 'Supervisor' },
+      { staffId: 's3', day: 6, start: '11:00', end: '19:00', role: 'Supervisor' },
+      { staffId: 's4', day: 1, start: '08:00', end: '16:00', role: 'Cashier' },
+      { staffId: 's4', day: 2, start: '08:00', end: '16:00', role: 'Cashier' },
+      { staffId: 's4', day: 4, start: '08:00', end: '16:00', role: 'Cashier' },
+      { staffId: 's4', day: 5, start: '08:00', end: '16:00', role: 'Cashier' },
+      { staffId: 's5', day: 2, start: '13:00', end: '21:00', role: 'Cashier' },
+      { staffId: 's5', day: 3, start: '13:00', end: '21:00', role: 'Cashier' },
+      { staffId: 's5', day: 4, start: '13:00', end: '21:00', role: 'Cashier' },
+      { staffId: 's5', day: 5, start: '13:00', end: '21:00', role: 'Cashier' },
+      { staffId: 's5', day: 6, start: '13:00', end: '21:00', role: 'Cashier' },
+      { staffId: 's6', day: 1, start: '11:00', end: '19:00', role: 'Sales associate' },
+      { staffId: 's6', day: 2, start: '11:00', end: '19:00', role: 'Sales associate' },
+      { staffId: 's6', day: 3, start: '11:00', end: '19:00', role: 'Sales associate' },
+      { staffId: 's6', day: 5, start: '11:00', end: '19:00', role: 'Sales associate' },
+      { staffId: 's6', day: 6, start: '11:00', end: '19:00', role: 'Sales associate' },
+      { staffId: 's7', day: 3, start: '08:00', end: '16:00', role: 'Sales associate' },
+      { staffId: 's7', day: 4, start: '08:00', end: '16:00', role: 'Sales associate' },
+      { staffId: 's7', day: 5, start: '08:00', end: '16:00', role: 'Sales associate' },
+      { staffId: 's7', day: 6, start: '08:00', end: '16:00', role: 'Sales associate' },
+      { staffId: 's8', day: 1, start: '08:00', end: '16:00', role: 'Stock associate' },
+      { staffId: 's8', day: 3, start: '08:00', end: '16:00', role: 'Stock associate' },
+      { staffId: 's8', day: 4, start: '08:00', end: '16:00', role: 'Stock associate' },
+      { staffId: 's8', day: 6, start: '08:00', end: '16:00', role: 'Stock associate' },
+      { staffId: 's9', day: 2, start: '08:00', end: '16:00', role: 'Stock associate' },
+      { staffId: 's9', day: 4, start: '13:00', end: '21:00', role: 'Stock associate' },
+      { staffId: 's9', day: 5, start: '13:00', end: '21:00', role: 'Stock associate' },
+      { staffId: 's9', day: 6, start: '13:00', end: '21:00', role: 'Stock associate' },
+    ],
+  };
+  const UNAVAILABLE = {
+    '2026-11-01': [{ staffId: 's4', day: 3, reason: 'Requested day off' }],
+  };
+
+  // State
+  const params = new URLSearchParams(location.search);
+  const forced = params.get('state');
+  const ui = { q: params.get('q') || '', role: params.get('role') || '', view: params.get('view') || 'week' };
+  const dateParam = params.get('date');
+  let weekStart = dateParam ? startOfWeek(new Date(dateParam + 'T00:00:00')) : startOfWeek(TODAY);
+  let roster = { status: 'draft' };
+  let dirty = false;
+  let snapshot = null;
+  let snapshotKey = null;
+  let activeCell = null;
+  let formContext = null;
+
+  // Helpers
+  function isoDate(d) { return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); }
+  function startOfWeek(d) { const r = new Date(d); r.setHours(0, 0, 0, 0); r.setDate(r.getDate() - r.getDay()); return r; }
+  function addDays(d, n) { const r = new Date(d); r.setDate(r.getDate() + n); return r; }
+  function fmtCount(n) { return new Intl.NumberFormat(LOCALE).format(n); }
+  function initials(name) { return name.split(' ').map((p) => p[0]).join('').slice(0, 2).toUpperCase(); }
+  function fmtTime(hhmm) {
+    const [h, m] = hhmm.split(':').map(Number);
+    const d = new Date(2000, 0, 1, h, m);
+    const opts = m ? { hour: 'numeric', minute: '2-digit' } : { hour: 'numeric' };
+    return new Intl.DateTimeFormat(LOCALE, opts).format(d);
+  }
+  function hoursOf(sh) {
+    const [h1, m1] = sh.start.split(':').map(Number);
+    const [h2, m2] = sh.end.split(':').map(Number);
+    return (h2 * 60 + m2 - (h1 * 60 + m1)) / 60;
+  }
+  function fmtWeekdayDate(d) { return new Intl.DateTimeFormat(LOCALE, { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' }).format(d); }
+  function rangeLabel(start) {
+    const end = addDays(start, 6);
+    const day = new Intl.DateTimeFormat(LOCALE, { day: 'numeric' });
+    const monYear = new Intl.DateTimeFormat(LOCALE, { month: 'short', year: 'numeric' });
+    const mon = new Intl.DateTimeFormat(LOCALE, { month: 'short' });
+    if (start.getMonth() === end.getMonth() && start.getFullYear() === end.getFullYear()) {
+      return `${day.format(start)}–${day.format(end)} ${monYear.format(end)}`;
+    }
+    return `${day.format(start)} ${mon.format(start)} – ${day.format(end)} ${monYear.format(end)}`;
+  }
+  function buildDayInfo(start) {
+    const weekdayFmt = new Intl.DateTimeFormat(LOCALE, { weekday: 'short' });
+    return Array.from({ length: 7 }, (_, i) => {
+      const date = addDays(start, i);
+      return { date, i, closed: i === 0, isToday: isoDate(date) === isoDate(TODAY), weekdayShort: weekdayFmt.format(date) };
+    });
+  }
+  function weekKeyOf(start) { return isoDate(start); }
+  function ensureWeekArray(key) { if (!SHIFTS[key]) SHIFTS[key] = []; return SHIFTS[key]; }
+  function findShift(key, staffId, day) { return (SHIFTS[key] || []).find((s) => s.staffId === staffId && s.day === day); }
+  function upsertShift(key, staffId, day, data) {
+    const arr = ensureWeekArray(key);
+    const idx = arr.findIndex((s) => s.staffId === staffId && s.day === day);
+    const rec = { staffId, day, ...data };
+    if (idx >= 0) arr[idx] = rec; else arr.push(rec);
+  }
+  function deleteShift(key, staffId, day) {
+    const arr = SHIFTS[key];
+    if (!arr) return;
+    const idx = arr.findIndex((s) => s.staffId === staffId && s.day === day);
+    if (idx >= 0) arr.splice(idx, 1);
+  }
+  function markDirty() {
+    const key = weekKeyOf(weekStart);
+    if (!dirty) { snapshot = JSON.parse(JSON.stringify(SHIFTS[key] || [])); snapshotKey = key; }
+    dirty = true;
+    if (roster.status === 'published') roster.status = 'draft';
+  }
+  function discardChanges() {
+    if (snapshotKey) SHIFTS[snapshotKey] = snapshot;
+    dirty = false; snapshot = null; snapshotKey = null;
+  }
+  function guardNavigation(fn) {
+    if (dirty) {
+      openConfirm({
+        title: 'Leave without saving?',
+        text: "Changes to this week's roster have not been saved. They will be discarded.",
+        okLabel: 'Discard changes',
+        okClass: 'bg-red-700 text-white hover:bg-red-800',
+        onConfirm: () => { discardChanges(); fn(); render(); },
+      });
+    } else { fn(); render(); }
+  }
+  function announce(html) {
+    $('toast').innerHTML = `<div class="flex items-center gap-3 rounded-md border border-slate-200 bg-white px-4 py-3 shadow-md">${html}</div>`;
+    clearTimeout(announce.t);
+    announce.t = setTimeout(() => ($('toast').innerHTML = ''), 6000);
+  }
+  function show(state) { document.querySelectorAll('[data-region="roster"] [data-state]').forEach((e) => (e.hidden = e.dataset.state !== state)); }
+  function syncUrl() {
+    const p = new URLSearchParams();
+    if (ui.q) p.set('q', ui.q);
+    if (ui.role) p.set('role', ui.role);
+    if (ui.view !== 'week') p.set('view', ui.view);
+    p.set('date', isoDate(weekStart));
+    if (forced) p.set('state', forced);
+    history.replaceState(null, '', '?' + p.toString());
+  }
+
+  // Confirm dialog (reused for publish, remove, discard)
+  function openConfirm({ title, text, okLabel, okClass, onConfirm }) {
+    $('confirm-title').textContent = title;
+    $('confirm-text').textContent = text;
+    const ok = $('confirm-ok');
+    ok.textContent = okLabel;
+    ok.className = 'h-8 rounded px-3 font-medium ' + okClass;
+    $('backdrop').hidden = $('confirm').hidden = false;
+    $('confirm-cancel').focus();
+    ok.onclick = () => { closeConfirm(); onConfirm(); };
+  }
+  function closeConfirm() { $('backdrop').hidden = $('confirm').hidden = true; }
+
+  // Shift panel
+  function showPanelSection(section) {
+    $('panel-view').classList.toggle('hidden', section !== 'view');
+    $('panel-unavail').classList.toggle('hidden', section !== 'unavail');
+    $('panel-form').classList.toggle('hidden', section !== 'form');
+  }
+  function openPanelView(staffId, day) {
+    const staff = STAFF.find((s) => s.id === staffId);
+    const key = weekKeyOf(weekStart);
+    const shift = findShift(key, staffId, day);
+    activeCell = { staffId, day };
+    $('panel-title').textContent = 'Shift details';
+    $('pv-staff').textContent = staff.name;
+    $('pv-date').textContent = fmtWeekdayDate(addDays(weekStart, day));
+    $('pv-role').textContent = shift.role || staff.role;
+    $('pv-time').textContent = `${fmtTime(shift.start)}–${fmtTime(shift.end)} (${hoursOf(shift)}h)`;
+    $('pv-status').textContent = roster.status === 'published' ? 'Published' : 'Draft, not yet published';
+    if (shift.notes) { $('pv-note').textContent = `Note: ${shift.notes}`; $('pv-note').classList.remove('hidden'); }
+    else $('pv-note').classList.add('hidden');
+    showPanelSection('view');
+    $('panel-backdrop').hidden = $('shift-panel').hidden = false;
+    $('panel-close').focus();
+  }
+  function openPanelUnavailable(staffId, day) {
+    const staff = STAFF.find((s) => s.id === staffId);
+    const key = weekKeyOf(weekStart);
+    const una = (UNAVAILABLE[key] || []).find((u) => u.staffId === staffId && u.day === day);
+    activeCell = { staffId, day };
+    $('panel-title').textContent = 'Unavailable';
+    $('pu-staff').textContent = staff.name;
+    $('pu-date').textContent = fmtWeekdayDate(addDays(weekStart, day));
+    $('pu-reason').textContent = una ? una.reason : 'Marked unavailable.';
+    showPanelSection('unavail');
+    $('panel-backdrop').hidden = $('shift-panel').hidden = false;
+    $('panel-close').focus();
+  }
+  function openPanelForm(staffId, day, shift) {
+    const staff = STAFF.find((s) => s.id === staffId);
+    activeCell = { staffId, day };
+    formContext = { staffId, day };
+    $('panel-title').textContent = shift ? 'Edit shift' : 'Add shift';
+    $('pf-staff').textContent = staff.name;
+    $('pf-date').textContent = fmtWeekdayDate(addDays(weekStart, day));
+    $('pf-role').innerHTML = ROLES.map((r) => `<option ${(shift?.role || staff.role) === r ? 'selected' : ''}>${r}</option>`).join('');
+    $('pf-start').value = shift?.start || '';
+    $('pf-end').value = shift?.end || '';
+    $('pf-notes').value = shift?.notes || '';
+    $('pf-error').classList.add('hidden');
+    showPanelSection('form');
+    $('panel-backdrop').hidden = $('shift-panel').hidden = false;
+    $('pf-role').focus();
+  }
+  function closePanel() { $('panel-backdrop').hidden = $('shift-panel').hidden = true; activeCell = null; formContext = null; }
+
+  // Render
+  function renderStatusBadge() {
+    const published = roster.status === 'published';
+    $('status-badge').textContent = published ? 'Published' : 'Draft';
+    $('status-badge').className = 'inline-flex h-6 items-center rounded-full px-2 text-xs font-medium ' + (published ? 'bg-green-50 text-green-800' : 'bg-slate-100 text-slate-700');
+    $('status-note').textContent = published ? 'Visible to staff' : 'Not yet visible to staff';
+    $('publish-btn').textContent = published ? 'Republish week' : 'Publish week';
+  }
+  function renderChips() {
+    const chips = [];
+    if (ui.q) chips.push(['q', `Search: ${ui.q}`]);
+    if (ui.role) chips.push(['role', `Role: ${ui.role}`]);
+    $('chips').innerHTML = chips.map(([k, t]) => `<span class="inline-flex h-6 items-center gap-1 rounded-full bg-slate-100 pl-2 pr-1 text-slate-700">${t}<button type="button" data-chip="${k}" class="h-6 w-6 rounded-full hover:bg-slate-200" aria-label="Remove filter ${t}">×</button></span>`).join('') + (chips.length ? '<button type="button" id="clear-all" class="h-6 px-2 text-blue-700 underline">Clear all</button>' : '');
+  }
+  function renderWeekTable(filteredStaff, shifts, unavail, dayInfo) {
+    $('week-head-row').innerHTML = `
+      <th scope="col" class="w-44 px-3 py-2 text-left font-medium">Staff</th>
+      <th scope="col" class="w-36 px-3 py-2 text-left font-medium">Role</th>
+      ${dayInfo.map((d) => `<th scope="col" class="w-28 px-2 py-2 text-center font-medium"${d.isToday ? ' aria-current="date"' : ''}>
+          <div class="text-xs font-normal text-slate-600">${d.weekdayShort}</div>
+          <div class="tnum ${d.isToday ? 'text-blue-700' : ''}">${d.date.getDate()}</div>
+          ${d.isToday ? '<div class="text-xs font-medium text-blue-700">Today</div>' : ''}
+        </th>`).join('')}
+      <th scope="col" class="w-16 px-3 py-2 text-right font-medium">Hours</th>`;
+
+    $('week-rows').innerHTML = filteredStaff.map((staff) => {
+      const cells = dayInfo.map((d) => {
+        if (d.closed) return `<td class="px-2 py-1 text-center"><span class="text-slate-500">Closed</span></td>`;
+        const shift = shifts.find((sh) => sh.staffId === staff.id && sh.day === d.i);
+        const una = unavail.find((u) => u.staffId === staff.id && u.day === d.i);
+        if (shift) {
+          const label = `${fmtTime(shift.start)}–${fmtTime(shift.end)}`;
+          const style = roster.status === 'published' ? 'border-blue-200 bg-blue-50 text-blue-900' : 'border-dashed border-slate-400 bg-slate-50 text-slate-800';
+          return `<td class="px-1 py-1"><div role="button" tabindex="0" data-staff="${staff.id}" data-day="${d.i}" aria-label="${staff.name}, ${label}, ${fmtWeekdayDate(d.date)}" class="flex h-7 w-full cursor-pointer items-center justify-center rounded border ${style} px-1 hover:brightness-95">${label}</div></td>`;
+        }
+        if (una) {
+          return `<td class="px-1 py-1"><div role="button" tabindex="0" data-staff="${staff.id}" data-day="${d.i}" data-unavailable="1" aria-label="${staff.name} is unavailable, ${fmtWeekdayDate(d.date)}, ${una.reason}" class="flex h-7 w-full cursor-pointer items-center justify-center rounded border border-dashed border-slate-200 px-1 text-slate-500 hover:border-slate-300">Unavailable</div></td>`;
+        }
+        return `<td class="px-1 py-1"><div role="button" tabindex="0" data-staff="${staff.id}" data-day="${d.i}" data-add="1" aria-label="Add shift for ${staff.name}, ${fmtWeekdayDate(d.date)}" class="flex h-7 w-full cursor-pointer items-center justify-center rounded border border-dashed border-slate-200 px-1 text-slate-500 hover:border-slate-400 hover:text-slate-700">+ Add</div></td>`;
+      }).join('');
+      const hrs = shifts.filter((sh) => sh.staffId === staff.id).reduce((s, sh) => s + hoursOf(sh), 0);
+      return `<tr class="h-10 border-b border-slate-200 last:border-0">
+          <td class="px-3"><div class="flex items-center gap-2"><span class="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-slate-200 text-xs font-medium text-slate-700">${initials(staff.name)}</span><span class="truncate font-medium text-slate-900">${staff.name}</span></div></td>
+          <td class="truncate px-3 text-slate-700">${staff.role}</td>
+          ${cells}
+          <td class="px-3 text-right tnum">${hrs}</td>
+        </tr>`;
+    }).join('');
+
+    const totalHours = filteredStaff.reduce((sum, staff) => sum + shifts.filter((sh) => sh.staffId === staff.id).reduce((s, sh) => s + hoursOf(sh), 0), 0);
+    $('week-foot-row').innerHTML = `
+      <td class="px-3 py-2" colspan="2">Scheduled</td>
+      ${dayInfo.map((d) => {
+        if (d.closed) return `<td class="px-2 py-2 text-center text-slate-500">Closed</td>`;
+        const count = shifts.filter((sh) => sh.day === d.i && filteredStaff.some((s) => s.id === sh.staffId)).length;
+        const below = count < MIN_STAFF;
+        return `<td class="px-2 py-2 text-center">
+            <div class="tnum">${count} of ${filteredStaff.length}</div>
+            ${below ? '<span class="mt-0.5 inline-flex h-5 items-center rounded-full bg-amber-50 px-1.5 text-xs font-medium text-amber-800">Below minimum</span>' : ''}
+          </td>`;
+      }).join('')}
+      <td class="px-3 py-2 text-right tnum">${totalHours}</td>`;
+  }
+  function renderListView(filteredShifts, dayInfo) {
+    const byDay = (d) => dayInfo.find((x) => x.i === d).date;
+    const rows = [...filteredShifts].sort((a, b) => a.day - b.day || STAFF.find((s) => s.id === a.staffId).name.localeCompare(STAFF.find((s) => s.id === b.staffId).name));
+    $('list-rows').innerHTML = rows.map((sh) => {
+      const staff = STAFF.find((s) => s.id === sh.staffId);
+      const published = roster.status === 'published';
+      return `<tr class="h-10 border-b border-slate-200 last:border-0 hover:bg-slate-50">
+          <td class="whitespace-nowrap px-3">${fmtWeekdayDate(byDay(sh.day))}</td>
+          <td class="truncate px-3">${staff.name}</td>
+          <td class="truncate px-3 text-slate-700">${sh.role || staff.role}</td>
+          <td class="whitespace-nowrap px-3">${fmtTime(sh.start)}–${fmtTime(sh.end)}</td>
+          <td class="px-3 text-right tnum">${hoursOf(sh)}</td>
+          <td class="px-3"><span class="inline-flex h-6 items-center rounded-full px-2 text-xs font-medium ${published ? 'bg-green-50 text-green-800' : 'bg-slate-100 text-slate-700'}">${published ? 'Published' : 'Draft'}</span></td>
+        </tr>`;
+    }).join('') || `<tr><td colspan="6" class="px-3 py-6 text-center text-slate-600">No shifts match these filters.</td></tr>`;
+  }
+  function render() {
+    syncUrl();
+    renderStatusBadge();
+    renderChips();
+    $('savebar').hidden = !dirty;
+
+    const key = weekKeyOf(weekStart);
+    const shifts = SHIFTS[key] || [];
+    const unavail = UNAVAILABLE[key] || [];
+    const dayInfo = buildDayInfo(weekStart);
+    const filteredStaff = STAFF.filter((s) => (!ui.role || s.role === ui.role) && (!ui.q || s.name.toLowerCase().includes(ui.q.trim().toLowerCase())));
+    const filteredIds = new Set(filteredStaff.map((s) => s.id));
+    const filteredShifts = shifts.filter((sh) => filteredIds.has(sh.staffId));
+
+    $('range-heading').textContent = rangeLabel(weekStart);
+    $('result-count').textContent = `${fmtCount(filteredStaff.length)} staff · ${fmtCount(filteredShifts.length)} shift${filteredShifts.length === 1 ? '' : 's'} scheduled this week`;
+    $('export-btn').textContent = `Export ${fmtCount(filteredShifts.length)} shift${filteredShifts.length === 1 ? '' : 's'}`;
+
+    const noResults = filteredStaff.length === 0;
+    const firstUse = shifts.length === 0;
+
+    if (forced === 'empty' || noResults) {
+      $('empty-title').textContent = 'No staff match these filters';
+      $('empty-text').textContent = 'Try another role or search, or clear the filters.';
+      $('empty-action').textContent = 'Clear filters';
+      $('empty-action').dataset.mode = 'clear';
+      show('empty');
+      return;
+    }
+    if (firstUse) {
+      $('empty-title').textContent = `No shifts scheduled for ${rangeLabel(weekStart)}`;
+      $('empty-text').textContent = 'Add shifts for the week, then publish it for the team to see.';
+      $('empty-action').textContent = 'Back to this week';
+      $('empty-action').dataset.mode = 'today';
+      show('empty');
+      return;
+    }
+    show('ready');
+    renderWeekTable(filteredStaff, shifts, unavail, dayInfo);
+    renderListView(filteredShifts, dayInfo);
+    $('view-week').hidden = ui.view !== 'week';
+    $('view-list').hidden = ui.view !== 'list';
+    $('view-week-btn').setAttribute('aria-pressed', String(ui.view === 'week'));
+    $('view-list-btn').setAttribute('aria-pressed', String(ui.view === 'list'));
+    $('view-week-btn').classList.toggle('bg-slate-100', ui.view === 'week');
+    $('view-list-btn').classList.toggle('bg-slate-100', ui.view === 'list');
+  }
+
+  // Events
+  $('today-btn').addEventListener('click', () => guardNavigation(() => { weekStart = startOfWeek(TODAY); }));
+  $('prev-btn').addEventListener('click', () => guardNavigation(() => { weekStart = addDays(weekStart, -7); }));
+  $('next-btn').addEventListener('click', () => guardNavigation(() => { weekStart = addDays(weekStart, 7); }));
+  $('view-week-btn').addEventListener('click', () => { ui.view = 'week'; render(); });
+  $('view-list-btn').addEventListener('click', () => { ui.view = 'list'; render(); });
+
+  let qTimer;
+  $('q').addEventListener('input', (e) => { clearTimeout(qTimer); qTimer = setTimeout(() => { ui.q = e.target.value; render(); }, 250); });
+  $('f-role').addEventListener('change', (e) => { ui.role = e.target.value; render(); });
+  $('chips').addEventListener('click', (e) => {
+    const c = e.target.closest('[data-chip]');
+    if (c) { ui[c.dataset.chip] = ''; if (c.dataset.chip === 'q') $('q').value = ''; if (c.dataset.chip === 'role') $('f-role').value = ''; render(); }
+    if (e.target.id === 'clear-all') clearFilters();
+  });
+  function clearFilters() { ui.q = ''; ui.role = ''; $('q').value = ''; $('f-role').value = ''; render(); $('q').focus(); }
+  $('empty-action').addEventListener('click', () => {
+    if ($('empty-action').dataset.mode === 'today') guardNavigation(() => { weekStart = startOfWeek(TODAY); });
+    else clearFilters();
+  });
+  $('retry').addEventListener('click', () => { location.search = ''; });
+  $('export-btn').addEventListener('click', () => announce(`<span>Export started: ${$('export-btn').textContent}.</span>`));
+  $('print-btn').addEventListener('click', () => window.print());
+
+  $('publish-btn').addEventListener('click', () => {
+    const key = weekKeyOf(weekStart);
+    const shifts = SHIFTS[key] || [];
+    const staffCount = new Set(shifts.map((s) => s.staffId)).size;
+    openConfirm({
+      title: "Publish this week's roster?",
+      text: `${fmtCount(shifts.length)} shift(s) across ${fmtCount(staffCount)} staff become visible to the team.`,
+      okLabel: roster.status === 'published' ? 'Republish week' : 'Publish week',
+      okClass: 'bg-blue-700 text-white hover:bg-blue-800',
+      onConfirm: () => {
+        const label = rangeLabel(weekStart);
+        roster.status = 'published';
+        dirty = false; snapshot = null; snapshotKey = null;
+        render();
+        announce(`<span>${label} roster published. ${fmtCount(shifts.length)} shifts are now visible to the team.</span>`);
+      },
+    });
+  });
+
+  $('week-rows').addEventListener('click', handleCellActivate);
+  $('week-rows').addEventListener('keydown', (e) => {
+    if ((e.key === 'Enter' || e.key === ' ') && e.target.matches('[role="button"]')) { e.preventDefault(); handleCellActivate(e); }
+  });
+  function handleCellActivate(e) {
+    const el = e.target.closest('[role="button"]');
+    if (!el) return;
+    const staffId = el.dataset.staff, day = Number(el.dataset.day);
+    if (el.dataset.add) openPanelForm(staffId, day, null);
+    else if (el.dataset.unavailable) openPanelUnavailable(staffId, day);
+    else openPanelView(staffId, day);
+  }
+
+  $('panel-close').addEventListener('click', closePanel);
+  $('panel-backdrop').addEventListener('click', closePanel);
+  $('confirm-cancel').addEventListener('click', closeConfirm);
+  $('pf-cancel').addEventListener('click', closePanel);
+  $('panel-edit').addEventListener('click', () => {
+    const { staffId, day } = activeCell;
+    const shift = findShift(weekKeyOf(weekStart), staffId, day);
+    openPanelForm(staffId, day, shift);
+  });
+  $('panel-override').addEventListener('click', () => {
+    const { staffId, day } = activeCell;
+    openPanelForm(staffId, day, null);
+  });
+  $('panel-remove').addEventListener('click', () => {
+    const { staffId, day } = activeCell;
+    const staff = STAFF.find((s) => s.id === staffId);
+    const key = weekKeyOf(weekStart);
+    const shift = findShift(key, staffId, day);
+    openConfirm({
+      title: 'Remove this shift?',
+      text: `${staff.name} will no longer be scheduled for ${fmtWeekdayDate(addDays(weekStart, day))}, ${fmtTime(shift.start)}–${fmtTime(shift.end)}.`,
+      okLabel: 'Remove shift',
+      okClass: 'bg-red-700 text-white hover:bg-red-800',
+      onConfirm: () => {
+        deleteShift(key, staffId, day);
+        markDirty();
+        closePanel();
+        render();
+        announce(`<span>Shift removed for ${staff.name}.</span>`);
+      },
+    });
+  });
+  $('panel-form').addEventListener('submit', (e) => {
+    e.preventDefault();
+    const start = $('pf-start').value, end = $('pf-end').value, role = $('pf-role').value, notes = $('pf-notes').value.trim();
+    if (!start || !end || start >= end) {
+      $('pf-error').textContent = 'Enter a start time before the end time.';
+      $('pf-error').classList.remove('hidden');
+      $('pf-start').focus();
+      return;
+    }
+    $('pf-error').classList.add('hidden');
+    const key = weekKeyOf(weekStart);
+    upsertShift(key, formContext.staffId, formContext.day, { start, end, role, notes });
+    markDirty();
+    const staff = STAFF.find((s) => s.id === formContext.staffId);
+    closePanel();
+    render();
+    announce(`<span>Shift saved for ${staff.name}.</span>`);
+  });
+
+  $('savebar-save').addEventListener('click', () => { dirty = false; snapshot = null; snapshotKey = null; render(); announce('<span>Draft saved.</span>'); });
+  $('savebar-cancel').addEventListener('click', () => { discardChanges(); render(); announce('<span>Changes discarded.</span>'); });
+
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape') { closePanel(); closeConfirm(); } });
+  window.addEventListener('beforeunload', (e) => { if (dirty) { e.preventDefault(); e.returnValue = ''; } });
+
+  // Initial state
+  $('q').value = ui.q;
+  $('f-role').value = ui.role;
+  $('skeleton').innerHTML = Array.from({ length: 6 }, () => '<div class="flex h-10 items-center gap-4 border-b border-slate-200 px-3"><div class="h-3 w-32 rounded bg-slate-200"></div><div class="h-3 w-20 rounded bg-slate-200"></div><div class="ml-auto h-3 w-40 rounded bg-slate-200"></div></div>').join('');
+  if (forced === 'loading' || forced === 'error') { show(forced); $('savebar').hidden = true; }
+  else render();
+</script>
+</body>
+</html>

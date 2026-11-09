@@ -1,0 +1,534 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Hartwell Supply Co. AR Aging Report</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+  tailwind.config = {
+    theme: {
+      extend: {
+        colors: {
+          paper: '#F2F4F1',
+          ink: '#1B2430',
+          inksoft: '#3C4553',
+          muted: '#5B6472',
+          line: '#D8DBD3',
+          navy: '#1F3A5F',
+          navydeep: '#16293F',
+          agecurrent: '#2E6B55',
+          agewatch: '#8A7B2E',
+          agepast: '#B06A2A',
+          ageover: '#A33F2E',
+          agecrit: '#7A2430',
+        },
+        fontFamily: {
+          display: ['Iowan Old Style', 'Palatino Linotype', 'Georgia', 'serif'],
+        },
+      },
+    },
+  };
+</script>
+<style>
+  .num { font-variant-numeric: tabular-nums; }
+  .sort-btn[data-active="true"] .sort-indicator::after { content: "▲"; font-size: 9px; }
+  .sort-btn[data-active="true"][data-dir="desc"] .sort-indicator::after { content: "▼"; }
+  .chevron { transition: transform .18s ease; }
+  .chevron.rotate-90 { transform: rotate(90deg); }
+  .detail-inner { max-height: 0; overflow: hidden; transition: max-height .28s ease; }
+  @media (prefers-reduced-motion: reduce) {
+    .chevron, .detail-inner { transition: none; }
+  }
+  @media print {
+    .no-print { display: none !important; }
+    body { background: #fff; }
+    .detail-row { display: none !important; }
+  }
+  tbody tr.row:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible {
+    outline: 2px solid #1F3A5F;
+    outline-offset: 2px;
+  }
+</style>
+</head>
+<body class="bg-paper text-ink antialiased">
+
+<div class="mx-auto max-w-[1360px] px-6 py-8 lg:px-10">
+
+  <header class="pb-5">
+    <div class="flex flex-wrap items-start justify-between gap-6">
+      <div>
+        <p class="font-display text-[25px] leading-tight text-ink">Hartwell Supply Co.</p>
+        <p class="mt-1 text-[13px] text-muted">412 Dockside Avenue, Portland, OR 97209</p>
+      </div>
+      <div class="text-left sm:text-right">
+        <h1 class="font-display text-[21px] leading-tight text-navy">Accounts receivable aging report</h1>
+        <p class="mt-1 text-[13px] text-muted">As of <span class="num text-inksoft">November 7, 2026</span></p>
+      </div>
+    </div>
+    <div class="mt-5 border-t-2 border-navy"></div>
+    <div class="mt-[3px] border-t border-line"></div>
+  </header>
+
+  <section aria-label="Outstanding balance by age" class="mb-8">
+    <h2 class="font-display text-[15px] text-ink mb-3">Outstanding by age</h2>
+    <div id="summaryStrip" class="grid grid-cols-2 border border-line bg-white/40 sm:grid-cols-3 lg:grid-cols-6 lg:divide-x lg:divide-line"></div>
+  </section>
+
+  <section class="no-print mb-4 flex flex-wrap items-end gap-3 border-b border-line pb-4">
+    <label class="flex flex-col gap-1">
+      <span class="text-[12px] text-muted">Search</span>
+      <input id="searchInput" type="text" placeholder="Customer or invoice number"
+        class="w-56 rounded-[3px] border border-line bg-white px-3 py-1.5 text-[13.5px] text-ink placeholder:text-muted/70" />
+    </label>
+    <label class="flex flex-col gap-1">
+      <span class="text-[12px] text-muted">Status</span>
+      <select id="statusFilter" class="rounded-[3px] border border-line bg-white px-3 py-1.5 text-[13.5px] text-ink">
+        <option value="all">All statuses</option>
+        <option value="current">Current</option>
+        <option value="watch">Watch</option>
+        <option value="pastdue">Past due</option>
+        <option value="overdue">Overdue</option>
+        <option value="critical">Critical</option>
+      </select>
+    </label>
+    <label class="flex flex-col gap-1">
+      <span class="text-[12px] text-muted">Min. balance</span>
+      <input id="minBalance" type="number" min="0" step="100" placeholder="0"
+        class="w-28 rounded-[3px] border border-line bg-white px-3 py-1.5 text-[13.5px] text-ink placeholder:text-muted/70" />
+    </label>
+    <button id="clearFilters" class="hidden text-[12.5px] text-navy underline-offset-2 hover:underline">Clear filters</button>
+    <div class="ml-auto flex items-end gap-2">
+      <button id="exportBtn" class="flex items-center gap-1.5 rounded-[3px] bg-navy px-3.5 py-1.5 text-[13px] font-medium text-paper hover:bg-navydeep">
+        <svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M8 1.5v8.3M4.3 6.6 8 10.3l3.7-3.7M2.5 13.5h11" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        Export CSV
+      </button>
+      <button id="printBtn" class="flex items-center gap-1.5 rounded-[3px] border border-line bg-white px-3.5 py-1.5 text-[13px] font-medium text-ink hover:bg-paper">
+        <svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M4 6V2.5h8V6M4 11.5h8V14H4v-2.5ZM2.5 6h11v4.5h-11V6Z" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round"/></svg>
+        Print report
+      </button>
+    </div>
+  </section>
+
+  <section class="overflow-x-auto border border-line">
+    <table class="w-full min-w-[920px] border-collapse text-[13.5px]">
+      <thead class="bg-paper">
+        <tr class="border-b border-line text-muted">
+          <th class="px-4 py-2.5 text-left font-medium">
+            <button data-sort="name" class="sort-btn inline-flex items-center gap-1 text-left">Customer<span class="sort-indicator inline-block w-2"></span></button>
+          </th>
+          <th class="px-4 py-2.5 text-right font-medium">
+            <button data-sort="current" class="sort-btn ml-auto flex items-center gap-1">Current<span class="sort-indicator inline-block w-2"></span></button>
+            <span class="mt-1 block h-[2px] w-7 ml-auto bg-agecurrent"></span>
+          </th>
+          <th class="px-4 py-2.5 text-right font-medium">
+            <button data-sort="b1" class="sort-btn ml-auto flex items-center gap-1">1&ndash;30 days<span class="sort-indicator inline-block w-2"></span></button>
+            <span class="mt-1 block h-[2px] w-7 ml-auto bg-agewatch"></span>
+          </th>
+          <th class="px-4 py-2.5 text-right font-medium">
+            <button data-sort="b2" class="sort-btn ml-auto flex items-center gap-1">31&ndash;60 days<span class="sort-indicator inline-block w-2"></span></button>
+            <span class="mt-1 block h-[2px] w-7 ml-auto bg-agepast"></span>
+          </th>
+          <th class="px-4 py-2.5 text-right font-medium">
+            <button data-sort="b3" class="sort-btn ml-auto flex items-center gap-1">61&ndash;90 days<span class="sort-indicator inline-block w-2"></span></button>
+            <span class="mt-1 block h-[2px] w-7 ml-auto bg-ageover"></span>
+          </th>
+          <th class="px-4 py-2.5 text-right font-medium">
+            <button data-sort="b4" class="sort-btn ml-auto flex items-center gap-1">90+ days<span class="sort-indicator inline-block w-2"></span></button>
+            <span class="mt-1 block h-[2px] w-7 ml-auto bg-agecrit"></span>
+          </th>
+          <th class="px-4 py-2.5 text-right font-medium">
+            <button data-sort="total" class="sort-btn ml-auto flex items-center gap-1">Total due<span class="sort-indicator inline-block w-2"></span></button>
+          </th>
+          <th class="px-4 py-2.5 text-left font-medium">
+            <button data-sort="status" class="sort-btn flex items-center gap-1">Status<span class="sort-indicator inline-block w-2"></span></button>
+          </th>
+        </tr>
+      </thead>
+      <tbody id="tableBody"></tbody>
+      <tfoot id="tableFoot"></tfoot>
+    </table>
+  </section>
+
+  <footer class="mt-5 text-[12px] leading-relaxed text-muted">
+    <p id="footerCount"></p>
+    <p class="mt-1">Aging is calculated from each invoice&rsquo;s due date, not its issue date. Balances shown reflect outstanding invoice amounts after payments and credits already applied.</p>
+  </footer>
+
+</div>
+
+<script>
+  const ASOF = new Date(Date.UTC(2026, 10, 7));
+
+  const BUCKET_LABEL = { current: 'Current', b1: '1–30 days', b2: '31–60 days', b3: '61–90 days', b4: '90+ days' };
+  const BUCKET_COLOR = { current: 'agecurrent', b1: 'agewatch', b2: 'agepast', b3: 'ageover', b4: 'agecrit' };
+  const STATUS_LABEL = { current: 'Current', watch: 'Watch', pastdue: 'Past due', overdue: 'Overdue', critical: 'Critical' };
+  const STATUS_COLOR = { current: 'agecurrent', watch: 'agewatch', pastdue: 'agepast', overdue: 'ageover', critical: 'agecrit' };
+  const STATUS_RANK = { current: 0, watch: 1, pastdue: 2, overdue: 3, critical: 4 };
+
+  const RAW_CUSTOMERS = [
+    { name: 'Brightline Logistics LLC', invoices: [
+      { inv: 'INV-10231', issue: '2026-09-02', due: '2026-10-02', amt: 4820.00 },
+      { inv: 'INV-10255', issue: '2026-10-10', due: '2026-11-09', amt: 2150.00 },
+    ]},
+    { name: 'Coastal Fixtures Group', invoices: [
+      { inv: 'INV-10198', issue: '2026-07-15', due: '2026-08-14', amt: 9340.00 },
+      { inv: 'INV-10233', issue: '2026-09-05', due: '2026-10-05', amt: 3100.00 },
+    ]},
+    { name: 'Delmar Hardware Supply', invoices: [
+      { inv: 'INV-10260', issue: '2026-10-20', due: '2026-11-19', amt: 6200.00 },
+    ]},
+    { name: 'Evergreen Food Distributors', invoices: [
+      { inv: 'INV-10110', issue: '2026-04-01', due: '2026-05-01', amt: 15400.00 },
+      { inv: 'INV-10245', issue: '2026-09-25', due: '2026-10-25', amt: 2875.50 },
+    ]},
+    { name: 'Fenwick & Co. Builders', invoices: [
+      { inv: 'INV-10250', issue: '2026-10-02', due: '2026-11-01', amt: 11200.00 },
+    ]},
+    { name: 'Granite Peak Construction', invoices: [
+      { inv: 'INV-10150', issue: '2026-06-10', due: '2026-07-10', amt: 22400.00 },
+      { inv: 'INV-10210', issue: '2026-08-20', due: '2026-09-19', amt: 5600.00 },
+      { inv: 'INV-10262', issue: '2026-10-25', due: '2026-11-24', amt: 1800.00 },
+    ]},
+    { name: 'Harborview Marine Supply', invoices: [
+      { inv: 'INV-10265', issue: '2026-10-28', due: '2026-11-27', amt: 4300.00 },
+    ]},
+    { name: 'Ironclad Industrial Parts', invoices: [
+      { inv: 'INV-10175', issue: '2026-07-01', due: '2026-07-31', amt: 8750.00 },
+    ]},
+    { name: 'Juniper Office Solutions', invoices: [
+      { inv: 'INV-10240', issue: '2026-09-18', due: '2026-10-18', amt: 1340.75 },
+      { inv: 'INV-10261', issue: '2026-10-22', due: '2026-11-21', amt: 980.00 },
+    ]},
+    { name: 'Kestrel Freight Systems', invoices: [
+      { inv: 'INV-10190', issue: '2026-07-20', due: '2026-08-19', amt: 13650.00 },
+    ]},
+    { name: 'Lakeshore Restaurant Group', invoices: [
+      { inv: 'INV-10258', issue: '2026-10-15', due: '2026-11-14', amt: 2460.00 },
+      { inv: 'INV-10220', issue: '2026-08-28', due: '2026-09-27', amt: 3920.00 },
+    ]},
+    { name: 'Meridian Textiles', invoices: [
+      { inv: 'INV-10140', issue: '2026-05-20', due: '2026-06-19', amt: 27800.00 },
+    ]},
+    { name: 'Northgate Auto Parts', invoices: [
+      { inv: 'INV-10252', issue: '2026-10-05', due: '2026-11-04', amt: 5100.00 },
+      { inv: 'INV-10264', issue: '2026-10-27', due: '2026-11-26', amt: 2200.00 },
+    ]},
+    { name: 'Oakridge Furniture Co.', invoices: [
+      { inv: 'INV-10205', issue: '2026-08-10', due: '2026-09-09', amt: 7460.00 },
+    ]},
+    { name: 'Pinnacle Electrical Supply', invoices: [
+      { inv: 'INV-10259', issue: '2026-10-18', due: '2026-11-17', amt: 3380.00 },
+    ]},
+    { name: 'Quarrystone Masonry', invoices: [
+      { inv: 'INV-10185', issue: '2026-07-10', due: '2026-08-09', amt: 6100.00 },
+      { inv: 'INV-10230', issue: '2026-09-01', due: '2026-10-01', amt: 2950.00 },
+    ]},
+    { name: 'Riverside Produce Co.', invoices: [
+      { inv: 'INV-10120', issue: '2026-04-15', due: '2026-05-15', amt: 19300.00 },
+    ]},
+    { name: 'Summit Packaging Corp.', invoices: [
+      { inv: 'INV-10257', issue: '2026-10-12', due: '2026-11-11', amt: 4750.00 },
+    ]},
+  ];
+
+  function daysOverdue(dueStr) {
+    const due = new Date(dueStr + 'T00:00:00Z');
+    return Math.round((ASOF - due) / 86400000);
+  }
+  function bucketOf(d) {
+    if (d <= 0) return 'current';
+    if (d <= 30) return 'b1';
+    if (d <= 60) return 'b2';
+    if (d <= 90) return 'b3';
+    return 'b4';
+  }
+  function fmt(n) {
+    return n.toLocaleString('en-US', { style: 'currency', currency: 'USD' });
+  }
+  function fmtDate(iso) {
+    const d = new Date(iso + 'T00:00:00Z');
+    return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', timeZone: 'UTC' });
+  }
+
+  const CUSTOMERS = RAW_CUSTOMERS.map((c, i) => {
+    const buckets = { current: 0, b1: 0, b2: 0, b3: 0, b4: 0 };
+    const invoices = c.invoices.map(inv => {
+      const d = daysOverdue(inv.due);
+      const b = bucketOf(d);
+      buckets[b] += inv.amt;
+      return { ...inv, daysOverdue: d, bucket: b };
+    });
+    const total = Object.values(buckets).reduce((a, b) => a + b, 0);
+    const status = buckets.b4 > 0 ? 'critical' : buckets.b3 > 0 ? 'overdue' : buckets.b2 > 0 ? 'pastdue' : buckets.b1 > 0 ? 'watch' : 'current';
+    return { id: 'c' + i, name: c.name, invoices, buckets, total, status };
+  });
+
+  const GRAND = { current: 0, b1: 0, b2: 0, b3: 0, b4: 0 };
+  CUSTOMERS.forEach(c => { for (const k in GRAND) GRAND[k] += c.buckets[k]; });
+  const GRAND_TOTAL = Object.values(GRAND).reduce((a, b) => a + b, 0);
+
+  function countFor(bucket) {
+    return CUSTOMERS.filter(c => c.buckets[bucket] > 0).length;
+  }
+
+  function renderSummary() {
+    const strip = document.getElementById('summaryStrip');
+    const segments = ['current', 'b1', 'b2', 'b3', 'b4'].map(b => `
+      <button data-bucket="${b}" class="age-seg group border-b border-line px-5 py-4 text-left transition-colors hover:bg-paper lg:border-b-0">
+        <span class="block text-[12px] text-muted">${BUCKET_LABEL[b]}</span>
+        <span class="num mt-1 block font-display text-[19px] text-${BUCKET_COLOR[b]}">${fmt(GRAND[b])}</span>
+        <span class="mt-1 block text-[11px] text-muted">${countFor(b)} customer${countFor(b) === 1 ? '' : 's'}</span>
+      </button>
+    `).join('');
+    const totalSeg = `
+      <div class="bg-navy px-5 py-4 text-left text-paper">
+        <span class="block text-[12px] text-paper/70">Total outstanding</span>
+        <span class="num mt-1 block font-display text-[19px]">${fmt(GRAND_TOTAL)}</span>
+        <span class="mt-1 block text-[11px] text-paper/70">${CUSTOMERS.length} customers</span>
+      </div>
+    `;
+    strip.innerHTML = segments + totalSeg;
+    strip.querySelectorAll('.age-seg').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const b = btn.dataset.bucket;
+        state.bucketFilter = state.bucketFilter === b ? null : b;
+        render();
+      });
+    });
+  }
+
+  const state = { search: '', status: 'all', minBalance: 0, bucketFilter: null, sortKey: 'total', sortDir: 'desc', expanded: new Set() };
+
+  function applyFilters() {
+    return CUSTOMERS.filter(c => {
+      if (state.search) {
+        const q = state.search.toLowerCase();
+        const matchesName = c.name.toLowerCase().includes(q);
+        const matchesInvoice = c.invoices.some(inv => inv.inv.toLowerCase().includes(q));
+        if (!matchesName && !matchesInvoice) return false;
+      }
+      if (state.status !== 'all' && c.status !== state.status) return false;
+      if (state.minBalance > 0 && c.total < state.minBalance) return false;
+      if (state.bucketFilter && c.buckets[state.bucketFilter] <= 0) return false;
+      return true;
+    });
+  }
+
+  function applySort(list) {
+    const dir = state.sortDir === 'asc' ? 1 : -1;
+    return [...list].sort((a, b) => {
+      let av, bv;
+      if (state.sortKey === 'name') { av = a.name; bv = b.name; return av.localeCompare(bv) * dir; }
+      if (state.sortKey === 'status') { av = STATUS_RANK[a.status]; bv = STATUS_RANK[b.status]; return (av - bv) * dir; }
+      av = state.sortKey === 'total' ? a.total : a.buckets[state.sortKey];
+      bv = state.sortKey === 'total' ? b.total : b.buckets[state.sortKey];
+      return (av - bv) * dir;
+    });
+  }
+
+  function overdueText(inv) {
+    if (inv.daysOverdue <= 0) {
+      const d = -inv.daysOverdue;
+      return d === 0 ? 'Due today' : `Due in ${d} day${d === 1 ? '' : 's'}`;
+    }
+    return `${inv.daysOverdue} day${inv.daysOverdue === 1 ? '' : 's'} overdue`;
+  }
+
+  function rowHTML(c) {
+    const barSegments = ['current', 'b1', 'b2', 'b3', 'b4']
+      .filter(b => c.buckets[b] > 0)
+      .map(b => `<span class="h-full bg-${BUCKET_COLOR[b]}" style="width:${(c.buckets[b] / c.total * 100).toFixed(2)}%"></span>`)
+      .join('');
+    return `
+    <tr class="row cursor-pointer border-b border-line hover:bg-white/60" data-id="${c.id}" tabindex="0">
+      <td class="px-4 py-3">
+        <div class="flex items-center gap-2.5">
+          <svg class="chevron h-2.5 w-2.5 shrink-0 text-muted" viewBox="0 0 8 8" fill="none" aria-hidden="true"><path d="M2 1l4 3-4 3" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          <div>
+            <div class="font-medium leading-snug text-ink">${c.name}</div>
+            <div class="mt-1.5 flex h-1 w-28 overflow-hidden rounded-[1px] bg-line">${barSegments}</div>
+          </div>
+        </div>
+      </td>
+      <td class="num px-4 py-3 text-right ${c.buckets.current ? 'text-ink' : 'text-muted/50'}">${c.buckets.current ? fmt(c.buckets.current) : '—'}</td>
+      <td class="num px-4 py-3 text-right ${c.buckets.b1 ? 'text-ink' : 'text-muted/50'}">${c.buckets.b1 ? fmt(c.buckets.b1) : '—'}</td>
+      <td class="num px-4 py-3 text-right ${c.buckets.b2 ? 'text-ink' : 'text-muted/50'}">${c.buckets.b2 ? fmt(c.buckets.b2) : '—'}</td>
+      <td class="num px-4 py-3 text-right ${c.buckets.b3 ? 'text-ink' : 'text-muted/50'}">${c.buckets.b3 ? fmt(c.buckets.b3) : '—'}</td>
+      <td class="num px-4 py-3 text-right ${c.buckets.b4 ? 'text-ink' : 'text-muted/50'}">${c.buckets.b4 ? fmt(c.buckets.b4) : '—'}</td>
+      <td class="num px-4 py-3 text-right font-medium text-ink">${fmt(c.total)}</td>
+      <td class="px-4 py-3">
+        <span class="inline-flex items-center gap-1.5 text-[12.5px] text-inksoft">
+          <span class="h-2 w-2 rounded-[1px] bg-${STATUS_COLOR[c.status]}"></span>${STATUS_LABEL[c.status]}
+        </span>
+      </td>
+    </tr>
+    <tr class="detail-row" data-detail-for="${c.id}" hidden>
+      <td colspan="8" class="bg-paper/70 px-4 py-0">
+        <div class="detail-inner">
+          <table class="my-3 w-full text-[12.5px]">
+            <thead class="text-muted">
+              <tr><th class="py-1 text-left font-medium">Invoice</th><th class="py-1 text-left font-medium">Issued</th><th class="py-1 text-left font-medium">Due</th><th class="py-1 text-right font-medium">Status</th><th class="py-1 text-right font-medium">Amount</th></tr>
+            </thead>
+            <tbody>
+              ${c.invoices.map(inv => `
+                <tr class="border-t border-line/70">
+                  <td class="py-1.5 pr-3 text-inksoft">${inv.inv}</td>
+                  <td class="py-1.5 pr-3 text-inksoft">${fmtDate(inv.issue)}</td>
+                  <td class="py-1.5 pr-3 text-inksoft">${fmtDate(inv.due)}</td>
+                  <td class="py-1.5 pr-3 text-right text-${BUCKET_COLOR[inv.bucket]}">${overdueText(inv)}</td>
+                  <td class="num py-1.5 text-right text-ink">${fmt(inv.amt)}</td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+        </div>
+      </td>
+    </tr>`;
+  }
+
+  function footHTML(list) {
+    const sums = { current: 0, b1: 0, b2: 0, b3: 0, b4: 0, total: 0 };
+    list.forEach(c => { for (const k in sums) if (k !== 'total') sums[k] += c.buckets[k]; sums.total += c.total; });
+    const filtered = list.length !== CUSTOMERS.length;
+    const label = filtered ? `Total (${list.length} shown)` : `Total (${list.length} customers)`;
+    return `
+    <tr class="border-t-2 border-navy bg-white/60 font-medium">
+      <td class="px-4 py-3 text-ink">${label}</td>
+      <td class="num px-4 py-3 text-right text-ink">${fmt(sums.current)}</td>
+      <td class="num px-4 py-3 text-right text-ink">${fmt(sums.b1)}</td>
+      <td class="num px-4 py-3 text-right text-ink">${fmt(sums.b2)}</td>
+      <td class="num px-4 py-3 text-right text-ink">${fmt(sums.b3)}</td>
+      <td class="num px-4 py-3 text-right text-ink">${fmt(sums.b4)}</td>
+      <td class="num px-4 py-3 text-right text-ink">${fmt(sums.total)}</td>
+      <td></td>
+    </tr>`;
+  }
+
+  function render() {
+    const filtered = applyFilters();
+    const sorted = applySort(filtered);
+    document.getElementById('tableBody').innerHTML = sorted.length
+      ? sorted.map(rowHTML).join('')
+      : `<tr><td colspan="8" class="px-4 py-10 text-center text-muted">No customers match these filters. Try clearing a filter above.</td></tr>`;
+    document.getElementById('tableFoot').innerHTML = sorted.length ? footHTML(sorted) : '';
+
+    document.querySelectorAll('.sort-btn').forEach(btn => {
+      const active = btn.dataset.sort === state.sortKey;
+      btn.setAttribute('data-active', active ? 'true' : 'false');
+      btn.setAttribute('data-dir', state.sortDir);
+      btn.classList.toggle('text-ink', active);
+      btn.classList.toggle('text-muted', !active);
+    });
+
+    document.querySelectorAll('.age-seg').forEach(seg => {
+      const active = state.bucketFilter === seg.dataset.bucket;
+      seg.classList.toggle('bg-paper', active);
+      seg.style.boxShadow = active ? 'inset 0 -2px 0 0 #1F3A5F' : 'none';
+    });
+
+    const anyFilter = state.search || state.status !== 'all' || state.minBalance > 0 || state.bucketFilter;
+    document.getElementById('clearFilters').classList.toggle('hidden', !anyFilter);
+
+    const noun = sorted.length === 1 ? 'customer' : 'customers';
+    document.getElementById('footerCount').textContent =
+      sorted.length === CUSTOMERS.length
+        ? `Showing all ${CUSTOMERS.length} customers. Total outstanding: ${fmt(GRAND_TOTAL)}.`
+        : `Showing ${sorted.length} of ${CUSTOMERS.length} ${noun}.`;
+
+    sorted.forEach(c => {
+      if (state.expanded.has(c.id)) openDetail(c.id, true);
+    });
+  }
+
+  function openDetail(id, skipAnim) {
+    const detail = document.querySelector(`[data-detail-for="${id}"]`);
+    if (!detail) return;
+    const inner = detail.querySelector('.detail-inner');
+    detail.hidden = false;
+    const chevron = document.querySelector(`[data-id="${id}"] .chevron`);
+    if (chevron) chevron.classList.add('rotate-90');
+    if (skipAnim) { inner.style.transition = 'none'; inner.style.maxHeight = inner.scrollHeight + 'px'; requestAnimationFrame(() => { inner.style.transition = ''; }); }
+    else requestAnimationFrame(() => { inner.style.maxHeight = inner.scrollHeight + 'px'; });
+  }
+
+  function toggleRow(id) {
+    const detail = document.querySelector(`[data-detail-for="${id}"]`);
+    const inner = detail.querySelector('.detail-inner');
+    const chevron = document.querySelector(`[data-id="${id}"] .chevron`);
+    if (state.expanded.has(id)) {
+      state.expanded.delete(id);
+      inner.style.maxHeight = '0px';
+      if (chevron) chevron.classList.remove('rotate-90');
+      setTimeout(() => { if (!state.expanded.has(id)) detail.hidden = true; }, 280);
+    } else {
+      state.expanded.add(id);
+      openDetail(id, false);
+    }
+  }
+
+  document.getElementById('tableBody').addEventListener('click', e => {
+    const row = e.target.closest('tr.row');
+    if (row) toggleRow(row.dataset.id);
+  });
+  document.getElementById('tableBody').addEventListener('keydown', e => {
+    if (e.key !== 'Enter' && e.key !== ' ') return;
+    const row = e.target.closest('tr.row');
+    if (row) { e.preventDefault(); toggleRow(row.dataset.id); }
+  });
+
+  document.querySelectorAll('.sort-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const key = btn.dataset.sort;
+      if (state.sortKey === key) state.sortDir = state.sortDir === 'asc' ? 'desc' : 'asc';
+      else { state.sortKey = key; state.sortDir = key === 'name' ? 'asc' : 'desc'; }
+      render();
+    });
+  });
+
+  document.getElementById('searchInput').addEventListener('input', e => { state.search = e.target.value.trim(); render(); });
+  document.getElementById('statusFilter').addEventListener('change', e => { state.status = e.target.value; render(); });
+  document.getElementById('minBalance').addEventListener('input', e => { state.minBalance = Number(e.target.value) || 0; render(); });
+  document.getElementById('clearFilters').addEventListener('click', () => {
+    state.search = ''; state.status = 'all'; state.minBalance = 0; state.bucketFilter = null;
+    document.getElementById('searchInput').value = '';
+    document.getElementById('statusFilter').value = 'all';
+    document.getElementById('minBalance').value = '';
+    render();
+  });
+
+  document.getElementById('printBtn').addEventListener('click', () => window.print());
+
+  document.getElementById('exportBtn').addEventListener('click', () => {
+    const rows = applySort(applyFilters());
+    const header = ['Customer', 'Current', '1-30 days', '31-60 days', '61-90 days', '90+ days', 'Total due', 'Status'];
+    const lines = [header.join(',')];
+    rows.forEach(c => {
+      const cells = [
+        `"${c.name.replace(/"/g, '""')}"`,
+        c.buckets.current.toFixed(2),
+        c.buckets.b1.toFixed(2),
+        c.buckets.b2.toFixed(2),
+        c.buckets.b3.toFixed(2),
+        c.buckets.b4.toFixed(2),
+        c.total.toFixed(2),
+        STATUS_LABEL[c.status],
+      ];
+      lines.push(cells.join(','));
+    });
+    const blob = new Blob([lines.join('\n')], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'ar-aging-report-2026-11-07.csv';
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  });
+
+  renderSummary();
+  render();
+</script>
+</body>
+</html>

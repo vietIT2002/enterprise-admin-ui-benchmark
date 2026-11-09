@@ -1,0 +1,709 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Bảng ticket hỗ trợ · HelpDesk Pro</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+  [hidden] { display: none !important; }
+  .tnum { font-variant-numeric: tabular-nums; }
+  .clamp-2 { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+  @media print {
+    aside, nav, button, input, select, textarea, [data-no-print] { display: none !important; }
+    main { padding: 0 !important; }
+  }
+</style>
+</head>
+<body class="flex h-screen overflow-hidden bg-white text-sm text-slate-900 antialiased">
+
+<aside class="flex w-56 shrink-0 flex-col overflow-y-auto border-r border-slate-200 bg-slate-50">
+  <div class="flex h-12 items-center px-4 font-semibold">HelpDesk Pro</div>
+  <nav aria-label="Điều hướng chính" class="px-2 pb-4">
+    <p class="px-2 pb-1 pt-3 text-xs font-medium text-slate-600">Hỗ trợ</p>
+    <a href="#" aria-current="page" class="flex h-8 items-center rounded bg-slate-200 px-2 font-medium">Bảng ticket</a>
+    <a href="#" class="flex h-8 items-center rounded px-2 text-slate-700 hover:bg-slate-100">Khách hàng</a>
+    <a href="#" class="flex h-8 items-center rounded px-2 text-slate-700 hover:bg-slate-100">Báo cáo</a>
+    <p class="px-2 pb-1 pt-3 text-xs font-medium text-slate-600">Hệ thống</p>
+    <a href="#" class="flex h-8 items-center rounded px-2 text-slate-700 hover:bg-slate-100">Cài đặt</a>
+  </nav>
+</aside>
+
+<main class="flex min-w-0 flex-1 flex-col">
+  <header class="shrink-0 border-b border-slate-200 px-6 py-4" data-page-header>
+    <div class="flex items-center justify-between gap-4">
+      <div>
+        <h1 class="text-xl font-semibold">Ticket hỗ trợ</h1>
+        <p class="mt-0.5 text-slate-600" data-result-count><span id="result-count" class="tnum">0</span> ticket</p>
+      </div>
+      <div class="flex items-center gap-2">
+        <div role="group" aria-label="Chế độ xem" class="flex h-8 items-center rounded border border-slate-300 bg-white p-0.5">
+          <button type="button" id="view-board" aria-pressed="true" class="h-7 rounded px-2.5 text-slate-700">Bảng</button>
+          <button type="button" id="view-list" aria-pressed="false" class="h-7 rounded px-2.5 text-slate-700">Danh sách</button>
+        </div>
+        <button type="button" id="btn-create" class="h-8 rounded bg-blue-700 px-3 font-medium text-white hover:bg-blue-800">Tạo ticket</button>
+      </div>
+    </div>
+  </header>
+
+  <div class="shrink-0 border-b border-slate-200 px-6 py-3">
+    <div class="flex flex-wrap items-center gap-2">
+      <label class="sr-only" for="q">Tìm theo mã hoặc tiêu đề</label>
+      <input type="search" id="q" aria-label="Tìm ticket theo mã hoặc tiêu đề" placeholder="Tìm theo mã hoặc tiêu đề" class="h-8 w-72 rounded border border-slate-300 px-2">
+      <label class="sr-only" for="f-assignee">Người phụ trách</label>
+      <select id="f-assignee" aria-label="Lọc theo người phụ trách" class="h-8 rounded border border-slate-300 bg-white px-2">
+        <option value="">Tất cả người phụ trách</option>
+      </select>
+      <label class="sr-only" for="f-priority">Mức ưu tiên</label>
+      <select id="f-priority" aria-label="Lọc theo mức ưu tiên" class="h-8 rounded border border-slate-300 bg-white px-2">
+        <option value="">Tất cả mức ưu tiên</option>
+      </select>
+      <label class="sr-only" for="f-type">Loại yêu cầu</label>
+      <select id="f-type" aria-label="Lọc theo loại yêu cầu" class="h-8 rounded border border-slate-300 bg-white px-2">
+        <option value="">Tất cả loại yêu cầu</option>
+      </select>
+      <button type="button" id="btn-mine" aria-pressed="false" class="h-8 rounded border border-slate-300 bg-white px-3 text-slate-700 hover:bg-slate-50">Giao cho tôi</button>
+    </div>
+    <div id="chips" class="mt-2 flex flex-wrap items-center gap-1"></div>
+  </div>
+
+  <section data-region="tickets" aria-label="Ticket hỗ trợ" class="flex min-h-0 flex-1 flex-col px-6 py-3">
+    <div data-state="ready" class="flex h-full min-h-0 flex-col">
+      <div id="board" class="flex h-full min-h-0 flex-1 gap-3 overflow-x-auto pb-2"></div>
+      <div id="list-view" hidden class="h-full min-h-0 flex-1 overflow-auto rounded-md border border-slate-200">
+        <table class="w-full border-collapse">
+          <caption class="sr-only">Danh sách ticket</caption>
+          <thead class="bg-slate-50 text-slate-700">
+            <tr class="h-10 border-b border-slate-200">
+              <th scope="col" class="px-3 text-left font-medium">Mã</th>
+              <th scope="col" class="px-3 text-left font-medium">Khách hàng</th>
+              <th scope="col" class="px-3 text-left font-medium">Tiêu đề</th>
+              <th scope="col" class="px-3 text-left font-medium">Trạng thái</th>
+              <th scope="col" class="px-3 text-left font-medium">Ưu tiên</th>
+              <th scope="col" class="px-3 text-left font-medium">Phụ trách</th>
+              <th scope="col" class="px-3 text-left font-medium">SLA</th>
+            </tr>
+          </thead>
+          <tbody id="list-rows"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div data-state="empty" hidden class="flex h-full items-center justify-center rounded-md border border-dashed border-slate-300 px-6 py-10 text-center">
+      <div>
+        <p class="font-medium" id="empty-title">Chưa có ticket nào</p>
+        <p class="mt-1 text-slate-600" id="empty-text">Ticket hỗ trợ mới từ khách hàng sẽ xuất hiện ở đây.</p>
+        <button type="button" id="empty-action" class="mt-3 h-8 rounded border border-slate-300 bg-white px-3 hover:bg-slate-50">Tạo ticket</button>
+      </div>
+    </div>
+
+    <div data-state="loading" aria-busy="true" hidden class="flex h-full min-h-0 flex-1 gap-3 overflow-x-auto pb-2" aria-label="Đang tải ticket">
+      <div class="flex w-[300px] shrink-0 flex-col gap-2 rounded-md border border-slate-200 bg-slate-50 p-2">
+        <div class="h-5 w-28 animate-pulse rounded bg-slate-200 motion-reduce:animate-none"></div>
+        <div class="h-24 animate-pulse rounded bg-white motion-reduce:animate-none"></div>
+        <div class="h-24 animate-pulse rounded bg-white motion-reduce:animate-none"></div>
+        <div class="h-24 animate-pulse rounded bg-white motion-reduce:animate-none"></div>
+      </div>
+      <div class="flex w-[300px] shrink-0 flex-col gap-2 rounded-md border border-slate-200 bg-slate-50 p-2">
+        <div class="h-5 w-28 animate-pulse rounded bg-slate-200 motion-reduce:animate-none"></div>
+        <div class="h-24 animate-pulse rounded bg-white motion-reduce:animate-none"></div>
+        <div class="h-24 animate-pulse rounded bg-white motion-reduce:animate-none"></div>
+      </div>
+      <div class="flex w-[300px] shrink-0 flex-col gap-2 rounded-md border border-slate-200 bg-slate-50 p-2">
+        <div class="h-5 w-28 animate-pulse rounded bg-slate-200 motion-reduce:animate-none"></div>
+        <div class="h-24 animate-pulse rounded bg-white motion-reduce:animate-none"></div>
+      </div>
+    </div>
+
+    <div data-state="error" hidden class="flex h-full items-center justify-center rounded-md border border-red-200 bg-red-50 px-4 py-3 text-red-800" role="alert">
+      <div class="text-center">
+        <p class="font-medium">Không tải được danh sách ticket.</p>
+        <p class="mt-1">Kiểm tra kết nối mạng rồi thử lại.</p>
+        <button type="button" id="retry" class="mt-2 h-8 rounded border border-red-300 bg-white px-3 text-red-800 hover:bg-red-100">Thử lại</button>
+      </div>
+    </div>
+  </section>
+</main>
+
+<div id="menu" role="menu" aria-label="Chuyển trạng thái" hidden class="fixed z-20 w-56 rounded-md border border-slate-200 bg-white py-1 shadow-md">
+  <p class="px-3 pb-1 pt-1 text-xs font-medium text-slate-500">Chuyển đến</p>
+  <div id="menu-items"></div>
+</div>
+
+<div id="backdrop" hidden class="fixed inset-0 z-30 bg-slate-900/40"></div>
+
+<div id="panel" hidden role="dialog" aria-modal="true" aria-labelledby="panel-title" class="fixed inset-y-0 right-0 z-40 flex w-[520px] flex-col border-l border-slate-200 bg-white shadow-lg">
+  <div class="flex items-center justify-between border-b border-slate-200 px-5 py-4">
+    <div>
+      <p class="text-xs text-slate-500" id="panel-code"></p>
+      <h2 id="panel-title" class="text-base font-semibold"></h2>
+    </div>
+    <button type="button" id="panel-close" aria-label="Đóng chi tiết ticket" class="h-8 w-8 rounded hover:bg-slate-100">✕</button>
+  </div>
+  <div class="min-h-0 flex-1 overflow-y-auto px-5 py-4" id="panel-body"></div>
+</div>
+
+<div id="xbackdrop" hidden class="fixed inset-0 z-40 bg-slate-900/40"></div>
+<div id="resolve-dialog" role="alertdialog" aria-modal="true" aria-labelledby="resolve-title" aria-describedby="resolve-text" hidden class="fixed left-1/2 top-24 z-50 w-[440px] -translate-x-1/2 rounded-lg border border-slate-200 bg-white p-5 shadow-lg">
+  <h2 id="resolve-title" class="text-base font-semibold">Chuyển ticket sang Đã giải quyết?</h2>
+  <p id="resolve-text" class="mt-2 text-slate-700">Ghi lại cách xử lý để khách hàng và đồng nghiệp biết vấn đề đã được giải quyết thế nào.</p>
+  <label for="resolve-note" class="mt-3 block text-sm font-medium">Ghi chú giải quyết <span class="text-red-700">*</span></label>
+  <textarea id="resolve-note" rows="3" class="mt-1 w-full rounded border border-slate-300 px-2 py-1.5" placeholder="Ví dụ: đã hướng dẫn khách đặt lại mật khẩu qua email xác thực."></textarea>
+  <p id="resolve-error" class="mt-1 hidden text-red-700" role="alert">Nhập ghi chú giải quyết trước khi chuyển trạng thái.</p>
+  <div class="mt-4 flex justify-end gap-2">
+    <button type="button" id="resolve-cancel" class="h-8 rounded border border-slate-300 bg-white px-3 hover:bg-slate-50">Hủy</button>
+    <button type="button" id="resolve-ok" class="h-8 rounded bg-blue-700 px-3 font-medium text-white hover:bg-blue-800">Lưu và chuyển</button>
+  </div>
+</div>
+
+<div id="toast" role="status" aria-live="polite" class="fixed bottom-4 right-4 z-[60]"></div>
+<div id="move-status" role="status" aria-live="polite" class="sr-only"></div>
+
+<script>
+  const LOCALE = 'vi-VN';
+  const TIME_ZONE = 'Asia/Ho_Chi_Minh';
+  const NOW = new Date('2026-11-07T07:00:00+07:00');
+  const CURRENT_USER = 'Trần Minh Quân';
+
+  const df = new Intl.DateTimeFormat(LOCALE, { day: '2-digit', month: '2-digit', year: 'numeric', timeZone: TIME_ZONE });
+  const tf = new Intl.DateTimeFormat(LOCALE, { hour: '2-digit', minute: '2-digit', hourCycle: 'h23', timeZone: TIME_ZONE });
+  const rtf = new Intl.RelativeTimeFormat(LOCALE, { numeric: 'auto' });
+  const fmtDateTime = (d) => `${df.format(d)} ${tf.format(d)}`;
+  const fmtCount = (n) => new Intl.NumberFormat(LOCALE).format(n);
+  const fmtRelative = (d) => {
+    const s = (d.getTime() - NOW.getTime()) / 1000;
+    const a = Math.abs(s);
+    const [n, unit] = a < 60 ? [0, 'second'] : a < 3600 ? [s / 60, 'minute'] : a < 86400 ? [s / 3600, 'hour'] : [s / 86400, 'day'];
+    return rtf.format(Math.round(n), unit);
+  };
+  const fmtDuration = (ms) => {
+    const h = Math.round(Math.abs(ms) / 3600000);
+    return h < 48 ? `${h} giờ` : `${Math.round(h / 24)} ngày`;
+  };
+  const foldVi = (s) => String(s).normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/đ/g, 'd').replace(/Đ/g, 'D').toLowerCase();
+
+  const TONE = {
+    neutral: 'bg-slate-100 text-slate-700',
+    info: 'bg-blue-50 text-blue-800',
+    success: 'bg-green-50 text-green-800',
+    warning: 'bg-amber-50 text-amber-800',
+    danger: 'bg-red-50 text-red-800',
+  };
+  const TEXT_TONE = { neutral: 'text-slate-600', info: 'text-blue-700', success: 'text-green-700', warning: 'text-amber-700', danger: 'text-red-700' };
+
+  const STATUS_DEFS = [
+    { key: 'new', label: 'Mới', tone: 'info' },
+    { key: 'in_progress', label: 'Đang xử lý', tone: 'info', limit: 8 },
+    { key: 'waiting', label: 'Chờ phản hồi khách', tone: 'warning' },
+    { key: 'resolved', label: 'Đã giải quyết', tone: 'success' },
+    { key: 'closed', label: 'Đã đóng', tone: 'neutral' },
+  ];
+  const STATUS_BY_KEY = Object.fromEntries(STATUS_DEFS.map((s) => [s.key, s]));
+
+  const PRIORITIES = [
+    { name: 'Khẩn cấp', tone: 'danger', rank: 0, slaHours: 4 },
+    { name: 'Cao', tone: 'warning', rank: 1, slaHours: 8 },
+    { name: 'Trung bình', tone: 'info', rank: 2, slaHours: 24 },
+    { name: 'Thấp', tone: 'neutral', rank: 3, slaHours: 72 },
+  ];
+  const PRIORITY_BY_NAME = Object.fromEntries(PRIORITIES.map((p) => [p.name, p]));
+
+  const TYPES = ['Kỹ thuật', 'Tài khoản', 'Thanh toán', 'Yêu cầu tính năng', 'Khác'];
+  const AGENTS = ['Trần Minh Quân', 'Lê Thu Hà', 'Nguyễn Văn Đức', 'Phạm Thị Lan', 'Hoàng Anh Tuấn', 'Đỗ Mai Chi'];
+
+  const CUSTOMERS = [
+    { name: 'Công ty TNHH Minh Phát', email: 'lienhe@minhphat.vn', phone: '0283 123 4567' },
+    { name: 'Siêu thị An Khang', email: 'hotro@ankhang.vn', phone: '0243 456 7890' },
+    { name: 'Công ty CP Hòa Bình', email: 'cskh@hoabinh.vn', phone: '0236 789 1234' },
+    { name: 'Nhà hàng Sơn Hải', email: 'lienhe@sonhai.vn', phone: '0905 123 456' },
+    { name: 'Trường Việt Anh', email: 'it@vietanh.edu.vn', phone: '0243 111 2222' },
+    { name: 'Khách sạn Hoa Sen', email: 'hotro@hoasenhotel.vn', phone: '0909 234 567' },
+    { name: 'Cửa hàng Bách Hóa Xanh Q7', email: 'cskh@bachhoaxanh.vn', phone: '0283 987 6543' },
+    { name: 'Công ty Thép Sài Gòn', email: 'lienhe@thepsaigon.vn', phone: '0283 222 3333' },
+    { name: 'Nguyễn Thị Hồng', email: 'nguyenthihong@gmail.com', phone: '0912 345 678' },
+    { name: 'Trần Văn Nam', email: 'tranvannam@gmail.com', phone: '0987 654 321' },
+    { name: 'Phòng khám Đa khoa An Tâm', email: 'lienhe@antamclinic.vn', phone: '0243 555 6666' },
+    { name: 'Công ty Logistics Phương Đông', email: 'cskh@phuongdong-logi.vn', phone: '0283 444 5555' },
+  ];
+
+  const ISSUES = [
+    { title: 'Không thể đăng nhập vào hệ thống quản lý', desc: 'Khách hàng báo không thể đăng nhập từ sáng nay, đã thử đổi mật khẩu nhưng không nhận được email xác nhận.', type: 'Tài khoản' },
+    { title: 'Lỗi hóa đơn điện tử không xuất được', desc: 'Hệ thống báo lỗi khi xuất hóa đơn điện tử cho đơn hàng tháng 11, mã lỗi không rõ nguyên nhân.', type: 'Thanh toán' },
+    { title: 'Yêu cầu cấp lại mật khẩu tài khoản quản trị', desc: 'Quản trị viên của khách hàng quên mật khẩu và không còn quyền truy cập email khôi phục cũ.', type: 'Tài khoản' },
+    { title: 'Hệ thống chậm khi tải báo cáo doanh thu', desc: 'Báo cáo doanh thu theo tháng tải hơn 30 giây, ảnh hưởng đến công việc cuối ngày của kế toán.', type: 'Kỹ thuật' },
+    { title: 'Không nhận được email xác nhận đơn hàng', desc: 'Khách phản hồi không thấy email xác nhận sau khi đặt hàng thành công, đã kiểm tra cả thư mục spam.', type: 'Kỹ thuật' },
+    { title: 'Yêu cầu thêm người dùng mới vào hệ thống', desc: 'Khách hàng muốn thêm 3 nhân viên mới vào hệ thống với quyền xem báo cáo.', type: 'Yêu cầu tính năng' },
+    { title: 'Lỗi hiển thị sai số lượng hàng trong kho', desc: 'Số lượng tồn kho hiển thị trên hệ thống không khớp với số liệu thực tế tại cửa hàng.', type: 'Kỹ thuật' },
+    { title: 'Máy POS tại chi nhánh không kết nối được mạng', desc: 'Máy bán hàng tại chi nhánh Quận 7 báo lỗi mất kết nối liên tục từ trưa nay.', type: 'Kỹ thuật' },
+    { title: 'Khách hàng phản hồi bị trừ tiền 2 lần', desc: 'Một giao dịch thanh toán online bị ghi nhận và trừ tiền hai lần trong cùng một đơn hàng.', type: 'Thanh toán' },
+    { title: 'Yêu cầu tích hợp cổng thanh toán mới', desc: 'Khách hàng muốn tích hợp thêm một cổng thanh toán nội địa cho cửa hàng online.', type: 'Yêu cầu tính năng' },
+    { title: 'Không xuất được file Excel từ báo cáo tồn kho', desc: 'Nút xuất Excel trên trang báo cáo tồn kho không phản hồi khi nhấn.', type: 'Kỹ thuật' },
+    { title: 'Lỗi 500 khi truy cập trang quản trị', desc: 'Trang quản trị trả về lỗi máy chủ 500 khi khách hàng cố truy cập từ 9h sáng.', type: 'Kỹ thuật' },
+    { title: 'Yêu cầu khôi phục dữ liệu bị xóa nhầm', desc: 'Nhân viên khách hàng xóa nhầm một danh mục sản phẩm và cần khôi phục trong vòng 24 giờ.', type: 'Kỹ thuật' },
+    { title: 'Giao diện di động bị lỗi hiển thị trên iOS', desc: 'Trang thanh toán trên ứng dụng di động bị lệch giao diện khi dùng trình duyệt Safari.', type: 'Kỹ thuật' },
+    { title: 'Yêu cầu hướng dẫn sử dụng tính năng báo cáo mới', desc: 'Khách hàng muốn được hướng dẫn cách dùng tính năng báo cáo tổng hợp vừa ra mắt.', type: 'Khác' },
+    { title: 'Thông báo đẩy không hoạt động trên ứng dụng', desc: 'Nhân viên không còn nhận được thông báo đẩy khi có đơn hàng mới từ hai ngày nay.', type: 'Kỹ thuật' },
+    { title: 'Lỗi đồng bộ dữ liệu giữa hai chi nhánh', desc: 'Dữ liệu bán hàng giữa chi nhánh Hà Nội và Đà Nẵng không khớp sau lần đồng bộ gần nhất.', type: 'Kỹ thuật' },
+    { title: 'Yêu cầu nâng cấp dung lượng lưu trữ', desc: 'Khách hàng sắp hết dung lượng lưu trữ tài liệu và muốn nâng cấp gói dịch vụ.', type: 'Yêu cầu tính năng' },
+    { title: 'Khách hàng không thể hủy đơn hàng', desc: 'Nút hủy đơn hàng không hoạt động với các đơn ở trạng thái đang xử lý.', type: 'Kỹ thuật' },
+    { title: 'Lỗi chính tả trên trang thanh toán', desc: 'Khách phát hiện một vài lỗi chính tả tiếng Việt trên trang xác nhận thanh toán.', type: 'Khác' },
+    { title: 'Yêu cầu xuất báo cáo thuế quý 4', desc: 'Kế toán của khách hàng cần mẫu báo cáo thuế quý 4 theo đúng định dạng quy định.', type: 'Yêu cầu tính năng' },
+    { title: 'Tài khoản bị khóa do đăng nhập sai nhiều lần', desc: 'Tài khoản quản trị tự động bị khóa sau 5 lần đăng nhập sai, khách hàng cần mở khóa gấp.', type: 'Tài khoản' },
+  ];
+
+  const STATUS_PLAN = [].concat(
+    Array(9).fill('new'), Array(11).fill('in_progress'), Array(8).fill('waiting'), Array(8).fill('resolved'), Array(6).fill('closed')
+  );
+
+  let tickets = STATUS_PLAN.map((status, i) => {
+    const issue = ISSUES[i % ISSUES.length];
+    const priority = PRIORITIES[(i * 3) % PRIORITIES.length];
+    const customer = CUSTOMERS[(i * 5) % CUSTOMERS.length];
+    const assigneeIdx = i % 7;
+    const assignee = assigneeIdx === 6 ? null : AGENTS[assigneeIdx];
+    const createdAt = new Date(NOW.getTime() - ((i * 7919) % 110 + 2) * 3600000);
+    const dueAt = new Date(createdAt.getTime() + priority.slaHours * 3600000);
+    const resolvedAt = status === 'resolved' || status === 'closed' ? new Date(createdAt.getTime() + priority.slaHours * 3600000 * 0.6) : null;
+    const closedAt = status === 'closed' ? new Date(resolvedAt.getTime() + 12 * 3600000) : null;
+    const activity = [{ text: 'Tạo ticket', at: createdAt }];
+    if (assignee) activity.push({ text: `Gán cho ${assignee}`, at: new Date(createdAt.getTime() + 20 * 60000) });
+    if (status !== 'new') activity.push({ text: `Chuyển sang ${STATUS_BY_KEY[status === 'closed' ? 'resolved' : status].label}`, at: new Date(createdAt.getTime() + 2 * 3600000) });
+    if (resolvedAt) activity.push({ text: 'Chuyển sang Đã giải quyết', at: resolvedAt, note: 'Đã xử lý theo quy trình hỗ trợ tiêu chuẩn và xác nhận với khách hàng.' });
+    if (closedAt) activity.push({ text: 'Chuyển sang Đã đóng', at: closedAt });
+    return {
+      id: 'TK-' + (1001 + i),
+      title: issue.title,
+      desc: issue.desc,
+      type: issue.type,
+      customer,
+      priority: priority.name,
+      assignee,
+      status,
+      createdAt, dueAt, resolvedAt, closedAt,
+      activity,
+    };
+  });
+
+  const $ = (id) => document.getElementById(id);
+  let toastTimer;
+  function announceStatus(text) { $('move-status').textContent = ''; requestAnimationFrame(() => ($('move-status').textContent = text)); }
+  function toast(html, ms) {
+    $('toast').innerHTML = `<div class="flex items-center gap-3 rounded-md border border-slate-200 bg-white px-4 py-3 shadow-md">${html}</div>`;
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => ($('toast').innerHTML = ''), ms || 6000);
+  }
+  function show(state) { document.querySelectorAll('[data-region="tickets"] > [data-state]').forEach((e) => (e.hidden = e.dataset.state !== state)); }
+
+  const params = new URLSearchParams(location.search);
+  const forced = params.get('state');
+  const ui = {
+    q: params.get('q') || '', assignee: params.get('assignee') || '', priority: params.get('priority') || '',
+    type: params.get('type') || '', mine: params.get('mine') === '1', view: params.get('view') === 'list' ? 'list' : 'board',
+    ticket: params.get('ticket') || '',
+  };
+  if (forced === 'empty') tickets = [];
+
+  function syncUrl() {
+    const p = new URLSearchParams();
+    if (ui.q) p.set('q', ui.q);
+    if (ui.assignee) p.set('assignee', ui.assignee);
+    if (ui.priority) p.set('priority', ui.priority);
+    if (ui.type) p.set('type', ui.type);
+    if (ui.mine) p.set('mine', '1');
+    if (ui.view === 'list') p.set('view', 'list');
+    if (ui.ticket) p.set('ticket', ui.ticket);
+    if (forced) p.set('state', forced);
+    history.replaceState(null, '', p.toString() ? '?' + p : location.pathname);
+  }
+
+  function matching() {
+    const q = foldVi(ui.q.trim());
+    const assignee = ui.mine ? CURRENT_USER : ui.assignee;
+    return tickets.filter((t) =>
+      (!assignee || t.assignee === assignee) &&
+      (!ui.priority || t.priority === ui.priority) &&
+      (!ui.type || t.type === ui.type) &&
+      (!q || foldVi(t.id + ' ' + t.title + ' ' + t.customer.name).includes(q))
+    );
+  }
+
+  function slaInfo(t) {
+    const open = t.status === 'new' || t.status === 'in_progress' || t.status === 'waiting';
+    if (open) {
+      const diff = t.dueAt.getTime() - NOW.getTime();
+      if (diff < 0) return { tone: 'danger', pill: `Quá hạn ${fmtDuration(diff)}`, line: `Hết hạn ${fmtDateTime(t.dueAt)}` };
+      if (diff < 4 * 3600000) return { tone: 'warning', pill: `Hết hạn trong ${fmtDuration(diff)}`, line: `Hết hạn ${fmtDateTime(t.dueAt)}` };
+      return { tone: null, pill: null, line: `Hết hạn ${fmtDateTime(t.dueAt)}` };
+    }
+    if (t.status === 'resolved') return { tone: null, pill: null, line: `Giải quyết ${fmtDateTime(t.resolvedAt)}` };
+    return { tone: null, pill: null, line: `Đóng ${fmtDateTime(t.closedAt)}` };
+  }
+
+  function initials(name) {
+    return name.split(' ').filter(Boolean).slice(-2).map((w) => w[0]).join('').toUpperCase();
+  }
+
+  function cardHtml(t) {
+    const sla = slaInfo(t);
+    const pr = PRIORITY_BY_NAME[t.priority];
+    const assigneeHtml = t.assignee
+      ? `<span class="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-slate-200 text-[10px] font-medium text-slate-700">${initials(t.assignee)}</span><span class="truncate">${t.assignee}</span>`
+      : `<span class="italic text-slate-500">Chưa gán</span>`;
+    return `
+      <div class="relative rounded-md border border-slate-200 bg-white p-3">
+        <button type="button" data-open="${t.id}" class="absolute inset-0 rounded-md text-left" aria-label="${t.id} — ${t.title}. Khách hàng ${t.customer.name}. Ưu tiên ${t.priority}. Phụ trách ${t.assignee || 'chưa gán'}. ${sla.line}."></button>
+        <div class="pointer-events-none relative z-10">
+          <div class="flex items-center justify-between gap-2 pr-6">
+            <span class="text-xs text-slate-500 tnum">${t.id}</span>
+            <span class="text-xs font-medium ${TEXT_TONE[pr.tone]}">${t.priority}</span>
+          </div>
+          <p class="clamp-2 mt-1 text-sm font-medium text-slate-900" title="${t.title}">${t.title}</p>
+          <p class="mt-1 truncate text-sm text-slate-600" title="${t.customer.name}">${t.customer.name}</p>
+          <div class="mt-2 flex items-center gap-1.5 text-sm text-slate-600">
+            ${assigneeHtml}
+            <span class="text-slate-400" aria-hidden="true">·</span>
+            <span class="tnum truncate">${sla.line}</span>
+          </div>
+          ${sla.pill ? `<div class="mt-2"><span class="inline-flex h-5 items-center rounded-full px-2 text-xs font-medium ${TONE[sla.tone]}">${sla.pill}</span></div>` : ''}
+        </div>
+        <button type="button" data-menu="${t.id}" aria-haspopup="menu" aria-expanded="false" aria-label="Hành động cho ${t.id}" class="absolute right-1 top-1 z-20 h-7 w-7 rounded hover:bg-slate-100">⋯</button>
+      </div>`;
+  }
+
+  function renderBoard(list) {
+    const board = $('board');
+    if (!board.childElementCount) {
+      board.innerHTML = STATUS_DEFS.map((s) => `
+        <section aria-labelledby="col-${s.key}" class="flex h-full min-h-0 w-[300px] shrink-0 flex-col rounded-md border border-slate-200 bg-slate-50">
+          <h2 id="col-${s.key}" class="flex items-center justify-between gap-2 border-b border-slate-200 px-3 py-2 text-sm font-medium text-slate-900">
+            <span>${s.label}</span>
+            <span class="flex items-center gap-1 text-xs text-slate-600">
+              <span class="tnum" id="count-${s.key}">0</span>
+              <span id="over-${s.key}" hidden class="font-medium text-amber-700">Quá giới hạn</span>
+            </span>
+          </h2>
+          <ol class="min-h-0 flex-1 space-y-2 overflow-y-auto px-2 py-2" id="col-body-${s.key}" aria-label="Ticket ở trạng thái ${s.label}"></ol>
+        </section>`).join('');
+    }
+    for (const s of STATUS_DEFS) {
+      const items = list.filter((t) => t.status === s.key).sort((a, b) => PRIORITY_BY_NAME[a.priority].rank - PRIORITY_BY_NAME[b.priority].rank || a.dueAt - b.dueAt);
+      $('count-' + s.key).textContent = fmtCount(items.length);
+      const over = s.limit && items.length > s.limit;
+      $('count-' + s.key).className = 'tnum' + (over ? ' font-medium text-amber-700' : '');
+      $('over-' + s.key).hidden = !over;
+      const body = $('col-body-' + s.key);
+      body.innerHTML = items.length
+        ? items.map((t) => `<li data-ticket-item="${t.id}">${cardHtml(t)}</li>`).join('')
+        : `<li class="px-1 py-6 text-center text-xs text-slate-500">Không có ticket ở trạng thái "${s.label}"</li>`;
+    }
+  }
+
+  function renderList(list) {
+    const sorted = [...list].sort((a, b) => {
+      const rank = (t) => {
+        const sla = slaInfo(t);
+        if (sla.tone === 'danger') return 0;
+        if (sla.tone === 'warning') return 1;
+        if (t.status === 'resolved' || t.status === 'closed') return 3;
+        return 2;
+      };
+      return rank(a) - rank(b) || a.dueAt - b.dueAt;
+    });
+    $('list-rows').innerHTML = sorted.map((t) => {
+      const s = STATUS_BY_KEY[t.status];
+      const pr = PRIORITY_BY_NAME[t.priority];
+      const sla = slaInfo(t);
+      return `<tr class="h-10 border-b border-slate-200 last:border-0 hover:bg-slate-50">
+        <td class="whitespace-nowrap px-3"><button type="button" data-open="${t.id}" class="text-blue-700 hover:underline">${t.id}</button></td>
+        <td class="max-w-48 truncate px-3" title="${t.customer.name}">${t.customer.name}</td>
+        <td class="max-w-72 truncate px-3" title="${t.title}">${t.title}</td>
+        <td class="px-3"><span class="inline-flex h-6 items-center whitespace-nowrap rounded-full px-2 text-xs font-medium ${TONE[s.tone]}">${s.label}</span></td>
+        <td class="whitespace-nowrap px-3"><span class="text-xs font-medium ${TEXT_TONE[pr.tone]}">${t.priority}</span></td>
+        <td class="max-w-40 truncate px-3">${t.assignee || '<span class="italic text-slate-500">Chưa gán</span>'}</td>
+        <td class="tnum whitespace-nowrap px-3">${sla.line}</td>
+      </tr>`;
+    }).join('');
+  }
+
+  function renderFilters() {
+    const a = $('f-assignee'), p = $('f-priority'), ty = $('f-type');
+    if (!a.dataset.filled) {
+      a.innerHTML += AGENTS.map((n) => `<option value="${n}">${n}</option>`).join('') + `<option value="__unassigned">Chưa gán</option>`;
+      p.innerHTML += PRIORITIES.map((pr) => `<option value="${pr.name}">${pr.name}</option>`).join('');
+      ty.innerHTML += TYPES.map((t) => `<option value="${t}">${t}</option>`).join('');
+      a.dataset.filled = p.dataset.filled = ty.dataset.filled = '1';
+    }
+    a.value = ui.mine ? '' : ui.assignee;
+    a.disabled = ui.mine;
+    p.value = ui.priority;
+    ty.value = ui.type;
+    $('btn-mine').setAttribute('aria-pressed', String(ui.mine));
+    $('btn-mine').className = 'h-8 rounded border px-3 ' + (ui.mine ? 'border-blue-700 bg-blue-50 text-blue-800' : 'border-slate-300 bg-white text-slate-700 hover:bg-slate-50');
+  }
+
+  function renderChips() {
+    const chips = [];
+    if (ui.q) chips.push(['q', `Tìm: ${ui.q}`]);
+    if (ui.mine) chips.push(['mine', 'Giao cho tôi']);
+    else if (ui.assignee) chips.push(['assignee', `Phụ trách: ${ui.assignee}`]);
+    if (ui.priority) chips.push(['priority', `Ưu tiên: ${ui.priority}`]);
+    if (ui.type) chips.push(['type', `Loại: ${ui.type}`]);
+    $('chips').innerHTML = chips.map(([k, t]) => `<span class="inline-flex h-6 items-center gap-1 rounded-full bg-slate-100 pl-2 pr-1 text-xs text-slate-700">${t}<button type="button" data-chip="${k}" class="flex h-6 w-6 items-center justify-center rounded-full hover:bg-slate-200" aria-label="Xóa bộ lọc ${t}">×</button></span>`).join('')
+      + (chips.length ? '<button type="button" id="clear-all" class="h-6 px-2 text-blue-700 underline">Xóa tất cả</button>' : '');
+  }
+
+  function clearFilters() {
+    ui.q = ''; ui.assignee = ''; ui.priority = ''; ui.type = ''; ui.mine = false;
+    $('q').value = '';
+    render();
+    $('q').focus();
+  }
+
+  function render() {
+    syncUrl();
+    renderFilters();
+    renderChips();
+    const list = matching();
+    $('result-count').textContent = fmtCount(list.length);
+
+    if (!list.length) {
+      const firstUse = tickets.length === 0;
+      $('empty-title').textContent = firstUse ? 'Chưa có ticket nào' : 'Không tìm thấy ticket nào khớp với bộ lọc này';
+      $('empty-text').textContent = firstUse ? 'Ticket hỗ trợ mới từ khách hàng sẽ xuất hiện ở đây.' : 'Thử từ khóa khác hoặc xóa bộ lọc đang áp dụng.';
+      $('empty-action').textContent = firstUse ? 'Tạo ticket' : 'Xóa bộ lọc';
+      show('empty');
+      return;
+    }
+    show('ready');
+    renderBoard(list);
+    renderList(list);
+    $('board').hidden = ui.view !== 'board';
+    $('list-view').hidden = ui.view !== 'list';
+    $('view-board').setAttribute('aria-pressed', String(ui.view === 'board'));
+    $('view-list').setAttribute('aria-pressed', String(ui.view === 'list'));
+    $('view-board').className = 'h-7 rounded px-2.5 ' + (ui.view === 'board' ? 'bg-slate-200 font-medium text-slate-900' : 'text-slate-700');
+    $('view-list').className = 'h-7 rounded px-2.5 ' + (ui.view === 'list' ? 'bg-slate-200 font-medium text-slate-900' : 'text-slate-700');
+
+    if (ui.ticket) {
+      const t = tickets.find((x) => x.id === ui.ticket);
+      if (t) openPanel(t, false); else closePanel(false);
+    }
+  }
+
+  // ---- Side panel ----
+  function openPanel(t, updateUrl) {
+    ui.ticket = t.id;
+    if (updateUrl !== false) syncUrl();
+    const sla = slaInfo(t);
+    $('panel-code').textContent = t.id;
+    $('panel-title').textContent = t.title;
+    $('panel-body').innerHTML = `
+      <div class="space-y-5">
+        <div>
+          <label for="panel-status" class="block text-sm font-medium">Trạng thái</label>
+          <select id="panel-status" class="mt-1 h-8 w-full rounded border border-slate-300 bg-white px-2">
+            ${STATUS_DEFS.map((s) => `<option value="${s.key}" ${s.key === t.status ? 'selected' : ''}>${s.label}</option>`).join('')}
+          </select>
+        </div>
+        <div class="grid grid-cols-2 gap-4">
+          <div>
+            <label for="panel-priority" class="block text-sm font-medium">Mức ưu tiên</label>
+            <select id="panel-priority" class="mt-1 h-8 w-full rounded border border-slate-300 bg-white px-2">
+              ${PRIORITIES.map((p) => `<option value="${p.name}" ${p.name === t.priority ? 'selected' : ''}>${p.name}</option>`).join('')}
+            </select>
+          </div>
+          <div>
+            <label for="panel-assignee" class="block text-sm font-medium">Phụ trách</label>
+            <select id="panel-assignee" class="mt-1 h-8 w-full rounded border border-slate-300 bg-white px-2">
+              <option value="" ${!t.assignee ? 'selected' : ''}>Chưa gán</option>
+              ${AGENTS.map((n) => `<option value="${n}" ${n === t.assignee ? 'selected' : ''}>${n}</option>`).join('')}
+            </select>
+          </div>
+        </div>
+        <div>
+          <p class="text-sm font-medium">Khách hàng</p>
+          <p class="mt-1">${t.customer.name}</p>
+          <p class="mt-0.5 text-slate-600"><a class="text-blue-700 hover:underline" href="mailto:${t.customer.email}">${t.customer.email}</a></p>
+          <p class="mt-0.5 text-slate-600"><a class="text-blue-700 hover:underline" href="tel:${t.customer.phone.replace(/\s+/g, '')}">${t.customer.phone}</a></p>
+        </div>
+        <div>
+          <p class="text-sm font-medium">Loại yêu cầu</p>
+          <p class="mt-1 text-slate-700">${t.type}</p>
+        </div>
+        <div>
+          <p class="text-sm font-medium">Thời gian</p>
+          <p class="mt-1 tnum text-slate-700">Tạo lúc <time datetime="${t.createdAt.toISOString()}">${fmtDateTime(t.createdAt)} · ${fmtRelative(t.createdAt)}</time></p>
+          <p class="mt-0.5 tnum ${sla.tone ? TEXT_TONE[sla.tone] : 'text-slate-700'}">${sla.pill ? sla.pill + ' · ' : ''}${sla.line}</p>
+        </div>
+        <div>
+          <p class="text-sm font-medium">Nội dung</p>
+          <p class="mt-1 text-slate-700">${t.desc}</p>
+        </div>
+        <div>
+          <p class="text-sm font-medium">Hoạt động</p>
+          <ul class="mt-1 space-y-1.5">
+            ${t.activity.map((a) => `<li class="text-slate-700"><time class="tnum text-slate-500" datetime="${a.at.toISOString()}">${fmtDateTime(a.at)}</time> · ${a.text}${a.note ? `<br><span class="text-slate-600">${a.note}</span>` : ''}</li>`).join('')}
+          </ul>
+        </div>
+      </div>`;
+    $('backdrop').hidden = $('panel').hidden = false;
+    $('panel-status').addEventListener('change', (e) => requestMove(t, e.target.value));
+    $('panel-priority').addEventListener('change', (e) => { t.priority = e.target.value; render(); });
+    $('panel-assignee').addEventListener('change', (e) => { t.assignee = e.target.value || null; render(); });
+  }
+  function closePanel(updateUrl) {
+    $('backdrop').hidden = $('panel').hidden = true;
+    ui.ticket = '';
+    if (updateUrl !== false) syncUrl();
+  }
+
+  // ---- Move / transitions ----
+  let pendingMove = null;
+  function requestMove(t, newStatus) {
+    if (newStatus === t.status) return;
+    if (newStatus === 'resolved' && t.status !== 'resolved') {
+      pendingMove = { t, newStatus };
+      $('resolve-note').value = '';
+      $('resolve-error').classList.add('hidden');
+      $('xbackdrop').hidden = $('resolve-dialog').hidden = false;
+      $('resolve-cancel').focus();
+      return;
+    }
+    doMove(t, newStatus);
+  }
+  function doMove(t, newStatus, note) {
+    const prevStatus = t.status;
+    const prevIndex = tickets.indexOf(t);
+    t.status = newStatus;
+    const label = STATUS_BY_KEY[newStatus].label;
+    t.activity.push({ text: `Chuyển sang ${label}`, at: NOW, note: note || undefined });
+    render();
+    announceStatus(`${t.id} đã chuyển sang ${label}.`);
+    toast(`<span>${t.id} đã chuyển sang ${label}.</span><button type="button" id="undo-move" class="font-medium text-blue-700 underline">Hoàn tác</button>`, 10000);
+    $('undo-move').onclick = () => {
+      t.activity.pop();
+      t.status = prevStatus;
+      tickets.splice(tickets.indexOf(t), 1);
+      tickets.splice(prevIndex, 0, t);
+      render();
+      announceStatus(`${t.id} đã được hoàn tác về ${STATUS_BY_KEY[prevStatus].label}.`);
+      toast(`<span>${t.id} đã được hoàn tác.</span>`);
+    };
+  }
+  function closeResolveDialog() { $('xbackdrop').hidden = $('resolve-dialog').hidden = true; pendingMove = null; }
+
+  // ---- Keyboard move (pick up / arrows / drop) ----
+  let pickedUp = null;
+  function statusIndex(key) { return STATUS_DEFS.findIndex((s) => s.key === key); }
+  document.addEventListener('keydown', (e) => {
+    const openBtn = e.target.closest('[data-open]');
+    if (!openBtn) return;
+    const id = openBtn.dataset.open;
+    const t = tickets.find((x) => x.id === id);
+    if (!t) return;
+    if (e.key === ' ' || e.key === 'Spacebar') {
+      e.preventDefault();
+      if (!pickedUp) {
+        pickedUp = { id, colIndex: statusIndex(t.status) };
+        const colTickets = matching().filter((x) => x.status === t.status);
+        const pos = colTickets.findIndex((x) => x.id === id) + 1;
+        announceStatus(`Đã nhấc ${id}. Đang ở cột ${STATUS_DEFS[pickedUp.colIndex].label}, vị trí ${pos} trên ${colTickets.length}.`);
+      } else {
+        const target = STATUS_DEFS[pickedUp.colIndex].key;
+        pickedUp = null;
+        requestMove(t, target);
+      }
+    } else if (pickedUp && pickedUp.id === id && (e.key === 'ArrowRight' || e.key === 'ArrowLeft')) {
+      e.preventDefault();
+      pickedUp.colIndex = Math.max(0, Math.min(STATUS_DEFS.length - 1, pickedUp.colIndex + (e.key === 'ArrowRight' ? 1 : -1)));
+      announceStatus(`Di chuyển ${id} đến cột ${STATUS_DEFS[pickedUp.colIndex].label}.`);
+    } else if (pickedUp && pickedUp.id === id && e.key === 'Escape') {
+      pickedUp = null;
+      announceStatus(`Đã hủy di chuyển ${id}.`);
+    }
+  });
+
+  // ---- Move menu (kebab) ----
+  let menuFor = null;
+  document.addEventListener('click', (e) => {
+    const openBtn = e.target.closest('[data-open]');
+    if (openBtn) { const t = tickets.find((x) => x.id === openBtn.dataset.open); if (t) openPanel(t); return; }
+    const menuBtn = e.target.closest('[data-menu]');
+    if (menuBtn) {
+      menuFor = menuBtn.dataset.menu;
+      const t = tickets.find((x) => x.id === menuFor);
+      const r = menuBtn.getBoundingClientRect();
+      $('menu-items').innerHTML = STATUS_DEFS.filter((s) => s.key !== t.status).map((s) =>
+        `<button type="button" role="menuitem" data-target="${s.key}" class="block h-8 w-full px-3 text-left hover:bg-slate-100">${s.label}</button>`).join('');
+      Object.assign($('menu').style, { top: Math.min(r.bottom + 4, window.innerHeight - 220) + 'px', left: Math.min(r.left, window.innerWidth - 230) + 'px' });
+      $('menu').hidden = false;
+      menuBtn.setAttribute('aria-expanded', 'true');
+      $('menu').querySelector('button')?.focus();
+      return;
+    }
+    const item = e.target.closest('#menu-items [data-target]');
+    if (item) {
+      $('menu').hidden = true;
+      const t = tickets.find((x) => x.id === menuFor);
+      if (t) requestMove(t, item.dataset.target);
+      return;
+    }
+    if (!e.target.closest('#menu')) $('menu').hidden = true;
+  });
+
+  // ---- Events ----
+  $('view-board').addEventListener('click', () => { ui.view = 'board'; render(); });
+  $('view-list').addEventListener('click', () => { ui.view = 'list'; render(); });
+  let qTimer;
+  $('q').addEventListener('input', (e) => { clearTimeout(qTimer); qTimer = setTimeout(() => { ui.q = e.target.value; render(); }, 250); });
+  $('f-assignee').addEventListener('change', (e) => { ui.assignee = e.target.value === '__unassigned' ? '__unassigned' : e.target.value; render(); });
+  $('f-priority').addEventListener('change', (e) => { ui.priority = e.target.value; render(); });
+  $('f-type').addEventListener('change', (e) => { ui.type = e.target.value; render(); });
+  $('btn-mine').addEventListener('click', () => { ui.mine = !ui.mine; render(); });
+  $('chips').addEventListener('click', (e) => {
+    const c = e.target.closest('[data-chip]');
+    if (c) {
+      if (c.dataset.chip === 'q') { ui.q = ''; $('q').value = ''; }
+      else if (c.dataset.chip === 'mine') ui.mine = false;
+      else ui[c.dataset.chip] = '';
+      render();
+    }
+    if (e.target.id === 'clear-all') clearFilters();
+  });
+  $('empty-action').addEventListener('click', () => (tickets.length ? clearFilters() : createTicket()));
+  $('btn-create').addEventListener('click', createTicket);
+  function createTicket() {
+    const n = tickets.length + 1;
+    const t = {
+      id: 'TK-' + (1001 + n + 900), title: 'Ticket mới', desc: 'Chưa có mô tả. Cập nhật thông tin từ khách hàng khi liên hệ.',
+      type: 'Khác', customer: { name: 'Khách hàng mới', email: 'khachhangmoi@example.com', phone: '0900 000 000' },
+      priority: 'Trung bình', assignee: null, status: 'new', createdAt: NOW, dueAt: new Date(NOW.getTime() + 24 * 3600000),
+      resolvedAt: null, closedAt: null, activity: [{ text: 'Tạo ticket', at: NOW }],
+    };
+    tickets.push(t);
+    render();
+    toast(`<span>Đã tạo ticket ${t.id}.</span>`);
+    openPanel(t);
+  }
+  $('panel-close').addEventListener('click', () => closePanel());
+  $('resolve-cancel').addEventListener('click', closeResolveDialog);
+  $('resolve-ok').addEventListener('click', () => {
+    const note = $('resolve-note').value.trim();
+    if (!note) { $('resolve-error').classList.remove('hidden'); $('resolve-note').focus(); return; }
+    const { t, newStatus } = pendingMove;
+    closeResolveDialog();
+    doMove(t, newStatus, note);
+  });
+  document.addEventListener('keydown', (e) => {
+    if (e.key !== 'Escape') return;
+    if (!$('resolve-dialog').hidden) closeResolveDialog();
+    else if (!$('menu').hidden) $('menu').hidden = true;
+    else if (!$('panel').hidden) closePanel();
+  });
+  $('retry').addEventListener('click', () => { location.search = ''; });
+
+  if (forced === 'loading' || forced === 'error') { show(forced); renderFilters(); renderChips(); $('result-count').textContent = '—'; }
+  else render();
+</script>
+</body>
+</html>

@@ -1,0 +1,54 @@
+{
+  "brief": "26-sales-pipeline-report",
+  "run": 1,
+  "items": [
+    {
+      "item": "The stage breakdown lists stages in pipeline order (not alphabetical), each with its win probability, and each stage's weighted value equals its open value × that probability, with the weighted total equal to the sum of the stages",
+      "pass": false,
+      "evidence": "Win probabilities and the open-value × probability math are correct (e.g. Qualification $2,561,500 × 10% = $256,150; stage weighted total $2,576,775 equals the sum of rows). But the table's default and only available sort orders are by metric value or alphabetical label (ui.sortStage defaults to 'pipeline', see `sortRows(data.stageRows, ui.sortStage, ui.dirStage)` and `data-sort-stage` header buttons) — screenshot shows rows as Qualification, Negotiation, Proposal, Discovery (sorted by pipeline value desc), not the canonical pipeline sequence Qualification→Discovery→Proposal→Negotiation. There is no control that restores pipeline order."
+    },
+    {
+      "item": "Win rate is computed over closed deals only, won ÷ (won + lost), with the counts shown beside it (such as \"38% · 19 of 50 closed\"), and a salesperson with no closed deals shows \"—\" instead of 0% or NaN",
+      "pass": false,
+      "evidence": "Formula is correct: `winRate: (won + lost) ? won / (won + lost) : null` and rows with no closed deals render `<span title=\"No deals closed by ${r.label}...\">—</span>` (Marcus Lee and Priya Patel show '—' in the screenshot). However no cell anywhere shows the underlying counts (e.g. '19 of 50 closed') — rows and the KPI line ('Win rate 53.3% (+1.1 pts vs 52.3% Q3 2026)') show only the percentage."
+    },
+    {
+      "item": "The by-salesperson table ends in a totals row whose deal count, pipeline value and weighted value equal the sum of its rows and match the overall totals of the stage breakdown",
+      "pass": true,
+      "evidence": "`#rep-tfoot` 'Total' row shows 51 deals, $6,830,000, $2,576,775, matching `#stage-tfoot` 'Total' row (51, $6,830,000, $2,576,775) in the screenshot; both are computed via the same `totalsOf(rows)` helper."
+    },
+    {
+      "item": "The period can be set to this quarter, next quarter or a custom range, the page says which date it applies to (expected close date), and the results can also be narrowed to one salesperson or team",
+      "pass": false,
+      "evidence": "`#f-period` options are 'This quarter', 'Last quarter', 'This year', 'Custom range' — there is no 'next quarter' option (only a backward-looking 'Last quarter'). The basis line ('Amounts in USD · Win rate reflects deals closed in the period to date · Updated Nov 7, 2026, 9:00 AM') never states that open-deal filtering uses expected close date, even though `within(d.expectedClose, period.cur)` does use it. Narrowing is available by individual salesperson (`#f-rep`) and stage, but there is no 'team' grouping/filter."
+    },
+    {
+      "item": "Every money value shows its currency (one currency for the whole report) with thousands separators and lines up by digit within its column, and any abbreviated headline figure (such as \"1.2M\") has the full amount available in the table or a title attribute",
+      "pass": true,
+      "evidence": "`fmtMoney` uses `Intl.NumberFormat(... style:'currency', currency:'USD')` consistently everywhere (e.g. '$2,178,000', '$6,830,000'); cells use the `tnum` tabular-nums class and audit.json reports `numericCells.misaligned: 0`. No abbreviated figures (e.g. '1.2M') are used anywhere — all values are shown in full."
+    },
+    {
+      "item": "Open deals whose expected close date has already passed are flagged with words (such as \"Close date passed\"), not colour alone, and the number of such deals is shown per salesperson",
+      "pass": false,
+      "evidence": "No code or markup implements overdue flagging — there is no 'passed'/'overdue' text, no per-salesperson overdue count column, and open deals with `expectedClose` before TODAY are not distinguished at all in `renderRepTable`/`renderStageTable`."
+    },
+    {
+      "item": "Each stage and salesperson figure drills down to the deals behind it (deal, account, owner, value, stage, close date) through a link or button that is keyboard-focusable and has a descriptive accessible name",
+      "pass": false,
+      "evidence": "Data cells are plain `<td>` text (e.g. `rowCell`/inline template literals in `renderRepTable`/`renderStageTable`) with no `<a>` or `<button>` wrapping any figure; the only interactive table elements are the column-header sort buttons (`data-sort-rep`/`data-sort-stage`), which resort rows rather than opening deal-level detail."
+    },
+    {
+      "item": "When the filters match no deals, the page says so, names the active filters and offers to clear them; a loading indicator and a failed-load message with a retry action are also present",
+      "pass": true,
+      "evidence": "`data-state=\"empty\"` blocks show 'No open deals match these filters' plus a 'Clear filters' button (`data-clear-from`), while active filters remain visible as removable chips (`renderChips`, e.g. 'Salesperson: X'); `data-state=\"loading\"` (aria-busy, skeleton rows) and `data-state=\"error\"` ('The salesperson breakdown could not be loaded.' plus a `data-retry` 'Retry' button that reloads) are both implemented and reachable via `?state=loading`/`?state=error`."
+    },
+    {
+      "item": "Export (CSV or Excel) produces the deal-level rows for the current filters, and its label or confirmation states the scope (such as \"Export 42 deals · Q4 2026\")",
+      "pass": false,
+      "evidence": "`exportCsv()` writes the aggregated salesperson and stage summary rows (label, count, pipeline, weighted, win rate, share) — not one row per underlying deal (no deal id/account/owner/value/close date rows). The button reads 'Export <span id=\"export-count\">10</span> rows', where export-count is `repCount + stageCount` (aggregate row count), and the toast confirmation is just 'Export started: sales-pipeline-q4-2026.csv.' with no stated deal count or period scope."
+    }
+  ],
+  "tells": [],
+  "notes": "No template tells were observed: sidebar is plain slate, no gradients/glass/blur (audit.json: no-gradient and no-backdrop-blur both 0 violations), no emoji icons (emoji-icon check: 26 applicable, 0 found), no decorative charts, avatars, promo cards, or rainbow status chips — the page is a plain functional data table UI. Two core aggregate tables (by-salesperson, by-stage) are internally consistent and well-formatted, but several checklist capabilities (drill-down links, overdue flagging, deal-level export, next-quarter period option, win-rate counts) are simply not implemented.",
+  "blind": true
+}

@@ -1,0 +1,57 @@
+{
+  "brief": "27-delivery-note-print",
+  "run": 1,
+  "items": [
+    {
+      "item": "The header shows the delivery note number, issue date, source sales order or transfer number and dispatching warehouse, each with a visible label, and every date on the note uses one unambiguous format (such as 06 Nov 2026)",
+      "pass": false,
+      "evidence": "Header (<header class=\"flex items-start justify-between...\">) shows 'DN-2026-04871' directly under the 'DELIVERY NOTE' heading with no visible label (no 'No.:' text), and 'Date Issued 07 Nov 2026' / 'Order Ref. PO-88213-C' are present and consistently formatted, but the dispatching warehouse ('Distribution Centre 3 (DC3)') only appears later in the separate 'Sender / Warehouse' block, not in the header."
+    },
+    {
+      "item": "Sender (company name, address, tax ID), recipient (customer name, delivery address, contact person and phone) and carrier (carrier name, vehicle plate or driver name) appear in three separately labelled blocks",
+      "pass": false,
+      "evidence": "The 'Sender / Warehouse' block (lines 66-74) has company name and address but no tax ID (VAT No. GB 745 1092 66 is only in the page letterhead, line 50, not inside the sender block). Recipient data is split across two blocks: 'Customer (Bill To)' has name + contact person but no delivery address/phone, while 'Deliver To' has the delivery address + phone but no contact person — no single labelled recipient block contains all four elements."
+    },
+    {
+      "item": "The goods are in a real <table> with column headers in <thead>, giving per line: line number, item code, description, unit of measure, quantity ordered, quantity delivered and lot or serial number, with quantities right-aligned",
+      "pass": false,
+      "evidence": "<table class=\"w-full text-xs border-collapse\"> with <thead> columns Line, SKU, Description, Qty, Unit, Pkgs, Weight (kg) (lines 117-127); quantities are right-aligned (text-right), but there is only a single 'Qty' column (no separate ordered vs delivered quantity) and no lot/serial number column."
+    },
+    {
+      "item": "A line delivered short of the ordered quantity states the outstanding amount in words (such as \"Backorder: 4 pcs\") rather than by colour alone",
+      "pass": false,
+      "evidence": "No per-line ordered/delivered comparison exists at all (single Qty column, see above); the only backorder mention is a generic sentence in the 'Dispatch Notes' box — 'Partial shipment — remaining 2 line items on backorder, ETA 14 Nov 2026' (line 148) — not tied to any specific line or quantity."
+    },
+    {
+      "item": "A footer gives the total quantity delivered, the number of packages and the gross weight with its unit, and the quantity total equals the sum of the lines",
+      "pass": true,
+      "evidence": "<tfoot> row with id=\"totalQty\", id=\"totalPkgs\", id=\"totalWeight\" (lines 132-139) computed in script as sum of goods[].qty/.pkgs/.weight; rendered totals 239 / 41 / 1214.5 kg correctly equal 12+40+85+60+18+24=239 and the summed weights."
+    },
+    {
+      "item": "Signature boxes are provided for the warehouse keeper (issued by), the driver or carrier and the receiver, each with room for printed name, signature and date, plus a remarks area for the condition of the goods on receipt",
+      "pass": false,
+      "evidence": "Only two signature boxes exist: 'Dispatched By (Warehouse)' and 'Received By (Customer)' (lines 164-177), each with Signature/Printed Name/Date; there is no third signature box for the driver or carrier. A remarks area for condition on receipt does exist ('Condition on Receipt' box with checkboxes and 'Remarks: ___', lines 150-159)."
+    },
+    {
+      "item": "A Print control that is a real <button> starts printing, and an @media print stylesheet hides the app navigation and on-screen controls, sets page margins and keeps the signature block from splitting across pages",
+      "pass": false,
+      "evidence": "<button id=\"printBtn\"> calls window.print() via addEventListener (line 224) — real button, and @media print (lines 9-15) hides .no-print and sets @page margin: 12mm, but there is no page-break-inside/break-inside: avoid rule protecting the signature section from splitting across a print page boundary."
+    },
+    {
+      "item": "The note's status (such as Draft, Dispatched, Delivered or Cancelled) is shown in words next to its number, and a draft or cancelled note prints with a visible \"DRAFT\" or \"CANCELLED\" mark so it cannot pass as a valid dispatch document",
+      "pass": false,
+      "evidence": "No status text or badge appears anywhere on the page (searched header, meta strip, footer) — the note number 'DN-2026-04871' has no adjacent status word, and there is no conditional DRAFT/CANCELLED watermark logic in the script or CSS."
+    },
+    {
+      "item": "A loading state is present, and a note that fails to load or does not exist shows a message with Retry and a link back to the delivery note list, never an empty template with blank fields",
+      "pass": false,
+      "evidence": "The script (lines 188-225) synchronously renders a hard-coded 'goods' array with no fetch/async logic, no loading spinner/skeleton, and no error/empty-state markup or Retry/back-to-list link anywhere in the page."
+    }
+  ],
+  "tells": [
+    "tracked-uppercase-labels",
+    "initials-avatar-non-person"
+  ],
+  "notes": "This is a static print-preview mockup (hard-coded data array, no data fetching), so it inherently lacks loading/error states and any notion of document status (draft/cancelled). The goods table conflates 'quantity delivered' with a single generic Qty column and never represents an ordered-vs-delivered comparison, which cascades into failing the backorder-in-words requirement as well. Audit.json also flags real accessibility/formatting issues (text-contrast, tabular-nums, uppercase-text ×11) that corroborate the tracked-uppercase-labels tell at ~10px with tracking-wider on nearly every section label.",
+  "blind": true
+}

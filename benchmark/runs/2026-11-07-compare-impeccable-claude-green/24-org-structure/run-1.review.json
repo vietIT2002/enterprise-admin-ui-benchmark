@@ -1,0 +1,57 @@
+{
+  "brief": "24-org-structure",
+  "run": 1,
+  "items": [
+    {
+      "item": "The hierarchy is an indented tree in which every unit with sub-units expands and collapses, exposed as role=\"tree\"/\"treeitem\" with aria-expanded (or nested lists whose toggles are buttons with aria-expanded) and operable from the keyboard",
+      "pass": false,
+      "evidence": "`<div id=\"tree-root\" class=\"max-h-[640px] overflow-y-auto p-2\" role=\"presentation\">` — rows are built as `<div class=\"py-[1px]\">` wrapping a `<button data-row>` (buildNode()). There is no role=\"tree\"/\"treeitem\" anywhere and no <ul>/<li> list markup either, so neither accepted structure is implemented. Expand/collapse does work via the button's aria-expanded attribute and native click/Enter/Space, but the required semantic structure is missing."
+    },
+    {
+      "item": "Each unit shows its total headcount including sub-units alongside its direct staff (such as \"42 · 8 direct\"), and every parent's total equals its direct staff plus its children's totals",
+      "pass": false,
+      "evidence": "Tree rows and the 'Headcount' stat tile only render `node._hc` (aggregate total, e.g. '452', '184'), computed in aggregate(). There is no direct-staff figure stored or displayed anywhere (no 'X · Y direct' pattern); leaf nodes only expose a single `headcount` number that is never distinguished from rolled-up totals."
+    },
+    {
+      "item": "Each unit names its manager, and a unit without one shows \"Vacant\" rather than a blank",
+      "pass": false,
+      "evidence": "Manager name is printed directly via `esc(node.manager.name)` (e.g. row subtitle, 'Unit leader' block) with no null check, and every node in DATA has a manager object. The string 'Vacant' does not appear anywhere in the script, so the fallback is not implemented."
+    },
+    {
+      "item": "The selected unit is marked in the tree (aria-selected or aria-current), and the details panel shows its name, code, path from the top (such as \"Company › Finance › Accounts Payable\"), manager and cost centre or location",
+      "pass": true,
+      "evidence": "Row button sets `aria-current=\"' + selected + '\"'` (buildNode()). Detail panel renders breadcrumb(node) ('Company › Division › …' chain with chevrons), `<h2>` name, `node.costCenter` badge (e.g. 'CC-4100') near the header, the 'Unit leader' block with manager name/title/email, and a 'Location' stat tile."
+    },
+    {
+      "item": "The details panel compares approved positions with filled ones and gives vacancies as approved minus filled",
+      "pass": false,
+      "evidence": "Only an 'Open roles' stat tile (`node._or`) and a 'Headcount' tile (`node._hc`) exist. There is no 'approved positions' or 'filled positions' figure, and vacancies are never computed as approved minus filled — openRoles is just a raw input field in DATA."
+    },
+    {
+      "item": "The details panel lists the unit's direct employees with name and job title, and their number equals the unit's direct headcount",
+      "pass": false,
+      "evidence": "compositionRows() for a leaf node renders node.roleMix — aggregated title buckets with counts (e.g. 'Senior Engineer … 7'), generated synthetically by rm(), not a list of individual employees with names. For parent nodes it lists child units, not employees. No employee names ever appear in the UI."
+    },
+    {
+      "item": "Searching by unit or manager name expands the ancestors of each match and highlights it, and a search with no match says so",
+      "pass": false,
+      "evidence": "matchesQuery()/subtreeMatches() filter the tree and buildNode() forces `isExpanded = true` for any visible node while a query is active, exposing matches. The no-match case is handled: `<p id=\"no-results\">No departments or managers match \"<span id=\"no-results-term\">`. However matched text is never visually highlighted (no <mark>/highlight class in buildNode()), so the 'highlights it' requirement is not met."
+    },
+    {
+      "item": "Deactivating or moving a unit asks for confirmation in a dialog that names the unit and the number of employees and sub-units affected",
+      "pass": false,
+      "evidence": "No deactivate or move functionality exists in the page at all — only expand/collapse, select, search, navigate-via-breadcrumb, and print event listeners are registered. No dialog/modal markup exists."
+    },
+    {
+      "item": "A unit with no direct employees shows an explicit empty message in the details panel, and loading and error-with-retry states exist for both the tree and the panel",
+      "pass": false,
+      "evidence": "DATA is a hard-coded in-page object rendered synchronously (renderContext(); renderTree(); renderDetail();) with no fetch/async code, so no loading spinner or error-with-retry UI exists for either the tree or the panel (the '#context-line' 'Loading…' text is replaced instantly and never reflects a real async state). There is also no empty-state message for zero direct employees since roleMix is always non-empty and no per-employee list is rendered."
+    }
+  ],
+  "tells": [
+    "tracked-uppercase-labels — e.g. `<p class=\"mb-3 text-xs font-medium uppercase tracking-wide text-slate-400\">Unit leader</p>` and stat tile labels `text-[11px] font-medium uppercase tracking-wide text-slate-400` ('Headcount', 'Open roles', 'Avg. tenure', 'Location')",
+    "card-in-card — the stat-tile grid `<div class=\"grid grid-cols-2 gap-px border-b border-slate-200 bg-slate-100 sm:grid-cols-4\">` with inner `<div class=\"bg-white p-3.5\">` tiles nested inside the outer `#detail-panel` card (`rounded-lg border border-slate-200 bg-white shadow-sm`)"
+  ],
+  "notes": "DATA is fully static/synchronous; several checklist items (approved-vs-filled vacancies, employee-level listing, deactivate/move confirmation, loading/error-retry states) are entirely absent from the implementation rather than partially done. Tree and detail panel are otherwise functionally wired (selection, breadcrumb navigation, expand/collapse, search filtering) but lack the specific ARIA tree semantics and highlighting called for.",
+  "blind": true
+}

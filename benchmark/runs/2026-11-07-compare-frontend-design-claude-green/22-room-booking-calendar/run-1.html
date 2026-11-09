@@ -1,0 +1,670 @@
+<title>Room booking — Dock House</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo+Narrow:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+  tailwind.config = {
+    theme: {
+      extend: {
+        fontFamily: {
+          display: ['"Archivo Narrow"', 'sans-serif'],
+          body: ['"IBM Plex Sans"', 'sans-serif'],
+        },
+        colors: {
+          paper: '#F5F5F2',
+          surface: '#FFFFFF',
+          ink: '#1D2024',
+          inksoft: '#5B6066',
+          line: '#DAD8D2',
+          signal: '#C8102E',
+          signaldark: '#9C0C23',
+          floor2: '#1F5C73',
+          floor2soft: '#E4EEF0',
+          floor3: '#B8872B',
+          floor3soft: '#F3EAD9',
+        },
+      },
+    },
+  };
+</script>
+<style>
+  * { -webkit-tap-highlight-color: transparent; }
+  body { background: #F5F5F2; }
+  :focus-visible { outline: 2px solid #C8102E; outline-offset: 2px; }
+  @media (prefers-reduced-motion: reduce) {
+    * { transition: none !important; animation: none !important; }
+  }
+  .room-cell {
+    background-image: linear-gradient(to bottom, #DAD8D2 1px, transparent 1px);
+    background-size: 100% 60px;
+    background-repeat: repeat-y;
+  }
+  .booking-block {
+    transition: border-color .12s ease, transform .12s ease;
+  }
+  .booking-block:hover {
+    border-color: #1D2024;
+    transform: translateY(-1px);
+  }
+  .week-bar-seg { transition: filter .12s ease; }
+  .week-bar-seg:hover { filter: brightness(0.92); }
+  .modal-panel { animation: panelIn .14s ease-out; }
+  @keyframes panelIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
+  ::-webkit-scrollbar { height: 10px; width: 10px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: #DAD8D2; border-radius: 2px; }
+</style>
+
+<body class="font-body text-ink antialiased">
+
+  <svg style="display:none" aria-hidden="true">
+    <symbol id="i-screen" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6">
+      <rect x="3" y="4.5" width="18" height="12" rx="1"/><path d="M8.5 20h7M12 16.5V20"/>
+    </symbol>
+    <symbol id="i-video" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6">
+      <rect x="3" y="6" width="12" height="12" rx="1"/><path d="M15 10.5l6-3v9l-6-3"/>
+    </symbol>
+    <symbol id="i-board" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6">
+      <rect x="3" y="4.5" width="18" height="11" rx="1"/><path d="M8 19l2.5-3.5M16 19l-2.5-3.5M7 8.5h6M7 11.5h4"/>
+    </symbol>
+    <symbol id="i-phone" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6">
+      <path d="M5 4.5h3.2l1.3 4-2 1.6a12 12 0 0 0 6.4 6.4l1.6-2 4 1.3V19a1.5 1.5 0 0 1-1.6 1.5A15.5 15.5 0 0 1 3.5 6.1 1.5 1.5 0 0 1 5 4.5z"/>
+    </symbol>
+    <symbol id="i-person" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6">
+      <circle cx="12" cy="8" r="3.2"/><path d="M5.5 20c0-3.6 2.9-6 6.5-6s6.5 2.4 6.5 6"/>
+    </symbol>
+    <symbol id="i-chev-l" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <path d="M15 5l-7 7 7 7"/>
+    </symbol>
+    <symbol id="i-chev-r" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <path d="M9 5l7 7-7 7"/>
+    </symbol>
+    <symbol id="i-close" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+      <path d="M6 6l12 12M18 6L6 18"/>
+    </symbol>
+  </svg>
+
+  <!-- Masthead -->
+  <header class="border-b border-line bg-surface">
+    <div class="max-w-[1400px] mx-auto px-4 sm:px-6 py-4 flex items-start justify-between gap-6 flex-wrap">
+      <div>
+        <p class="text-sm text-inksoft font-display tracking-wide">Dock House, floors 2&ndash;3</p>
+        <h1 class="font-display font-bold text-3xl sm:text-4xl leading-none mt-0.5">Room booking</h1>
+      </div>
+      <div class="flex items-center gap-5">
+        <div class="text-right">
+          <p id="clock-date" class="text-sm text-inksoft"></p>
+          <p id="clock-time" class="font-display font-semibold text-2xl leading-none tabular-nums"></p>
+        </div>
+        <div class="flex items-center gap-2 border-l border-line pl-5">
+          <div class="w-9 h-9 rounded-sm bg-floor2soft text-floor2 font-display font-semibold flex items-center justify-center text-sm">PN</div>
+          <p class="text-sm leading-tight">Priya Nair<br><span class="text-inksoft">Operations</span></p>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- Controls -->
+  <div class="border-b border-line bg-surface sticky top-0 z-30">
+    <div class="max-w-[1400px] mx-auto px-4 sm:px-6 py-3 flex items-center justify-between gap-4 flex-wrap">
+      <div class="flex items-center gap-4 flex-wrap">
+        <div class="inline-flex border border-ink rounded-sm overflow-hidden" role="group" aria-label="Calendar view">
+          <button id="btn-view-day" class="view-toggle px-4 py-1.5 text-sm font-medium font-display" data-view="day">Day</button>
+          <button id="btn-view-week" class="view-toggle px-4 py-1.5 text-sm font-medium font-display border-l border-ink" data-view="week">Week</button>
+        </div>
+        <div class="flex items-center gap-1">
+          <button id="btn-prev" aria-label="Previous" class="w-8 h-8 flex items-center justify-center rounded-sm border border-line hover:border-ink text-inksoft hover:text-ink">
+            <svg class="w-4 h-4"><use href="#i-chev-l"/></svg>
+          </button>
+          <button id="btn-today" class="px-3 h-8 rounded-sm border border-line hover:border-ink text-sm font-medium">Today</button>
+          <button id="btn-next" aria-label="Next" class="w-8 h-8 flex items-center justify-center rounded-sm border border-line hover:border-ink text-inksoft hover:text-ink">
+            <svg class="w-4 h-4"><use href="#i-chev-r"/></svg>
+          </button>
+        </div>
+        <p id="range-label" class="font-display font-semibold text-lg"></p>
+      </div>
+      <button id="btn-new-booking" class="bg-signal hover:bg-signaldark text-white font-medium text-sm px-4 py-2 rounded-sm">New booking</button>
+    </div>
+
+    <!-- Room legend / filter -->
+    <div class="max-w-[1400px] mx-auto px-4 sm:px-6 pb-3 flex items-center gap-2 flex-wrap" id="legend"></div>
+  </div>
+
+  <main class="max-w-[1400px] mx-auto px-4 sm:px-6 py-6">
+    <div id="empty-filter" class="hidden text-center py-16 text-inksoft">
+      <p class="font-display text-lg text-ink mb-1">No rooms match these filters</p>
+      <p class="text-sm">Select at least one room above, or clear the filter to see the full floor.</p>
+    </div>
+    <div id="day-view" class="overflow-x-auto border border-line rounded-sm bg-surface"></div>
+    <div id="week-view" class="hidden overflow-x-auto border border-line rounded-sm bg-surface"></div>
+  </main>
+
+  <footer class="max-w-[1400px] mx-auto px-4 sm:px-6 pb-10 pt-2 text-xs text-inksoft">
+    Dock House facilities &middot; report access card or AV issues to the front desk on floor 2.
+  </footer>
+
+  <!-- Booking modal -->
+  <div id="booking-modal" class="hidden fixed inset-0 bg-ink/40 z-40 flex items-center justify-center p-4">
+    <div class="modal-panel bg-surface border border-line rounded-sm w-full max-w-lg p-6" role="dialog" aria-modal="true" aria-labelledby="booking-modal-title">
+      <div class="flex items-center justify-between mb-4">
+        <h2 id="booking-modal-title" class="font-display font-bold text-2xl">New booking</h2>
+        <button type="button" id="booking-modal-close" aria-label="Close" class="w-8 h-8 flex items-center justify-center rounded-sm hover:bg-paper text-inksoft">
+          <svg class="w-4 h-4"><use href="#i-close"/></svg>
+        </button>
+      </div>
+      <form id="booking-form" class="space-y-4">
+        <div>
+          <label for="f-title" class="block text-sm font-medium mb-1">Meeting title</label>
+          <input id="f-title" required type="text" placeholder="e.g. Budget review" class="w-full border border-line rounded-sm px-3 py-2 text-sm focus:border-ink">
+        </div>
+        <div>
+          <label for="f-room" class="block text-sm font-medium mb-1">Room</label>
+          <select id="f-room" class="w-full border border-line rounded-sm px-3 py-2 text-sm focus:border-ink bg-white"></select>
+        </div>
+        <div class="grid grid-cols-3 gap-3">
+          <div>
+            <label for="f-date" class="block text-sm font-medium mb-1">Date</label>
+            <input id="f-date" required type="date" class="w-full border border-line rounded-sm px-2 py-2 text-sm focus:border-ink">
+          </div>
+          <div>
+            <label for="f-start" class="block text-sm font-medium mb-1">Start</label>
+            <input id="f-start" required type="time" step="900" class="w-full border border-line rounded-sm px-2 py-2 text-sm focus:border-ink">
+          </div>
+          <div>
+            <label for="f-end" class="block text-sm font-medium mb-1">End</label>
+            <input id="f-end" required type="time" step="900" class="w-full border border-line rounded-sm px-2 py-2 text-sm focus:border-ink">
+          </div>
+        </div>
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label for="f-organizer" class="block text-sm font-medium mb-1">Booked by</label>
+            <input id="f-organizer" required type="text" class="w-full border border-line rounded-sm px-3 py-2 text-sm focus:border-ink">
+          </div>
+          <div>
+            <label for="f-attendees" class="block text-sm font-medium mb-1">Attendees</label>
+            <input id="f-attendees" required type="number" min="1" value="2" class="w-full border border-line rounded-sm px-3 py-2 text-sm focus:border-ink">
+          </div>
+        </div>
+        <p id="form-error" role="alert" class="hidden text-sm text-signal bg-signal/5 border border-signal/30 rounded-sm px-3 py-2"></p>
+        <div class="flex justify-end gap-2 pt-2">
+          <button type="button" id="booking-cancel" class="px-4 py-2 text-sm font-medium rounded-sm border border-line hover:border-ink">Cancel</button>
+          <button type="submit" class="px-4 py-2 text-sm font-medium rounded-sm bg-signal hover:bg-signaldark text-white">Save booking</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Detail modal -->
+  <div id="detail-modal" class="hidden fixed inset-0 bg-ink/40 z-40 flex items-center justify-center p-4">
+    <div class="modal-panel bg-surface border border-line rounded-sm w-full max-w-md p-6" role="dialog" aria-modal="true" aria-labelledby="detail-modal-title">
+      <div class="flex items-center justify-between mb-4">
+        <p class="text-sm text-inksoft" id="detail-room-line"></p>
+        <button type="button" id="detail-modal-close" aria-label="Close" class="w-8 h-8 flex items-center justify-center rounded-sm hover:bg-paper text-inksoft">
+          <svg class="w-4 h-4"><use href="#i-close"/></svg>
+        </button>
+      </div>
+      <h2 id="detail-modal-title" class="font-display font-bold text-2xl mb-1"></h2>
+      <p id="detail-time-line" class="text-sm text-inksoft mb-4"></p>
+      <dl class="text-sm space-y-2 border-t border-line pt-4">
+        <div class="flex justify-between"><dt class="text-inksoft">Booked by</dt><dd id="detail-organizer" class="font-medium"></dd></div>
+        <div class="flex justify-between"><dt class="text-inksoft">Attendees</dt><dd id="detail-attendees" class="font-medium"></dd></div>
+      </dl>
+      <div class="flex justify-end gap-2 pt-5">
+        <button type="button" id="detail-close-btn" class="px-4 py-2 text-sm font-medium rounded-sm border border-line hover:border-ink">Close</button>
+        <button type="button" id="detail-cancel-booking" class="px-4 py-2 text-sm font-medium rounded-sm border border-signal text-signal hover:bg-signal hover:text-white">Cancel booking</button>
+      </div>
+    </div>
+  </div>
+
+<script>
+(function () {
+  "use strict";
+
+  // ---------- Mock data ----------
+  var rooms = [
+    { id: 'r1', code: '2.01', name: 'Anchor', floor: 2, capacity: 4,  equipment: ['screen'] },
+    { id: 'r2', code: '2.02', name: 'Berth',  floor: 2, capacity: 2,  equipment: ['phone'] },
+    { id: 'r3', code: '2.03', name: 'Cargo',  floor: 2, capacity: 10, equipment: ['screen', 'video'] },
+    { id: 'r4', code: '2.04', name: 'Keel',   floor: 2, capacity: 6,  equipment: ['board'] },
+    { id: 'r5', code: '3.01', name: 'Mast',   floor: 3, capacity: 8,  equipment: ['video'] },
+    { id: 'r6', code: '3.02', name: 'Quay',   floor: 3, capacity: 4,  equipment: ['screen'] },
+    { id: 'r7', code: '3.03', name: 'Tide',   floor: 3, capacity: 12, equipment: ['video', 'screen'] },
+    { id: 'r8', code: '3.04', name: 'Harbor', floor: 3, capacity: 2,  equipment: ['phone'] }
+  ];
+
+  var roomById = {};
+  rooms.forEach(function (r) { roomById[r.id] = r; });
+
+  var icons = { screen: 'i-screen', video: 'i-video', board: 'i-board', phone: 'i-phone' };
+
+  var bookings = [
+    { id: 'b1',  roomId: 'r1', date: '2026-11-09', start: '08:00', end: '08:30', title: 'Standup', organizer: 'Priya Nair', attendees: 6 },
+    { id: 'b2',  roomId: 'r1', date: '2026-11-09', start: '10:00', end: '11:00', title: 'Design crit', organizer: 'Dana Okafor', attendees: 5 },
+    { id: 'b3',  roomId: 'r1', date: '2026-11-09', start: '15:00', end: '15:30', title: '1:1, Dana and Marcus', organizer: 'Dana Okafor', attendees: 2 },
+    { id: 'b4',  roomId: 'r2', date: '2026-11-09', start: '09:00', end: '09:30', title: 'Vendor call, AV refresh', organizer: 'Tom Richter', attendees: 2 },
+    { id: 'b5',  roomId: 'r2', date: '2026-11-09', start: '13:30', end: '14:00', title: 'Reference check', organizer: 'Aisha Rahman', attendees: 1 },
+    { id: 'b6',  roomId: 'r3', date: '2026-11-09', start: '09:30', end: '10:30', title: 'Client call with Nordholt Logistics', organizer: 'Marcus Webb', attendees: 8 },
+    { id: 'b7',  roomId: 'r3', date: '2026-11-09', start: '14:00', end: '15:30', title: 'All-hands prep', organizer: 'Elena Petrova', attendees: 9 },
+    { id: 'b8',  roomId: 'r4', date: '2026-11-09', start: '11:00', end: '12:00', title: 'Brand workshop', organizer: 'Sam Liu', attendees: 6 },
+    { id: 'b9',  roomId: 'r5', date: '2026-11-09', start: '09:00', end: '10:00', title: 'Leadership sync', organizer: 'Jon Becker', attendees: 7 },
+    { id: 'b10', roomId: 'r5', date: '2026-11-09', start: '16:00', end: '17:00', title: 'Roadmap review', organizer: 'Elena Petrova', attendees: 8 },
+    { id: 'b11', roomId: 'r6', date: '2026-11-09', start: '08:30', end: '09:00', title: 'Contract review', organizer: 'Aisha Rahman', attendees: 3 },
+    { id: 'b12', roomId: 'r7', date: '2026-11-09', start: '10:00', end: '12:00', title: 'Board prep', organizer: 'Jon Becker', attendees: 11 },
+    { id: 'b13', roomId: 'r8', date: '2026-11-09', start: '09:15', end: '09:45', title: 'Interview, senior analyst', organizer: 'Marcus Webb', attendees: 2 },
+    { id: 'b14', roomId: 'r8', date: '2026-11-09', start: '12:00', end: '12:30', title: 'Customer feedback session', organizer: 'Sam Liu', attendees: 1 },
+
+    { id: 'b15', roomId: 'r1', date: '2026-11-10', start: '08:00', end: '08:30', title: 'Standup', organizer: 'Priya Nair', attendees: 6 },
+    { id: 'b16', roomId: 'r2', date: '2026-11-10', start: '11:00', end: '11:30', title: '1:1, Sam and Elena', organizer: 'Sam Liu', attendees: 2 },
+    { id: 'b17', roomId: 'r3', date: '2026-11-10', start: '13:00', end: '14:30', title: 'Town hall rehearsal', organizer: 'Elena Petrova', attendees: 10 },
+    { id: 'b18', roomId: 'r4', date: '2026-11-10', start: '09:00', end: '10:00', title: 'Sprint planning', organizer: 'Dana Okafor', attendees: 6 },
+    { id: 'b19', roomId: 'r4', date: '2026-11-10', start: '15:30', end: '16:00', title: 'New hire onboarding', organizer: 'Aisha Rahman', attendees: 3 },
+    { id: 'b20', roomId: 'r5', date: '2026-11-10', start: '10:30', end: '11:30', title: 'Vendor demo: scheduling tool', organizer: 'Tom Richter', attendees: 5 },
+    { id: 'b21', roomId: 'r6', date: '2026-11-10', start: '14:00', end: '14:30', title: 'Compliance training', organizer: 'Jon Becker', attendees: 4 },
+    { id: 'b22', roomId: 'r7', date: '2026-11-10', start: '09:00', end: '09:45', title: 'Leadership sync', organizer: 'Jon Becker', attendees: 7 },
+    { id: 'b23', roomId: 'r8', date: '2026-11-10', start: '13:00', end: '13:30', title: 'Reference check', organizer: 'Marcus Webb', attendees: 1 },
+
+    { id: 'b24', roomId: 'r1', date: '2026-11-11', start: '08:00', end: '08:30', title: 'Standup', organizer: 'Priya Nair', attendees: 6 },
+    { id: 'b25', roomId: 'r1', date: '2026-11-11', start: '12:00', end: '13:00', title: 'Sprint retro', organizer: 'Dana Okafor', attendees: 6 },
+    { id: 'b26', roomId: 'r3', date: '2026-11-11', start: '10:00', end: '11:30', title: 'Client call with Nordholt Logistics', organizer: 'Marcus Webb', attendees: 8 },
+    { id: 'b27', roomId: 'r4', date: '2026-11-11', start: '14:00', end: '15:00', title: 'Site walkthrough debrief', organizer: 'Tom Richter', attendees: 5 },
+    { id: 'b28', roomId: 'r5', date: '2026-11-11', start: '09:00', end: '09:30', title: 'Budget review', organizer: 'Elena Petrova', attendees: 4 },
+    { id: 'b29', roomId: 'r6', date: '2026-11-11', start: '10:00', end: '10:30', title: '1:1, Dana and Marcus', organizer: 'Dana Okafor', attendees: 2 },
+    { id: 'b30', roomId: 'r7', date: '2026-11-11', start: '13:00', end: '15:00', title: 'Board prep', organizer: 'Jon Becker', attendees: 11 },
+    { id: 'b31', roomId: 'r8', date: '2026-11-11', start: '11:00', end: '11:30', title: 'Interview, senior analyst', organizer: 'Marcus Webb', attendees: 2 },
+
+    { id: 'b32', roomId: 'r1', date: '2026-11-12', start: '08:00', end: '08:30', title: 'Standup', organizer: 'Priya Nair', attendees: 6 },
+    { id: 'b33', roomId: 'r2', date: '2026-11-12', start: '09:30', end: '10:00', title: 'Contract review', organizer: 'Aisha Rahman', attendees: 2 },
+    { id: 'b34', roomId: 'r3', date: '2026-11-12', start: '15:00', end: '16:30', title: 'All-hands prep', organizer: 'Elena Petrova', attendees: 9 },
+    { id: 'b35', roomId: 'r4', date: '2026-11-12', start: '11:00', end: '12:00', title: 'Brand workshop', organizer: 'Sam Liu', attendees: 6 },
+    { id: 'b36', roomId: 'r5', date: '2026-11-12', start: '13:30', end: '14:30', title: 'Roadmap review', organizer: 'Elena Petrova', attendees: 8 },
+    { id: 'b37', roomId: 'r6', date: '2026-11-12', start: '08:30', end: '09:00', title: 'Vendor call, AV refresh', organizer: 'Tom Richter', attendees: 2 },
+    { id: 'b38', roomId: 'r7', date: '2026-11-12', start: '09:00', end: '10:00', title: 'Leadership sync', organizer: 'Jon Becker', attendees: 7 },
+    { id: 'b39', roomId: 'r8', date: '2026-11-12', start: '14:00', end: '14:30', title: 'Customer feedback session', organizer: 'Sam Liu', attendees: 1 },
+
+    { id: 'b40', roomId: 'r1', date: '2026-11-13', start: '08:00', end: '08:30', title: 'Standup', organizer: 'Priya Nair', attendees: 6 },
+    { id: 'b41', roomId: 'r3', date: '2026-11-13', start: '09:00', end: '10:30', title: 'Town hall rehearsal', organizer: 'Elena Petrova', attendees: 10 },
+    { id: 'b42', roomId: 'r4', date: '2026-11-13', start: '13:00', end: '13:30', title: 'New hire onboarding', organizer: 'Aisha Rahman', attendees: 3 },
+    { id: 'b43', roomId: 'r5', date: '2026-11-13', start: '10:00', end: '11:00', title: 'Sprint planning', organizer: 'Dana Okafor', attendees: 6 },
+    { id: 'b44', roomId: 'r6', date: '2026-11-13', start: '15:00', end: '15:30', title: '1:1, Sam and Elena', organizer: 'Sam Liu', attendees: 2 },
+    { id: 'b45', roomId: 'r7', date: '2026-11-13', start: '11:00', end: '12:30', title: 'Budget review', organizer: 'Elena Petrova', attendees: 10 },
+    { id: 'b46', roomId: 'r8', date: '2026-11-13', start: '09:00', end: '09:30', title: 'Reference check', organizer: 'Marcus Webb', attendees: 1 }
+  ];
+  var nextBookingNum = 47;
+
+  var DAY_START = 7 * 60;   // 07:00 in minutes
+  var DAY_END = 19 * 60;    // 19:00 in minutes
+  var DAY_SPAN = DAY_END - DAY_START; // 720
+  var WEEKDAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+  var MONTH_NAMES = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+
+  // simulated "now" — keeps the demo on a realistic weekday regardless of the real system clock
+  var appNow = new Date(2026, 10, 9, 9, 14, 0);
+
+  var state = {
+    view: 'day',
+    currentDate: new Date(2026, 10, 9),
+    activeRoomIds: new Set(rooms.map(function (r) { return r.id; }))
+  };
+
+  // ---------- Helpers ----------
+  function pad2(n) { return (n < 10 ? '0' : '') + n; }
+  function isoDate(d) { return d.getFullYear() + '-' + pad2(d.getMonth() + 1) + '-' + pad2(d.getDate()); }
+  function sameDate(a, b) { return isoDate(a) === isoDate(b); }
+  function addDays(d, n) { var r = new Date(d); r.setDate(r.getDate() + n); return r; }
+  function minsOf(hhmm) { var p = hhmm.split(':'); return parseInt(p[0], 10) * 60 + parseInt(p[1], 10); }
+  function timeLabel(mins) { var h = Math.floor(mins / 60), m = mins % 60; return pad2(h) + ':' + pad2(m); }
+  function longDate(d) { return WEEKDAY_NAMES[d.getDay()] === 'Sun' ? '' : (['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'][d.getDay()] + ' ' + d.getDate() + ' ' + MONTH_NAMES[d.getMonth()] + ' ' + d.getFullYear()); }
+  function startOfWeek(d) { var day = d.getDay(); var diff = day === 0 ? -6 : 1 - day; return addDays(d, diff); }
+  function floorColor(floor) { return floor === 2 ? '#1F5C73' : '#B8872B'; }
+  function floorSoft(floor) { return floor === 2 ? '#E4EEF0' : '#F3EAD9'; }
+
+  function bookingsFor(roomId, dateIso) {
+    return bookings.filter(function (b) { return b.roomId === roomId && b.date === dateIso; })
+      .sort(function (a, b) { return minsOf(a.start) - minsOf(b.start); });
+  }
+
+  function activeRooms() {
+    return rooms.filter(function (r) { return state.activeRoomIds.has(r.id); });
+  }
+
+  function overlaps(roomId, dateIso, startMin, endMin, excludeId) {
+    return bookings.some(function (b) {
+      if (b.roomId !== roomId || b.date !== dateIso || b.id === excludeId) return false;
+      var bs = minsOf(b.start), be = minsOf(b.end);
+      return startMin < be && endMin > bs;
+    });
+  }
+
+  function equipIcons(list) {
+    return list.map(function (e) {
+      return '<svg class="w-3.5 h-3.5" aria-hidden="true"><use href="#' + icons[e] + '"/></svg>';
+    }).join('');
+  }
+
+  // ---------- Clock ----------
+  function renderClock() {
+    document.getElementById('clock-date').textContent = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'][appNow.getDay()] + ', ' + appNow.getDate() + ' ' + MONTH_NAMES[appNow.getMonth()];
+    document.getElementById('clock-time').textContent = pad2(appNow.getHours()) + ':' + pad2(appNow.getMinutes());
+  }
+  setInterval(function () {
+    appNow = new Date(appNow.getTime() + 1000);
+    renderClock();
+    positionNowLine();
+  }, 1000);
+
+  // ---------- Legend / filter ----------
+  function renderLegend() {
+    var el = document.getElementById('legend');
+    var allActive = state.activeRoomIds.size === rooms.length;
+    var html = '<button data-all="1" class="px-3 py-1.5 text-xs font-medium rounded-sm border ' +
+      (allActive ? 'border-ink bg-ink text-white' : 'border-line text-inksoft hover:border-ink hover:text-ink') +
+      '">All rooms</button>';
+    rooms.forEach(function (r) {
+      var active = state.activeRoomIds.has(r.id);
+      html += '<button data-room="' + r.id + '" class="legend-chip flex items-center gap-1.5 pl-2 pr-3 py-1.5 text-xs rounded-sm border ' +
+        (active ? 'border-ink' : 'border-line opacity-40 hover:opacity-70') + '">' +
+        '<span class="w-1.5 h-4 inline-block" style="background:' + floorColor(r.floor) + '"></span>' +
+        '<span class="font-medium">' + r.code + ' ' + r.name + '</span>' +
+        '<span class="flex items-center gap-1 text-inksoft"><svg class="w-3 h-3"><use href="#i-person"/></svg>' + r.capacity + '</span>' +
+        '<span class="flex items-center gap-1 text-inksoft">' + equipIcons(r.equipment) + '</span>' +
+        '</button>';
+    });
+    el.innerHTML = html;
+    el.querySelectorAll('[data-room]').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        var id = btn.getAttribute('data-room');
+        if (state.activeRoomIds.has(id)) state.activeRoomIds.delete(id); else state.activeRoomIds.add(id);
+        renderAll();
+      });
+    });
+    el.querySelector('[data-all]').addEventListener('click', function () {
+      state.activeRoomIds = new Set(rooms.map(function (r) { return r.id; }));
+      renderAll();
+    });
+  }
+
+  // ---------- Day view ----------
+  function renderDayView() {
+    var container = document.getElementById('day-view');
+    var list = activeRooms();
+    if (!list.length) { container.innerHTML = ''; return; }
+    var dateIso = isoDate(state.currentDate);
+
+    var cols = '64px repeat(' + list.length + ', minmax(150px, 1fr))';
+    var html = '<div class="relative" style="display:grid;grid-template-columns:' + cols + ';">';
+
+    // header row
+    html += '<div class="h-16 border-b border-r border-line bg-surface sticky top-0 left-0 z-20"></div>';
+    list.forEach(function (r) {
+      html += '<div class="h-16 border-b border-line px-3 py-2 flex items-center gap-2 bg-surface sticky top-0 z-10">' +
+        '<span class="w-1.5 self-stretch" style="background:' + floorColor(r.floor) + '"></span>' +
+        '<div><div class="font-display font-semibold leading-tight">' + r.code + ' ' + r.name + '</div>' +
+        '<div class="text-xs text-inksoft flex items-center gap-1 mt-0.5"><svg class="w-3 h-3"><use href="#i-person"/></svg>' + r.capacity + equipIcons(r.equipment) + '</div></div>' +
+        '</div>';
+    });
+
+    // time column
+    html += '<div class="relative border-r border-line sticky left-0 bg-surface z-10" style="height:' + DAY_SPAN + 'px">';
+    for (var h = 7; h <= 18; h++) {
+      html += '<div class="absolute right-2 -translate-y-1/2 text-xs text-inksoft tabular-nums" style="top:' + ((h - 7) * 60) + 'px">' + pad2(h) + ':00</div>';
+    }
+    html += '</div>';
+
+    // room columns
+    list.forEach(function (r) {
+      html += '<div class="room-cell relative border-r border-line last:border-r-0 cursor-pointer" data-room="' + r.id + '" style="height:' + DAY_SPAN + 'px">';
+      bookingsFor(r.id, dateIso).forEach(function (b) {
+        var top = minsOf(b.start) - DAY_START;
+        var h2 = minsOf(b.end) - minsOf(b.start);
+        html += '<div class="booking-block absolute left-0.5 right-0.5 bg-surface border border-line rounded-sm px-2 py-1 overflow-hidden cursor-pointer" ' +
+          'data-booking="' + b.id + '" style="top:' + top + 'px;height:' + Math.max(h2, 22) + 'px;border-left:3px solid ' + floorColor(r.floor) + '">' +
+          '<p class="text-xs font-medium leading-snug truncate">' + b.title + '</p>' +
+          '<p class="text-[11px] text-inksoft truncate">' + b.start + '&ndash;' + b.end + '</p>' +
+          '</div>';
+      });
+      html += '</div>';
+    });
+
+    html += '</div>';
+    container.innerHTML = html;
+
+    container.querySelectorAll('[data-room]').forEach(function (cell) {
+      cell.addEventListener('click', function (e) {
+        if (e.target.closest('[data-booking]')) return;
+        var rect = cell.getBoundingClientRect();
+        var y = e.clientY - rect.top;
+        var minute = DAY_START + Math.round(y / 15) * 15;
+        minute = Math.max(DAY_START, Math.min(DAY_END - 30, minute));
+        openBookingModal({ roomId: cell.getAttribute('data-room'), date: dateIso, start: timeLabel(minute), end: timeLabel(Math.min(minute + 30, DAY_END)) });
+      });
+    });
+    container.querySelectorAll('[data-booking]').forEach(function (el) {
+      el.addEventListener('click', function (e) {
+        e.stopPropagation();
+        var b = bookings.find(function (x) { return x.id === el.getAttribute('data-booking'); });
+        if (b) openDetailModal(b);
+      });
+    });
+
+    positionNowLine();
+  }
+
+  function positionNowLine() {
+    var container = document.getElementById('day-view');
+    var old = container.querySelector('#now-line');
+    if (old) old.remove();
+    if (state.view !== 'day') return;
+    if (!sameDate(appNow, state.currentDate)) return;
+    var mins = appNow.getHours() * 60 + appNow.getMinutes();
+    if (mins < DAY_START || mins > DAY_END) return;
+    var top = 64 + (mins - DAY_START); // header height (64px) + offset
+    var line = document.createElement('div');
+    line.id = 'now-line';
+    line.className = 'absolute pointer-events-none z-20';
+    line.style.top = top + 'px';
+    line.style.left = '64px';
+    line.style.right = '0';
+    line.style.height = '0';
+    line.innerHTML = '<div style="height:2px;background:#C8102E;position:relative;">' +
+      '<span style="position:absolute;left:-7px;top:-4px;width:10px;height:10px;border-radius:9999px;background:#C8102E;"></span></div>';
+    var grid = container.querySelector('div');
+    if (grid) grid.appendChild(line);
+  }
+
+  // ---------- Week view ----------
+  function renderWeekView() {
+    var container = document.getElementById('week-view');
+    var list = activeRooms();
+    if (!list.length) { container.innerHTML = ''; return; }
+    var monday = startOfWeek(state.currentDate);
+    var days = [0, 1, 2, 3, 4].map(function (i) { return addDays(monday, i); });
+
+    var cols = '190px repeat(5, minmax(150px, 1fr))';
+    var html = '<div style="display:grid;grid-template-columns:' + cols + ';">';
+
+    html += '<div class="h-14 border-b border-r border-line bg-surface sticky left-0 z-10"></div>';
+    days.forEach(function (d) {
+      var isToday = sameDate(d, appNow);
+      html += '<div class="h-14 border-b border-line px-3 py-2 flex flex-col justify-center ' + (isToday ? 'bg-floor2soft' : '') + '">' +
+        '<span class="font-display font-semibold">' + ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][d.getDay()] + ' ' + d.getDate() + '</span>' +
+        '<span class="text-xs text-inksoft">' + MONTH_NAMES[d.getMonth()] + '</span></div>';
+    });
+
+    list.forEach(function (r) {
+      html += '<div class="border-b border-r border-line px-3 py-2 flex items-center gap-2 sticky left-0 bg-surface z-10">' +
+        '<span class="w-1.5 self-stretch" style="background:' + floorColor(r.floor) + '"></span>' +
+        '<div><div class="font-display font-semibold leading-tight text-sm">' + r.code + ' ' + r.name + '</div>' +
+        '<div class="text-xs text-inksoft flex items-center gap-1 mt-0.5"><svg class="w-3 h-3"><use href="#i-person"/></svg>' + r.capacity + '</div></div></div>';
+
+      days.forEach(function (d) {
+        var dateIso = isoDate(d);
+        var list2 = bookingsFor(r.id, dateIso);
+        html += '<div class="week-cell border-b border-line px-2 py-2 cursor-pointer hover:bg-paper" data-room="' + r.id + '" data-date="' + dateIso + '">';
+        if (!list2.length) {
+          html += '<div class="h-7 border border-dashed border-line rounded-sm flex items-center justify-center"><span class="text-[11px] text-inksoft">Open all day</span></div>';
+        } else {
+          html += '<div class="relative h-7 bg-paper rounded-sm border border-line">';
+          list2.forEach(function (b) {
+            var left = ((minsOf(b.start) - DAY_START) / DAY_SPAN) * 100;
+            var width = ((minsOf(b.end) - minsOf(b.start)) / DAY_SPAN) * 100;
+            html += '<div class="week-bar-seg absolute top-0 bottom-0 rounded-sm" title="' + b.start + '&ndash;' + b.end + ' ' + b.title + '" style="left:' + left + '%;width:' + Math.max(width, 2) + '%;background:' + floorColor(r.floor) + '"></div>';
+          });
+          html += '</div>';
+        }
+        html += '</div>';
+      });
+    });
+
+    html += '</div>';
+    container.innerHTML = html;
+
+    container.querySelectorAll('.week-cell').forEach(function (cell) {
+      cell.addEventListener('click', function () {
+        state.currentDate = new Date(cell.getAttribute('data-date') + 'T00:00:00');
+        state.view = 'day';
+        renderAll();
+      });
+    });
+  }
+
+  // ---------- Modals ----------
+  function openBookingModal(prefill) {
+    document.getElementById('form-error').classList.add('hidden');
+    var sel = document.getElementById('f-room');
+    sel.innerHTML = rooms.map(function (r) { return '<option value="' + r.id + '">' + r.code + ' ' + r.name + ' (' + r.capacity + ' seats)</option>'; }).join('');
+    document.getElementById('f-title').value = '';
+    document.getElementById('f-organizer').value = 'Priya Nair';
+    document.getElementById('f-attendees').value = 2;
+    sel.value = prefill.roomId || rooms[0].id;
+    document.getElementById('f-date').value = prefill.date;
+    document.getElementById('f-start').value = prefill.start;
+    document.getElementById('f-end').value = prefill.end;
+    document.getElementById('booking-modal').classList.remove('hidden');
+    document.getElementById('f-title').focus();
+  }
+  function closeBookingModal() { document.getElementById('booking-modal').classList.add('hidden'); }
+
+  function openDetailModal(b) {
+    var r = roomById[b.roomId];
+    document.getElementById('detail-room-line').textContent = r.code + ' ' + r.name + ' &middot; floor ' + r.floor;
+    document.getElementById('detail-room-line').innerHTML = r.code + ' ' + r.name + ' &middot; floor ' + r.floor;
+    document.getElementById('detail-modal-title').textContent = b.title;
+    document.getElementById('detail-time-line').textContent = longDate(new Date(b.date + 'T00:00:00')) + ' &middot; ' + b.start + '&ndash;' + b.end;
+    document.getElementById('detail-time-line').innerHTML = longDate(new Date(b.date + 'T00:00:00')) + ' &middot; ' + b.start + '&ndash;' + b.end;
+    document.getElementById('detail-organizer').textContent = b.organizer;
+    document.getElementById('detail-attendees').textContent = b.attendees;
+    var cancelBtn = document.getElementById('detail-cancel-booking');
+    cancelBtn.textContent = 'Cancel booking';
+    cancelBtn.dataset.id = b.id;
+    cancelBtn.dataset.armed = '0';
+    document.getElementById('detail-modal').classList.remove('hidden');
+  }
+  function closeDetailModal() { document.getElementById('detail-modal').classList.add('hidden'); }
+
+  document.getElementById('booking-modal-close').addEventListener('click', closeBookingModal);
+  document.getElementById('booking-cancel').addEventListener('click', closeBookingModal);
+  document.getElementById('booking-modal').addEventListener('click', function (e) { if (e.target === this) closeBookingModal(); });
+
+  document.getElementById('detail-modal-close').addEventListener('click', closeDetailModal);
+  document.getElementById('detail-close-btn').addEventListener('click', closeDetailModal);
+  document.getElementById('detail-modal').addEventListener('click', function (e) { if (e.target === this) closeDetailModal(); });
+
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape') { closeBookingModal(); closeDetailModal(); }
+  });
+
+  document.getElementById('detail-cancel-booking').addEventListener('click', function () {
+    if (this.dataset.armed !== '1') {
+      this.dataset.armed = '1';
+      this.textContent = 'Confirm cancellation';
+      return;
+    }
+    bookings = bookings.filter(function (b) { return b.id !== this.dataset.id; }, this);
+    closeDetailModal();
+    renderAll();
+  });
+
+  document.getElementById('booking-form').addEventListener('submit', function (e) {
+    e.preventDefault();
+    var roomId = document.getElementById('f-room').value;
+    var date = document.getElementById('f-date').value;
+    var start = document.getElementById('f-start').value;
+    var end = document.getElementById('f-end').value;
+    var title = document.getElementById('f-title').value.trim();
+    var organizer = document.getElementById('f-organizer').value.trim();
+    var attendees = parseInt(document.getElementById('f-attendees').value, 10) || 1;
+    var errEl = document.getElementById('form-error');
+
+    var sMin = minsOf(start), eMin = minsOf(end);
+    var msg = '';
+    if (!title) msg = 'Give the meeting a title.';
+    else if (eMin <= sMin) msg = 'End time must be after the start time.';
+    else if (sMin < DAY_START || eMin > DAY_END) msg = 'Bookings run between 07:00 and 19:00.';
+    else if (overlaps(roomId, date, sMin, eMin, null)) msg = roomById[roomId].name + ' is already booked for part of that time.';
+
+    if (msg) { errEl.textContent = msg; errEl.classList.remove('hidden'); return; }
+
+    bookings.push({ id: 'b' + (nextBookingNum++), roomId: roomId, date: date, start: start, end: end, title: title, organizer: organizer || 'Priya Nair', attendees: attendees });
+    closeBookingModal();
+    state.currentDate = new Date(date + 'T00:00:00');
+    state.view = 'day';
+    renderAll();
+  });
+
+  // ---------- Controls ----------
+  document.getElementById('btn-view-day').addEventListener('click', function () { state.view = 'day'; renderAll(); });
+  document.getElementById('btn-view-week').addEventListener('click', function () { state.view = 'week'; renderAll(); });
+  document.getElementById('btn-prev').addEventListener('click', function () {
+    state.currentDate = addDays(state.currentDate, state.view === 'day' ? -1 : -7);
+    renderAll();
+  });
+  document.getElementById('btn-next').addEventListener('click', function () {
+    state.currentDate = addDays(state.currentDate, state.view === 'day' ? 1 : 7);
+    renderAll();
+  });
+  document.getElementById('btn-today').addEventListener('click', function () {
+    state.currentDate = new Date(appNow.getFullYear(), appNow.getMonth(), appNow.getDate());
+    renderAll();
+  });
+  document.getElementById('btn-new-booking').addEventListener('click', function () {
+    var mins = DAY_START + 60;
+    openBookingModal({ roomId: activeRooms()[0] ? activeRooms()[0].id : rooms[0].id, date: isoDate(state.currentDate), start: timeLabel(mins), end: timeLabel(mins + 30) });
+  });
+
+  // ---------- Master render ----------
+  function renderAll() {
+    var dayBtn = document.getElementById('btn-view-day');
+    var weekBtn = document.getElementById('btn-view-week');
+    dayBtn.className = 'view-toggle px-4 py-1.5 text-sm font-medium font-display ' + (state.view === 'day' ? 'bg-ink text-white' : 'bg-surface text-ink hover:bg-paper');
+    weekBtn.className = 'view-toggle px-4 py-1.5 text-sm font-medium font-display border-l border-ink ' + (state.view === 'week' ? 'bg-ink text-white' : 'bg-surface text-ink hover:bg-paper');
+
+    document.getElementById('day-view').classList.toggle('hidden', state.view !== 'day');
+    document.getElementById('week-view').classList.toggle('hidden', state.view !== 'week');
+
+    if (state.view === 'day') {
+      document.getElementById('range-label').textContent = longDate(state.currentDate);
+    } else {
+      var monday = startOfWeek(state.currentDate);
+      var friday = addDays(monday, 4);
+      var sameMonth = monday.getMonth() === friday.getMonth();
+      document.getElementById('range-label').textContent = monday.getDate() + '–' + friday.getDate() + ' ' + MONTH_NAMES[friday.getMonth()] + ' ' + friday.getFullYear();
+    }
+
+    renderLegend();
+    var noRooms = activeRooms().length === 0;
+    document.getElementById('empty-filter').classList.toggle('hidden', !noRooms);
+    document.getElementById('day-view').classList.toggle('hidden', noRooms || state.view !== 'day');
+    document.getElementById('week-view').classList.toggle('hidden', noRooms || state.view !== 'week');
+
+    if (!noRooms) {
+      renderDayView();
+      renderWeekView();
+    }
+  }
+
+  renderClock();
+  renderAll();
+})();
+</script>
+</body>

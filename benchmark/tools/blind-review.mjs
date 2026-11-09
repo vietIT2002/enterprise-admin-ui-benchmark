@@ -26,8 +26,7 @@ export async function reviewFoldersBlind(folders, { seed = Date.now() % 1e9, con
     usage.push({ folder: path.basename(k.folder), brief: b.brief, run: k.run, code: b.code, phase: 'review', blind: true, written, ...r });
     console.log(`blind review ${b.code}: ${written ? 'ok' : 'MISSING'}${r.seconds ? ' ' + r.seconds + 's' : ''}`);
   });
-  unblind(blindDir);
-  promoteBlind(folders);
+  // Keep the key and the cost first, so a later step that fails cannot lose them.
   if (keepDir) {
     fs.mkdirSync(keepDir, { recursive: true });
     const shortKey = Object.fromEntries(Object.entries(key).map(([c, k]) => [c, { ...k, folder: path.basename(k.folder) }]));
@@ -35,6 +34,8 @@ export async function reviewFoldersBlind(folders, { seed = Date.now() % 1e9, con
     fs.copyFileSync(path.join(blindDir, 'manifest.json'), path.join(keepDir, 'manifest.json'));
     fs.writeFileSync(path.join(keepDir, 'review-usage.json'), JSON.stringify({ seed, model, reviews: usage }, null, 2) + '\n');
   }
+  unblind(blindDir);
+  promoteBlind(folders);
   return { pages: pages.length, usage };
 }
 

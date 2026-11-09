@@ -1,0 +1,56 @@
+{
+  "brief": "22-room-booking-calendar",
+  "run": 1,
+  "items": [
+    {
+      "item": "The day view lists rooms as rows, each labelled with its capacity (and its floor or equipment), against a time axis that covers working hours and is labelled at least every hour",
+      "pass": false,
+      "evidence": "renderDayGrid() in page.html builds `cols = ROOMS.map(...)` and lays rooms out as side-by-side columns (`<div class=\"flex flex-col border-l border-slate-100\">` per room, joined inside `<div class=\"flex flex-1\">`), with the time axis running vertically via hourLabels() in a sticky left column. Confirmed in first.png: Boardroom/Summit/Meridian/... run left-to-right as column headers, 8AM–4PM runs top-to-bottom. Capacity/floor is shown ('Floor 3 · 14 seats') but as a column sub-header, not a row label. Rooms are columns, not rows, so the required orientation fails even though the hourly-labelled working-hours time axis (8:00–18:30, labelled every 60 min in hourLabels()) is otherwise present."
+    },
+    {
+      "item": "A Day / Week switch marks the active view (aria-pressed, aria-selected or aria-current), Previous / Today / Next controls move the range, and a heading states the date or date range on screen (such as \"Mon 2 – Sun 8 Nov 2026\")",
+      "pass": true,
+      "evidence": "`#viewDayBtn`/`#viewWeekBtn` are `role=\"tab\"` with `aria-selected` toggled in renderHeader() (`dayBtn.setAttribute(\"aria-selected\",\"true\")` etc). `#btnPrev`/`#btnNext`/`#btnToday` shift `state.currentDate` by day or week and call renderAll(). `#dateLabel` shows `fmtLongDate()` (e.g. \"Monday, November 9, 2026\") in day view or `fmtWeekRange()` (e.g. \"Nov 9 – 13, 2026\") in week view, visible in first.png."
+    },
+    {
+      "item": "Each booking shows its title or organiser and its start–end time as text, and its block covers exactly that stretch of the time axis (a 09:30–11:00 booking spans one and a half hours)",
+      "pass": true,
+      "evidence": "bookingBlockHTML() renders the title always, and `fmtTimeRange(b.start,b.end) + ' · ' + b.organizer` whenever block height > 34px (true for every booking since the minimum 30-min slot already yields 46px). top/height are computed directly from `(toMin(b.start)-GRID_START)/SLOT_MIN*ROW_PX` and `(toMin(b.end)-toMin(b.start))/SLOT_MIN*ROW_PX`, so a block's pixel span matches its duration against the same ROW_PX-per-30min axis used for the hour gridlines; visible in first.png e.g. 'Executive Lea...' 9–10 AM spans exactly one hour-row."
+    },
+    {
+      "item": "Filters for minimum capacity and for equipment (such as projector or video conferencing) narrow the rooms listed, and the number of matching rooms is shown",
+      "pass": false,
+      "evidence": "The only sidebar control is `<input id=\"roomSearch\" type=\"text\" placeholder=\"Search rooms\">`, which filters `ROOMS` by name substring only (`renderRoomList`: `r.name.toLowerCase().indexOf(q)`). There is no capacity or equipment filter control anywhere in the markup or script. `#roomCount` does show the filtered room count, but only reflects the name search, not a capacity/equipment filter."
+    },
+    {
+      "item": "Choosing a free slot opens a booking form already filled in with that room, date and start time",
+      "pass": true,
+      "evidence": "Slot cells carry `data-room`, `data-date`, `data-min`; their click handler calls `openBookingDialog({roomId, date, startMin})`, which pre-selects `#fRoom`, sets `#fDate`.value and `#fStart` (and a sensible `#fEnd`) from the prefill before `bookingDialog.showModal()`."
+    },
+    {
+      "item": "Saving is blocked with an inline message when the time overlaps another booking of the same room (the message names that booking's time and organiser) or when the end is not after the start",
+      "pass": false,
+      "evidence": "End<=start is correctly blocked: \"End time must be after the start time.\" For overlap, the submit handler sets `errBox.textContent = ROOM_BY_ID[roomId].name + \" is already booked \" + fmtTimeRange(conflict.start, conflict.end) + \" for “\" + conflict.title + \"”.\"` — this names the conflicting booking's time and TITLE, but never its organiser, so the overlap message does not satisfy the 'names that booking's time and organiser' requirement."
+    },
+    {
+      "item": "Cancelling a booking asks for confirmation in a dialog that names the room, date and time and offers a way to keep the booking",
+      "pass": false,
+      "evidence": "drawConfirm() in openDetailDialog() renders only: 'Cancel “' + b.title + '”? This can’t be undone.' with 'Keep booking' and 'Cancel booking' buttons. The confirmation text names only the booking title — it does not state the room, date, or time anywhere in the confirm step, though a 'Keep booking' option is present."
+    },
+    {
+      "item": "Free slots and bookings are focusable buttons or links whose accessible names give the room, date, time and status (such as \"Lotus room, Thu 5 Nov, 09:00–09:30, free\"), not click handlers on bare divs",
+      "pass": false,
+      "evidence": "Slot cells are plain `<div class=\"slot-cell cursor-pointer ...\" data-slot=\"1\" data-room=\"...\" data-date=\"...\" data-min=\"...\"></div>` with a JS `addEventListener(\"click\", ...)` attached in renderGridShell() — no button/link element, no role, no tabindex, no accessible name (empty div). Booking blocks are likewise `<div data-booking=\"...\" class=\"booking-block ...\">` with a click listener, not a focusable button/link with a descriptive accessible name."
+    },
+    {
+      "item": "When no rooms match the filters, a message with a clear-filters action takes the place of the grid, and loading and error-with-retry states are built in",
+      "pass": false,
+      "evidence": "renderRoomList() sets `list.innerHTML = filtered.map(...).join(\"\")`, which simply becomes an empty string when `filtered.length === 0` — no 'no rooms match' message or clear-filters action is rendered. The whole app renders synchronously from the in-memory `ROOMS`/`bookings` mock arrays (`renderAll()` called once at the bottom); there is no loading state, no fetch/error handling, and no retry affordance anywhere in the script."
+    }
+  ],
+  "tells": [
+    "tracked-uppercase-labels"
+  ],
+  "notes": "Primary structural issue: the 'day view' is actually a room-per-column / time-per-row grid (rooms along the top, hours down the side), the inverse of the requested rooms-as-rows layout; the week view instead shows one room's days as columns. No capacity/equipment filtering exists, only a room-name text search. Cancel-confirmation and overlap-conflict messaging both omit required identifying details (room/date/time for cancel; organiser for overlap). All interactive slots/bookings are bare clickable divs with no accessible semantics. No empty-state-with-clear-filters, loading, or error/retry handling exists since the whole UI renders synchronously from static mock data. Audit.json independently flags heavy text-contrast failures (47), an off-scale 8-size type system, and ALL-CAPS 'Rooms ·' label (matching the tracked-uppercase-labels tell).",
+  "blind": true
+}

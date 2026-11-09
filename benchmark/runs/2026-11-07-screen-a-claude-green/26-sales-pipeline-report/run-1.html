@@ -1,0 +1,596 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sales pipeline report · Acme CRM</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+  [hidden] { display: none !important; }
+  .tnum { font-variant-numeric: tabular-nums; }
+  @page { size: A4 landscape; margin: 14mm 12mm 16mm; }
+  @media print {
+    nav, aside, button, input, select { display: none !important; }
+    main { padding: 0 !important; max-width: none !important; }
+    table { border-collapse: collapse; width: 100%; }
+    thead { display: table-header-group; }
+    tfoot { display: table-row-group; }
+    tr { break-inside: avoid; }
+    h1, h2 { break-after: avoid; }
+  }
+</style>
+</head>
+<body class="bg-white text-sm text-slate-900 antialiased">
+<div class="flex min-h-screen">
+  <aside class="w-56 shrink-0 border-r border-slate-200 bg-slate-50">
+    <div class="flex h-12 items-center px-4 font-semibold">Acme CRM</div>
+    <nav aria-label="Main" class="px-2 pb-4">
+      <p class="px-2 pb-1 pt-3 text-xs font-medium text-slate-600">Sales</p>
+      <a href="#" class="flex h-8 items-center rounded px-2 text-slate-700 hover:bg-slate-100">Dashboard</a>
+      <a href="#" class="flex h-8 items-center rounded px-2 text-slate-700 hover:bg-slate-100">Deals</a>
+      <a href="#" class="flex h-8 items-center rounded px-2 text-slate-700 hover:bg-slate-100">Contacts</a>
+      <a href="#" class="flex h-8 items-center rounded px-2 text-slate-700 hover:bg-slate-100">Companies</a>
+      <p class="px-2 pb-1 pt-3 text-xs font-medium text-slate-600">Reports</p>
+      <a href="#" aria-current="page" class="flex h-8 items-center rounded bg-slate-200 px-2 font-medium">Pipeline</a>
+      <a href="#" class="flex h-8 items-center rounded px-2 text-slate-700 hover:bg-slate-100">Forecast</a>
+      <a href="#" class="flex h-8 items-center rounded px-2 text-slate-700 hover:bg-slate-100">Activity</a>
+    </nav>
+  </aside>
+
+  <main class="min-w-0 flex-1 px-6 py-4">
+    <nav aria-label="Breadcrumb" class="text-slate-600"><a href="#" class="hover:underline">Reports</a> <span aria-hidden="true">/</span> Sales pipeline</nav>
+
+    <header class="mt-1 flex items-start justify-between gap-4">
+      <div class="min-w-0">
+        <h1 id="report-title" class="text-xl font-semibold"></h1>
+        <p id="basis-line" class="mt-1 text-slate-600"></p>
+      </div>
+      <div class="flex shrink-0 items-center gap-2">
+        <button type="button" id="btn-print" class="h-8 rounded border border-slate-300 bg-white px-3 hover:bg-slate-50">Print</button>
+        <button type="button" id="btn-export" class="h-8 rounded border border-slate-300 bg-white px-3 hover:bg-slate-50">Export <span id="export-count" class="tnum">0</span> rows</button>
+      </div>
+    </header>
+
+    <div class="mt-3 flex flex-wrap items-end gap-2">
+      <div>
+        <label class="sr-only" for="f-period">Period</label>
+        <select id="f-period" class="h-8 rounded border border-slate-300 bg-white px-2">
+          <option value="this-quarter">This quarter</option>
+          <option value="last-quarter">Last quarter</option>
+          <option value="this-year">This year</option>
+          <option value="custom">Custom range</option>
+        </select>
+      </div>
+      <div id="custom-range" hidden class="flex items-end gap-2">
+        <div>
+          <label class="sr-only" for="f-from">From date</label>
+          <input type="date" id="f-from" class="h-8 rounded border border-slate-300 bg-white px-2">
+        </div>
+        <div>
+          <label class="sr-only" for="f-to">To date</label>
+          <input type="date" id="f-to" class="h-8 rounded border border-slate-300 bg-white px-2">
+        </div>
+      </div>
+      <div>
+        <label class="sr-only" for="f-rep">Salesperson</label>
+        <select id="f-rep" class="h-8 rounded border border-slate-300 bg-white px-2">
+          <option value="">All salespeople</option>
+        </select>
+      </div>
+      <div>
+        <label class="sr-only" for="f-stage">Stage</label>
+        <select id="f-stage" class="h-8 rounded border border-slate-300 bg-white px-2">
+          <option value="">All stages</option>
+        </select>
+      </div>
+      <div>
+        <label class="sr-only" for="q">Search by salesperson or stage</label>
+        <input type="search" id="q" placeholder="Search salesperson or stage" aria-label="Search by salesperson or stage" class="h-8 w-64 rounded border border-slate-300 px-2">
+      </div>
+      <div id="chips" class="flex flex-wrap items-center gap-1"></div>
+    </div>
+
+    <p id="kpi-line" class="mt-3 font-medium text-slate-900"></p>
+    <p data-result-count id="result-line" class="mt-1 text-slate-600"></p>
+
+    <section data-region="by-salesperson" class="mt-4" aria-label="Open pipeline by salesperson">
+      <h2 class="mb-2 text-base font-semibold">Open pipeline by salesperson</h2>
+      <div data-state="ready" class="overflow-x-auto rounded-md border border-slate-200">
+        <table class="w-full border-collapse">
+          <caption class="sr-only">Open pipeline by salesperson</caption>
+          <thead class="bg-slate-50 text-slate-700">
+            <tr class="h-10 border-b border-slate-200">
+              <th scope="col" class="px-3 text-left font-medium" data-col-rep="label"><button type="button" data-sort-rep="label" class="font-medium">Salesperson</button></th>
+              <th scope="col" class="px-3 text-right font-medium" data-col-rep="count"><button type="button" data-sort-rep="count" class="inline-flex w-full flex-row-reverse items-center gap-1 text-right font-medium">Open deals</button></th>
+              <th scope="col" class="px-3 text-right font-medium" data-col-rep="pipeline"><button type="button" data-sort-rep="pipeline" class="inline-flex w-full flex-row-reverse items-center gap-1 text-right font-medium">Pipeline value ($)</button></th>
+              <th scope="col" class="px-3 text-right font-medium" data-col-rep="weighted"><button type="button" data-sort-rep="weighted" class="inline-flex w-full flex-row-reverse items-center gap-1 text-right font-medium">Weighted forecast ($)</button></th>
+              <th scope="col" class="px-3 text-right font-medium" data-col-rep="winRate"><button type="button" data-sort-rep="winRate" class="inline-flex w-full flex-row-reverse items-center gap-1 text-right font-medium">Win rate</button></th>
+              <th scope="col" class="px-3 text-right font-medium" data-col-rep="share"><button type="button" data-sort-rep="share" class="inline-flex w-full flex-row-reverse items-center gap-1 text-right font-medium">Share</button></th>
+            </tr>
+          </thead>
+          <tbody id="rep-rows"></tbody>
+          <tfoot id="rep-tfoot" class="border-t border-slate-300 font-medium"></tfoot>
+        </table>
+      </div>
+      <div data-state="empty" hidden class="rounded-md border border-dashed border-slate-300 px-6 py-10 text-center">
+        <p class="font-medium">No open deals match these filters</p>
+        <p class="mt-1 text-slate-600">Try another salesperson, stage or search, or clear the filters.</p>
+        <button type="button" data-clear-from="rep" class="mt-3 h-8 rounded border border-slate-300 bg-white px-3 hover:bg-slate-50">Clear filters</button>
+      </div>
+      <div data-state="loading" aria-busy="true" hidden class="rounded-md border border-slate-200" aria-label="Loading open pipeline by salesperson">
+        <div class="h-10 border-b border-slate-200 bg-slate-50"></div>
+        <div class="loading-skeleton"></div>
+      </div>
+      <div data-state="error" hidden class="rounded-md border border-red-200 bg-red-50 px-4 py-3 text-red-800" role="alert">
+        <p class="font-medium">The salesperson breakdown could not be loaded.</p>
+        <p class="mt-1">Check your connection, then try again.</p>
+        <button type="button" data-retry class="mt-2 h-8 rounded border border-red-300 bg-white px-3 text-red-800 hover:bg-red-100">Retry</button>
+      </div>
+    </section>
+
+    <section data-region="by-stage" class="mt-6" aria-label="Open pipeline by stage">
+      <h2 class="mb-2 text-base font-semibold">Open pipeline by stage</h2>
+      <div data-state="ready" class="overflow-x-auto rounded-md border border-slate-200">
+        <table class="w-full border-collapse">
+          <caption class="sr-only">Open pipeline by stage</caption>
+          <thead class="bg-slate-50 text-slate-700">
+            <tr class="h-10 border-b border-slate-200">
+              <th scope="col" class="px-3 text-left font-medium" data-col-stage="label"><button type="button" data-sort-stage="label" class="font-medium">Stage</button></th>
+              <th scope="col" class="px-3 text-right font-medium" data-col-stage="count"><button type="button" data-sort-stage="count" class="inline-flex w-full flex-row-reverse items-center gap-1 text-right font-medium">Open deals</button></th>
+              <th scope="col" class="px-3 text-right font-medium" data-col-stage="pipeline"><button type="button" data-sort-stage="pipeline" class="inline-flex w-full flex-row-reverse items-center gap-1 text-right font-medium">Pipeline value ($)</button></th>
+              <th scope="col" class="px-3 text-right font-medium" data-col-stage="weighted"><button type="button" data-sort-stage="weighted" class="inline-flex w-full flex-row-reverse items-center gap-1 text-right font-medium">Weighted forecast ($)</button></th>
+              <th scope="col" class="px-3 text-right font-medium" data-col-stage="avgDeal"><button type="button" data-sort-stage="avgDeal" class="inline-flex w-full flex-row-reverse items-center gap-1 text-right font-medium">Avg deal size ($)</button></th>
+              <th scope="col" class="px-3 text-right font-medium" data-col-stage="winRate"><button type="button" data-sort-stage="winRate" class="inline-flex w-full flex-row-reverse items-center gap-1 text-right font-medium">Win rate</button></th>
+              <th scope="col" class="px-3 text-right font-medium" data-col-stage="share"><button type="button" data-sort-stage="share" class="inline-flex w-full flex-row-reverse items-center gap-1 text-right font-medium">Share</button></th>
+            </tr>
+          </thead>
+          <tbody id="stage-rows"></tbody>
+          <tfoot id="stage-tfoot" class="border-t border-slate-300 font-medium"></tfoot>
+        </table>
+      </div>
+      <div data-state="empty" hidden class="rounded-md border border-dashed border-slate-300 px-6 py-10 text-center">
+        <p class="font-medium">No open deals match these filters</p>
+        <p class="mt-1 text-slate-600">Try another salesperson, stage or search, or clear the filters.</p>
+        <button type="button" data-clear-from="stage" class="mt-3 h-8 rounded border border-slate-300 bg-white px-3 hover:bg-slate-50">Clear filters</button>
+      </div>
+      <div data-state="loading" aria-busy="true" hidden class="rounded-md border border-slate-200" aria-label="Loading open pipeline by stage">
+        <div class="h-10 border-b border-slate-200 bg-slate-50"></div>
+        <div class="loading-skeleton"></div>
+      </div>
+      <div data-state="error" hidden class="rounded-md border border-red-200 bg-red-50 px-4 py-3 text-red-800" role="alert">
+        <p class="font-medium">The stage breakdown could not be loaded.</p>
+        <p class="mt-1">Check your connection, then try again.</p>
+        <button type="button" data-retry class="mt-2 h-8 rounded border border-red-300 bg-white px-3 text-red-800 hover:bg-red-100">Retry</button>
+      </div>
+    </section>
+
+    <p class="mt-6 text-xs text-slate-600">Pipeline value is the sum of open deal amounts. Weighted forecast multiplies each deal's amount by its stage probability. Win rate is closed-won deals divided by all deals closed (won + lost) in the period shown.</p>
+  </main>
+</div>
+
+<div id="toast" role="status" aria-live="polite" class="fixed bottom-4 right-4 z-50"></div>
+
+<script>
+  const LOCALE = 'en-US';
+  const fmtMoney = (n) => new Intl.NumberFormat(LOCALE, { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(n);
+  const fmtCount = (n) => new Intl.NumberFormat(LOCALE).format(n);
+  const fmtShort = (d) => new Intl.DateTimeFormat(LOCALE, { month: 'short', day: 'numeric', year: 'numeric' }).format(d);
+  const fmtPct = (n, digits = 1) => (n == null ? '—' : (n * 100).toFixed(digits) + '%');
+  const clamp = (n, a, b) => Math.max(a, Math.min(b, n));
+  const $ = (id) => document.getElementById(id);
+
+  // ---------------------------------------------------------------- mock data
+  function mulberry32(seed) {
+    let a = seed;
+    return function () {
+      a |= 0; a = (a + 0x6d2b79f5) | 0;
+      let t = Math.imul(a ^ (a >>> 15), 1 | a);
+      t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+  }
+  const rng = mulberry32(42);
+  const pick = (arr) => arr[Math.floor(rng() * arr.length)];
+  function weightedPick(items, weights) {
+    const total = weights.reduce((a, b) => a + b, 0);
+    let r = rng() * total;
+    for (let i = 0; i < items.length; i++) { r -= weights[i]; if (r <= 0) return items[i]; }
+    return items[items.length - 1];
+  }
+  const dUTC = (y, m, d, h = 0, mi = 0) => new Date(Date.UTC(y, m, d, h, mi));
+  const addDays = (date, days) => new Date(date.getTime() + days * 86400000);
+
+  const COMPANIES = ['Northwind Retail', 'Blue Lotus Hotels', 'Saigon Steel Corp', 'Horizon Logistics', 'Everline Health', 'BrightPath Insurance', 'Coastal Foods Group', 'Vertex Manufacturing', 'Lumen Energy', 'Alder Financial', 'Marigold Media', 'Pinecrest Realty', 'Quantum Devices', 'Silverline Logistics', 'Harbor & Co. Legal', 'Crestview Hospitals', 'Nimbus Cloud Systems', 'Golden Gate Apparel', 'Ironclad Security', 'Maple Grove Schools'];
+  const PRODUCTS = ['Platform license', 'Enterprise upgrade', 'Annual renewal', 'Support plan', 'Implementation services', 'Add-on modules', 'Multi-year contract', 'Expansion seats'];
+  const REPS = ['Sarah Chen', 'Marcus Lee', 'Priya Patel', 'Diego Alvarez', 'Emily Johnson', 'Tom Becker'];
+  const REP_WEIGHTS = [1.3, 0.9, 1.1, 0.8, 1.0, 0.9];
+  const REP_SKILL = { 'Sarah Chen': 0.52, 'Marcus Lee': 0.40, 'Priya Patel': 0.58, 'Diego Alvarez': 0.33, 'Emily Johnson': 0.45, 'Tom Becker': 0.37 };
+  const OPEN_STAGES = ['Qualification', 'Discovery', 'Proposal', 'Negotiation'];
+  const STAGE_PROB = { Qualification: 0.10, Discovery: 0.25, Proposal: 0.50, Negotiation: 0.75 };
+  const STAGE_WEIGHTS_OPEN = [0.32, 0.28, 0.22, 0.18];
+  const STAGE_WEIGHTS_CLOSEDFROM = [0.30, 0.28, 0.24, 0.18];
+  const STAGE_FACTOR = { Qualification: 0.7, Discovery: 0.85, Proposal: 1.05, Negotiation: 1.3 };
+  const isWon = (d) => d.stage === 'Closed Won';
+  const isLost = (d) => d.stage === 'Closed Lost';
+
+  const TODAY = dUTC(2026, 10, 7); // fixed "as of" date for this mock report
+
+  const DEALS = [];
+  let idc = 1;
+  const CLOSED_START = dUTC(2026, 0, 1).getTime();
+  const CLOSED_END = TODAY.getTime();
+  for (let i = 0; i < 160; i++) {
+    const rep = weightedPick(REPS, REP_WEIGHTS);
+    const closedFromStage = weightedPick(OPEN_STAGES, STAGE_WEIGHTS_CLOSEDFROM);
+    const pWin = clamp(REP_SKILL[rep] * STAGE_FACTOR[closedFromStage], 0.05, 0.92);
+    const won = rng() < pWin;
+    const amount = Math.round((8000 + Math.pow(rng(), 2) * 240000) / 500) * 500;
+    const closeDate = new Date(CLOSED_START + rng() * (CLOSED_END - CLOSED_START));
+    const createdDate = addDays(closeDate, -(20 + rng() * 100));
+    DEALS.push({ id: 'DEAL-' + (1000 + idc++), account: pick(COMPANIES), product: pick(PRODUCTS), rep, stage: won ? 'Closed Won' : 'Closed Lost', closedFromStage, probability: won ? 1 : 0, amount, closeDate, expectedClose: closeDate, createdDate });
+  }
+  const OPEN_START = dUTC(2026, 8, 1).getTime();
+  const OPEN_END = dUTC(2027, 2, 31).getTime();
+  for (let i = 0; i < 100; i++) {
+    const rep = weightedPick(REPS, REP_WEIGHTS);
+    const stage = weightedPick(OPEN_STAGES, STAGE_WEIGHTS_OPEN);
+    const amount = Math.round((8000 + Math.pow(rng(), 2) * 240000) / 500) * 500;
+    const expectedClose = new Date(OPEN_START + rng() * (OPEN_END - OPEN_START));
+    const createdDate = addDays(expectedClose, -(30 + rng() * 150));
+    DEALS.push({ id: 'DEAL-' + (1000 + idc++), account: pick(COMPANIES), product: pick(PRODUCTS), rep, stage, closedFromStage: null, probability: STAGE_PROB[stage], amount, closeDate: null, expectedClose, createdDate });
+  }
+
+  // ---------------------------------------------------------------- periods
+  const quarterOfDate = (d) => Math.floor(d.getUTCMonth() / 3) + 1;
+  function quarterRange(year, q) {
+    return { start: dUTC(year, (q - 1) * 3, 1), end: new Date(Date.UTC(year, (q - 1) * 3 + 3, 0, 23, 59, 59)) };
+  }
+  function shiftQuarter(year, q, delta) {
+    const idx = year * 4 + (q - 1) + delta;
+    const y = Math.floor(idx / 4);
+    return { year: y, q: idx - y * 4 + 1 };
+  }
+  const THIS_Q = { year: 2026, q: quarterOfDate(TODAY) };
+
+  function getPeriod(ui) {
+    if (ui.period === 'custom') {
+      const from = ui.customFrom ? new Date(ui.customFrom + 'T00:00:00Z') : addDays(TODAY, -90);
+      const to = ui.customTo ? new Date(ui.customTo + 'T23:59:59Z') : TODAY;
+      return { cur: { start: from, end: to }, prior: null, label: `${fmtShort(from)} – ${fmtShort(to)}`, priorLabel: null };
+    }
+    if (ui.period === 'this-year') {
+      return {
+        cur: { start: dUTC(2026, 0, 1), end: new Date(Date.UTC(2026, 11, 31, 23, 59, 59)) },
+        prior: { start: dUTC(2025, 0, 1), end: new Date(Date.UTC(2025, 11, 31, 23, 59, 59)) },
+        label: 'This year (2026)', priorLabel: '2025',
+      };
+    }
+    const sel = ui.period === 'last-quarter' ? shiftQuarter(THIS_Q.year, THIS_Q.q, -1) : THIS_Q;
+    const p = shiftQuarter(sel.year, sel.q, -1);
+    return { cur: quarterRange(sel.year, sel.q), prior: quarterRange(p.year, p.q), label: `Q${sel.q} ${sel.year}`, priorLabel: `Q${p.q} ${p.year}` };
+  }
+
+  function within(d, range) { return !!d && d.getTime() >= range.start.getTime() && d.getTime() <= range.end.getTime(); }
+  function matchesRepStage(d, ui) {
+    if (ui.rep && d.rep !== ui.rep) return false;
+    if (ui.stage) {
+      const dealStage = OPEN_STAGES.includes(d.stage) ? d.stage : d.closedFromStage;
+      if (dealStage !== ui.stage) return false;
+    }
+    return true;
+  }
+
+  // ---------------------------------------------------------------- state
+  const params = new URLSearchParams(location.search);
+  const forced = params.get('state');
+  const ui = {
+    period: params.get('period') || 'this-quarter',
+    customFrom: params.get('from') || '',
+    customTo: params.get('to') || '',
+    rep: params.get('rep') || '',
+    stage: params.get('stage') || '',
+    q: params.get('q') || '',
+    sortRep: params.get('sortRep') || 'pipeline', dirRep: params.get('dirRep') || 'desc',
+    sortStage: params.get('sortStage') || 'pipeline', dirStage: params.get('dirStage') || 'desc',
+  };
+
+  $('f-rep').insertAdjacentHTML('beforeend', REPS.map((r) => `<option value="${r}">${r}</option>`).join(''));
+  $('f-stage').insertAdjacentHTML('beforeend', OPEN_STAGES.map((s) => `<option value="${s}">${s}</option>`).join(''));
+
+  function syncUrl() {
+    const p = new URLSearchParams();
+    if (ui.period !== 'this-quarter') p.set('period', ui.period);
+    if (ui.period === 'custom') { if (ui.customFrom) p.set('from', ui.customFrom); if (ui.customTo) p.set('to', ui.customTo); }
+    if (ui.rep) p.set('rep', ui.rep);
+    if (ui.stage) p.set('stage', ui.stage);
+    if (ui.q) p.set('q', ui.q);
+    if (ui.sortRep !== 'pipeline' || ui.dirRep !== 'desc') { p.set('sortRep', ui.sortRep); p.set('dirRep', ui.dirRep); }
+    if (ui.sortStage !== 'pipeline' || ui.dirStage !== 'desc') { p.set('sortStage', ui.sortStage); p.set('dirStage', ui.dirStage); }
+    if (forced) p.set('state', forced);
+    history.replaceState(null, '', p.toString() ? '?' + p : location.pathname);
+  }
+
+  function show(region, state) {
+    document.querySelectorAll(`[data-region="${region}"] [data-state]`).forEach((e) => (e.hidden = e.dataset.state !== state));
+  }
+
+  // ---------------------------------------------------------------- compute
+  function computeView() {
+    const period = getPeriod(ui);
+    const openCur = DEALS.filter((d) => OPEN_STAGES.includes(d.stage) && within(d.expectedClose, period.cur) && matchesRepStage(d, ui));
+    const closedCur = DEALS.filter((d) => !OPEN_STAGES.includes(d.stage) && within(d.closeDate, period.cur) && matchesRepStage(d, ui));
+    const closedPrior = period.prior ? DEALS.filter((d) => !OPEN_STAGES.includes(d.stage) && within(d.closeDate, period.prior) && matchesRepStage(d, ui)) : [];
+
+    const sum = (arr, f) => arr.reduce((s, d) => s + f(d), 0);
+    const wonCur = closedCur.filter(isWon).length, lostCur = closedCur.filter(isLost).length;
+    const wonPrior = closedPrior.filter(isWon).length, lostPrior = closedPrior.filter(isLost).length;
+
+    const repList = ui.rep ? [ui.rep] : REPS;
+    let repRows = repList.map((r) => {
+      const open = openCur.filter((d) => d.rep === r);
+      const closed = closedCur.filter((d) => d.rep === r);
+      const won = closed.filter(isWon).length, lost = closed.filter(isLost).length;
+      return { key: r, label: r, count: open.length, pipeline: sum(open, (d) => d.amount), weighted: sum(open, (d) => d.amount * d.probability), won, lost, winRate: (won + lost) ? won / (won + lost) : null };
+    });
+
+    const stageList = ui.stage ? [ui.stage] : OPEN_STAGES;
+    let stageRows = stageList.map((s) => {
+      const open = openCur.filter((d) => d.stage === s);
+      const closed = closedCur.filter((d) => d.closedFromStage === s);
+      const won = closed.filter(isWon).length, lost = closed.filter(isLost).length;
+      const pipeline = sum(open, (d) => d.amount);
+      return { key: s, label: s, count: open.length, pipeline, weighted: sum(open, (d) => d.amount * d.probability), avgDeal: open.length ? pipeline / open.length : 0, won, lost, winRate: (won + lost) ? won / (won + lost) : null };
+    });
+
+    const needle = ui.q.trim().toLowerCase();
+    if (needle) {
+      repRows = repRows.filter((r) => r.label.toLowerCase().includes(needle));
+      stageRows = stageRows.filter((r) => r.label.toLowerCase().includes(needle));
+    }
+
+    const addShares = (rows) => {
+      const total = sum(rows, (r) => r.pipeline);
+      rows.forEach((r) => (r.share = total > 0 ? r.pipeline / total : null));
+      return total;
+    };
+    const repPipelineTotal = addShares(repRows);
+    const stagePipelineTotal = addShares(stageRows);
+
+    const totalsOf = (rows) => ({
+      count: sum(rows, (r) => r.count),
+      pipeline: sum(rows, (r) => r.pipeline),
+      weighted: sum(rows, (r) => r.weighted),
+      won: sum(rows, (r) => r.won),
+      lost: sum(rows, (r) => r.lost),
+    });
+    const repTotals = totalsOf(repRows);
+    repTotals.winRate = (repTotals.won + repTotals.lost) ? repTotals.won / (repTotals.won + repTotals.lost) : null;
+    repTotals.share = repPipelineTotal > 0 ? 1 : null;
+    const stageTotals = totalsOf(stageRows);
+    stageTotals.winRate = (stageTotals.won + stageTotals.lost) ? stageTotals.won / (stageTotals.won + stageTotals.lost) : null;
+    stageTotals.share = stagePipelineTotal > 0 ? 1 : null;
+    stageTotals.avgDeal = stageTotals.count ? stageTotals.pipeline / stageTotals.count : 0;
+
+    return {
+      period,
+      openCount: openCur.length,
+      pipelineValue: sum(openCur, (d) => d.amount),
+      weightedForecast: sum(openCur, (d) => d.amount * d.probability),
+      winRateCur: (wonCur + lostCur) ? wonCur / (wonCur + lostCur) : null,
+      winRatePrior: (wonPrior + lostPrior) ? wonPrior / (wonPrior + lostPrior) : null,
+      repRows, stageRows, repTotals, stageTotals,
+    };
+  }
+
+  function sortRows(rows, key, dir) {
+    const d = dir === 'asc' ? 1 : -1;
+    return [...rows].sort((a, b) => {
+      const av = a[key], bv = b[key];
+      if (av == null && bv == null) return 0;
+      if (av == null) return 1;
+      if (bv == null) return -1;
+      return av > bv ? d : av < bv ? -d : 0;
+    });
+  }
+
+  // ---------------------------------------------------------------- render
+  function renderChips() {
+    const chips = [];
+    if (ui.period !== 'this-quarter') chips.push(['period', `Period: ${$('f-period').selectedOptions[0].text}`]);
+    if (ui.rep) chips.push(['rep', `Salesperson: ${ui.rep}`]);
+    if (ui.stage) chips.push(['stage', `Stage: ${ui.stage}`]);
+    if (ui.q) chips.push(['q', `Search: ${ui.q}`]);
+    $('chips').innerHTML = chips.map(([k, t]) => `<span class="inline-flex h-6 items-center gap-1 rounded-full bg-slate-100 pl-2 pr-1 text-slate-700">${t}<button type="button" data-chip="${k}" class="h-6 w-6 rounded-full hover:bg-slate-200" aria-label="Remove filter ${t}">×</button></span>`).join('') + (chips.length ? '<button type="button" id="clear-all" class="h-6 px-2 text-blue-700 underline">Clear all</button>' : '');
+  }
+
+  function clearFilters() {
+    ui.rep = ''; ui.stage = ''; ui.q = '';
+    $('f-rep').value = ''; $('f-stage').value = ''; $('q').value = '';
+    render();
+  }
+  function clearAll() {
+    ui.period = 'this-quarter'; ui.customFrom = ''; ui.customTo = '';
+    $('f-period').value = 'this-quarter'; $('custom-range').hidden = true;
+    clearFilters();
+  }
+
+  function renderKPI(data) {
+    const p = data.period;
+    $('report-title').textContent = `Sales pipeline report · ${p.label}`;
+    $('basis-line').textContent = `Amounts in USD · Win rate reflects deals closed in the period to date · Updated ${fmtShort(TODAY)}, 9:00 AM`;
+
+    let deltaHtml = '—';
+    if (data.winRatePrior != null && data.winRateCur != null) {
+      const diffPts = (data.winRateCur - data.winRatePrior) * 100;
+      const sign = diffPts >= 0 ? '+' : '−';
+      const tone = diffPts >= 0 ? 'text-green-700' : 'text-red-700';
+      deltaHtml = `<span class="${tone}">${sign}${Math.abs(diffPts).toFixed(1)} pts</span> vs ${fmtPct(data.winRatePrior)} ${p.priorLabel}`;
+    } else {
+      const title = p.priorLabel ? `No deals closed in ${p.priorLabel}` : 'No comparable prior period for a custom range';
+      deltaHtml = `<span title="${title}">—</span> vs prior period`;
+    }
+    $('kpi-line').innerHTML = `${fmtCount(data.openCount)} open deals · Pipeline value ${fmtMoney(data.pipelineValue)} · Weighted forecast ${fmtMoney(data.weightedForecast)} · Win rate ${fmtPct(data.winRateCur)} (${deltaHtml})`;
+  }
+
+  function rowCell(label, value, extra) { return `<td class="tnum whitespace-nowrap px-3 text-right">${value}</td>`; }
+
+  function renderRepTable(data) {
+    const rows = sortRows(data.repRows, ui.sortRep, ui.dirRep);
+    document.querySelectorAll('[data-col-rep]').forEach((th) => th.setAttribute('aria-sort', th.dataset.colRep === ui.sortRep ? (ui.dirRep === 'asc' ? 'ascending' : 'descending') : 'none'));
+    if (!rows.length) { show('by-salesperson', 'empty'); return 0; }
+    show('by-salesperson', 'ready');
+    $('rep-rows').innerHTML = rows.map((r) => `<tr class="h-10 border-b border-slate-200 last:border-0 hover:bg-slate-50">
+        <td class="whitespace-nowrap px-3">${r.label}</td>
+        <td class="tnum whitespace-nowrap px-3 text-right">${fmtCount(r.count)}</td>
+        <td class="tnum whitespace-nowrap px-3 text-right">${fmtMoney(r.pipeline)}</td>
+        <td class="tnum whitespace-nowrap px-3 text-right">${fmtMoney(r.weighted)}</td>
+        <td class="tnum whitespace-nowrap px-3 text-right">${r.winRate == null ? `<span title="No deals closed by ${r.label} in ${data.period.label}">—</span>` : fmtPct(r.winRate)}</td>
+        <td class="tnum whitespace-nowrap px-3 text-right">${r.share == null ? '—' : fmtPct(r.share)}</td>
+      </tr>`).join('');
+    const t = data.repTotals;
+    $('rep-tfoot').innerHTML = `<tr class="h-10">
+        <td class="px-3">Total</td>
+        <td class="tnum px-3 text-right">${fmtCount(t.count)}</td>
+        <td class="tnum px-3 text-right">${fmtMoney(t.pipeline)}</td>
+        <td class="tnum px-3 text-right">${fmtMoney(t.weighted)}</td>
+        <td class="tnum px-3 text-right">${t.winRate == null ? '—' : fmtPct(t.winRate)}</td>
+        <td class="tnum px-3 text-right">${t.share == null ? '—' : fmtPct(t.share)}</td>
+      </tr>`;
+    return rows.length;
+  }
+
+  function renderStageTable(data) {
+    const rows = sortRows(data.stageRows, ui.sortStage, ui.dirStage);
+    document.querySelectorAll('[data-col-stage]').forEach((th) => th.setAttribute('aria-sort', th.dataset.colStage === ui.sortStage ? (ui.dirStage === 'asc' ? 'ascending' : 'descending') : 'none'));
+    if (!rows.length) { show('by-stage', 'empty'); return 0; }
+    show('by-stage', 'ready');
+    $('stage-rows').innerHTML = rows.map((r) => `<tr class="h-10 border-b border-slate-200 last:border-0 hover:bg-slate-50">
+        <td class="whitespace-nowrap px-3">${r.label} <span class="tnum text-slate-500">(${fmtPct(STAGE_PROB[r.key], 0)})</span></td>
+        <td class="tnum whitespace-nowrap px-3 text-right">${fmtCount(r.count)}</td>
+        <td class="tnum whitespace-nowrap px-3 text-right">${fmtMoney(r.pipeline)}</td>
+        <td class="tnum whitespace-nowrap px-3 text-right">${fmtMoney(r.weighted)}</td>
+        <td class="tnum whitespace-nowrap px-3 text-right">${fmtMoney(r.avgDeal)}</td>
+        <td class="tnum whitespace-nowrap px-3 text-right">${r.winRate == null ? `<span title="No deals closed from ${r.label} in ${data.period.label}">—</span>` : fmtPct(r.winRate)}</td>
+        <td class="tnum whitespace-nowrap px-3 text-right">${r.share == null ? '—' : fmtPct(r.share)}</td>
+      </tr>`).join('');
+    const t = data.stageTotals;
+    $('stage-tfoot').innerHTML = `<tr class="h-10">
+        <td class="px-3">Total</td>
+        <td class="tnum px-3 text-right">${fmtCount(t.count)}</td>
+        <td class="tnum px-3 text-right">${fmtMoney(t.pipeline)}</td>
+        <td class="tnum px-3 text-right">${fmtMoney(t.weighted)}</td>
+        <td class="tnum px-3 text-right">${fmtMoney(t.avgDeal)}</td>
+        <td class="tnum px-3 text-right">${t.winRate == null ? '—' : fmtPct(t.winRate)}</td>
+        <td class="tnum px-3 text-right">${t.share == null ? '—' : fmtPct(t.share)}</td>
+      </tr>`;
+    return rows.length;
+  }
+
+  function slugify(s) { return s.toLowerCase().replace(/[()]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, ''); }
+
+  function exportCsv(data) {
+    const lines = [];
+    lines.push(`Sales pipeline report,${data.period.label}`);
+    lines.push('');
+    lines.push('Open pipeline by salesperson');
+    lines.push(['Salesperson', 'Open deals', 'Pipeline value', 'Weighted forecast', 'Win rate', 'Share'].join(','));
+    sortRows(data.repRows, ui.sortRep, ui.dirRep).forEach((r) => lines.push([r.label, r.count, r.pipeline, r.weighted.toFixed(0), r.winRate == null ? '' : (r.winRate * 100).toFixed(1) + '%', r.share == null ? '' : (r.share * 100).toFixed(1) + '%'].join(',')));
+    lines.push(['Total', data.repTotals.count, data.repTotals.pipeline, data.repTotals.weighted.toFixed(0), data.repTotals.winRate == null ? '' : (data.repTotals.winRate * 100).toFixed(1) + '%', data.repTotals.share == null ? '' : '100.0%'].join(','));
+    lines.push('');
+    lines.push('Open pipeline by stage');
+    lines.push(['Stage', 'Open deals', 'Pipeline value', 'Weighted forecast', 'Avg deal size', 'Win rate', 'Share'].join(','));
+    sortRows(data.stageRows, ui.sortStage, ui.dirStage).forEach((r) => lines.push([r.label, r.count, r.pipeline, r.weighted.toFixed(0), r.avgDeal.toFixed(0), r.winRate == null ? '' : (r.winRate * 100).toFixed(1) + '%', r.share == null ? '' : (r.share * 100).toFixed(1) + '%'].join(',')));
+    lines.push(['Total', data.stageTotals.count, data.stageTotals.pipeline, data.stageTotals.weighted.toFixed(0), data.stageTotals.avgDeal.toFixed(0), data.stageTotals.winRate == null ? '' : (data.stageTotals.winRate * 100).toFixed(1) + '%', data.stageTotals.share == null ? '' : '100.0%'].join(','));
+    const blob = new Blob([lines.join('\n')], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    const name = `sales-pipeline-${slugify(data.period.label)}.csv`;
+    a.href = url; a.download = name;
+    document.body.appendChild(a); a.click(); a.remove();
+    URL.revokeObjectURL(url);
+    return name;
+  }
+
+  function announce(html) {
+    $('toast').innerHTML = `<div class="flex items-center gap-3 rounded-md border border-slate-200 bg-white px-4 py-3 shadow-md">${html}</div>`;
+    clearTimeout(announce.t);
+    announce.t = setTimeout(() => ($('toast').innerHTML = ''), 6000);
+  }
+
+  let lastData = null;
+  function render() {
+    syncUrl();
+    renderChips();
+    const data = computeView();
+    lastData = data;
+    renderKPI(data);
+    const repCount = renderRepTable(data);
+    const stageCount = renderStageTable(data);
+    const total = repCount + stageCount;
+    $('result-line').textContent = `${fmtCount(repCount)} salespeople · ${fmtCount(stageCount)} stages shown (${fmtCount(total)} rows) matching the current filters`;
+    $('export-count').textContent = fmtCount(total);
+  }
+
+  // ---------------------------------------------------------------- events
+  $('f-period').addEventListener('change', (e) => { ui.period = e.target.value; $('custom-range').hidden = ui.period !== 'custom'; render(); });
+  $('f-from').addEventListener('change', (e) => { ui.customFrom = e.target.value; render(); });
+  $('f-to').addEventListener('change', (e) => { ui.customTo = e.target.value; render(); });
+  $('f-rep').addEventListener('change', (e) => { ui.rep = e.target.value; render(); });
+  $('f-stage').addEventListener('change', (e) => { ui.stage = e.target.value; render(); });
+  let qTimer;
+  $('q').addEventListener('input', (e) => { clearTimeout(qTimer); qTimer = setTimeout(() => { ui.q = e.target.value; render(); }, 250); });
+  $('chips').addEventListener('click', (e) => {
+    const c = e.target.closest('[data-chip]');
+    if (c) {
+      const k = c.dataset.chip;
+      if (k === 'period') { ui.period = 'this-quarter'; $('f-period').value = 'this-quarter'; $('custom-range').hidden = true; }
+      if (k === 'rep') { ui.rep = ''; $('f-rep').value = ''; }
+      if (k === 'stage') { ui.stage = ''; $('f-stage').value = ''; }
+      if (k === 'q') { ui.q = ''; $('q').value = ''; }
+      render();
+    }
+    if (e.target.id === 'clear-all') clearAll();
+  });
+  document.addEventListener('click', (e) => { if (e.target.closest('[data-clear-from]')) clearFilters(); });
+  document.addEventListener('click', (e) => { if (e.target.closest('[data-retry]')) location.search = ''; });
+  document.querySelectorAll('thead').forEach((thead) => {
+    thead.addEventListener('click', (e) => {
+      const br = e.target.closest('[data-sort-rep]');
+      if (br) { ui.dirRep = ui.sortRep === br.dataset.sortRep && ui.dirRep === 'asc' ? 'desc' : 'asc'; ui.sortRep = br.dataset.sortRep; render(); return; }
+      const bs = e.target.closest('[data-sort-stage]');
+      if (bs) { ui.dirStage = ui.sortStage === bs.dataset.sortStage && ui.dirStage === 'asc' ? 'desc' : 'asc'; ui.sortStage = bs.dataset.sortStage; render(); }
+    });
+  });
+  $('btn-print').addEventListener('click', () => window.print());
+  $('btn-export').addEventListener('click', () => { const name = exportCsv(lastData); announce(`<span>Export started: ${name}.</span>`); });
+
+  // ---------------------------------------------------------------- initial
+  $('f-period').value = ui.period;
+  $('custom-range').hidden = ui.period !== 'custom';
+  $('f-from').value = ui.customFrom;
+  $('f-to').value = ui.customTo;
+  $('f-rep').value = ui.rep;
+  $('f-stage').value = ui.stage;
+  $('q').value = ui.q;
+  document.querySelectorAll('.loading-skeleton').forEach((el) => {
+    el.innerHTML = Array.from({ length: 5 }, () => '<div class="flex h-10 items-center gap-4 border-b border-slate-200 px-3"><div class="h-3 w-32 rounded bg-slate-200"></div><div class="ml-auto h-3 w-20 rounded bg-slate-200"></div><div class="h-3 w-20 rounded bg-slate-200"></div></div>').join('');
+  });
+
+  if (forced === 'loading' || forced === 'error') {
+    renderChips();
+    show('by-salesperson', forced);
+    show('by-stage', forced);
+    $('report-title').textContent = 'Sales pipeline report';
+    $('basis-line').textContent = `Amounts in USD · Updated ${fmtShort(TODAY)}, 9:00 AM`;
+    $('kpi-line').textContent = '';
+    $('result-line').textContent = forced === 'loading' ? 'Loading…' : 'Could not load';
+  } else if (forced === 'empty') {
+    ui.q = 'zzqx-no-match-0000';
+    $('q').value = ui.q;
+    render();
+  } else {
+    render();
+  }
+</script>
+</body>
+</html>

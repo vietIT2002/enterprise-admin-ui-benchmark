@@ -1,0 +1,275 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Harbor &amp; Pine — Weekly shift roster</title>
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&amp;family=IBM+Plex+Sans:wght@400;500;600&amp;display=swap" rel="stylesheet">
+<style>
+  :root{
+    --navy:#1C2B3A;
+    --navy-soft:#2A3D4F;
+    --kraft:#E8E3D4;
+    --paper:#FBF9F4;
+    --mustard:#C8872E;
+    --brick:#9C4A2E;
+    --pine:#3E6B54;
+    --denim:#45617D;
+    --line:rgba(28,43,58,0.14);
+  }
+
+  * { -webkit-font-smoothing: antialiased; }
+
+  body{
+    background:var(--kraft);
+    color:var(--navy);
+    font-family:"IBM Plex Sans", ui-sans-serif, system-ui, sans-serif;
+  }
+
+  .font-display{ font-family:"Space Grotesk", "IBM Plex Sans", ui-sans-serif, sans-serif; }
+
+  :focus-visible{
+    outline: 2px solid var(--pine);
+    outline-offset: 2px;
+    border-radius: 2px;
+  }
+
+  /* ---- roster table ---- */
+  .roster-scroll{
+    scrollbar-width: thin;
+    scrollbar-color: var(--navy-soft) transparent;
+  }
+  .roster-scroll::-webkit-scrollbar{ height:10px; width:10px; }
+  .roster-scroll::-webkit-scrollbar-thumb{ background:var(--navy-soft); border-radius:6px; }
+  .roster-scroll::-webkit-scrollbar-track{ background:transparent; }
+
+  table.roster{ border-collapse:separate; border-spacing:0; width:100%; }
+
+  table.roster thead th{
+    position:sticky; top:0; z-index:20;
+    background:var(--navy);
+    color:#EDE9DD;
+    font-weight:500;
+    font-size:0.8125rem;
+    text-align:left;
+    padding:0.65rem 0.85rem;
+    border-bottom:1px solid var(--navy);
+    white-space:nowrap;
+  }
+  table.roster thead th.col-staff{
+    position:sticky; left:0; top:0; z-index:30;
+    min-width:208px;
+  }
+  table.roster thead th .date-sub{
+    display:block; font-weight:400; color:#B7C2CC; font-size:0.72rem; margin-top:1px;
+  }
+
+  table.roster tbody th.row-staff{
+    position:sticky; left:0; z-index:10;
+    background:var(--paper);
+    text-align:left;
+    padding:0.7rem 0.85rem;
+    border-bottom:1px solid var(--line);
+    border-right:1px solid var(--line);
+    min-width:208px;
+    vertical-align:top;
+  }
+  table.roster tbody tr:nth-child(even) th.row-staff,
+  table.roster tbody tr:nth-child(even) td.cell-day{
+    background:#F4F1E7;
+  }
+  table.roster tbody td.cell-day{
+    background:var(--paper);
+    border-bottom:1px solid var(--line);
+    border-right:1px solid var(--line);
+    padding:0.45rem;
+    min-width:132px;
+    vertical-align:middle;
+    cursor:pointer;
+    transition:background-color 120ms ease;
+  }
+  table.roster.is-locked tbody td.cell-day{ cursor:default; }
+  table.roster:not(.is-locked) tbody td.cell-day:hover{
+    background:rgba(28,43,58,0.06);
+  }
+  table.roster tbody td.cell-day:focus-visible{
+    background:rgba(28,43,58,0.08);
+  }
+
+  tfoot th.row-coverage{
+    position:sticky; left:0; z-index:10;
+    background:var(--navy);
+    color:#EDE9DD;
+    text-align:left;
+    padding:0.6rem 0.85rem;
+    font-weight:500;
+    font-size:0.8125rem;
+  }
+  tfoot td.cell-coverage{
+    background:var(--navy);
+    color:#EDE9DD;
+    text-align:center;
+    padding:0.6rem 0.4rem;
+    font-size:0.875rem;
+    font-weight:500;
+    border-left:1px solid rgba(255,255,255,0.08);
+  }
+  tfoot td.cell-coverage.low{ color:#F0B98C; }
+  tfoot td.cell-coverage .cov-flag{
+    display:block; font-size:0.66rem; font-weight:400; color:#F0B98C; margin-top:1px;
+  }
+
+  /* ---- shift chips ---- */
+  .chip{
+    display:flex; flex-direction:column; gap:0;
+    border-left:3px solid transparent;
+    border-radius:3px;
+    padding:0.3rem 0.5rem;
+    font-size:0.78rem;
+    line-height:1.25;
+    width:100%;
+  }
+  .chip .chip-label{ font-weight:500; }
+  .chip .chip-time{ font-size:0.7rem; opacity:0.85; }
+  .chip-open{  background:rgba(200,135,46,0.15); border-left-color:var(--mustard); color:#6E4A1C; }
+  .chip-mid{   background:rgba(62,107,84,0.14);  border-left-color:var(--pine);    color:#2A4A3A; }
+  .chip-close{ background:rgba(156,74,46,0.14);  border-left-color:var(--brick);   color:#6B3019; }
+  .chip-leave{ background:rgba(69,97,125,0.14);  border-left-color:var(--denim);   color:#304A61; }
+
+  .cell-empty{
+    display:flex; align-items:center; justify-content:center;
+    color:rgba(28,43,58,0.35);
+    font-size:0.85rem;
+    height:2.5rem;
+  }
+
+  .legend-dot{ width:0.6rem; height:0.6rem; border-radius:2px; display:inline-block; }
+
+  /* ---- popover ---- */
+  #editor{
+    position:fixed;
+    z-index:50;
+    background:var(--paper);
+    border:1px solid rgba(28,43,58,0.18);
+    box-shadow:0 12px 28px rgba(28,43,58,0.22);
+    border-radius:6px;
+    padding:1rem;
+    width:17rem;
+  }
+  #editor[hidden]{ display:none; }
+
+  .seg-btn{
+    border:1px solid rgba(28,43,58,0.2);
+    padding:0.35rem 0;
+    font-size:0.78rem;
+    font-weight:500;
+    background:var(--paper);
+    color:var(--navy);
+  }
+  .seg-btn[aria-pressed="true"]{
+    background:var(--navy);
+    color:#EDE9DD;
+    border-color:var(--navy);
+  }
+
+  #toast{
+    position:fixed; left:50%; bottom:1.5rem; transform:translate(-50%, 0.5rem);
+    background:var(--navy); color:#EDE9DD;
+    padding:0.65rem 1.1rem; border-radius:5px;
+    font-size:0.85rem;
+    box-shadow:0 10px 24px rgba(28,43,58,0.3);
+    opacity:0; pointer-events:none;
+    transition:opacity 180ms ease, transform 180ms ease;
+    z-index:60;
+  }
+  #toast.show{ opacity:1; transform:translate(-50%, 0); }
+
+  @media (prefers-reduced-motion: reduce){
+    *{ transition:none !important; }
+  }
+</style>
+<style>*, ::before, ::after{--tw-border-spacing-x:0;--tw-border-spacing-y:0;--tw-translate-x:0;--tw-translate-y:0;--tw-rotate:0;--tw-skew-x:0;--tw-skew-y:0;--tw-scale-x:1;--tw-scale-y:1;--tw-pan-x: ;--tw-pan-y: ;--tw-pinch-zoom: ;--tw-scroll-snap-strictness:proximity;--tw-gradient-from-position: ;--tw-gradient-via-position: ;--tw-gradient-to-position: ;--tw-ordinal: ;--tw-slashed-zero: ;--tw-numeric-figure: ;--tw-numeric-spacing: ;--tw-numeric-fraction: ;--tw-ring-inset: ;--tw-ring-offset-width:0px;--tw-ring-offset-color:#fff;--tw-ring-color:rgb(59 130 246 / 0.5);--tw-ring-offset-shadow:0 0 #0000;--tw-ring-shadow:0 0 #0000;--tw-shadow:0 0 #0000;--tw-shadow-colored:0 0 #0000;--tw-blur: ;--tw-brightness: ;--tw-contrast: ;--tw-grayscale: ;--tw-hue-rotate: ;--tw-invert: ;--tw-saturate: ;--tw-sepia: ;--tw-drop-shadow: ;--tw-backdrop-blur: ;--tw-backdrop-brightness: ;--tw-backdrop-contrast: ;--tw-backdrop-grayscale: ;--tw-backdrop-hue-rotate: ;--tw-backdrop-invert: ;--tw-backdrop-opacity: ;--tw-backdrop-saturate: ;--tw-backdrop-sepia: ;--tw-contain-size: ;--tw-contain-layout: ;--tw-contain-paint: ;--tw-contain-style: }::backdrop{--tw-border-spacing-x:0;--tw-border-spacing-y:0;--tw-translate-x:0;--tw-translate-y:0;--tw-rotate:0;--tw-skew-x:0;--tw-skew-y:0;--tw-scale-x:1;--tw-scale-y:1;--tw-pan-x: ;--tw-pan-y: ;--tw-pinch-zoom: ;--tw-scroll-snap-strictness:proximity;--tw-gradient-from-position: ;--tw-gradient-via-position: ;--tw-gradient-to-position: ;--tw-ordinal: ;--tw-slashed-zero: ;--tw-numeric-figure: ;--tw-numeric-spacing: ;--tw-numeric-fraction: ;--tw-ring-inset: ;--tw-ring-offset-width:0px;--tw-ring-offset-color:#fff;--tw-ring-color:rgb(59 130 246 / 0.5);--tw-ring-offset-shadow:0 0 #0000;--tw-ring-shadow:0 0 #0000;--tw-shadow:0 0 #0000;--tw-shadow-colored:0 0 #0000;--tw-blur: ;--tw-brightness: ;--tw-contrast: ;--tw-grayscale: ;--tw-hue-rotate: ;--tw-invert: ;--tw-saturate: ;--tw-sepia: ;--tw-drop-shadow: ;--tw-backdrop-blur: ;--tw-backdrop-brightness: ;--tw-backdrop-contrast: ;--tw-backdrop-grayscale: ;--tw-backdrop-hue-rotate: ;--tw-backdrop-invert: ;--tw-backdrop-opacity: ;--tw-backdrop-saturate: ;--tw-backdrop-sepia: ;--tw-contain-size: ;--tw-contain-layout: ;--tw-contain-paint: ;--tw-contain-style: }/* ! tailwindcss v3.4.17 | MIT License | https://tailwindcss.com */*,::after,::before{box-sizing:border-box;border-width:0;border-style:solid;border-color:#e5e7eb}::after,::before{--tw-content:''}:host,html{line-height:1.5;-webkit-text-size-adjust:100%;-moz-tab-size:4;tab-size:4;font-family:ui-sans-serif, system-ui, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";font-feature-settings:normal;font-variation-settings:normal;-webkit-tap-highlight-color:transparent}body{margin:0;line-height:inherit}hr{height:0;color:inherit;border-top-width:1px}abbr:where([title]){-webkit-text-decoration:underline dotted;text-decoration:underline dotted}h1,h2,h3,h4,h5,h6{font-size:inherit;font-weight:inherit}a{color:inherit;text-decoration:inherit}b,strong{font-weight:bolder}code,kbd,pre,samp{font-family:ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;font-feature-settings:normal;font-variation-settings:normal;font-size:1em}small{font-size:80%}sub,sup{font-size:75%;line-height:0;position:relative;vertical-align:baseline}sub{bottom:-.25em}sup{top:-.5em}table{text-indent:0;border-color:inherit;border-collapse:collapse}button,input,optgroup,select,textarea{font-family:inherit;font-feature-settings:inherit;font-variation-settings:inherit;font-size:100%;font-weight:inherit;line-height:inherit;letter-spacing:inherit;color:inherit;margin:0;padding:0}button,select{text-transform:none}button,input:where([type=button]),input:where([type=reset]),input:where([type=submit]){-webkit-appearance:button;background-color:transparent;background-image:none}:-moz-focusring{outline:auto}:-moz-ui-invalid{box-shadow:none}progress{vertical-align:baseline}::-webkit-inner-spin-button,::-webkit-outer-spin-button{height:auto}[type=search]{-webkit-appearance:textfield;outline-offset:-2px}::-webkit-search-decoration{-webkit-appearance:none}::-webkit-file-upload-button{-webkit-appearance:button;font:inherit}summary{display:list-item}blockquote,dd,dl,figure,h1,h2,h3,h4,h5,h6,hr,p,pre{margin:0}fieldset{margin:0;padding:0}legend{padding:0}menu,ol,ul{list-style:none;margin:0;padding:0}dialog{padding:0}textarea{resize:vertical}input::placeholder,textarea::placeholder{opacity:1;color:#9ca3af}[role=button],button{cursor:pointer}:disabled{cursor:default}audio,canvas,embed,iframe,img,object,svg,video{display:block;vertical-align:middle}img,video{max-width:100%;height:auto}[hidden]:where(:not([hidden=until-found])){display:none}.sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0, 0, 0, 0);white-space:nowrap;border-width:0}.mx-auto{margin-left:auto;margin-right:auto}.mb-2{margin-bottom:0.5rem}.mb-3{margin-bottom:0.75rem}.mb-4{margin-bottom:1rem}.mb-5{margin-bottom:1.25rem}.mt-0\.5{margin-top:0.125rem}.mt-1{margin-top:0.25rem}.mt-3{margin-top:0.75rem}.block{display:block}.flex{display:flex}.grid{display:grid}.max-h-\[72vh\]{max-height:72vh}.min-h-screen{min-height:100vh}.w-full{width:100%}.max-w-6xl{max-width:72rem}.grid-cols-2{grid-template-columns:repeat(2, minmax(0, 1fr))}.grid-cols-4{grid-template-columns:repeat(4, minmax(0, 1fr))}.flex-wrap{flex-wrap:wrap}.items-center{align-items:center}.items-baseline{align-items:baseline}.justify-between{justify-content:space-between}.gap-1{gap:0.25rem}.gap-1\.5{gap:0.375rem}.gap-2{gap:0.5rem}.gap-3{gap:0.75rem}.gap-4{gap:1rem}.gap-x-5{column-gap:1.25rem}.gap-y-2{row-gap:0.5rem}.overflow-auto{overflow:auto}.rounded{border-radius:0.25rem}.rounded-md{border-radius:0.375rem}.border{border-width:1px}.border-\[var\(--line\)\]{border-color:var(--line)}.bg-\[var\(--denim\)\]{background-color:var(--denim)}.bg-\[var\(--navy\)\]{background-color:var(--navy)}.bg-\[var\(--pine\)\]{background-color:var(--pine)}.bg-white{--tw-bg-opacity:1;background-color:rgb(255 255 255 / var(--tw-bg-opacity, 1))}.px-2{padding-left:0.5rem;padding-right:0.5rem}.px-2\.5{padding-left:0.625rem;padding-right:0.625rem}.px-3{padding-left:0.75rem;padding-right:0.75rem}.px-4{padding-left:1rem;padding-right:1rem}.px-5{padding-left:1.25rem;padding-right:1.25rem}.py-1{padding-top:0.25rem;padding-bottom:0.25rem}.py-1\.5{padding-top:0.375rem;padding-bottom:0.375rem}.py-2{padding-top:0.5rem;padding-bottom:0.5rem}.py-5{padding-top:1.25rem;padding-bottom:1.25rem}.pb-16{padding-bottom:4rem}.pt-6{padding-top:1.5rem}.text-sm{font-size:0.875rem;line-height:1.25rem}.text-xl{font-size:1.25rem;line-height:1.75rem}.text-xs{font-size:0.75rem;line-height:1rem}.font-medium{font-weight:500}.font-semibold{font-weight:600}.tracking-tight{letter-spacing:-0.025em}.text-\[\#B7C2CC\]{--tw-text-opacity:1;color:rgb(183 194 204 / var(--tw-text-opacity, 1))}.text-\[\#EDE9DD\]{--tw-text-opacity:1;color:rgb(237 233 221 / var(--tw-text-opacity, 1))}.text-\[\#F4F6F4\]{--tw-text-opacity:1;color:rgb(244 246 244 / var(--tw-text-opacity, 1))}.text-\[var\(--navy\)\]{color:var(--navy)}.text-\[var\(--pine\)\]{color:var(--pine)}.shadow-sm{--tw-shadow:0 1px 2px 0 rgb(0 0 0 / 0.05);--tw-shadow-colored:0 1px 2px 0 var(--tw-shadow-color);box-shadow:var(--tw-ring-offset-shadow, 0 0 #0000), var(--tw-ring-shadow, 0 0 #0000), var(--tw-shadow)}.transition-colors{transition-property:color, background-color, border-color, fill, stroke, -webkit-text-decoration-color;transition-property:color, background-color, border-color, text-decoration-color, fill, stroke;transition-property:color, background-color, border-color, text-decoration-color, fill, stroke, -webkit-text-decoration-color;transition-timing-function:cubic-bezier(0.4, 0, 0.2, 1);transition-duration:150ms}.hover\:bg-\[\#345c47\]:hover{--tw-bg-opacity:1;background-color:rgb(52 92 71 / var(--tw-bg-opacity, 1))}.hover\:text-\[var\(--brick\)\]:hover{color:var(--brick)}@media (min-width: 640px){.sm\:px-8{padding-left:2rem;padding-right:2rem}.sm\:text-2xl{font-size:1.5rem;line-height:2rem}}</style></head>
+<body class="min-h-screen pb-16">
+
+  <!-- Header -->
+  <header class="bg-[var(--navy)] text-[#EDE9DD]">
+    <div class="max-w-6xl mx-auto px-5 sm:px-8 py-5 flex flex-wrap items-baseline justify-between gap-2">
+      <div>
+        <h1 class="font-display text-xl sm:text-2xl font-semibold tracking-tight">Harbor &amp; Pine</h1>
+        <p class="text-sm text-[#B7C2CC] mt-0.5">Weekly shift roster — general store &amp; café counter</p>
+      </div>
+      <p class="text-sm text-[#B7C2CC] font-display">Week of Nov 9–15, 2026</p>
+    </div>
+  </header>
+
+  <main class="max-w-6xl mx-auto px-5 sm:px-8 pt-6">
+
+    <!-- Status / publish row -->
+    <section class="flex flex-wrap items-center justify-between gap-4 mb-5">
+      <div class="flex items-center gap-3 flex-wrap">
+        <span id="status-badge" class="font-display text-xs font-semibold px-2.5 py-1 rounded bg-[var(--denim)] text-[#EDE9DD]" style="background: var(--denim);">Draft</span>
+        <p class="text-sm text-[var(--navy)]" id="status-summary">8 staff · 290 scheduled hours this week</p>
+      </div>
+      <div class="flex items-center gap-3">
+        <span id="published-note" class="text-sm text-[var(--pine)]" hidden=""></span>
+        <button id="publish-btn" type="button" class="font-display text-sm font-semibold px-4 py-2 rounded bg-[var(--pine)] text-[#F4F6F4] hover:bg-[#345c47] transition-colors" style="background: var(--pine);">Publish week</button>
+      </div>
+    </section>
+
+    <!-- Legend -->
+    <section class="flex flex-wrap items-center gap-x-5 gap-y-2 mb-4 text-sm text-[var(--navy)]">
+      <span class="text-[var(--navy)]/70">Shift key</span>
+      <span class="flex items-center gap-1.5"><i class="legend-dot" style="background:var(--mustard)"></i>Open</span>
+      <span class="flex items-center gap-1.5"><i class="legend-dot" style="background:var(--pine)"></i>Mid</span>
+      <span class="flex items-center gap-1.5"><i class="legend-dot" style="background:var(--brick)"></i>Close</span>
+      <span class="flex items-center gap-1.5"><i class="legend-dot" style="background:var(--denim)"></i>Time off</span>
+      <span class="flex items-center gap-1.5 text-[var(--navy)]/60">— Not scheduled</span>
+    </section>
+
+    <!-- Roster grid -->
+    <section class="roster-scroll overflow-auto rounded-md border border-[var(--line)] shadow-sm max-h-[72vh]">
+      <table class="roster" id="roster-table">
+        <thead>
+          <tr id="roster-head"><th class="col-staff">Staff</th><th>Mon<span class="date-sub">Nov 9</span></th><th>Tue<span class="date-sub">Nov 10</span></th><th>Wed<span class="date-sub">Nov 11</span></th><th>Thu<span class="date-sub">Nov 12</span></th><th>Fri<span class="date-sub">Nov 13</span></th><th>Sat<span class="date-sub">Nov 14</span></th><th>Sun<span class="date-sub">Nov 15</span></th></tr>
+        </thead>
+        <tbody id="roster-body"><tr><th scope="row" class="row-staff"><span class="block font-medium text-[var(--navy)]">Maria Ibarra</span><span class="block text-xs text-[var(--navy)]/60 mt-0.5">Front register lead</span><span class="block text-xs font-display font-semibold text-[var(--pine)] mt-1">40h scheduled</span></th><td class="cell-day" tabindex="0" role="button" aria-label="Maria Ibarra, Mon, Open" data-staff="maria" data-day="0"><div class="chip chip-open"><span class="chip-label">Open</span><span class="chip-time">6:45a–2:45p</span></div></td><td class="cell-day" tabindex="0" role="button" aria-label="Maria Ibarra, Tue, Open" data-staff="maria" data-day="1"><div class="chip chip-open"><span class="chip-label">Open</span><span class="chip-time">6:45a–2:45p</span></div></td><td class="cell-day" tabindex="0" role="button" aria-label="Maria Ibarra, Wed, not scheduled" data-staff="maria" data-day="2"><div class="cell-empty"><span aria-hidden="true">—</span><span class="sr-only">Not scheduled</span></div></td><td class="cell-day" tabindex="0" role="button" aria-label="Maria Ibarra, Thu, Open" data-staff="maria" data-day="3"><div class="chip chip-open"><span class="chip-label">Open</span><span class="chip-time">6:45a–2:45p</span></div></td><td class="cell-day" tabindex="0" role="button" aria-label="Maria Ibarra, Fri, Open" data-staff="maria" data-day="4"><div class="chip chip-open"><span class="chip-label">Open</span><span class="chip-time">6:45a–2:45p</span></div></td><td class="cell-day" tabindex="0" role="button" aria-label="Maria Ibarra, Sat, Mid" data-staff="maria" data-day="5"><div class="chip chip-mid"><span class="chip-label">Mid</span><span class="chip-time">9a–5p</span></div></td><td class="cell-day" tabindex="0" role="button" aria-label="Maria Ibarra, Sun, not scheduled" data-staff="maria" data-day="6"><div class="cell-empty"><span aria-hidden="true">—</span><span class="sr-only">Not scheduled</span></div></td></tr><tr><th scope="row" class="row-staff"><span class="block font-medium text-[var(--navy)]">Yuki Tanaka</span><span class="block text-xs text-[var(--navy)]/60 mt-0.5">Front register</span><span class="block text-xs font-display font-semibold text-[var(--pine)] mt-1">40h scheduled</span></th><td class="cell-day" tabindex="0" role="button" aria-label="Yuki Tanaka, Mon, Mid" data-staff="yuki" data-day="0"><div class="chip chip-mid"><span class="chip-label">Mid</span><span class="chip-time">10a–6p</span></div></td><td class="cell-day" tabindex="0" role="button" aria-label="Yuki Tanaka, Tue, not scheduled" data-staff="yuki" data-day="1"><div class="cell-empty"><span aria-hidden="true">—</span><span class="sr-only">Not scheduled</span></div></td><td class="cell-day" tabindex="0" role="button" aria-label="Yuki Tanaka, Wed, Mid" data-staff="yuki" data-day="2"><div class="chip chip-mid"><span class="chip-label">Mid</span><span class="chip-time">10a–6p</span></div></td><td class="cell-day" tabindex="0" role="button" aria-label="Yuki Tanaka, Thu, not scheduled" data-staff="yuki" data-day="3"><div class="cell-empty"><span aria-hidden="true">—</span><span class="sr-only">Not scheduled</span></div></td><td class="cell-day" tabindex="0" role="button" aria-label="Yuki Tanaka, Fri, Close" data-staff="yuki" data-day="4"><div class="chip chip-close"><span class="chip-label">Close</span><span class="chip-time">3p–11p</span></div></td><td class="cell-day" tabindex="0" role="button" aria-label="Yuki Tanaka, Sat, Close" data-staff="yuki" data-day="5"><div class="chip chip-close"><span class="chip-label">Close</span><span class="chip-time">3p–11p</span></div></td><td class="cell-day" tabindex="0" role="button" aria-label="Yuki Tanaka, Sun, Mid" data-staff="yuki" data-day="6"><div class="chip chip-mid"><span class="chip-label">Mid</span><span class="chip-time">10a–6p</span></div></td></tr><tr><th scope="row" class="row-staff"><span class="block font-medium text-[var(--navy)]">Dante Okafor</span><span class="block text-xs text-[var(--navy)]/60 mt-0.5">Floor &amp; stockroom lead</span><span class="block text-xs font-display font-semibold text-[var(--pine)] mt-1">40h scheduled</span></th><td class="cell-day" tabindex="0" role="button" aria-label="Dante Okafor, Mon, Open" data-staff="dante" data-day="0"><div class="chip chip-open"><span class="chip-label">Open</span><span class="chip-time">7a–3p</span></div></td><td class="cell-day" tabindex="0" role="button" aria-label="Dante Okafor, Tue, Open" data-staff="dante" data-day="1"><div class="chip chip-open"><span class="chip-label">Open</span><span class="chip-time">7a–3p</span></div></td><td class="cell-day" tabindex="0" role="button" aria-label="Dante Okafor, Wed, Open" data-staff="dante" data-day="2"><div class="chip chip-open"><span class="chip-label">Open</span><span class="chip-time">7a–3p</span></div></td><td class="cell-day" tabindex="0" role="button" aria-label="Dante Okafor, Thu, not scheduled" data-staff="dante" data-day="3"><div class="cell-empty"><span aria-hidden="true">—</span><span class="sr-only">Not scheduled</span></div></td><td class="cell-day" tabindex="0" role="button" aria-label="Dante Okafor, Fri, Open" data-staff="dante" data-day="4"><div class="chip chip-open"><span class="chip-label">Open</span><span class="chip-time">7a–3p</span></div></td><td class="cell-day" tabindex="0" role="button" aria-label="Dante Okafor, Sat, not scheduled" data-staff="dante" data-day="5"><div class="cell-empty"><span aria-hidden="true">—</span><span class="sr-only">Not scheduled</span></div></td><td class="cell-day" tabindex="0" role="button" aria-label="Dante Okafor, Sun, Mid" data-staff="dante" data-day="6"><div class="chip chip-mid"><span class="chip-label">Mid</span><span class="chip-time">11a–7p</span></div></td></tr><tr><th scope="row" class="row-staff"><span class="block font-medium text-[var(--navy)]">Omar Haddad</span><span class="block text-xs text-[var(--navy)]/60 mt-0.5">Floor</span><span class="block text-xs font-display font-semibold text-[var(--pine)] mt-1">32h scheduled</span></th><td class="cell-day" tabindex="0" role="button" aria-label="Omar Haddad, Mon, Close" data-staff="omar" data-day="0"><div class="chip chip-close"><span class="chip-label">Close</span><span class="chip-time">3p–11p</span></div></td><td class="cell-day" tabindex="0" role="button" aria-label="Omar Haddad, Tue, Close" data-staff="omar" data-day="1"><div class="chip chip-close"><span class="chip-label">Close</span><span class="chip-time">3p–11p</span></div></td><td class="cell-day" tabindex="0" role="button" aria-label="Omar Haddad, Wed, not scheduled" data-staff="omar" data-day="2"><div class="cell-empty"><span aria-hidden="true">—</span><span class="sr-only">Not scheduled</span></div></td><td class="cell-day" tabindex="0" role="button" aria-label="Omar Haddad, Thu, Time off" data-staff="omar" data-day="3"><div class="chip chip-leave"><span class="chip-label">Time off</span><span class="chip-time">Approved</span></div></td><td class="cell-day" tabindex="0" role="button" aria-label="Omar Haddad, Fri, Close" data-staff="omar" data-day="4"><div class="chip chip-close"><span class="chip-label">Close</span><span class="chip-time">3p–11p</span></div></td><td class="cell-day" tabindex="0" role="button" aria-label="Omar Haddad, Sat, Mid" data-staff="omar" data-day="5"><div class="chip chip-mid"><span class="chip-label">Mid</span><span class="chip-time">12p–8p</span></div></td><td class="cell-day" tabindex="0" role="button" aria-label="Omar Haddad, Sun, not scheduled" data-staff="omar" data-day="6"><div class="cell-empty"><span aria-hidden="true">—</span><span class="sr-only">Not scheduled</span></div></td></tr><tr><th scope="row" class="row-staff"><span class="block font-medium text-[var(--navy)]">Lucas Bergström</span><span class="block text-xs text-[var(--navy)]/60 mt-0.5">Stockroom</span><span class="block text-xs font-display font-semibold text-[var(--pine)] mt-1">32h scheduled</span></th><td class="cell-day" tabindex="0" role="button" aria-label="Lucas Bergström, Mon, not scheduled" data-staff="lucas" data-day="0"><div class="cell-empty"><span aria-hidden="true">—</span><span class="sr-only">Not scheduled</span></div></td><td class="cell-day" tabindex="0" role="button" aria-label="Lucas Bergström, Tue, Mid" data-staff="lucas" data-day="1"><div class="chip chip-mid"><span class="chip-label">Mid</span><span class="chip-time">9a–5p</span></div></td><td class="cell-day" tabindex="0" role="button" aria-label="Lucas Bergström, Wed, Mid" data-staff="lucas" data-day="2"><div class="chip chip-mid"><span class="chip-label">Mid</span><span class="chip-time">9a–5p</span></div></td><td class="cell-day" tabindex="0" role="button" aria-label="Lucas Bergström, Thu, not scheduled" data-staff="lucas" data-day="3"><div class="cell-empty"><span aria-hidden="true">—</span><span class="sr-only">Not scheduled</span></div></td><td class="cell-day" tabindex="0" role="button" aria-label="Lucas Bergström, Fri, Mid" data-staff="lucas" data-day="4"><div class="chip chip-mid"><span class="chip-label">Mid</span><span class="chip-time">9a–5p</span></div></td><td class="cell-day" tabindex="0" role="button" aria-label="Lucas Bergström, Sat, Open" data-staff="lucas" data-day="5"><div class="chip chip-open"><span class="chip-label">Open</span><span class="chip-time">6a–2p</span></div></td><td class="cell-day" tabindex="0" role="button" aria-label="Lucas Bergström, Sun, not scheduled" data-staff="lucas" data-day="6"><div class="cell-empty"><span aria-hidden="true">—</span><span class="sr-only">Not scheduled</span></div></td></tr><tr><th scope="row" class="row-staff"><span class="block font-medium text-[var(--navy)]">Jordan Reyes</span><span class="block text-xs text-[var(--navy)]/60 mt-0.5">Floor &amp; stockroom (part-time)</span><span class="block text-xs font-display font-semibold text-[var(--pine)] mt-1">26h scheduled</span></th><td class="cell-day" tabindex="0" role="button" aria-label="Jordan Reyes, Mon, not scheduled" data-staff="jordan" data-day="0"><div class="cell-empty"><span aria-hidden="true">—</span><span class="sr-only">Not scheduled</span></div></td><td class="cell-day" tabindex="0" role="button" aria-label="Jordan Reyes, Tue, not scheduled" data-staff="jordan" data-day="1"><div class="cell-empty"><span aria-hidden="true">—</span><span class="sr-only">Not scheduled</span></div></td><td class="cell-day" tabindex="0" role="button" aria-label="Jordan Reyes, Wed, Close" data-staff="jordan" data-day="2"><div class="chip chip-close"><span class="chip-label">Close</span><span class="chip-time">5p–10p</span></div></td><td class="cell-day" tabindex="0" role="button" aria-label="Jordan Reyes, Thu, not scheduled" data-staff="jordan" data-day="3"><div class="cell-empty"><span aria-hidden="true">—</span><span class="sr-only">Not scheduled</span></div></td><td class="cell-day" tabindex="0" role="button" aria-label="Jordan Reyes, Fri, Close" data-staff="jordan" data-day="4"><div class="chip chip-close"><span class="chip-label">Close</span><span class="chip-time">5p–10p</span></div></td><td class="cell-day" tabindex="0" role="button" aria-label="Jordan Reyes, Sat, Mid" data-staff="jordan" data-day="5"><div class="chip chip-mid"><span class="chip-label">Mid</span><span class="chip-time">12p–8p</span></div></td><td class="cell-day" tabindex="0" role="button" aria-label="Jordan Reyes, Sun, Mid" data-staff="jordan" data-day="6"><div class="chip chip-mid"><span class="chip-label">Mid</span><span class="chip-time">12p–8p</span></div></td></tr><tr><th scope="row" class="row-staff"><span class="block font-medium text-[var(--navy)]">Priya Chandran</span><span class="block text-xs text-[var(--navy)]/60 mt-0.5">Café counter</span><span class="block text-xs font-display font-semibold text-[var(--pine)] mt-1">40h scheduled</span></th><td class="cell-day" tabindex="0" role="button" aria-label="Priya Chandran, Mon, Open" data-staff="priya" data-day="0"><div class="chip chip-open"><span class="chip-label">Open</span><span class="chip-time">6:30a–2:30p</span></div></td><td class="cell-day" tabindex="0" role="button" aria-label="Priya Chandran, Tue, Open" data-staff="priya" data-day="1"><div class="chip chip-open"><span class="chip-label">Open</span><span class="chip-time">6:30a–2:30p</span></div></td><td class="cell-day" tabindex="0" role="button" aria-label="Priya Chandran, Wed, Open" data-staff="priya" data-day="2"><div class="chip chip-open"><span class="chip-label">Open</span><span class="chip-time">6:30a–2:30p</span></div></td><td class="cell-day" tabindex="0" role="button" aria-label="Priya Chandran, Thu, Open" data-staff="priya" data-day="3"><div class="chip chip-open"><span class="chip-label">Open</span><span class="chip-time">6:30a–2:30p</span></div></td><td class="cell-day" tabindex="0" role="button" aria-label="Priya Chandran, Fri, not scheduled" data-staff="priya" data-day="4"><div class="cell-empty"><span aria-hidden="true">—</span><span class="sr-only">Not scheduled</span></div></td><td class="cell-day" tabindex="0" role="button" aria-label="Priya Chandran, Sat, not scheduled" data-staff="priya" data-day="5"><div class="cell-empty"><span aria-hidden="true">—</span><span class="sr-only">Not scheduled</span></div></td><td class="cell-day" tabindex="0" role="button" aria-label="Priya Chandran, Sun, Mid" data-staff="priya" data-day="6"><div class="chip chip-mid"><span class="chip-label">Mid</span><span class="chip-time">9a–5p</span></div></td></tr><tr><th scope="row" class="row-staff"><span class="block font-medium text-[var(--navy)]">Celeste Fontaine</span><span class="block text-xs text-[var(--navy)]/60 mt-0.5">Café counter lead</span><span class="block text-xs font-display font-semibold text-[var(--pine)] mt-1">40h scheduled</span></th><td class="cell-day" tabindex="0" role="button" aria-label="Celeste Fontaine, Mon, Mid" data-staff="celeste" data-day="0"><div class="chip chip-mid"><span class="chip-label">Mid</span><span class="chip-time">11a–7p</span></div></td><td class="cell-day" tabindex="0" role="button" aria-label="Celeste Fontaine, Tue, Mid" data-staff="celeste" data-day="1"><div class="chip chip-mid"><span class="chip-label">Mid</span><span class="chip-time">11a–7p</span></div></td><td class="cell-day" tabindex="0" role="button" aria-label="Celeste Fontaine, Wed, not scheduled" data-staff="celeste" data-day="2"><div class="cell-empty"><span aria-hidden="true">—</span><span class="sr-only">Not scheduled</span></div></td><td class="cell-day" tabindex="0" role="button" aria-label="Celeste Fontaine, Thu, not scheduled" data-staff="celeste" data-day="3"><div class="cell-empty"><span aria-hidden="true">—</span><span class="sr-only">Not scheduled</span></div></td><td class="cell-day" tabindex="0" role="button" aria-label="Celeste Fontaine, Fri, Open" data-staff="celeste" data-day="4"><div class="chip chip-open"><span class="chip-label">Open</span><span class="chip-time">6:30a–2:30p</span></div></td><td class="cell-day" tabindex="0" role="button" aria-label="Celeste Fontaine, Sat, Open" data-staff="celeste" data-day="5"><div class="chip chip-open"><span class="chip-label">Open</span><span class="chip-time">6:30a–2:30p</span></div></td><td class="cell-day" tabindex="0" role="button" aria-label="Celeste Fontaine, Sun, Close" data-staff="celeste" data-day="6"><div class="chip chip-close"><span class="chip-label">Close</span><span class="chip-time">1p–9p</span></div></td></tr></tbody>
+        <tfoot>
+          <tr id="roster-coverage"><th scope="row" class="row-coverage">Staff on shift</th><td class="cell-coverage">6</td><td class="cell-coverage">6</td><td class="cell-coverage">5</td><td class="cell-coverage low">2<span class="cov-flag">Low coverage</span></td><td class="cell-coverage">7</td><td class="cell-coverage">6</td><td class="cell-coverage">5</td></tr>
+        </tfoot>
+      </table>
+    </section>
+
+    <p class="text-xs text-[var(--navy)]/55 mt-3">Select any cell to add or change a shift. Staff on shift reflects everyone not marked off or on approved time off.</p>
+  </main>
+
+  <!-- Shift editor popover -->
+  <div id="editor" role="dialog" aria-label="Edit shift" hidden="">
+    <p class="font-display text-sm font-semibold mb-2" id="editor-title">Name · Day</p>
+    <div class="grid grid-cols-4 gap-1 mb-3" id="editor-types"></div>
+    <div class="grid grid-cols-2 gap-2 mb-3" id="editor-times">
+      <label class="text-xs text-[var(--navy)]/70">
+        Starts
+        <input type="time" id="editor-start" class="mt-1 w-full border border-[var(--line)] rounded px-2 py-1 text-sm bg-white">
+      </label>
+      <label class="text-xs text-[var(--navy)]/70">
+        Ends
+        <input type="time" id="editor-end" class="mt-1 w-full border border-[var(--line)] rounded px-2 py-1 text-sm bg-white">
+      </label>
+    </div>
+    <div class="flex items-center justify-between gap-2">
+      <button type="button" id="editor-clear" class="text-xs text-[var(--navy)]/60 hover:text-[var(--brick)]">Clear shift</button>
+      <div class="flex items-center gap-2">
+        <button type="button" id="editor-cancel" class="text-sm px-3 py-1.5 rounded border border-[var(--line)]">Cancel</button>
+        <button type="button" id="editor-save" class="text-sm font-medium px-3 py-1.5 rounded bg-[var(--navy)] text-[#EDE9DD]">Save shift</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="toast" role="status" aria-live="polite"></div>
+
+
+
+
+</body></html>

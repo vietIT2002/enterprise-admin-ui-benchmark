@@ -1,0 +1,598 @@
+<title>Organisation Structure | Northfield Health</title>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=Newsreader:ital,wght@0,400;0,500;0,600;1,500&display=swap" rel="stylesheet">
+
+<style>
+  :root{
+    --ink:#1C2B3A;
+    --ink-soft:#50606B;
+    --paper:#EEF1EC;
+    --panel:#FFFFFF;
+    --line:#D6DAD1;
+    --line-strong:#B9BFB3;
+    --brass:#9C7A33;
+    --brass-bg:#F4EEE0;
+    --slate:#2F4A64;
+    --slate-tint:#E7ECEE;
+  }
+  html,body{ background:var(--paper); color:var(--ink); font-family:'IBM Plex Sans',sans-serif; }
+  .font-display{ font-family:'Newsreader',serif; }
+  .tabular{ font-variant-numeric: tabular-nums; }
+
+  #tree-scroll::-webkit-scrollbar{ width:8px; }
+  #tree-scroll::-webkit-scrollbar-track{ background:transparent; }
+  #tree-scroll::-webkit-scrollbar-thumb{ background:var(--line-strong); border-radius:4px; }
+
+  .tree-row{ border-left:3px solid transparent; }
+  .tree-row[aria-current="true"]{ background:var(--slate-tint); border-left-color:var(--brass); }
+  .tree-row:not([aria-current="true"]):hover{ background:#F4F5F2; }
+
+  .connector{ position:relative; }
+  .connector::before{
+    content:'';
+    position:absolute;
+    left:-14px;
+    top:18px;
+    width:14px;
+    height:1px;
+    background:var(--line);
+  }
+
+  .chev{ transition:transform .15s ease; }
+  .chev.open{ transform:rotate(90deg); }
+
+  @media (prefers-reduced-motion: reduce){
+    *{ transition:none !important; animation:none !important; }
+  }
+
+  input:focus-visible, button:focus-visible{
+    outline:2px solid var(--slate);
+    outline-offset:1px;
+  }
+</style>
+
+<body class="min-h-screen">
+
+  <header class="border-b border-[var(--line)] bg-[var(--panel)]">
+    <div class="max-w-[1280px] mx-auto px-6 py-4 flex items-end justify-between gap-6 flex-wrap">
+      <div>
+        <p class="font-display text-2xl leading-none" style="color:var(--ink)">Northfield Health</p>
+        <p class="text-xs mt-1" style="color:var(--ink-soft)">People platform, organisation structure</p>
+      </div>
+      <div class="flex items-end gap-5 flex-wrap">
+        <p id="header-summary" class="text-sm" style="color:var(--ink-soft)"></p>
+        <div class="flex flex-col">
+          <label for="search" class="text-xs mb-1" style="color:var(--ink-soft)">Search by unit or manager</label>
+          <input id="search" type="text" placeholder="e.g. Platform Engineering, Dana Whitfield"
+            class="w-72 text-sm px-3 py-2 bg-[var(--paper)] border border-[var(--line-strong)] rounded-sm placeholder:text-[#8A938C]">
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <main class="max-w-[1280px] mx-auto px-6 py-6">
+    <div class="grid grid-cols-1 lg:grid-cols-[380px_1fr] gap-5 items-start">
+
+      <!-- Hierarchy -->
+      <section class="bg-[var(--panel)] border border-[var(--line)] rounded-sm" aria-label="Department hierarchy">
+        <div class="flex items-center justify-between px-4 py-3 border-b border-[var(--line)]">
+          <h2 class="text-sm font-semibold">Department hierarchy</h2>
+          <div class="flex gap-3 text-xs" style="color:var(--ink-soft)">
+            <button id="expand-all" type="button" class="hover:underline">Expand all</button>
+            <button id="collapse-all" type="button" class="hover:underline">Collapse all</button>
+          </div>
+        </div>
+        <div id="tree-scroll" class="p-3 max-h-[640px] overflow-y-auto">
+          <div id="tree-root"></div>
+          <p id="no-results" class="hidden text-sm px-2 py-6 text-center" style="color:var(--ink-soft)">No units or managers match your search.</p>
+        </div>
+      </section>
+
+      <!-- Detail -->
+      <section class="bg-[var(--panel)] border border-[var(--line)] rounded-sm" aria-label="Selected unit detail">
+        <div class="px-6 py-5">
+          <nav id="breadcrumb" class="text-sm flex items-center gap-1 flex-wrap mb-3" style="color:var(--ink-soft)" aria-label="Breadcrumb"></nav>
+
+          <h1 id="detail-title" class="font-display text-3xl mb-5" style="color:var(--ink)"></h1>
+
+          <div class="flex flex-col sm:flex-row gap-6 sm:gap-8 pb-5 border-b border-[var(--line)]">
+            <!-- Manager -->
+            <div class="flex items-start gap-3">
+              <div id="manager-initials" class="w-11 h-11 flex items-center justify-center text-sm font-semibold shrink-0 border border-[var(--line-strong)] bg-[var(--paper)]" style="color:var(--ink)"></div>
+              <div>
+                <p class="text-[11px] uppercase tracking-wide hidden"></p>
+                <p id="manager-name" class="text-sm font-semibold"></p>
+                <p id="manager-title" class="text-sm" style="color:var(--ink-soft)"></p>
+                <p id="manager-email" class="text-sm mt-1" style="color:var(--ink-soft)"></p>
+                <p id="manager-since" class="text-xs mt-0.5" style="color:var(--ink-soft)"></p>
+              </div>
+            </div>
+
+            <!-- Headcount monument -->
+            <div class="sm:border-l border-[var(--line)] sm:pl-8">
+              <div class="flex items-baseline gap-2">
+                <span id="headcount-number" class="font-display text-5xl tabular" style="color:var(--brass)"></span>
+                <span id="headcount-label" class="text-sm" style="color:var(--ink-soft)"></span>
+              </div>
+              <p id="headcount-delta" class="text-xs mt-1" style="color:var(--ink-soft)"></p>
+            </div>
+          </div>
+
+          <!-- Metrics -->
+          <div class="flex flex-wrap gap-x-6 gap-y-2 py-4 border-b border-[var(--line)] text-sm">
+            <div class="pr-6 border-r border-[var(--line)]">
+              <span style="color:var(--ink-soft)">Open positions</span>
+              <span id="metric-open" class="font-semibold tabular ml-1"></span>
+            </div>
+            <div class="pr-6 border-r border-[var(--line)]">
+              <span style="color:var(--ink-soft)">Average tenure</span>
+              <span id="metric-tenure" class="font-semibold tabular ml-1"></span>
+            </div>
+            <div>
+              <span style="color:var(--ink-soft)">Attrition, 12 months</span>
+              <span id="metric-attrition" class="font-semibold tabular ml-1"></span>
+            </div>
+          </div>
+
+          <!-- Location -->
+          <div class="flex flex-wrap gap-x-6 gap-y-1 py-3 border-b border-[var(--line)] text-sm" style="color:var(--ink-soft)">
+            <p id="meta-location"></p>
+            <p id="meta-costcenter"></p>
+          </div>
+
+          <!-- Sub-units -->
+          <div id="subunits-section" class="pt-5">
+            <h2 class="text-sm font-semibold mb-3">Sub-units</h2>
+            <div class="grid grid-cols-[1fr_1fr_90px] gap-2 text-xs pb-2 border-b border-[var(--line)]" style="color:var(--ink-soft)">
+              <span>Unit</span><span>Manager</span><span class="text-right">Headcount</span>
+            </div>
+            <div id="subunits-body"></div>
+          </div>
+
+          <!-- Role mix -->
+          <div id="rolemix-section" class="pt-5">
+            <h2 class="text-sm font-semibold mb-3">Role mix</h2>
+            <div id="rolemix-body" class="flex flex-col gap-2.5"></div>
+          </div>
+        </div>
+      </section>
+
+    </div>
+  </main>
+
+  <div id="live-region" class="sr-only" aria-live="polite" role="status" style="position:absolute;width:1px;height:1px;overflow:hidden;"></div>
+
+<script>
+  const orgData = {
+    id:'root', name:'Northfield Health',
+    manager:{ name:'Samuel Okafor', title:'Chief Executive Officer', email:'samuel.okafor@northfieldhealth.org', since:2017 },
+    location:'Northfield Health headquarters, Columbus, OH', costCenter:'CC-1000',
+    stats:{ avgTenure:3.9, attrition:9.3 },
+    children:[
+      {
+        id:'clinical-operations', name:'Clinical Operations',
+        manager:{ name:'Dr. Priya Raman', title:'SVP, Clinical Operations', email:'priya.raman@northfieldhealth.org', since:2019 },
+        location:'Ohio Valley Network, multiple sites', costCenter:'CC-1100',
+        stats:{ avgTenure:3.6, attrition:12.1 },
+        children:[
+          {
+            id:'nursing-services', name:'Nursing Services',
+            manager:{ name:'Carla Jensen', title:'Director of Nursing', email:'carla.jensen@northfieldhealth.org', since:2020 },
+            location:'Ohio Valley Network, multiple sites', costCenter:'CC-1110',
+            stats:{ avgTenure:3.0, attrition:16.0 },
+            children:[
+              { id:'inpatient-nursing', name:'Inpatient Nursing',
+                manager:{ name:'Marcus Webb', title:'Nurse Manager', email:'marcus.webb@northfieldhealth.org', since:2021 },
+                location:'Northfield Medical Center, Columbus, OH', costCenter:'CC-1111',
+                headcount:142, openPositions:6, quarterDelta:4, stats:{ avgTenure:2.8, attrition:18.2 },
+                roleMix:[ {title:'Registered nurse, inpatient',count:98}, {title:'Charge nurse',count:18}, {title:'Certified nursing assistant',count:22}, {title:'Nurse manager',count:4} ] },
+              { id:'outpatient-nursing', name:'Outpatient Nursing',
+                manager:{ name:'Renee Castillo', title:'Nurse Manager', email:'renee.castillo@northfieldhealth.org', since:2022 },
+                location:'Northfield Outpatient Clinics, regional', costCenter:'CC-1112',
+                headcount:72, openPositions:3, quarterDelta:1, stats:{ avgTenure:3.4, attrition:12.4 },
+                roleMix:[ {title:'Registered nurse, outpatient',count:48}, {title:'Charge nurse',count:10}, {title:'Certified nursing assistant',count:11}, {title:'Nurse manager',count:3} ] }
+            ]
+          },
+          { id:'physician-services', name:'Physician Services',
+            manager:{ name:'Dr. Alan Kim', title:'Medical Director', email:'alan.kim@northfieldhealth.org', since:2018 },
+            location:'Northfield Medical Center, Columbus, OH', costCenter:'CC-1120',
+            headcount:96, openPositions:4, quarterDelta:2, stats:{ avgTenure:5.1, attrition:6.1 },
+            roleMix:[ {title:'Attending physician',count:54}, {title:'Physician assistant',count:22}, {title:'Clinical support staff',count:19}, {title:'Medical director',count:1} ] },
+          { id:'pharmacy', name:'Pharmacy',
+            manager:{ name:'Sophia Delgado', title:'Pharmacy Director', email:'sophia.delgado@northfieldhealth.org', since:2020 },
+            location:'Northfield Medical Center, Columbus, OH', costCenter:'CC-1130',
+            headcount:38, openPositions:2, quarterDelta:-1, stats:{ avgTenure:4.6, attrition:7.8 },
+            roleMix:[ {title:'Staff pharmacist',count:24}, {title:'Pharmacy technician',count:12}, {title:'Pharmacy resident',count:1}, {title:'Pharmacy director',count:1} ] }
+        ]
+      },
+      {
+        id:'technology', name:'Technology',
+        manager:{ name:'Jordan Michaels', title:'VP of Technology', email:'jordan.michaels@northfieldhealth.org', since:2021 },
+        location:'Northfield Health headquarters, Columbus, OH', costCenter:'CC-1200',
+        stats:{ avgTenure:3.1, attrition:9.0 },
+        children:[
+          { id:'platform-engineering', name:'Platform Engineering',
+            manager:{ name:'Dana Whitfield', title:'Director, Platform Engineering', email:'dana.whitfield@northfieldhealth.org', since:2022 },
+            location:'Northfield Health headquarters, Columbus, OH', costCenter:'CC-1210',
+            headcount:18, openPositions:2, quarterDelta:2, stats:{ avgTenure:3.1, attrition:9.5 },
+            roleMix:[ {title:'Engineer II',count:7}, {title:'Senior engineer',count:6}, {title:'Staff engineer',count:3}, {title:'Engineering manager',count:1}, {title:'Director, platform engineering',count:1} ] },
+          { id:'mobile-engineering', name:'Mobile Engineering',
+            manager:{ name:'Theo Park', title:'Engineering Manager', email:'theo.park@northfieldhealth.org', since:2023 },
+            location:'Northfield Health headquarters, Columbus, OH', costCenter:'CC-1220',
+            headcount:14, openPositions:1, quarterDelta:0, stats:{ avgTenure:2.6, attrition:11.0 },
+            roleMix:[ {title:'Engineer II',count:6}, {title:'Senior engineer',count:4}, {title:'Engineer I',count:2}, {title:'QA engineer',count:1}, {title:'Engineering manager',count:1} ] },
+          { id:'data-analytics', name:'Data & Analytics',
+            manager:{ name:'Anjali Natarajan', title:'Director, Data & Analytics', email:'anjali.natarajan@northfieldhealth.org', since:2021 },
+            location:'Northfield Health headquarters, Columbus, OH', costCenter:'CC-1230',
+            headcount:22, openPositions:3, quarterDelta:3, stats:{ avgTenure:2.9, attrition:8.7 },
+            roleMix:[ {title:'Data engineer',count:8}, {title:'Data analyst',count:6}, {title:'Data scientist',count:5}, {title:'Analytics manager',count:2}, {title:'Director, data & analytics',count:1} ] },
+          { id:'it-support', name:'IT Support',
+            manager:{ name:"Brian O'Donnell", title:'IT Operations Manager', email:'brian.odonnell@northfieldhealth.org', since:2019 },
+            location:'Northfield Health headquarters, Columbus, OH', costCenter:'CC-1240',
+            headcount:26, openPositions:2, quarterDelta:1, stats:{ avgTenure:4.2, attrition:6.5 },
+            roleMix:[ {title:'Help desk technician',count:14}, {title:'Systems administrator',count:7}, {title:'Network engineer',count:4}, {title:'IT operations manager',count:1} ] }
+        ]
+      },
+      {
+        id:'people-culture', name:'People & Culture',
+        manager:{ name:'Elena Soto', title:'VP, People & Culture', email:'elena.soto@northfieldhealth.org', since:2020 },
+        location:'Northfield Health headquarters, Columbus, OH', costCenter:'CC-1300',
+        stats:{ avgTenure:3.4, attrition:8.5 },
+        children:[
+          { id:'talent-acquisition', name:'Talent Acquisition',
+            manager:{ name:'Nina Alvarez', title:'Talent Acquisition Manager', email:'nina.alvarez@northfieldhealth.org', since:2022 },
+            location:'Northfield Health headquarters, Columbus, OH', costCenter:'CC-1310',
+            headcount:11, openPositions:1, quarterDelta:1, stats:{ avgTenure:2.3, attrition:14.0 },
+            roleMix:[ {title:'Recruiter',count:7}, {title:'Sourcer',count:2}, {title:'Recruiting coordinator',count:1}, {title:'Talent acquisition manager',count:1} ] },
+          { id:'hrbp', name:'HR Business Partners',
+            manager:{ name:'Gregory Hahn', title:'Director, HR Business Partners', email:'gregory.hahn@northfieldhealth.org', since:2021 },
+            location:'Northfield Health headquarters, Columbus, OH', costCenter:'CC-1320',
+            headcount:9, openPositions:0, quarterDelta:0, stats:{ avgTenure:4.0, attrition:5.0 },
+            roleMix:[ {title:'HR business partner',count:6}, {title:'HR coordinator',count:2}, {title:'Director, HR business partners',count:1} ] },
+          { id:'learning-development', name:'Learning & Development',
+            manager:{ name:'Faith Odom', title:'L&D Manager', email:'faith.odom@northfieldhealth.org', since:2023 },
+            location:'Northfield Health headquarters, Columbus, OH', costCenter:'CC-1330',
+            headcount:6, openPositions:1, quarterDelta:1, stats:{ avgTenure:3.5, attrition:8.0 },
+            roleMix:[ {title:'L&D specialist',count:4}, {title:'Instructional designer',count:1}, {title:'L&D manager',count:1} ] }
+        ]
+      },
+      {
+        id:'finance-ops', name:'Finance & Operations',
+        manager:{ name:'Robert Chen', title:'Chief Financial Officer', email:'robert.chen@northfieldhealth.org', since:2018 },
+        location:'Northfield Health headquarters, Columbus, OH', costCenter:'CC-1400',
+        stats:{ avgTenure:5.6, attrition:4.7 },
+        children:[
+          { id:'finance', name:'Finance',
+            manager:{ name:'Linda Park', title:'Controller', email:'linda.park@northfieldhealth.org', since:2019 },
+            location:'Northfield Health headquarters, Columbus, OH', costCenter:'CC-1410',
+            headcount:17, openPositions:1, quarterDelta:0, stats:{ avgTenure:5.4, attrition:4.5 },
+            roleMix:[ {title:'Financial analyst',count:8}, {title:'Senior accountant',count:4}, {title:'Accounts payable specialist',count:4}, {title:'Controller',count:1} ] },
+          { id:'facilities', name:'Facilities',
+            manager:{ name:'Dominic Reyes', title:'Facilities Director', email:'dominic.reyes@northfieldhealth.org', since:2020 },
+            location:'Northfield Health headquarters, Columbus, OH', costCenter:'CC-1420',
+            headcount:24, openPositions:2, quarterDelta:1, stats:{ avgTenure:6.1, attrition:7.0 },
+            roleMix:[ {title:'Facilities technician',count:16}, {title:'Security officer',count:4}, {title:'Facilities coordinator',count:3}, {title:'Facilities director',count:1} ] },
+          { id:'procurement', name:'Procurement',
+            manager:{ name:'Yusuf Karim', title:'Procurement Manager', email:'yusuf.karim@northfieldhealth.org', since:2022 },
+            location:'Northfield Health headquarters, Columbus, OH', costCenter:'CC-1430',
+            headcount:9, openPositions:0, quarterDelta:0, stats:{ avgTenure:4.8, attrition:3.2 },
+            roleMix:[ {title:'Procurement specialist',count:6}, {title:'Contracts analyst',count:2}, {title:'Procurement manager',count:1} ] }
+        ]
+      },
+      { id:'legal-compliance', name:'Legal & Compliance',
+        manager:{ name:'Victoria Hale', title:'General Counsel', email:'victoria.hale@northfieldhealth.org', since:2017 },
+        location:'Northfield Health headquarters, Columbus, OH', costCenter:'CC-1500',
+        headcount:12, openPositions:1, quarterDelta:1, stats:{ avgTenure:6.7, attrition:2.9 },
+        roleMix:[ {title:'Compliance analyst',count:5}, {title:'Corporate counsel',count:3}, {title:'Paralegal',count:3}, {title:'General counsel',count:1} ] },
+      {
+        id:'sales-partnerships', name:'Sales & Partnerships',
+        manager:{ name:'Daniel Osei', title:'VP, Sales & Partnerships', email:'daniel.osei@northfieldhealth.org', since:2019 },
+        location:'Northfield Health headquarters, Columbus, OH', costCenter:'CC-1600',
+        stats:{ avgTenure:3.5, attrition:9.7 },
+        children:[
+          { id:'provider-relations', name:'Provider Relations',
+            manager:{ name:'Isabel Monroe', title:'Director, Provider Relations', email:'isabel.monroe@northfieldhealth.org', since:2021 },
+            location:'Northfield Health headquarters, Columbus, OH', costCenter:'CC-1610',
+            headcount:19, openPositions:2, quarterDelta:2, stats:{ avgTenure:3.9, attrition:9.1 },
+            roleMix:[ {title:'Provider relations specialist',count:12}, {title:'Contract analyst',count:6}, {title:'Director, provider relations',count:1} ] },
+          { id:'marketing', name:'Marketing',
+            manager:{ name:'Chloe Bennett', title:'Marketing Director', email:'chloe.bennett@northfieldhealth.org', since:2022 },
+            location:'Northfield Health headquarters, Columbus, OH', costCenter:'CC-1620',
+            headcount:15, openPositions:1, quarterDelta:1, stats:{ avgTenure:3.2, attrition:10.3 },
+            roleMix:[ {title:'Marketing specialist',count:8}, {title:'Content strategist',count:3}, {title:'Designer',count:3}, {title:'Marketing director',count:1} ] }
+        ]
+      }
+    ]
+  };
+
+  // ---- derived lookups ----
+  const byId = {};
+  const parentOf = {};
+  (function index(node, parent){
+    byId[node.id] = node;
+    if (parent) parentOf[node.id] = parent.id;
+    (node.children || []).forEach(c => index(c, node));
+  })(orgData, null);
+
+  function headcountOf(node){
+    if (!node.children) return node.headcount;
+    return node.children.reduce((sum, c) => sum + headcountOf(c), 0);
+  }
+  function openPositionsOf(node){
+    if (!node.children) return node.openPositions;
+    return node.children.reduce((sum, c) => sum + openPositionsOf(c), 0);
+  }
+  function deltaOf(node){
+    if (!node.children) return node.quarterDelta;
+    return node.children.reduce((sum, c) => sum + deltaOf(c), 0);
+  }
+  function initials(name){
+    return name.replace(/^(Dr\.)\s+/, '').split(' ').map(p => p[0]).filter(Boolean).slice(0,2).join('').toUpperCase();
+  }
+  function pathTo(id){
+    const path = [byId[id]];
+    let p = parentOf[id];
+    while (p){ path.unshift(byId[p]); p = parentOf[p]; }
+    return path;
+  }
+
+  // ---- state ----
+  const state = {
+    selectedId: 'root',
+    expanded: new Set(['root','clinical-operations','technology','people-culture','finance-ops','sales-partnerships']),
+    query: ''
+  };
+
+  // ---- tree rendering ----
+  function matches(node, q){
+    if (!q) return true;
+    const hay = (node.name + ' ' + node.manager.name + ' ' + node.manager.title).toLowerCase();
+    return hay.includes(q);
+  }
+  function subtreeHasMatch(node, q){
+    if (matches(node, q)) return true;
+    return (node.children || []).some(c => subtreeHasMatch(c, q));
+  }
+
+  function buildRow(node, depth){
+    const hasChildren = !!(node.children && node.children.length);
+    const wrapper = document.createElement('div');
+
+    const row = document.createElement('button');
+    row.type = 'button';
+    row.className = 'tree-row w-full flex flex-col gap-0.5 text-left py-1.5 pr-2 rounded-sm' + (depth > 0 ? ' connector' : '');
+    row.style.paddingLeft = (depth > 0 ? 10 : 8) + 'px';
+    row.dataset.id = node.id;
+    row.setAttribute('aria-current', state.selectedId === node.id ? 'true' : 'false');
+
+    const line1 = document.createElement('div');
+    line1.className = 'flex items-baseline justify-between gap-2';
+
+    const left = document.createElement('span');
+    left.className = 'flex items-baseline gap-1.5 min-w-0';
+
+    if (hasChildren){
+      const chev = document.createElement('span');
+      chev.className = 'chev inline-block w-3.5 shrink-0' + (state.expanded.has(node.id) ? ' open' : '');
+      chev.innerHTML = '<svg width="10" height="10" viewBox="0 0 10 10" fill="none"><path d="M3 1l5 4-5 4" stroke="' + 'var(--ink-soft)' + '" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+      chev.dataset.toggle = node.id;
+      left.appendChild(chev);
+    } else {
+      const spacer = document.createElement('span');
+      spacer.className = 'inline-block w-3.5 shrink-0';
+      left.appendChild(spacer);
+    }
+
+    const nameEl = document.createElement('span');
+    nameEl.className = 'text-sm truncate' + (state.selectedId === node.id ? ' font-semibold' : ' font-medium');
+    nameEl.textContent = node.name;
+    left.appendChild(nameEl);
+
+    const hc = document.createElement('span');
+    hc.className = 'text-sm tabular shrink-0 ' + (state.selectedId === node.id ? 'font-semibold' : '');
+    hc.style.color = state.selectedId === node.id ? 'var(--brass)' : 'var(--ink)';
+    hc.textContent = headcountOf(node).toLocaleString();
+
+    line1.appendChild(left);
+    line1.appendChild(hc);
+
+    const line2 = document.createElement('div');
+    line2.className = 'text-xs truncate pl-5';
+    line2.style.color = 'var(--ink-soft)';
+    line2.textContent = node.manager.name + ', ' + node.manager.title;
+
+    row.appendChild(line1);
+    row.appendChild(line2);
+    wrapper.appendChild(row);
+
+    if (hasChildren && state.expanded.has(node.id)){
+      const childWrap = document.createElement('div');
+      childWrap.className = 'ml-[15px] pl-[14px] mt-0.5 flex flex-col gap-0.5 border-l';
+      childWrap.style.borderColor = 'var(--line)';
+      node.children.forEach(c => childWrap.appendChild(buildRow(c, depth + 1)));
+      wrapper.appendChild(childWrap);
+    }
+
+    return wrapper;
+  }
+
+  function renderTree(){
+    const root = document.getElementById('tree-root');
+    const noResults = document.getElementById('no-results');
+    root.innerHTML = '';
+
+    const q = state.query.trim().toLowerCase();
+    if (q && !subtreeHasMatch(orgData, q)){
+      noResults.classList.remove('hidden');
+      return;
+    }
+    noResults.classList.add('hidden');
+    root.appendChild(buildRow(orgData, 0));
+  }
+
+  // ---- detail rendering ----
+  function renderDetail(){
+    const node = byId[state.selectedId];
+    const hasChildren = !!(node.children && node.children.length);
+
+    const crumb = document.getElementById('breadcrumb');
+    crumb.innerHTML = '';
+    pathTo(node.id).forEach((n, i, arr) => {
+      if (i > 0){
+        const sep = document.createElement('span');
+        sep.textContent = '/';
+        sep.style.color = 'var(--line-strong)';
+        crumb.appendChild(sep);
+      }
+      if (i === arr.length - 1){
+        const cur = document.createElement('span');
+        cur.textContent = n.name;
+        cur.style.color = 'var(--ink)';
+        cur.className = 'font-medium';
+        crumb.appendChild(cur);
+      } else {
+        const link = document.createElement('button');
+        link.type = 'button';
+        link.textContent = n.name;
+        link.className = 'hover:underline';
+        link.style.color = 'var(--slate)';
+        link.addEventListener('click', () => selectNode(n.id));
+        crumb.appendChild(link);
+      }
+    });
+
+    document.getElementById('detail-title').textContent = node.name;
+    document.getElementById('manager-initials').textContent = initials(node.manager.name);
+    document.getElementById('manager-name').textContent = node.manager.name;
+    document.getElementById('manager-title').textContent = node.manager.title;
+    document.getElementById('manager-email').textContent = node.manager.email;
+    document.getElementById('manager-since').textContent = 'Manager since ' + node.manager.since;
+
+    const headcount = headcountOf(node);
+    document.getElementById('headcount-number').textContent = headcount.toLocaleString();
+    document.getElementById('headcount-label').textContent = hasChildren
+      ? 'people across ' + node.children.length + ' sub-units'
+      : 'people in this team';
+
+    const delta = deltaOf(node);
+    document.getElementById('headcount-delta').textContent = delta === 0
+      ? 'No change since last quarter'
+      : (delta > 0 ? '+' + delta : '−' + Math.abs(delta)) + ' since last quarter';
+
+    document.getElementById('metric-open').textContent = openPositionsOf(node);
+    document.getElementById('metric-tenure').textContent = node.stats.avgTenure.toFixed(1) + ' yrs';
+    document.getElementById('metric-attrition').textContent = node.stats.attrition.toFixed(1) + '%';
+
+    document.getElementById('meta-location').textContent = node.location;
+    document.getElementById('meta-costcenter').textContent = 'Cost center ' + node.costCenter;
+
+    const subSection = document.getElementById('subunits-section');
+    const roleSection = document.getElementById('rolemix-section');
+
+    if (hasChildren){
+      subSection.classList.remove('hidden');
+      roleSection.classList.add('hidden');
+      const body = document.getElementById('subunits-body');
+      body.innerHTML = '';
+      node.children.forEach(c => {
+        const row = document.createElement('button');
+        row.type = 'button';
+        row.className = 'grid grid-cols-[1fr_1fr_90px] gap-2 w-full text-left py-2 border-b border-[var(--line)] text-sm hover:bg-[#F4F5F2] rounded-sm';
+        row.innerHTML =
+          '<span class="font-medium truncate">' + c.name + '</span>' +
+          '<span class="truncate" style="color:var(--ink-soft)">' + c.manager.name + '</span>' +
+          '<span class="text-right tabular">' + headcountOf(c).toLocaleString() + '</span>';
+        row.addEventListener('click', () => {
+          state.expanded.add(node.id);
+          selectNode(c.id);
+        });
+        body.appendChild(row);
+      });
+    } else {
+      subSection.classList.add('hidden');
+      roleSection.classList.remove('hidden');
+      const body = document.getElementById('rolemix-body');
+      body.innerHTML = '';
+      const sorted = [...node.roleMix].sort((a, b) => b.count - a.count);
+      sorted.forEach(r => {
+        const pct = Math.round((r.count / headcount) * 100);
+        const row = document.createElement('div');
+        row.innerHTML =
+          '<div class="flex items-baseline justify-between text-sm mb-1">' +
+            '<span>' + r.title + '</span>' +
+            '<span class="tabular font-medium">' + r.count + '</span>' +
+          '</div>' +
+          '<div class="h-1.5 bg-[var(--paper)] rounded-sm overflow-hidden">' +
+            '<div class="h-full" style="width:' + pct + '%; background:var(--brass);"></div>' +
+          '</div>';
+        body.appendChild(row);
+      });
+    }
+
+    document.getElementById('live-region').textContent = 'Selected ' + node.name;
+  }
+
+  function selectNode(id){
+    state.selectedId = id;
+    renderTree();
+    renderDetail();
+    const btn = document.querySelector('[data-id="' + id + '"]');
+    if (btn) btn.scrollIntoView({ block: 'nearest' });
+  }
+
+  function render(){
+    renderTree();
+    renderDetail();
+  }
+
+  // ---- events ----
+  document.getElementById('tree-root').addEventListener('click', (e) => {
+    const toggle = e.target.closest('[data-toggle]');
+    if (toggle){
+      const id = toggle.dataset.toggle;
+      if (state.expanded.has(id)) state.expanded.delete(id);
+      else state.expanded.add(id);
+      renderTree();
+      return;
+    }
+    const row = e.target.closest('[data-id]');
+    if (row) selectNode(row.dataset.id);
+  });
+
+  document.getElementById('search').addEventListener('input', (e) => {
+    state.query = e.target.value;
+    const q = state.query.trim().toLowerCase();
+    if (q){
+      (function expandMatches(node){
+        let childMatch = false;
+        (node.children || []).forEach(c => { if (expandMatches(c)) childMatch = true; });
+        if (childMatch || matches(node, q)){
+          if (node.children && node.children.length) state.expanded.add(node.id);
+          return true;
+        }
+        return false;
+      })(orgData);
+    }
+    renderTree();
+  });
+
+  document.getElementById('expand-all').addEventListener('click', () => {
+    Object.keys(byId).forEach(id => { if (byId[id].children) state.expanded.add(id); });
+    renderTree();
+  });
+  document.getElementById('collapse-all').addEventListener('click', () => {
+    state.expanded.clear();
+    state.expanded.add('root');
+    renderTree();
+  });
+
+  document.getElementById('header-summary').textContent =
+    headcountOf(orgData).toLocaleString() + ' people across ' + orgData.children.length + ' divisions, as of Nov 1, 2026';
+
+  render();
+</script>
+</body>

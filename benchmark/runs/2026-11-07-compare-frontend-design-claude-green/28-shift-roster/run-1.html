@@ -1,0 +1,627 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Harbor &amp; Pine — Weekly shift roster</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --navy:#1C2B3A;
+    --navy-soft:#2A3D4F;
+    --kraft:#E8E3D4;
+    --paper:#FBF9F4;
+    --mustard:#C8872E;
+    --brick:#9C4A2E;
+    --pine:#3E6B54;
+    --denim:#45617D;
+    --line:rgba(28,43,58,0.14);
+  }
+
+  * { -webkit-font-smoothing: antialiased; }
+
+  body{
+    background:var(--kraft);
+    color:var(--navy);
+    font-family:"IBM Plex Sans", ui-sans-serif, system-ui, sans-serif;
+  }
+
+  .font-display{ font-family:"Space Grotesk", "IBM Plex Sans", ui-sans-serif, sans-serif; }
+
+  :focus-visible{
+    outline: 2px solid var(--pine);
+    outline-offset: 2px;
+    border-radius: 2px;
+  }
+
+  /* ---- roster table ---- */
+  .roster-scroll{
+    scrollbar-width: thin;
+    scrollbar-color: var(--navy-soft) transparent;
+  }
+  .roster-scroll::-webkit-scrollbar{ height:10px; width:10px; }
+  .roster-scroll::-webkit-scrollbar-thumb{ background:var(--navy-soft); border-radius:6px; }
+  .roster-scroll::-webkit-scrollbar-track{ background:transparent; }
+
+  table.roster{ border-collapse:separate; border-spacing:0; width:100%; }
+
+  table.roster thead th{
+    position:sticky; top:0; z-index:20;
+    background:var(--navy);
+    color:#EDE9DD;
+    font-weight:500;
+    font-size:0.8125rem;
+    text-align:left;
+    padding:0.65rem 0.85rem;
+    border-bottom:1px solid var(--navy);
+    white-space:nowrap;
+  }
+  table.roster thead th.col-staff{
+    position:sticky; left:0; top:0; z-index:30;
+    min-width:208px;
+  }
+  table.roster thead th .date-sub{
+    display:block; font-weight:400; color:#B7C2CC; font-size:0.72rem; margin-top:1px;
+  }
+
+  table.roster tbody th.row-staff{
+    position:sticky; left:0; z-index:10;
+    background:var(--paper);
+    text-align:left;
+    padding:0.7rem 0.85rem;
+    border-bottom:1px solid var(--line);
+    border-right:1px solid var(--line);
+    min-width:208px;
+    vertical-align:top;
+  }
+  table.roster tbody tr:nth-child(even) th.row-staff,
+  table.roster tbody tr:nth-child(even) td.cell-day{
+    background:#F4F1E7;
+  }
+  table.roster tbody td.cell-day{
+    background:var(--paper);
+    border-bottom:1px solid var(--line);
+    border-right:1px solid var(--line);
+    padding:0.45rem;
+    min-width:132px;
+    vertical-align:middle;
+    cursor:pointer;
+    transition:background-color 120ms ease;
+  }
+  table.roster.is-locked tbody td.cell-day{ cursor:default; }
+  table.roster:not(.is-locked) tbody td.cell-day:hover{
+    background:rgba(28,43,58,0.06);
+  }
+  table.roster tbody td.cell-day:focus-visible{
+    background:rgba(28,43,58,0.08);
+  }
+
+  tfoot th.row-coverage{
+    position:sticky; left:0; z-index:10;
+    background:var(--navy);
+    color:#EDE9DD;
+    text-align:left;
+    padding:0.6rem 0.85rem;
+    font-weight:500;
+    font-size:0.8125rem;
+  }
+  tfoot td.cell-coverage{
+    background:var(--navy);
+    color:#EDE9DD;
+    text-align:center;
+    padding:0.6rem 0.4rem;
+    font-size:0.875rem;
+    font-weight:500;
+    border-left:1px solid rgba(255,255,255,0.08);
+  }
+  tfoot td.cell-coverage.low{ color:#F0B98C; }
+  tfoot td.cell-coverage .cov-flag{
+    display:block; font-size:0.66rem; font-weight:400; color:#F0B98C; margin-top:1px;
+  }
+
+  /* ---- shift chips ---- */
+  .chip{
+    display:flex; flex-direction:column; gap:0;
+    border-left:3px solid transparent;
+    border-radius:3px;
+    padding:0.3rem 0.5rem;
+    font-size:0.78rem;
+    line-height:1.25;
+    width:100%;
+  }
+  .chip .chip-label{ font-weight:500; }
+  .chip .chip-time{ font-size:0.7rem; opacity:0.85; }
+  .chip-open{  background:rgba(200,135,46,0.15); border-left-color:var(--mustard); color:#6E4A1C; }
+  .chip-mid{   background:rgba(62,107,84,0.14);  border-left-color:var(--pine);    color:#2A4A3A; }
+  .chip-close{ background:rgba(156,74,46,0.14);  border-left-color:var(--brick);   color:#6B3019; }
+  .chip-leave{ background:rgba(69,97,125,0.14);  border-left-color:var(--denim);   color:#304A61; }
+
+  .cell-empty{
+    display:flex; align-items:center; justify-content:center;
+    color:rgba(28,43,58,0.35);
+    font-size:0.85rem;
+    height:2.5rem;
+  }
+
+  .legend-dot{ width:0.6rem; height:0.6rem; border-radius:2px; display:inline-block; }
+
+  /* ---- popover ---- */
+  #editor{
+    position:fixed;
+    z-index:50;
+    background:var(--paper);
+    border:1px solid rgba(28,43,58,0.18);
+    box-shadow:0 12px 28px rgba(28,43,58,0.22);
+    border-radius:6px;
+    padding:1rem;
+    width:17rem;
+  }
+  #editor[hidden]{ display:none; }
+
+  .seg-btn{
+    border:1px solid rgba(28,43,58,0.2);
+    padding:0.35rem 0;
+    font-size:0.78rem;
+    font-weight:500;
+    background:var(--paper);
+    color:var(--navy);
+  }
+  .seg-btn[aria-pressed="true"]{
+    background:var(--navy);
+    color:#EDE9DD;
+    border-color:var(--navy);
+  }
+
+  #toast{
+    position:fixed; left:50%; bottom:1.5rem; transform:translate(-50%, 0.5rem);
+    background:var(--navy); color:#EDE9DD;
+    padding:0.65rem 1.1rem; border-radius:5px;
+    font-size:0.85rem;
+    box-shadow:0 10px 24px rgba(28,43,58,0.3);
+    opacity:0; pointer-events:none;
+    transition:opacity 180ms ease, transform 180ms ease;
+    z-index:60;
+  }
+  #toast.show{ opacity:1; transform:translate(-50%, 0); }
+
+  @media (prefers-reduced-motion: reduce){
+    *{ transition:none !important; }
+  }
+</style>
+</head>
+<body class="min-h-screen pb-16">
+
+  <!-- Header -->
+  <header class="bg-[var(--navy)] text-[#EDE9DD]">
+    <div class="max-w-6xl mx-auto px-5 sm:px-8 py-5 flex flex-wrap items-baseline justify-between gap-2">
+      <div>
+        <h1 class="font-display text-xl sm:text-2xl font-semibold tracking-tight">Harbor &amp; Pine</h1>
+        <p class="text-sm text-[#B7C2CC] mt-0.5">Weekly shift roster — general store &amp; café counter</p>
+      </div>
+      <p class="text-sm text-[#B7C2CC] font-display">Week of Nov 9–15, 2026</p>
+    </div>
+  </header>
+
+  <main class="max-w-6xl mx-auto px-5 sm:px-8 pt-6">
+
+    <!-- Status / publish row -->
+    <section class="flex flex-wrap items-center justify-between gap-4 mb-5">
+      <div class="flex items-center gap-3 flex-wrap">
+        <span id="status-badge" class="font-display text-xs font-semibold px-2.5 py-1 rounded bg-[var(--denim)] text-[#EDE9DD]">Draft</span>
+        <p class="text-sm text-[var(--navy)]" id="status-summary">8 staff · 290 scheduled hours this week</p>
+      </div>
+      <div class="flex items-center gap-3">
+        <span id="published-note" class="text-sm text-[var(--pine)]" hidden></span>
+        <button id="publish-btn" type="button"
+          class="font-display text-sm font-semibold px-4 py-2 rounded bg-[var(--pine)] text-[#F4F6F4] hover:bg-[#345c47] transition-colors">
+          Publish week
+        </button>
+      </div>
+    </section>
+
+    <!-- Legend -->
+    <section class="flex flex-wrap items-center gap-x-5 gap-y-2 mb-4 text-sm text-[var(--navy)]">
+      <span class="text-[var(--navy)]/70">Shift key</span>
+      <span class="flex items-center gap-1.5"><i class="legend-dot" style="background:var(--mustard)"></i>Open</span>
+      <span class="flex items-center gap-1.5"><i class="legend-dot" style="background:var(--pine)"></i>Mid</span>
+      <span class="flex items-center gap-1.5"><i class="legend-dot" style="background:var(--brick)"></i>Close</span>
+      <span class="flex items-center gap-1.5"><i class="legend-dot" style="background:var(--denim)"></i>Time off</span>
+      <span class="flex items-center gap-1.5 text-[var(--navy)]/60">— Not scheduled</span>
+    </section>
+
+    <!-- Roster grid -->
+    <section class="roster-scroll overflow-auto rounded-md border border-[var(--line)] shadow-sm max-h-[72vh]">
+      <table class="roster" id="roster-table">
+        <thead>
+          <tr id="roster-head"></tr>
+        </thead>
+        <tbody id="roster-body"></tbody>
+        <tfoot>
+          <tr id="roster-coverage"></tr>
+        </tfoot>
+      </table>
+    </section>
+
+    <p class="text-xs text-[var(--navy)]/55 mt-3">Select any cell to add or change a shift. Staff on shift reflects everyone not marked off or on approved time off.</p>
+  </main>
+
+  <!-- Shift editor popover -->
+  <div id="editor" role="dialog" aria-label="Edit shift" hidden>
+    <p class="font-display text-sm font-semibold mb-2" id="editor-title">Name · Day</p>
+    <div class="grid grid-cols-4 gap-1 mb-3" id="editor-types"></div>
+    <div class="grid grid-cols-2 gap-2 mb-3" id="editor-times">
+      <label class="text-xs text-[var(--navy)]/70">
+        Starts
+        <input type="time" id="editor-start" class="mt-1 w-full border border-[var(--line)] rounded px-2 py-1 text-sm bg-white">
+      </label>
+      <label class="text-xs text-[var(--navy)]/70">
+        Ends
+        <input type="time" id="editor-end" class="mt-1 w-full border border-[var(--line)] rounded px-2 py-1 text-sm bg-white">
+      </label>
+    </div>
+    <div class="flex items-center justify-between gap-2">
+      <button type="button" id="editor-clear" class="text-xs text-[var(--navy)]/60 hover:text-[var(--brick)]">Clear shift</button>
+      <div class="flex items-center gap-2">
+        <button type="button" id="editor-cancel" class="text-sm px-3 py-1.5 rounded border border-[var(--line)]">Cancel</button>
+        <button type="button" id="editor-save" class="text-sm font-medium px-3 py-1.5 rounded bg-[var(--navy)] text-[#EDE9DD]">Save shift</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="toast" role="status" aria-live="polite"></div>
+
+<script>
+(function(){
+  "use strict";
+
+  var DAYS = ["Mon","Tue","Wed","Thu","Fri","Sat","Sun"];
+  var DATES = ["Nov 9","Nov 10","Nov 11","Nov 12","Nov 13","Nov 14","Nov 15"];
+  var COVERAGE_MIN = 3;
+
+  var SHIFT_TYPES = {
+    open:  { label:"Open",     className:"chip-open",  seg:"O", defaultStart:"07:00", defaultEnd:"15:00" },
+    mid:   { label:"Mid",      className:"chip-mid",   seg:"M", defaultStart:"10:00", defaultEnd:"18:00" },
+    close: { label:"Close",    className:"chip-close", seg:"C", defaultStart:"15:00", defaultEnd:"23:00" },
+    leave: { label:"Time off", className:"chip-leave", seg:"T", defaultStart:null,    defaultEnd:null }
+  };
+  var TYPE_ORDER = ["open","mid","close","leave"];
+
+  var state = {
+    status: "draft",
+    publishedAt: null,
+    staff: [
+      { id:"maria",   name:"Maria Ibarra",    role:"Front register lead",        shifts:[
+        {type:"open", start:"06:45", end:"14:45"}, {type:"open", start:"06:45", end:"14:45"}, {type:"off"},
+        {type:"open", start:"06:45", end:"14:45"}, {type:"open", start:"06:45", end:"14:45"},
+        {type:"mid",  start:"09:00", end:"17:00"}, {type:"off"}
+      ]},
+      { id:"yuki",    name:"Yuki Tanaka",     role:"Front register",             shifts:[
+        {type:"mid",  start:"10:00", end:"18:00"}, {type:"off"}, {type:"mid", start:"10:00", end:"18:00"},
+        {type:"off"}, {type:"close", start:"15:00", end:"23:00"}, {type:"close", start:"15:00", end:"23:00"},
+        {type:"mid",  start:"10:00", end:"18:00"}
+      ]},
+      { id:"dante",   name:"Dante Okafor",    role:"Floor &amp; stockroom lead", shifts:[
+        {type:"open", start:"07:00", end:"15:00"}, {type:"open", start:"07:00", end:"15:00"}, {type:"open", start:"07:00", end:"15:00"},
+        {type:"off"}, {type:"open", start:"07:00", end:"15:00"}, {type:"off"},
+        {type:"mid",  start:"11:00", end:"19:00"}
+      ]},
+      { id:"omar",    name:"Omar Haddad",     role:"Floor",                      shifts:[
+        {type:"close", start:"15:00", end:"23:00"}, {type:"close", start:"15:00", end:"23:00"}, {type:"off"},
+        {type:"leave"}, {type:"close", start:"15:00", end:"23:00"}, {type:"mid", start:"12:00", end:"20:00"},
+        {type:"off"}
+      ]},
+      { id:"lucas",   name:"Lucas Bergström", role:"Stockroom",                  shifts:[
+        {type:"off"}, {type:"mid", start:"09:00", end:"17:00"}, {type:"mid", start:"09:00", end:"17:00"},
+        {type:"off"}, {type:"mid", start:"09:00", end:"17:00"}, {type:"open", start:"06:00", end:"14:00"},
+        {type:"off"}
+      ]},
+      { id:"jordan",  name:"Jordan Reyes",    role:"Floor &amp; stockroom (part-time)", shifts:[
+        {type:"off"}, {type:"off"}, {type:"close", start:"17:00", end:"22:00"},
+        {type:"off"}, {type:"close", start:"17:00", end:"22:00"}, {type:"mid", start:"12:00", end:"20:00"},
+        {type:"mid",  start:"12:00", end:"20:00"}
+      ]},
+      { id:"priya",   name:"Priya Chandran",  role:"Café counter",               shifts:[
+        {type:"open", start:"06:30", end:"14:30"}, {type:"open", start:"06:30", end:"14:30"}, {type:"open", start:"06:30", end:"14:30"},
+        {type:"open", start:"06:30", end:"14:30"}, {type:"off"}, {type:"off"},
+        {type:"mid",  start:"09:00", end:"17:00"}
+      ]},
+      { id:"celeste", name:"Celeste Fontaine", role:"Café counter lead",         shifts:[
+        {type:"mid", start:"11:00", end:"19:00"}, {type:"mid", start:"11:00", end:"19:00"}, {type:"off"},
+        {type:"off"}, {type:"open", start:"06:30", end:"14:30"}, {type:"open", start:"06:30", end:"14:30"},
+        {type:"close", start:"13:00", end:"21:00"}
+      ]}
+    ]
+  };
+
+  function minutes(hhmm){
+    var p = hhmm.split(":");
+    return parseInt(p[0],10)*60 + parseInt(p[1],10);
+  }
+
+  function shiftHours(shift){
+    if (!shift || shift.type === "off" || shift.type === "leave" || !shift.start || !shift.end) return 0;
+    var diff = minutes(shift.end) - minutes(shift.start);
+    if (diff < 0) diff += 24*60;
+    return diff/60;
+  }
+
+  function weeklyHours(person){
+    var total = 0;
+    for (var i=0;i<person.shifts.length;i++) total += shiftHours(person.shifts[i]);
+    return total;
+  }
+
+  function fmtHour(h){
+    var hr = Math.floor(h), mn = Math.round((h-hr)*60);
+    var hour12 = hr % 12 === 0 ? 12 : hr % 12;
+    var period = hr < 12 ? "a" : "p";
+    return mn ? (hour12 + ":" + String(mn).padStart(2,"0") + period) : (hour12 + period);
+  }
+
+  function fmtTime(hhmm){
+    var p = hhmm.split(":");
+    return fmtHour(parseInt(p[0],10) + parseInt(p[1],10)/60);
+  }
+
+  function dayCoverage(dayIndex){
+    var count = 0;
+    state.staff.forEach(function(person){
+      var s = person.shifts[dayIndex];
+      if (s && s.type !== "off" && s.type !== "leave") count++;
+    });
+    return count;
+  }
+
+  function buildHead(){
+    var tr = document.getElementById("roster-head");
+    var html = '<th class="col-staff">Staff</th>';
+    DAYS.forEach(function(d, i){
+      html += '<th>' + d + '<span class="date-sub">' + DATES[i] + '</span></th>';
+    });
+    tr.innerHTML = html;
+  }
+
+  function cellContent(shift){
+    if (!shift || shift.type === "off"){
+      return '<div class="cell-empty"><span aria-hidden="true">—</span><span class="sr-only">Not scheduled</span></div>';
+    }
+    var def = SHIFT_TYPES[shift.type];
+    var timeLabel = (shift.type === "leave")
+      ? "Approved"
+      : fmtTime(shift.start) + "–" + fmtTime(shift.end);
+    return '<div class="chip ' + def.className + '">' +
+      '<span class="chip-label">' + def.label + '</span>' +
+      '<span class="chip-time">' + timeLabel + '</span>' +
+      '</div>';
+  }
+
+  function buildBody(){
+    var tbody = document.getElementById("roster-body");
+    var rows = "";
+    state.staff.forEach(function(person){
+      rows += '<tr>';
+      rows += '<th scope="row" class="row-staff">' +
+        '<span class="block font-medium text-[var(--navy)]">' + person.name + '</span>' +
+        '<span class="block text-xs text-[var(--navy)]/60 mt-0.5">' + person.role + '</span>' +
+        '<span class="block text-xs font-display font-semibold text-[var(--pine)] mt-1">' + Math.round(weeklyHours(person)) + 'h scheduled</span>' +
+        '</th>';
+      person.shifts.forEach(function(shift, dayIndex){
+        rows += '<td class="cell-day" tabindex="0" role="button" ' +
+          'aria-label="' + person.name + ', ' + DAYS[dayIndex] + ', ' + (shift && shift.type !== 'off' ? SHIFT_TYPES[shift.type].label : 'not scheduled') + '" ' +
+          'data-staff="' + person.id + '" data-day="' + dayIndex + '">' +
+          cellContent(shift) +
+          '</td>';
+      });
+      rows += '</tr>';
+    });
+    tbody.innerHTML = rows;
+  }
+
+  function buildCoverage(){
+    var tr = document.getElementById("roster-coverage");
+    var html = '<th scope="row" class="row-coverage">Staff on shift</th>';
+    for (var i=0;i<7;i++){
+      var count = dayCoverage(i);
+      var low = count < COVERAGE_MIN;
+      html += '<td class="cell-coverage' + (low ? ' low' : '') + '">' + count +
+        (low ? '<span class="cov-flag">Low coverage</span>' : '') +
+        '</td>';
+    }
+    tr.innerHTML = html;
+  }
+
+  function totalScheduledHours(){
+    var total = 0;
+    state.staff.forEach(function(p){ total += weeklyHours(p); });
+    return Math.round(total);
+  }
+
+  function refreshStatusRow(){
+    document.getElementById("status-summary").textContent =
+      state.staff.length + " staff · " + totalScheduledHours() + " scheduled hours this week";
+  }
+
+  function render(){
+    buildHead();
+    buildBody();
+    buildCoverage();
+    refreshStatusRow();
+    applyLockState();
+  }
+
+  function applyLockState(){
+    var table = document.getElementById("roster-table");
+    var badge = document.getElementById("status-badge");
+    var publishBtn = document.getElementById("publish-btn");
+    var note = document.getElementById("published-note");
+    if (state.status === "published"){
+      table.classList.add("is-locked");
+      badge.textContent = "Published";
+      badge.style.background = "var(--pine)";
+      publishBtn.textContent = "Edit schedule";
+      publishBtn.classList.remove("bg-[var(--pine)]");
+      publishBtn.style.background = "var(--navy-soft)";
+      note.hidden = false;
+      note.textContent = "Published " + state.publishedAt;
+    } else {
+      table.classList.remove("is-locked");
+      badge.textContent = "Draft";
+      badge.style.background = "var(--denim)";
+      publishBtn.textContent = "Publish week";
+      publishBtn.style.background = "var(--pine)";
+      note.hidden = true;
+    }
+  }
+
+  function showToast(msg){
+    var t = document.getElementById("toast");
+    t.textContent = msg;
+    t.classList.add("show");
+    clearTimeout(t._timer);
+    t._timer = setTimeout(function(){ t.classList.remove("show"); }, 2600);
+  }
+
+  document.getElementById("publish-btn").addEventListener("click", function(){
+    if (state.status === "published"){
+      state.status = "draft";
+      showToast("Schedule reopened for editing");
+    } else {
+      state.status = "published";
+      var now = new Date();
+      state.publishedAt = now.toLocaleDateString(undefined, {month:"short", day:"numeric"}) +
+        " at " + now.toLocaleTimeString(undefined, {hour:"numeric", minute:"2-digit"});
+      closeEditor();
+      showToast("Published to the team");
+    }
+    applyLockState();
+  });
+
+  /* ---- editor popover ---- */
+  var editor = document.getElementById("editor");
+  var editing = null; // {staffId, dayIndex}
+
+  function buildTypeButtons(activeType){
+    var wrap = document.getElementById("editor-types");
+    wrap.innerHTML = "";
+    TYPE_ORDER.concat(["off"]).forEach(function(key){
+      var label = key === "off" ? "Off" : SHIFT_TYPES[key].label;
+      var btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "seg-btn";
+      btn.textContent = label;
+      btn.setAttribute("aria-pressed", String(key === activeType));
+      btn.addEventListener("click", function(k){
+        return function(){ selectType(k); };
+      }(key));
+      wrap.appendChild(btn);
+    });
+  }
+
+  function selectType(type){
+    editing.type = type;
+    var def = SHIFT_TYPES[type];
+    var timesWrap = document.getElementById("editor-times");
+    if (type === "off" || type === "leave"){
+      timesWrap.style.display = "none";
+    } else {
+      timesWrap.style.display = "grid";
+      var startInput = document.getElementById("editor-start");
+      var endInput = document.getElementById("editor-end");
+      if (!startInput.value || editing.prevType !== type){
+        startInput.value = def.defaultStart;
+        endInput.value = def.defaultEnd;
+      }
+    }
+    buildTypeButtons(type);
+  }
+
+  function openEditor(cell){
+    var staffId = cell.getAttribute("data-staff");
+    var dayIndex = parseInt(cell.getAttribute("data-day"), 10);
+    var person = state.staff.find(function(p){ return p.id === staffId; });
+    var shift = person.shifts[dayIndex];
+
+    editing = { staffId:staffId, dayIndex:dayIndex, type: shift ? shift.type : "off", prevType:null };
+
+    document.getElementById("editor-title").textContent = person.name + " · " + DAYS[dayIndex] + " " + DATES[dayIndex];
+    document.getElementById("editor-start").value = (shift && shift.start) ? shift.start : SHIFT_TYPES.open.defaultStart;
+    document.getElementById("editor-end").value = (shift && shift.end) ? shift.end : SHIFT_TYPES.open.defaultEnd;
+
+    var timesWrap = document.getElementById("editor-times");
+    timesWrap.style.display = (editing.type === "off" || editing.type === "leave") ? "none" : "grid";
+    buildTypeButtons(editing.type);
+
+    editor.hidden = false;
+    var rect = cell.getBoundingClientRect();
+    var top = Math.min(rect.bottom + 8, window.innerHeight - 320);
+    var left = Math.min(rect.left, window.innerWidth - 296);
+    editor.style.top = Math.max(8, top) + "px";
+    editor.style.left = Math.max(8, left) + "px";
+    document.getElementById("editor-start").focus();
+  }
+
+  function closeEditor(){
+    editor.hidden = true;
+    editing = null;
+  }
+
+  document.getElementById("editor-cancel").addEventListener("click", closeEditor);
+
+  document.getElementById("editor-clear").addEventListener("click", function(){
+    if (!editing) return;
+    var person = state.staff.find(function(p){ return p.id === editing.staffId; });
+    person.shifts[editing.dayIndex] = {type:"off"};
+    closeEditor();
+    render();
+    showToast("Shift cleared");
+  });
+
+  document.getElementById("editor-save").addEventListener("click", function(){
+    if (!editing) return;
+    var person = state.staff.find(function(p){ return p.id === editing.staffId; });
+    if (editing.type === "off"){
+      person.shifts[editing.dayIndex] = {type:"off"};
+    } else if (editing.type === "leave"){
+      person.shifts[editing.dayIndex] = {type:"leave"};
+    } else {
+      var start = document.getElementById("editor-start").value || SHIFT_TYPES[editing.type].defaultStart;
+      var end = document.getElementById("editor-end").value || SHIFT_TYPES[editing.type].defaultEnd;
+      person.shifts[editing.dayIndex] = {type:editing.type, start:start, end:end};
+    }
+    closeEditor();
+    render();
+    showToast("Shift saved");
+  });
+
+  document.getElementById("roster-body").addEventListener("click", function(e){
+    if (state.status === "published") return;
+    var cell = e.target.closest("td.cell-day");
+    if (cell) openEditor(cell);
+  });
+
+  document.getElementById("roster-body").addEventListener("keydown", function(e){
+    if (state.status === "published") return;
+    if (e.key !== "Enter" && e.key !== " ") return;
+    var cell = e.target.closest("td.cell-day");
+    if (cell){ e.preventDefault(); openEditor(cell); }
+  });
+
+  document.addEventListener("keydown", function(e){
+    if (e.key === "Escape" && !editor.hidden) closeEditor();
+  });
+
+  document.addEventListener("click", function(e){
+    if (editor.hidden) return;
+    if (editor.contains(e.target)) return;
+    if (e.target.closest("td.cell-day")) return;
+    closeEditor();
+  });
+
+  render();
+})();
+</script>
+</body>
+</html>

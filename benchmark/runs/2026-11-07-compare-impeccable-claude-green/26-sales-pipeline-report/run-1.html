@@ -1,0 +1,774 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Sales Pipeline Report — Q4 2026</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+  ::selection { background:#99f6e4; color:#0f172a; }
+  ::-webkit-scrollbar { height:10px; width:10px; }
+  ::-webkit-scrollbar-track { background:#f1f5f9; }
+  ::-webkit-scrollbar-thumb { background:#cbd5e1; border-radius:8px; }
+  ::-webkit-scrollbar-thumb:hover { background:#94a3b8; }
+  html { scrollbar-color:#cbd5e1 #f1f5f9; }
+  @media print {
+    body { background:#fff; }
+    .no-print { display:none !important; }
+    [data-tabpanel] { display:block !important; margin-bottom:2rem; }
+    .shadow-sm { box-shadow:none !important; }
+    .print-page { max-width:100% !important; }
+  }
+</style>
+</head>
+<body class="min-h-screen bg-slate-50 text-slate-900 antialiased">
+
+<header class="sticky top-0 z-30 border-b border-slate-200 bg-white">
+  <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+    <div class="flex flex-wrap items-center justify-between gap-4 py-4">
+      <div class="flex items-center gap-3">
+        <span class="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-teal-700">
+          <svg viewBox="0 0 24 24" class="h-5 w-5 text-white" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M4 5h16M7 12h10M10 19h4"/>
+          </svg>
+        </span>
+        <div>
+          <h1 class="text-xl font-semibold leading-tight tracking-tight text-slate-900">Sales Pipeline Report</h1>
+          <p class="text-sm leading-tight text-slate-500">Open pipeline, forecast &amp; win rate by rep and stage</p>
+        </div>
+        <span class="ml-1 inline-flex items-center rounded-full bg-teal-50 px-2.5 py-1 text-xs font-semibold text-teal-700 ring-1 ring-inset ring-teal-200">Q4 2026</span>
+      </div>
+      <div class="no-print flex items-center gap-2">
+        <button id="btnPrint" type="button" class="inline-flex items-center gap-1.5 rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 shadow-sm hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-600 focus-visible:ring-offset-2">
+          <svg viewBox="0 0 24 24" class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9V4h12v5M6 18H4a1 1 0 0 1-1-1v-5a1 1 0 0 1 1-1h16a1 1 0 0 1 1 1v5a1 1 0 0 1-1 1h-2M6 14h12v6H6z"/></svg>
+          Print
+        </button>
+        <button id="btnExport" type="button" class="inline-flex items-center gap-1.5 rounded-md bg-teal-700 px-3 py-2 text-sm font-medium text-white shadow-sm hover:bg-teal-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-600 focus-visible:ring-offset-2">
+          <svg viewBox="0 0 24 24" class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12m0 0-4-4m4 4 4-4M5 21h14"/></svg>
+          Export CSV
+        </button>
+      </div>
+    </div>
+  </div>
+</header>
+
+<main class="print-page mx-auto max-w-7xl space-y-8 px-4 py-8 sm:px-6 lg:px-8">
+
+  <!-- Filters -->
+  <section class="no-print rounded-xl border border-slate-200 bg-white p-4 shadow-sm" aria-label="Report filters">
+    <div class="flex flex-wrap items-end gap-3">
+
+      <div class="min-w-[200px] flex-1">
+        <label for="fSearch" class="mb-1 block text-xs font-medium text-slate-500">Search</label>
+        <div class="relative">
+          <svg viewBox="0 0 24 24" class="pointer-events-none absolute left-2.5 top-2.5 h-4 w-4 text-slate-400" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3-3"/></svg>
+          <input id="fSearch" type="text" placeholder="Deal or account name" class="w-full rounded-md border border-slate-300 py-2 pl-8 pr-8 text-sm text-slate-900 placeholder:text-slate-400 focus:border-teal-600 focus:outline-none focus:ring-1 focus:ring-teal-600" />
+          <button id="fSearchClear" type="button" aria-label="Clear search" class="absolute right-2 top-2 hidden h-5 w-5 items-center justify-center rounded text-slate-400 hover:text-slate-600">
+            <svg viewBox="0 0 24 24" class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18M6 6l12 12"/></svg>
+          </button>
+        </div>
+      </div>
+
+      <div class="relative">
+        <label class="mb-1 block text-xs font-medium text-slate-500">Salesperson</label>
+        <details id="repDropdown" class="relative">
+          <summary id="repSummary" class="flex w-56 cursor-pointer list-none items-center justify-between rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700 hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-teal-600">
+            <span id="repSummaryText">All reps</span>
+            <svg viewBox="0 0 24 24" class="h-4 w-4 text-slate-400" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>
+          </summary>
+          <div class="absolute left-0 top-full z-20 mt-1 w-56 rounded-md border border-slate-200 bg-white p-2 shadow-lg">
+            <div class="mb-1 flex items-center justify-between px-1">
+              <button type="button" id="repSelectAll" class="text-xs font-medium text-teal-700 hover:underline">Select all</button>
+              <button type="button" id="repSelectNone" class="text-xs font-medium text-slate-500 hover:underline">Clear</button>
+            </div>
+            <div id="repCheckboxList" class="max-h-56 space-y-0.5 overflow-y-auto"></div>
+          </div>
+        </details>
+      </div>
+
+      <div>
+        <label class="mb-1 block text-xs font-medium text-slate-500">Stage</label>
+        <div id="stageChips" class="flex flex-wrap gap-1.5"></div>
+      </div>
+
+      <div>
+        <label class="mb-1 block text-xs font-medium text-slate-500">Deal value</label>
+        <div class="flex items-center gap-1.5">
+          <div class="relative w-24">
+            <span class="pointer-events-none absolute left-2 top-2 text-xs text-slate-400">$</span>
+            <input id="fMin" type="number" min="0" step="1000" placeholder="Min" class="w-full rounded-md border border-slate-300 py-2 pl-5 pr-1 text-sm text-slate-900 placeholder:text-slate-400 focus:border-teal-600 focus:outline-none focus:ring-1 focus:ring-teal-600" />
+          </div>
+          <span class="text-slate-400">–</span>
+          <div class="relative w-24">
+            <span class="pointer-events-none absolute left-2 top-2 text-xs text-slate-400">$</span>
+            <input id="fMax" type="number" min="0" step="1000" placeholder="Max" class="w-full rounded-md border border-slate-300 py-2 pl-5 pr-1 text-sm text-slate-900 placeholder:text-slate-400 focus:border-teal-600 focus:outline-none focus:ring-1 focus:ring-teal-600" />
+          </div>
+        </div>
+      </div>
+
+      <div>
+        <label class="mb-1 block text-xs font-medium text-slate-500">Expected close</label>
+        <div class="flex items-center gap-1.5">
+          <input id="fDateFrom" type="date" class="rounded-md border border-slate-300 px-2 py-[7px] text-sm text-slate-900 focus:border-teal-600 focus:outline-none focus:ring-1 focus:ring-teal-600" />
+          <span class="text-slate-400">–</span>
+          <input id="fDateTo" type="date" class="rounded-md border border-slate-300 px-2 py-[7px] text-sm text-slate-900 focus:border-teal-600 focus:outline-none focus:ring-1 focus:ring-teal-600" />
+        </div>
+      </div>
+
+      <button id="btnReset" type="button" class="ml-auto rounded-md px-3 py-2 text-sm font-medium text-slate-500 hover:text-teal-700 hover:underline">Reset filters</button>
+    </div>
+  </section>
+
+  <!-- KPIs -->
+  <section aria-label="Key metrics" class="space-y-4">
+    <div class="grid grid-cols-1 gap-4 lg:grid-cols-2">
+      <div class="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+        <p class="text-sm font-medium text-slate-500">Weighted forecast</p>
+        <p id="kpiWeighted" class="mt-1 text-3xl font-semibold tracking-tight text-slate-900 tabular-nums">$0</p>
+        <p class="mt-1 text-sm text-slate-500">of <span id="kpiPipelineInline" class="tabular-nums">$0</span> open pipeline</p>
+        <div class="mt-3 h-2 w-full overflow-hidden rounded-full bg-slate-100">
+          <div id="kpiWeightedBar" class="h-full rounded-full bg-teal-600" style="width:0%"></div>
+        </div>
+      </div>
+      <div class="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+        <div class="flex items-start justify-between">
+          <p class="text-sm font-medium text-slate-500">Win rate — Q4 2026</p>
+          <span id="kpiWinBadge" class="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-semibold"></span>
+        </div>
+        <p id="kpiWinRate" class="mt-1 text-3xl font-semibold tracking-tight text-slate-900 tabular-nums">0%</p>
+        <p class="mt-1 text-sm text-slate-500"><span id="kpiWonCount" class="tabular-nums">0</span> won · <span id="kpiLostCount" class="tabular-nums">0</span> lost · <span id="kpiValueWinRate" class="tabular-nums">0%</span> by value</p>
+        <div class="mt-3 flex h-2 w-full overflow-hidden rounded-full bg-slate-100">
+          <div id="kpiWinBarWon" class="h-full bg-emerald-500" style="width:0%"></div>
+          <div id="kpiWinBarLost" class="h-full bg-rose-400" style="width:0%"></div>
+        </div>
+      </div>
+    </div>
+    <div class="grid grid-cols-1 gap-4 sm:grid-cols-3">
+      <div class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+        <p class="text-xs font-medium text-slate-500">Open pipeline value</p>
+        <p id="kpiPipeline" class="mt-1 text-xl font-semibold text-slate-900 tabular-nums">$0</p>
+      </div>
+      <div class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+        <p class="text-xs font-medium text-slate-500">Open deals</p>
+        <p id="kpiCount" class="mt-1 text-xl font-semibold text-slate-900 tabular-nums">0</p>
+      </div>
+      <div class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+        <p class="text-xs font-medium text-slate-500">Average deal size</p>
+        <p id="kpiAvg" class="mt-1 text-xl font-semibold text-slate-900 tabular-nums">$0</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- Breakdown -->
+  <section class="rounded-xl border border-slate-200 bg-white shadow-sm">
+    <div class="no-print flex items-center gap-1 border-b border-slate-200 p-2" role="tablist" aria-label="Breakdown view">
+      <button id="tabBtnSalesperson" type="button" role="tab" aria-selected="true" aria-controls="panelSalesperson" class="rounded-md px-3 py-1.5 text-sm font-medium text-white bg-teal-700">By salesperson</button>
+      <button id="tabBtnStage" type="button" role="tab" aria-selected="false" aria-controls="panelStage" class="rounded-md px-3 py-1.5 text-sm font-medium text-slate-600 hover:bg-slate-100">By stage</button>
+    </div>
+
+    <div id="panelSalesperson" data-tabpanel role="tabpanel" aria-labelledby="tabBtnSalesperson" class="p-5">
+      <h2 class="mb-3 text-sm font-semibold text-slate-700">Open pipeline by salesperson</h2>
+      <div id="bySalespersonRows" class="space-y-3"></div>
+    </div>
+
+    <div id="panelStage" data-tabpanel role="tabpanel" aria-labelledby="tabBtnStage" class="hidden p-5">
+      <h2 class="mb-3 text-sm font-semibold text-slate-700">Open pipeline by stage</h2>
+      <div id="byStageRows" class="space-y-3"></div>
+    </div>
+  </section>
+
+  <!-- Deal detail table -->
+  <section class="rounded-xl border border-slate-200 bg-white shadow-sm">
+    <div class="flex items-center justify-between border-b border-slate-200 p-4">
+      <h2 class="text-sm font-semibold text-slate-700">Open deals</h2>
+      <p id="dealCountCaption" class="text-sm text-slate-500" aria-live="polite">Showing 0 of 0 deals</p>
+    </div>
+    <div class="overflow-x-auto">
+      <table class="w-full min-w-[840px] text-left text-sm">
+        <thead>
+          <tr class="border-b border-slate-200 bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
+            <th scope="col" class="px-4 py-2.5 font-medium">
+              <button type="button" data-sort="account" class="inline-flex items-center gap-1 hover:text-slate-800">Deal <svg data-sorticon="account" viewBox="0 0 24 24" class="h-3 w-3 opacity-0" fill="none" stroke="currentColor" stroke-width="2.5"><path d="m6 9 6 6 6-6"/></svg></button>
+            </th>
+            <th scope="col" class="px-4 py-2.5 font-medium">
+              <button type="button" data-sort="rep" class="inline-flex items-center gap-1 hover:text-slate-800">Salesperson <svg data-sorticon="rep" viewBox="0 0 24 24" class="h-3 w-3 opacity-0" fill="none" stroke="currentColor" stroke-width="2.5"><path d="m6 9 6 6 6-6"/></svg></button>
+            </th>
+            <th scope="col" class="px-4 py-2.5 font-medium">
+              <button type="button" data-sort="stage" class="inline-flex items-center gap-1 hover:text-slate-800">Stage <svg data-sorticon="stage" viewBox="0 0 24 24" class="h-3 w-3 opacity-0" fill="none" stroke="currentColor" stroke-width="2.5"><path d="m6 9 6 6 6-6"/></svg></button>
+            </th>
+            <th scope="col" class="px-4 py-2.5 text-right font-medium">
+              <button type="button" data-sort="value" class="inline-flex items-center gap-1 hover:text-slate-800">Value <svg data-sorticon="value" viewBox="0 0 24 24" class="h-3 w-3 opacity-0" fill="none" stroke="currentColor" stroke-width="2.5"><path d="m6 9 6 6 6-6"/></svg></button>
+            </th>
+            <th scope="col" class="px-4 py-2.5 text-right font-medium">
+              <button type="button" data-sort="prob" class="inline-flex items-center gap-1 hover:text-slate-800">Prob. <svg data-sorticon="prob" viewBox="0 0 24 24" class="h-3 w-3 opacity-0" fill="none" stroke="currentColor" stroke-width="2.5"><path d="m6 9 6 6 6-6"/></svg></button>
+            </th>
+            <th scope="col" class="px-4 py-2.5 text-right font-medium">
+              <button type="button" data-sort="weighted" class="inline-flex items-center gap-1 hover:text-slate-800">Weighted <svg data-sorticon="weighted" viewBox="0 0 24 24" class="h-3 w-3 opacity-0" fill="none" stroke="currentColor" stroke-width="2.5"><path d="m6 9 6 6 6-6"/></svg></button>
+            </th>
+            <th scope="col" class="px-4 py-2.5 font-medium">
+              <button type="button" data-sort="date" class="inline-flex items-center gap-1 hover:text-slate-800">Expected close <svg data-sorticon="date" viewBox="0 0 24 24" class="h-3 w-3 opacity-0" fill="none" stroke="currentColor" stroke-width="2.5"><path d="m6 9 6 6 6-6"/></svg></button>
+            </th>
+          </tr>
+        </thead>
+        <tbody id="dealTableBody" class="divide-y divide-slate-100"></tbody>
+      </table>
+    </div>
+    <div id="emptyState" class="hidden flex-col items-center gap-2 px-4 py-14 text-center">
+      <svg viewBox="0 0 24 24" class="h-10 w-10 text-slate-300" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="11" cy="11" r="7"/><path d="m20 20-3-3"/></svg>
+      <p class="text-sm font-medium text-slate-600">No deals match your filters</p>
+      <p class="text-sm text-slate-400">Try widening the date range or clearing a filter.</p>
+      <button id="emptyStateReset" type="button" class="no-print mt-1 rounded-md border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50">Clear filters</button>
+    </div>
+  </section>
+
+  <footer class="pb-4 pt-2 text-center text-xs text-slate-400">
+    Generated Nov 7, 2026 · Figures reflect open and closed deals recorded in the CRM for Q4 2026 (Oct 1 – Dec 31) · Demonstration data
+  </footer>
+
+</main>
+
+<script>
+  const REPS = [
+    { id:'mchen', name:'Maria Chen', initials:'MC' },
+    { id:'jpatel', name:'Jordan Patel', initials:'JP' },
+    { id:'sriv', name:'Sam Rivera', initials:'SR' },
+    { id:'ekow', name:'Elena Kowalski', initials:'EK' },
+    { id:'mwebb', name:'Marcus Webb', initials:'MW' },
+    { id:'pnair', name:'Priya Nair', initials:'PN' },
+  ];
+  const REP_BY_ID = Object.fromEntries(REPS.map(r => [r.id, r]));
+
+  const STAGE_META = {
+    prospecting:   { label:'Prospecting',  prob:0.10, chip:'bg-slate-100 text-slate-700 ring-slate-300',   chipActive:'bg-slate-700 text-white ring-slate-700',   bar:'bg-slate-400' },
+    qualification: { label:'Qualification',prob:0.25, chip:'bg-sky-50 text-sky-700 ring-sky-200',          chipActive:'bg-sky-600 text-white ring-sky-600',        bar:'bg-sky-500' },
+    proposal:      { label:'Proposal',     prob:0.50, chip:'bg-amber-50 text-amber-700 ring-amber-200',    chipActive:'bg-amber-600 text-white ring-amber-600',    bar:'bg-amber-500' },
+    negotiation:   { label:'Negotiation',  prob:0.75, chip:'bg-violet-50 text-violet-700 ring-violet-200', chipActive:'bg-violet-600 text-white ring-violet-600',  bar:'bg-violet-500' },
+    closed_won:    { label:'Closed Won',   prob:1.00, chip:'bg-emerald-50 text-emerald-700 ring-emerald-200', chipActive:'', bar:'bg-emerald-500' },
+    closed_lost:   { label:'Closed Lost',  prob:0.00, chip:'bg-rose-50 text-rose-700 ring-rose-200',        chipActive:'', bar:'bg-rose-400' },
+  };
+  const OPEN_STAGE_ORDER = ['prospecting','qualification','proposal','negotiation'];
+
+  const QUARTER_START = '2026-10-01';
+  const QUARTER_END = '2026-12-31';
+  const TODAY = new Date('2026-11-07T00:00:00');
+
+  function mk(account, product, rep, stage, value, date) {
+    return { account, product, rep, stage, value, date };
+  }
+
+  const DEALS = [
+    mk('Brightline Logistics','Enterprise Platform License','mchen','prospecting',145000,'2026-12-18'),
+    mk('Fernwood Capital','Analytics Add-on','mchen','prospecting',18000,'2026-12-05'),
+    mk('Meridian Biotech','Team Plan Upgrade','mchen','prospecting',32000,'2026-11-28'),
+    mk('Pinecrest Insurance','Multi-Year Renewal','mchen','qualification',98000,'2026-12-10'),
+    mk('Vantage Point Media','Implementation Services','mchen','qualification',41000,'2026-11-22'),
+    mk('Redwood Analytics','Enterprise Platform License','mchen','proposal',162000,'2026-11-14'),
+    mk('Ironclad Security Systems','Professional Services Package','mchen','proposal',54000,'2026-12-02'),
+    mk('Keystone Public Schools','Annual Subscription Renewal','mchen','negotiation',76000,'2026-11-12'),
+    mk('Stonebridge Wealth Management','Multi-Year Renewal','mchen','negotiation',134000,'2026-11-09'),
+    mk('Opaline Software','Enterprise Platform License','mchen','closed_won',118000,'2026-10-14'),
+    mk('Cascade Energy Co.','Multi-Year Renewal','mchen','closed_won',95000,'2026-10-29'),
+    mk('Lighthouse Credit Union','Team Plan Upgrade','mchen','closed_won',27000,'2026-11-04'),
+    mk('Hollow Creek Farms','Analytics Add-on','mchen','closed_lost',16000,'2026-10-21'),
+
+    mk('Cobalt Manufacturing','Implementation Services','jpatel','prospecting',48000,'2026-12-20'),
+    mk('Harbor & Vine Hospitality','Team Plan Upgrade','jpatel','prospecting',21000,'2026-12-08'),
+    mk('Briarwood Legal Group','Annual Subscription Renewal','jpatel','prospecting',38000,'2026-11-30'),
+    mk('Granite Peak Construction','Enterprise Platform License','jpatel','qualification',128000,'2026-12-15'),
+    mk('Wavelength Telecom','Analytics Add-on','jpatel','qualification',14000,'2026-11-25'),
+    mk('Ember Digital Agency','Professional Services Package','jpatel','proposal',33000,'2026-11-20'),
+    mk('Clearwater Municipal Services','Multi-Year Renewal','jpatel','proposal',87000,'2026-12-01'),
+    mk('Marrow Biosciences','Enterprise Platform License','jpatel','negotiation',171000,'2026-11-11'),
+    mk('Sable Point Capital','Multi-Year Renewal','jpatel','closed_won',112000,'2026-10-09'),
+    mk('Driftwood Hospitality Group','Team Plan Upgrade','jpatel','closed_won',24000,'2026-10-27'),
+    mk('Birchwood Realty Partners','Annual Subscription Renewal','jpatel','closed_lost',29000,'2026-11-01'),
+
+    mk('Tidalwave Shipping','Enterprise Platform License','sriv','prospecting',156000,'2026-12-22'),
+    mk('Nimbus Cloud Services','API Access Expansion','sriv','prospecting',11000,'2026-12-12'),
+    mk('Coppergate Retailers','Team Plan Upgrade','sriv','prospecting',19000,'2026-11-19'),
+    mk('Fieldstone Architecture','Implementation Services','sriv','prospecting',29000,'2026-10-30'),
+    mk('Quillon Legal Tech','Analytics Add-on','sriv','qualification',16500,'2026-11-27'),
+    mk('Verity Insurance Brokers','Multi-Year Renewal','sriv','qualification',73000,'2026-12-06'),
+    mk('Palisade Outdoor Co.','Team Plan Upgrade','sriv','qualification',22000,'2026-10-22'),
+    mk('Northgate Retail Group','Professional Services Package','sriv','proposal',41000,'2026-11-17'),
+    mk('Anchor Freight Systems','Enterprise Platform License','sriv','negotiation',149000,'2026-11-10'),
+    mk('Thistle & Co. Consulting','Annual Subscription Renewal','sriv','closed_won',31000,'2026-10-16'),
+    mk('Vellum Publishing House','API Access Expansion','sriv','closed_lost',9500,'2026-10-20'),
+    mk('Parallax Research Institute','Implementation Services','sriv','closed_lost',26000,'2026-10-31'),
+    mk('Ferris Industrial','Team Plan Upgrade','sriv','closed_lost',18000,'2026-11-05'),
+
+    mk('Atlas Robotics','Enterprise Platform License','ekow','prospecting',168000,'2026-12-16'),
+    mk('Solstice Health Partners','Multi-Year Renewal','ekow','prospecting',104000,'2026-11-24'),
+    mk('Lumen Financial Group','Analytics Add-on','ekow','qualification',19500,'2026-11-21'),
+    mk('Vantage Point Media','Professional Services Package','ekow','qualification',36000,'2026-12-03'),
+    mk('Meridian Biotech','Enterprise Platform License','ekow','proposal',139000,'2026-11-13'),
+    mk('Opaline Software','Annual Subscription Renewal','ekow','negotiation',67000,'2026-11-10'),
+    mk('Cobalt Manufacturing','Multi-Year Renewal','ekow','closed_won',121000,'2026-10-23'),
+    mk('Briarwood Legal Group','Team Plan Upgrade','ekow','closed_won',23000,'2026-11-02'),
+
+    mk('Granite Peak Construction','API Access Expansion','mwebb','prospecting',13000,'2026-12-14'),
+    mk('Wavelength Telecom','Implementation Services','mwebb','prospecting',44000,'2026-11-29'),
+    mk('Ember Digital Agency','Team Plan Upgrade','mwebb','qualification',20000,'2026-10-15'),
+    mk('Clearwater Municipal Services','Analytics Add-on','mwebb','qualification',17000,'2026-11-26'),
+    mk('Marrow Biosciences','Professional Services Package','mwebb','proposal',52000,'2026-12-04'),
+    mk('Sable Point Capital','Enterprise Platform License','mwebb','proposal',158000,'2026-11-18'),
+    mk('Driftwood Hospitality Group','Multi-Year Renewal','mwebb','negotiation',91000,'2026-11-09'),
+    mk('Birchwood Realty Partners','Annual Subscription Renewal','mwebb','negotiation',58000,'2026-11-11'),
+    mk('Tidalwave Shipping','Team Plan Upgrade','mwebb','closed_won',26000,'2026-10-12'),
+    mk('Nimbus Cloud Services','API Access Expansion','mwebb','closed_lost',10500,'2026-10-26'),
+    mk('Coppergate Retailers','Implementation Services','mwebb','closed_lost',32000,'2026-11-03'),
+
+    mk('Fieldstone Architecture','Enterprise Platform License','pnair','prospecting',133000,'2026-12-19'),
+    mk('Quillon Legal Tech','Team Plan Upgrade','pnair','prospecting',24500,'2026-11-30'),
+    mk('Verity Insurance Brokers','Analytics Add-on','pnair','qualification',15500,'2026-11-23'),
+    mk('Palisade Outdoor Co.','Multi-Year Renewal','pnair','qualification',86000,'2026-12-07'),
+    mk('Northgate Retail Group','Implementation Services','pnair','qualification',37000,'2026-10-28'),
+    mk('Anchor Freight Systems','Professional Services Package','pnair','proposal',45000,'2026-11-16'),
+    mk('Thistle & Co. Consulting','Enterprise Platform License','pnair','proposal',147000,'2026-12-09'),
+    mk('Vellum Publishing House','Annual Subscription Renewal','pnair','negotiation',62000,'2026-11-12'),
+    mk('Parallax Research Institute','Multi-Year Renewal','pnair','closed_won',108000,'2026-10-19'),
+    mk('Ferris Industrial','Analytics Add-on','pnair','closed_lost',14000,'2026-11-06'),
+  ];
+  DEALS.forEach((d, i) => { d.id = 'D-' + (1000 + i); d.dealName = d.account + ' — ' + d.product; });
+
+  const fmtUSD = new Intl.NumberFormat('en-US', { style:'currency', currency:'USD', maximumFractionDigits:0 });
+  const fmtDate = new Intl.DateTimeFormat('en-US', { month:'short', day:'numeric', year:'numeric' });
+  const pct = n => (n * 100).toFixed(1) + '%';
+  const parseDate = s => new Date(s + 'T00:00:00');
+
+  const state = {
+    search: '',
+    reps: new Set(REPS.map(r => r.id)),
+    stages: new Set(OPEN_STAGE_ORDER),
+    minValue: null,
+    maxValue: null,
+    dateFrom: QUARTER_START,
+    dateTo: QUARTER_END,
+    sortKey: 'value',
+    sortDir: 'desc',
+    tab: 'salesperson',
+  };
+
+  const el = id => document.getElementById(id);
+
+  function buildRepCheckboxes() {
+    const list = el('repCheckboxList');
+    list.innerHTML = '';
+    REPS.forEach(r => {
+      const row = document.createElement('label');
+      row.className = 'flex items-center gap-2 rounded px-1.5 py-1.5 text-sm text-slate-700 hover:bg-slate-50 cursor-pointer';
+      row.innerHTML =
+        '<input type="checkbox" data-rep="' + r.id + '" checked class="h-4 w-4 rounded border-slate-300 text-teal-700 focus:ring-teal-600" />' +
+        '<span>' + r.name + '</span>';
+      list.appendChild(row);
+    });
+    list.addEventListener('change', e => {
+      const cb = e.target.closest('input[data-rep]');
+      if (!cb) return;
+      if (cb.checked) state.reps.add(cb.dataset.rep); else state.reps.delete(cb.dataset.rep);
+      updateRepSummary();
+      renderAll();
+    });
+  }
+
+  function updateRepSummary() {
+    const n = state.reps.size;
+    el('repSummaryText').textContent = n === REPS.length ? 'All reps' : (n === 0 ? 'No reps selected' : n + ' of ' + REPS.length + ' reps');
+  }
+
+  function buildStageChips() {
+    const wrap = el('stageChips');
+    wrap.innerHTML = '';
+    OPEN_STAGE_ORDER.forEach(key => {
+      const meta = STAGE_META[key];
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.dataset.stage = key;
+      btn.setAttribute('aria-pressed', 'true');
+      btn.className = 'rounded-full px-3 py-1.5 text-xs font-medium ring-1 ring-inset ' + meta.chipActive;
+      btn.textContent = meta.label;
+      btn.addEventListener('click', () => {
+        const active = btn.getAttribute('aria-pressed') === 'true';
+        if (active) {
+          state.stages.delete(key);
+          btn.setAttribute('aria-pressed', 'false');
+          btn.className = 'rounded-full px-3 py-1.5 text-xs font-medium ring-1 ring-inset ' + meta.chip;
+        } else {
+          state.stages.add(key);
+          btn.setAttribute('aria-pressed', 'true');
+          btn.className = 'rounded-full px-3 py-1.5 text-xs font-medium ring-1 ring-inset ' + meta.chipActive;
+        }
+        renderAll();
+      });
+      wrap.appendChild(btn);
+    });
+  }
+
+  function getOpenDeals() {
+    return DEALS.filter(d => OPEN_STAGE_ORDER.includes(d.stage));
+  }
+
+  function getFilteredOpenDeals() {
+    const q = state.search.trim().toLowerCase();
+    const from = parseDate(state.dateFrom || QUARTER_START);
+    const to = parseDate(state.dateTo || QUARTER_END);
+    return getOpenDeals().filter(d => {
+      if (!state.reps.has(d.rep)) return false;
+      if (!state.stages.has(d.stage)) return false;
+      if (q && !d.dealName.toLowerCase().includes(q)) return false;
+      if (state.minValue != null && d.value < state.minValue) return false;
+      if (state.maxValue != null && d.value > state.maxValue) return false;
+      const dd = parseDate(d.date);
+      if (dd < from || dd > to) return false;
+      return true;
+    });
+  }
+
+  function weightedValue(d) { return d.value * STAGE_META[d.stage].prob; }
+
+  function computeWinRate(repIds) {
+    const closed = DEALS.filter(d => (d.stage === 'closed_won' || d.stage === 'closed_lost') && repIds.has(d.rep));
+    const won = closed.filter(d => d.stage === 'closed_won');
+    const lost = closed.filter(d => d.stage === 'closed_lost');
+    const wonValue = won.reduce((s, d) => s + d.value, 0);
+    const lostValue = lost.reduce((s, d) => s + d.value, 0);
+    const total = won.length + lost.length;
+    return {
+      won: won.length, lost: lost.length, total,
+      rate: total ? won.length / total : null,
+      valueRate: (wonValue + lostValue) ? wonValue / (wonValue + lostValue) : null,
+    };
+  }
+
+  function renderKPIs(filtered) {
+    const pipeline = filtered.reduce((s, d) => s + d.value, 0);
+    const weighted = filtered.reduce((s, d) => s + weightedValue(d), 0);
+    const count = filtered.length;
+    const avg = count ? pipeline / count : 0;
+
+    el('kpiPipeline').textContent = fmtUSD.format(pipeline);
+    el('kpiPipelineInline').textContent = fmtUSD.format(pipeline);
+    el('kpiWeighted').textContent = fmtUSD.format(weighted);
+    el('kpiCount').textContent = count.toString();
+    el('kpiAvg').textContent = fmtUSD.format(Math.round(avg));
+    el('kpiWeightedBar').style.width = pipeline ? Math.min(100, (weighted / pipeline) * 100) + '%' : '0%';
+
+    const wr = computeWinRate(state.reps);
+    const badge = el('kpiWinBadge');
+    if (wr.rate == null) {
+      el('kpiWinRate').textContent = '—';
+      badge.textContent = 'No closed deals';
+      badge.className = 'inline-flex items-center rounded-full bg-slate-100 px-2 py-0.5 text-xs font-semibold text-slate-500';
+    } else {
+      el('kpiWinRate').textContent = pct(wr.rate);
+      const tier = wr.rate >= 0.5 ? ['bg-emerald-50 text-emerald-700', 'On target'] : wr.rate >= 0.3 ? ['bg-amber-50 text-amber-700', 'Watch'] : ['bg-rose-50 text-rose-700', 'Below target'];
+      badge.className = 'inline-flex items-center rounded-full px-2 py-0.5 text-xs font-semibold ' + tier[0];
+      badge.textContent = tier[1];
+    }
+    el('kpiWonCount').textContent = wr.won.toString();
+    el('kpiLostCount').textContent = wr.lost.toString();
+    el('kpiValueWinRate').textContent = wr.valueRate == null ? '—' : pct(wr.valueRate);
+    const wonPct = wr.total ? (wr.won / wr.total) * 100 : 0;
+    const lostPct = wr.total ? (wr.lost / wr.total) * 100 : 0;
+    el('kpiWinBarWon').style.width = wonPct + '%';
+    el('kpiWinBarLost').style.width = lostPct + '%';
+  }
+
+  function barRow({ leftHtml, width, barClass, rightCells }) {
+    const row = document.createElement('div');
+    row.className = 'flex items-center gap-4';
+    const left = document.createElement('div');
+    left.className = 'w-44 shrink-0 text-sm font-medium text-slate-700 truncate';
+    left.innerHTML = leftHtml;
+    const track = document.createElement('div');
+    track.className = 'h-2.5 flex-1 overflow-hidden rounded-full bg-slate-100';
+    const fill = document.createElement('div');
+    fill.className = 'h-full rounded-full ' + barClass;
+    fill.style.width = width + '%';
+    track.appendChild(fill);
+    const right = document.createElement('div');
+    right.className = 'flex shrink-0 items-center gap-4 text-sm tabular-nums';
+    right.innerHTML = rightCells;
+    row.appendChild(left); row.appendChild(track); row.appendChild(right);
+    return row;
+  }
+
+  function renderBySalesperson(filtered) {
+    const wrap = el('bySalespersonRows');
+    wrap.innerHTML = '';
+    const rows = REPS.filter(r => state.reps.has(r.id)).map(rep => {
+      const repDeals = filtered.filter(d => d.rep === rep.id);
+      const value = repDeals.reduce((s, d) => s + d.value, 0);
+      const weighted = repDeals.reduce((s, d) => s + weightedValue(d), 0);
+      const wr = computeWinRate(new Set([rep.id]));
+      return { rep, count: repDeals.length, value, weighted, wr };
+    }).sort((a, b) => b.value - a.value);
+
+    if (!rows.length) {
+      wrap.innerHTML = '<p class="py-6 text-center text-sm text-slate-400">No salespeople selected.</p>';
+      return;
+    }
+    const max = Math.max(1, ...rows.map(r => r.value));
+    rows.forEach(r => {
+      const wrText = r.wr.rate == null ? '—' : pct(r.wr.rate);
+      const wrClass = r.wr.rate == null ? 'bg-slate-100 text-slate-500' : r.wr.rate >= 0.5 ? 'bg-emerald-50 text-emerald-700' : r.wr.rate >= 0.3 ? 'bg-amber-50 text-amber-700' : 'bg-rose-50 text-rose-700';
+      wrap.appendChild(barRow({
+        leftHtml:
+          '<span class="mr-2 inline-flex h-7 w-7 items-center justify-center rounded-full bg-slate-100 text-xs font-semibold text-slate-600 align-middle">' + r.rep.initials + '</span>' +
+          '<span class="align-middle">' + r.rep.name + '</span>',
+        width: (r.value / max) * 100,
+        barClass: 'bg-teal-600',
+        rightCells:
+          '<span class="w-16 text-right text-slate-500">' + r.count + ' deals</span>' +
+          '<span class="w-24 text-right font-medium text-slate-900">' + fmtUSD.format(r.value) + '</span>' +
+          '<span class="w-24 text-right text-slate-500">' + fmtUSD.format(Math.round(r.weighted)) + '</span>' +
+          '<span class="w-16 rounded-full px-2 py-0.5 text-right text-xs font-semibold ' + wrClass + '">' + wrText + '</span>',
+      }));
+    });
+  }
+
+  function renderByStage(filtered) {
+    const wrap = el('byStageRows');
+    wrap.innerHTML = '';
+    const rows = OPEN_STAGE_ORDER.filter(k => state.stages.has(k)).map(key => {
+      const meta = STAGE_META[key];
+      const deals = filtered.filter(d => d.stage === key);
+      const value = deals.reduce((s, d) => s + d.value, 0);
+      const weighted = deals.reduce((s, d) => s + weightedValue(d), 0);
+      return { key, meta, count: deals.length, value, weighted };
+    });
+    if (!rows.length) {
+      wrap.innerHTML = '<p class="py-6 text-center text-sm text-slate-400">No stages selected.</p>';
+      return;
+    }
+    const max = Math.max(1, ...rows.map(r => r.value));
+    const totalValue = rows.reduce((s, r) => s + r.value, 0) || 1;
+    rows.forEach(r => {
+      wrap.appendChild(barRow({
+        leftHtml: '<span class="inline-flex items-center gap-2"><span class="h-2.5 w-2.5 rounded-full ' + r.meta.bar + '"></span>' + r.meta.label + '</span>',
+        width: (r.value / max) * 100,
+        barClass: r.meta.bar,
+        rightCells:
+          '<span class="w-16 text-right text-slate-500">' + r.count + ' deals</span>' +
+          '<span class="w-24 text-right font-medium text-slate-900">' + fmtUSD.format(r.value) + '</span>' +
+          '<span class="w-24 text-right text-slate-500">' + fmtUSD.format(Math.round(r.weighted)) + '</span>' +
+          '<span class="w-16 text-right text-slate-400">' + pct(r.value / totalValue) + '</span>',
+      }));
+    });
+  }
+
+  function sortDeals(deals) {
+    const { sortKey, sortDir } = state;
+    const dir = sortDir === 'asc' ? 1 : -1;
+    const copy = deals.slice();
+    copy.sort((a, b) => {
+      let av, bv;
+      switch (sortKey) {
+        case 'account': av = a.dealName.toLowerCase(); bv = b.dealName.toLowerCase(); break;
+        case 'rep': av = REP_BY_ID[a.rep].name; bv = REP_BY_ID[b.rep].name; break;
+        case 'stage': av = OPEN_STAGE_ORDER.indexOf(a.stage); bv = OPEN_STAGE_ORDER.indexOf(b.stage); break;
+        case 'prob': av = STAGE_META[a.stage].prob; bv = STAGE_META[b.stage].prob; break;
+        case 'weighted': av = weightedValue(a); bv = weightedValue(b); break;
+        case 'date': av = a.date; bv = b.date; break;
+        default: av = a.value; bv = b.value;
+      }
+      if (av < bv) return -1 * dir;
+      if (av > bv) return 1 * dir;
+      return 0;
+    });
+    return copy;
+  }
+
+  function renderDealsTable(filtered) {
+    const sorted = sortDeals(filtered);
+    const body = el('dealTableBody');
+    body.innerHTML = '';
+    const totalOpen = getOpenDeals().length;
+    el('dealCountCaption').textContent = 'Showing ' + sorted.length + ' of ' + totalOpen + ' deals';
+
+    const table = body.closest('table');
+    const emptyState = el('emptyState');
+    if (!sorted.length) {
+      table.classList.add('hidden');
+      emptyState.classList.remove('hidden');
+      emptyState.classList.add('flex');
+      return;
+    }
+    table.classList.remove('hidden');
+    emptyState.classList.add('hidden');
+    emptyState.classList.remove('flex');
+
+    sorted.forEach(d => {
+      const meta = STAGE_META[d.stage];
+      const rep = REP_BY_ID[d.rep];
+      const overdue = parseDate(d.date) < TODAY;
+      const tr = document.createElement('tr');
+      tr.className = 'hover:bg-slate-50';
+      tr.innerHTML =
+        '<td class="px-4 py-2.5"><div class="font-medium text-slate-900">' + d.account + '</div><div class="text-xs text-slate-500">' + d.product + '</div></td>' +
+        '<td class="px-4 py-2.5 text-slate-700">' + rep.name + '</td>' +
+        '<td class="px-4 py-2.5"><span class="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ring-1 ring-inset ' + meta.chip + '">' + meta.label + '</span></td>' +
+        '<td class="px-4 py-2.5 text-right tabular-nums font-medium text-slate-900">' + fmtUSD.format(d.value) + '</td>' +
+        '<td class="px-4 py-2.5 text-right tabular-nums text-slate-500">' + pct(meta.prob) + '</td>' +
+        '<td class="px-4 py-2.5 text-right tabular-nums text-slate-700">' + fmtUSD.format(Math.round(weightedValue(d))) + '</td>' +
+        '<td class="px-4 py-2.5 text-slate-700">' + fmtDate.format(parseDate(d.date)) + (overdue ? ' <span class="ml-1 inline-flex items-center rounded-full bg-rose-50 px-1.5 py-0.5 text-[11px] font-semibold text-rose-700 ring-1 ring-inset ring-rose-200">Overdue</span>' : '') + '</td>';
+      body.appendChild(tr);
+    });
+  }
+
+  function updateSortIndicators() {
+    document.querySelectorAll('[data-sorticon]').forEach(icon => {
+      const key = icon.dataset.sorticon;
+      if (key === state.sortKey) {
+        icon.classList.remove('opacity-0');
+        icon.classList.add('opacity-100');
+        icon.style.transform = state.sortDir === 'asc' ? 'rotate(180deg)' : 'rotate(0deg)';
+      } else {
+        icon.classList.add('opacity-0');
+        icon.classList.remove('opacity-100');
+      }
+    });
+  }
+
+  function renderAll() {
+    const filtered = getFilteredOpenDeals();
+    renderKPIs(filtered);
+    renderBySalesperson(filtered);
+    renderByStage(filtered);
+    renderDealsTable(filtered);
+    updateSortIndicators();
+  }
+
+  function exportCSV() {
+    const sorted = sortDeals(getFilteredOpenDeals());
+    const header = ['Deal', 'Account', 'Salesperson', 'Stage', 'Value', 'Probability', 'Weighted Value', 'Expected Close', 'Overdue'];
+    const rows = sorted.map(d => {
+      const meta = STAGE_META[d.stage];
+      const overdue = parseDate(d.date) < TODAY ? 'Yes' : 'No';
+      return [d.dealName, d.account, REP_BY_ID[d.rep].name, meta.label, d.value, meta.prob, Math.round(weightedValue(d)), d.date, overdue]
+        .map(v => typeof v === 'string' && v.includes(',') ? '"' + v.replace(/"/g, '""') + '"' : v)
+        .join(',');
+    });
+    const csv = [header.join(','), ...rows].join('\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'sales-pipeline-report-q4-2026.csv';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }
+
+  function resetFilters() {
+    state.search = '';
+    state.reps = new Set(REPS.map(r => r.id));
+    state.stages = new Set(OPEN_STAGE_ORDER);
+    state.minValue = null;
+    state.maxValue = null;
+    state.dateFrom = QUARTER_START;
+    state.dateTo = QUARTER_END;
+
+    el('fSearch').value = '';
+    el('fSearchClear').classList.add('hidden');
+    el('fMin').value = '';
+    el('fMax').value = '';
+    el('fDateFrom').value = QUARTER_START;
+    el('fDateTo').value = QUARTER_END;
+    document.querySelectorAll('#repCheckboxList input[type=checkbox]').forEach(cb => cb.checked = true);
+    updateRepSummary();
+    document.querySelectorAll('#stageChips button').forEach(btn => {
+      const meta = STAGE_META[btn.dataset.stage];
+      btn.setAttribute('aria-pressed', 'true');
+      btn.className = 'rounded-full px-3 py-1.5 text-xs font-medium ring-1 ring-inset ' + meta.chipActive;
+    });
+    renderAll();
+  }
+
+  function setTab(tab) {
+    state.tab = tab;
+    const map = {
+      salesperson: { btn: el('tabBtnSalesperson'), panel: el('panelSalesperson') },
+      stage: { btn: el('tabBtnStage'), panel: el('panelStage') },
+    };
+    Object.entries(map).forEach(([key, { btn, panel }]) => {
+      const active = key === tab;
+      btn.setAttribute('aria-selected', active ? 'true' : 'false');
+      btn.className = active
+        ? 'rounded-md px-3 py-1.5 text-sm font-medium text-white bg-teal-700'
+        : 'rounded-md px-3 py-1.5 text-sm font-medium text-slate-600 hover:bg-slate-100';
+      panel.classList.toggle('hidden', !active);
+    });
+  }
+
+  function init() {
+    buildRepCheckboxes();
+    buildStageChips();
+    el('fDateFrom').value = QUARTER_START;
+    el('fDateTo').value = QUARTER_END;
+
+    el('fSearch').addEventListener('input', e => {
+      state.search = e.target.value;
+      el('fSearchClear').classList.toggle('hidden', !state.search);
+      renderAll();
+    });
+    el('fSearchClear').addEventListener('click', () => {
+      el('fSearch').value = '';
+      state.search = '';
+      el('fSearchClear').classList.add('hidden');
+      renderAll();
+    });
+    el('fMin').addEventListener('input', e => { state.minValue = e.target.value === '' ? null : Number(e.target.value); renderAll(); });
+    el('fMax').addEventListener('input', e => { state.maxValue = e.target.value === '' ? null : Number(e.target.value); renderAll(); });
+    el('fDateFrom').addEventListener('change', e => { state.dateFrom = e.target.value || QUARTER_START; renderAll(); });
+    el('fDateTo').addEventListener('change', e => { state.dateTo = e.target.value || QUARTER_END; renderAll(); });
+
+    el('repSelectAll').addEventListener('click', () => {
+      document.querySelectorAll('#repCheckboxList input[type=checkbox]').forEach(cb => cb.checked = true);
+      state.reps = new Set(REPS.map(r => r.id));
+      updateRepSummary();
+      renderAll();
+    });
+    el('repSelectNone').addEventListener('click', () => {
+      document.querySelectorAll('#repCheckboxList input[type=checkbox]').forEach(cb => cb.checked = false);
+      state.reps = new Set();
+      updateRepSummary();
+      renderAll();
+    });
+
+    document.querySelectorAll('[data-sort]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const key = btn.dataset.sort;
+        if (state.sortKey === key) {
+          state.sortDir = state.sortDir === 'asc' ? 'desc' : 'asc';
+        } else {
+          state.sortKey = key;
+          state.sortDir = key === 'account' || key === 'rep' || key === 'stage' ? 'asc' : 'desc';
+        }
+        renderAll();
+      });
+    });
+
+    el('tabBtnSalesperson').addEventListener('click', () => setTab('salesperson'));
+    el('tabBtnStage').addEventListener('click', () => setTab('stage'));
+
+    el('btnReset').addEventListener('click', resetFilters);
+    el('emptyStateReset').addEventListener('click', resetFilters);
+    el('btnExport').addEventListener('click', exportCSV);
+    el('btnPrint').addEventListener('click', () => window.print());
+
+    document.addEventListener('click', e => {
+      const details = el('repDropdown');
+      if (details.open && !details.contains(e.target)) details.open = false;
+    });
+
+    updateRepSummary();
+    setTab('salesperson');
+    renderAll();
+  }
+
+  init();
+</script>
+</body>
+</html>

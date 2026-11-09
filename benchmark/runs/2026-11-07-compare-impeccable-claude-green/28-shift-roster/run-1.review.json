@@ -1,0 +1,60 @@
+{
+  "brief": "28-shift-roster",
+  "run": 1,
+  "items": [
+    {
+      "item": "The grid header names the week with its date range (such as \"Week 45 · 2–8 Nov 2026\"), every day column shows the weekday and date, and controls move to the previous, next and current week",
+      "pass": false,
+      "evidence": "#weekRange shows only fmtRange(offset) e.g. 'Nov 9–15, 2026' with no week number, and day columns correctly show '<span>Mon</span><span>9</span>' etc. (renderHeaderRow). But only #prevWeekBtn/#nextWeekBtn exist; prevBtn.disabled=offset<=-1, nextBtn.disabled=offset>=1 — there is no 'current week'/'Today' control, and the default view (offset 0) isn't even the week containing TODAY (Nov 7, 2026)."
+    },
+    {
+      "item": "Each shift shows its start and end time in one consistent 24-hour format and the role or station (such as \"07:00–15:00 · Cashier\"), and a shift that ends after midnight is marked as ending the next day",
+      "pass": false,
+      "evidence": "fmt12() formats times as 12-hour with AM/PM ('8:00 AM–4:00 PM'), not 24-hour, used in renderCell's '<span>'+fmt12(shift.start)+'–'+fmt12(shift.end)+'</span>' + shift.section. No TEMPLATES entry or rendering logic marks a shift as ending the next day (no overnight shifts exist and no 'next day' label code anywhere)."
+    },
+    {
+      "item": "Each staff row shows the week's scheduled hours against contracted hours (such as \"36 / 40 h\"), the scheduled figure equals that person's shifts less unpaid breaks, and anyone over or under contract is flagged in words",
+      "pass": false,
+      "evidence": "Each row's trailing cell only renders '<span>'+formatHours(weekly)+'</span>' (e.g. '38h'). STAFF objects (id, name, role, initials) have no contracted-hours field, and there is no comparison or over/under-contract text anywhere in the code."
+    },
+    {
+      "item": "A footer row shows, for each day, the staff count or hours scheduled against the required cover, and days below the requirement are marked in text (such as \"Short 1\")",
+      "pass": false,
+      "evidence": "renderFoot() produces one row labeled 'Scheduled hours' with formatHours(dayTotals[i]) per day plus a grand total — there is no required-cover figure and no 'Short N' or similar shortfall text."
+    },
+    {
+      "item": "The sample data contains at least one rule conflict, such as overlapping shifts for one person or less than 11 hours' rest between a closing and the next opening shift, shown on the affected cell with a written reason",
+      "pass": false,
+      "evidence": "No conflict/overlap/rest-check logic exists anywhere in the script. E.g. person 4's week -1 pattern has Sat CF 14:00–22:00 followed by Sun OM 08:00–16:00 (only 10h rest), but renderCell renders both as ordinary styled shift buttons with no conflict marker or written reason."
+    },
+    {
+      "item": "Approved leave, days off and public holidays appear as labelled cells (such as \"Annual leave\", \"Day off\") that look different from an empty, unscheduled cell",
+      "pass": false,
+      "evidence": "buildShift(code) returns null for both 'OFF' and any missing pattern entry, and renderCell renders a null shift as the same plain 'Add shift' plus-icon button regardless of whether the day is a scheduled day off or genuinely unscheduled. Only shift.leave gets a distinct label ('Time off'/'Approved', rose styling); there is no public-holiday type at all."
+    },
+    {
+      "item": "The week's status (Draft or Published) is shown, and publishing goes through a confirmation that names the week and the number of unresolved conflicts or warnings",
+      "pass": false,
+      "evidence": "#statusBadge + statusMap correctly display 'Draft'/'Published'/'Not scheduled'/'Unpublished changes'. But el.publishBtn's click handler sets week.status='published' and calls renderAll()/toast() immediately with no confirmation dialog, and no mention of the week name or a conflict/warning count anywhere in the publish flow."
+    },
+    {
+      "item": "The grid is a <table> with staff names as row headers and days as column headers, and each shift or empty cell is keyboard-reachable with an accessible name that includes the person and the date (such as \"Add shift, Lan Pham, Tue 3 Nov\")",
+      "pass": false,
+      "evidence": "#rosterTable is a real <table> with <th scope=\"row\"> staff names and <th scope=\"col\"> day headers, and every cell is a focusable <button class=\"cell-btn\">. But aria-label values ('Add shift for ' + person.name + ' on ' + DAY_NAMES[dayIndex], and the filled-shift label ending in '... ' + DAY_NAMES[dayIndex] + ', ' + fmt12(shift.start) ...) include only the weekday abbreviation (e.g. 'Tue'), never the date-of-month."
+    },
+    {
+      "item": "A week with no shifts yet shows a message with a way to start (such as \"Copy last week\"), and a loading state and a load error with a retry button exist",
+      "pass": false,
+      "evidence": "#copyBanner shows \"This week hasn't been scheduled yet.\" with a \"Copy last week's shifts\" button when weekIsEmpty(week) — this part works. But there is no loading spinner/skeleton markup and no error state or retry button anywhere in the HTML or script; all data is synchronous hardcoded STAFF/PATTERNS."
+    }
+  ],
+  "tells": [
+    "kpi-icon-tiles",
+    "initials-avatar-non-person",
+    "glass",
+    "tracked-uppercase-labels",
+    "oversized-radius"
+  ],
+  "notes": "kpi-icon-tiles: the 4-card row (#statHours/#statShifts/#statTeam/#statGap) each pairs a circular colored icon badge with a big number and small label. initials-avatar-non-person: header uses a single-letter 'N' avatar badge (span.rounded-lg.bg-teal-600) to represent the store 'Northgate', not a person. glass: header is 'bg-white/95 backdrop-blur', flagged by audit.json as a no-backdrop-blur violation (blur(8px)). tracked-uppercase-labels: 'Shift Roster' eyebrow text, all column headers, and shift-section captions all use uppercase tracking-wide classes. oversized-radius: KPI tile cards use rounded-xl (12px), exceeding the 8px max flagged by audit.json's radius-scale violation. Overall the page is a well-built interactive mock (working week nav, popovers, CSV export, print) but implements almost none of the roster-specific acceptance criteria: no 24h time format, no contracted-hours tracking, no required-cover footer, no conflict detection, no day-off/holiday distinction, no publish confirmation, incomplete accessible names, and no loading/error states.",
+  "blind": true
+}

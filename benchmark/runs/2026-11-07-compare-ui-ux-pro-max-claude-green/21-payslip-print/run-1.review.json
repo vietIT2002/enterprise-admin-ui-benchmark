@@ -1,0 +1,60 @@
+{
+  "brief": "21-payslip-print",
+  "run": 1,
+  "items": [
+    {
+      "item": "The slip identifies the employer (company name and tax code or address), the employee (full name, employee ID, department, job title) and the pay period together with its payment date",
+      "pass": true,
+      "evidence": "Letterhead shows 'Nimbus Cloud Technologies Inc.', address '500 Market Street, Suite 2100, San Francisco, CA 94105' and 'EIN: 94-3385120'; dl#employeeDetails includes Employee Name 'Priya Sharma', Employee ID 'NCT-10482', Department 'Design & UX', Designation 'Senior Product Designer'; Pay Period 'November 1 – 30, 2026' and Pay Date 'November 28, 2026' both rendered."
+    },
+    {
+      "item": "Earnings are itemised — basic salary with its proration (such as \"21 / 22 working days\"), each allowance, and overtime as hours × rate — and Gross pay equals the sum of the earnings lines",
+      "pass": false,
+      "evidence": "earnings array has flat rows: { label: 'Basic Salary', current: 6500.00 } with no working-days proration text, and { label: 'Overtime Pay', current: 120.00 } with no hours/rate breakdown — only a lump sum. Gross Earnings ($8,120.00) does correctly equal the sum of the five rows via sum(earnings,'current'), but the required proration and hours×rate itemisation are absent."
+    },
+    {
+      "item": "Deductions show the employee's social, health and unemployment insurance (each with its rate and contribution base) and personal income tax (with the taxable income it was computed on) apart from other deductions such as salary advances, and Total deductions equals their sum",
+      "pass": false,
+      "evidence": "Deduction rows are US-style: 'Federal Income Tax', 'State Income Tax', 'Social Security (6.2%)', 'Medicare (1.45%)', '401(k) Contribution (6%)', 'Health Insurance Premium' — rates shown for Social Security/Medicare/401k but no contribution base for any of them, no unemployment insurance line, and no taxable-income figure backing the income-tax lines. Total Deductions ($2,907.38) does equal the sum of the rows, but the required itemisation is missing."
+    },
+    {
+      "item": "Net pay equals Gross pay minus Total deductions to the last unit and is the most prominent figure on the slip",
+      "pass": true,
+      "evidence": "script: `const netPay = grossCurrent - deductionsCurrent;` → $8,120.00 − $2,907.38 = $5,212.62, matching #netPayAmount in the screenshot. Rendered at text-3xl/sm:text-4xl font-extrabold in an emerald callout box, larger than any other text on the page (h2 'Payslip' is only text-2xl)."
+    },
+    {
+      "item": "Amounts line up on the right with fixed-width digits and thousand separators, the currency is named, and decimals suit the currency (none for VND, two for USD) throughout",
+      "pass": true,
+      "evidence": "All numeric cells use class `tabular-nums text-right`; audit.json reports numericCells.misaligned:0, nonTabular:0; amounts formatted with `new Intl.NumberFormat('en-US',{style:'currency',currency:'USD'})` producing e.g. '$6,500.00' — $ identifies USD and two decimals are used consistently."
+    },
+    {
+      "item": "Earnings and deductions are marked up as tables with header cells or as dt/dd label–value pairs, so a screen reader announces each amount together with its label",
+      "pass": true,
+      "evidence": "Earnings and Deductions are real `<table>` elements with `<th scope=\"col\">Description/Current/YTD</th>` headers and each data row rendered as `<th scope=\"row\">${row.label}</th><td>...</td>` (renderRow function), plus sr-only `<caption>` elements."
+    },
+    {
+      "item": "A Print button is present, and the print stylesheet hides the app's sidebar, top bar and buttons, sets an A4 page with @page and keeps the earnings and deductions blocks from splitting across pages",
+      "pass": false,
+      "evidence": "#printBtn calls window.print(); `.no-print{display:none!important}` hides the top header/button bar (no sidebar exists in this layout); `@page{size:A4;margin:14mm}` is defined. However no `break-inside:avoid` / `page-break-inside:avoid` rule exists anywhere in the stylesheet, so the earnings/deductions tables are not protected from splitting across printed pages."
+    },
+    {
+      "item": "The bank account number is masked except for its last four digits, and the slip carries a \"Confidential\" marking that also appears when printed",
+      "pass": true,
+      "evidence": "employee.bankAccount = '**** **** **** 4821' shown in dd#Bank Account; the 'Confidential' label (`<span class=\"... uppercase\">Confidential</span>`) sits in the letterhead with no `.no-print` class, so it remains visible in the print view."
+    },
+    {
+      "item": "A period selector switches between months and the heading names the month shown; a month without a payslip shows a message saying so rather than zeros, and loading and error-with-retry states are built in",
+      "pass": false,
+      "evidence": "Breadcrumb only displays static text 'November 2026' (no `<select>`/dropdown control anywhere in the markup); all data comes from hardcoded `employee`/`earnings`/`deductions` JS objects rendered once via `render()` — there is no month-switching logic, no empty-month message, and no loading or error/retry UI."
+    }
+  ],
+  "tells": [
+    "gradient — accent bar: `<div class=\"h-2 print-exact bg-gradient-to-r from-brand-700 via-brand-600 to-brand-500\">`",
+    "tracked-uppercase-labels — section headers use `text-xs font-semibold tracking-wide text-slate-400 uppercase` (e.g. 'EMPLOYEE DETAILS', 'EARNINGS', 'DEDUCTIONS', 'EMPLOYER CONTRIBUTIONS') and the 'CONFIDENTIAL' badge uses `tracking-widest uppercase`",
+    "initials-avatar-non-person — company logo rendered as a rounded-square initials badge `NC` (`w-14 h-14 rounded-xl bg-brand-900 ... font-extrabold text-xl`), the avatar pattern applied to a company rather than a person",
+    "oversized-radius — audit.json flags `article#payslip` at 16px and the logo badge at 12px, both exceeding the ≤8px guideline (radius-scale violation, 4 distinct radii 6/8/12/16px in use)",
+    "card-in-card — the emerald Net Pay panel (`bg-emerald-50 border border-emerald-200 rounded-xl p-5 sm:p-6`) is nested inside the outer white article card (`bg-white border rounded-2xl shadow-sm`)"
+  ],
+  "notes": "Static single-record demo page (hardcoded JS data arrays, no fetch/API, no routing) — the period-selector, empty-state, loading and error-with-retry checklist item fails wholesale since none of that interactivity exists. The page is modeled as a US payslip (EIN, SSN, 401(k), Social Security/Medicare) rather than the VND/social-insurance style implied by the deductions checklist item, which also contributes to that item's failure.",
+  "blind": true
+}

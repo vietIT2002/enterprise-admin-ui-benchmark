@@ -1,0 +1,59 @@
+{
+  "brief": "24-org-structure",
+  "run": 1,
+  "items": [
+    {
+      "item": "The hierarchy is an indented tree in which every unit with sub-units expands and collapses, exposed as role=\"tree\"/\"treeitem\" with aria-expanded (or nested lists whose toggles are buttons with aria-expanded) and operable from the keyboard",
+      "pass": true,
+      "evidence": "treeContainer.innerHTML = `<div role=\"tree\" ...>`; rowHtml sets role=\"treeitem\" aria-level, aria-expanded=\"${isExpanded}\" and aria-selected; toggleExpand() flips the expanded Set; keydown handler implements ArrowUp/Down/Left/Right, Home, End, Enter/Space navigation on .row elements."
+    },
+    {
+      "item": "Each unit shows its total headcount including sub-units alongside its direct staff (such as \"42 · 8 direct\"), and every parent's total equals its direct staff plus its children's totals",
+      "pass": false,
+      "evidence": "Row badge only renders node.headcount (a single number, e.g. '142'); computeHeadcount() sums only children's totals for parent nodes with no direct-staff concept at all ('node.headcount = node.children.reduce(...)'), so no unit ever shows a direct-vs-total breakdown like '42 · 8 direct'."
+    },
+    {
+      "item": "Each unit names its manager, and a unit without one shows \"Vacant\" rather than a blank",
+      "pass": false,
+      "evidence": "Every node in orgData has a manager object and the code unconditionally reads node.manager.name/title (e.g. 'Manager: ${escapeHtml(node.manager.name)}'); there is no null/undefined check or 'Vacant' fallback anywhere, so an unmanaged unit is not supported/handled."
+    },
+    {
+      "item": "The selected unit is marked in the tree (aria-selected or aria-current), and the details panel shows its name, code, path from the top (such as \"Company › Finance › Accounts Payable\"), manager and cost centre or location",
+      "pass": false,
+      "evidence": "aria-selected=\"${isSelected}\" is set on rows and breadcrumbFor()/breadcrumbHtml render the ancestor chain (e.g. 'Nimbus Technologies Inc. / Engineering / Platform Engineering'), and the manager + Location dt/dd are shown — but no unit code/ID is ever displayed anywhere in detailPanel.innerHTML, only name/type/location/manager."
+    },
+    {
+      "item": "The details panel compares approved positions with filled ones and gives vacancies as approved minus filled",
+      "pass": false,
+      "evidence": "No 'approved' or 'filled' position fields exist in orgData, leafHeadcounts, or renderDetail(); only a single headcount number and a 'Showing X of Y' member count are shown — no vacancy/approved-vs-filled comparison anywhere."
+    },
+    {
+      "item": "The details panel lists the unit's direct employees with name and job title, and their number equals the unit's direct headcount",
+      "pass": false,
+      "evidence": "Code comment admits it: '// Explicit realistic headcounts for leaf units (roster above is a sample, not the full count)'; membersHtml renders only node.members (a short sample array, e.g. 4 people for eng-platform) while the badge/label explicitly reads 'Showing ${node.members.length} of ${node.headcount}' (e.g. 'Showing 4 of 38'), so the listed count never equals the unit's headcount."
+    },
+    {
+      "item": "Searching by unit or manager name expands the ancestors of each match and highlights it, and a search with no match says so",
+      "pass": false,
+      "evidence": "computeMatches()/renderTree() do auto-expand ancestors ('while (p) { expanded.add(p); p = parentById[p]; }') and show '#tree-empty' with 'No departments or teams match your search.' plus an aria-live status — but matched rows are rendered with the exact same classes/markup as any other row (no mark/highlight class or style is applied to the matching text or row), so matches are not visually highlighted."
+    },
+    {
+      "item": "Deactivating or moving a unit asks for confirmation in a dialog that names the unit and the number of employees and sub-units affected",
+      "pass": false,
+      "evidence": "No deactivate/move action, button, or dialog exists anywhere in the markup or script — the only interactions implemented are select, expand/collapse, and search."
+    },
+    {
+      "item": "A unit with no direct employees shows an explicit empty message in the details panel, and loading and error-with-retry states exist for both the tree and the panel",
+      "pass": false,
+      "evidence": "When node.members is empty/undefined, membersHtml stays '' and the 'Team roster' section is simply omitted (e.g. department nodes like Engineering show no roster and no empty-state message); there is also no loading skeleton or error/retry UI for #tree-container or #detail-panel — renderTree()/renderDetail() run synchronously against the hardcoded orgData with no async/error path."
+    }
+  ],
+  "tells": [
+    "kpi-icon-tiles",
+    "tracked-uppercase-labels",
+    "oversized-radius",
+    "card-in-card"
+  ],
+  "notes": "Mock data is entirely synchronous/hardcoded (orgData literal in <script>), so there is no loading or error state to exercise. Headcount totals are internally consistent (computeHeadcount sums children recursively) but the UI never exposes a direct-staff figure, so the '42 · 8 direct' requirement cannot be satisfied by the current data model. Audit flagged radius-scale (4 distinct radii incl. 12px rounded-xl cards) and uppercase-text (COMPANY/DEPARTMENT/TEAM badges) violations, consistent with the oversized-radius and tracked-uppercase-labels tells noted above.",
+  "blind": true
+}

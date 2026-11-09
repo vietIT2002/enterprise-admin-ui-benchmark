@@ -1,0 +1,63 @@
+{
+  "brief": "28-shift-roster",
+  "run": 1,
+  "items": [
+    {
+      "item": "The grid header names the week with its date range (such as \"Week 45 · 2–8 Nov 2026\"), every day column shows the weekday and date, and controls move to the previous, next and current week",
+      "pass": false,
+      "evidence": "Header shows only '#weekRangeLabel' text 'Weekly shift roster • Nov 2 – Nov 8, 2026' (no 'Week 45' numbering) and day columns correctly show weekday+date ('Mon / NOV 2'), but there are no prev/next/current-week controls anywhere in the markup or script — WEEK_START is a hardcoded const with no navigation UI or handlers."
+    },
+    {
+      "item": "Each shift shows its start and end time in one consistent 24-hour format and the role or station (such as \"07:00–15:00 · Cashier\"), and a shift that ends after midnight is marked as ending the next day",
+      "pass": false,
+      "evidence": "formatTime() in the script converts to 12-hour clock with AM/PM ('7:00 AM – 3:00 PM'), not 24-hour; shift cells show only the shift-type label (e.g. 'Morning') with no role/station text; there is no 'next day' marker logic anywhere (no shift crosses midnight in the sample and no code path handles it)."
+    },
+    {
+      "item": "Each staff row shows the week's scheduled hours against contracted hours (such as \"36 / 40 h\"), the scheduled figure equals that person's shifts less unpaid breaks, and anyone over or under contract is flagged in words",
+      "pass": false,
+      "evidence": "renderTotalBadge() outputs only a single total like '40.0h' with no contracted-hours figure (STAFF array has no contracted-hours field at all); overtime is flagged only via an icon against a flat 40h constant, not in words, and there is no under-contract flag or break deduction (computeHours() has no break concept)."
+    },
+    {
+      "item": "A footer row shows, for each day, the staff count or hours scheduled against the required cover, and days below the requirement are marked in text (such as \"Short 1\")",
+      "pass": false,
+      "evidence": "tfootRow renders only a 'Total hours' row per day ('X.Xh') with no required-cover figure and no 'Short N' style text anywhere in renderTable()."
+    },
+    {
+      "item": "The sample data contains at least one rule conflict, such as overlapping shifts for one person or less than 11 hours' rest between a closing and the next opening shift, shown on the affected cell with a written reason",
+      "pass": false,
+      "evidence": "Sample data has an unflagged violation (e.g. Sofia Rossi 's7-3' evening 15:00–23:00 followed by 's7-4' morning 07:00–15:00 the next day — 8h rest, under 11h), but no conflict-detection code exists anywhere in the script, so it is never surfaced on the cell or anywhere else."
+    },
+    {
+      "item": "Approved leave, days off and public holidays appear as labelled cells (such as \"Annual leave\", \"Day off\") that look different from an empty, unscheduled cell",
+      "pass": true,
+      "evidence": "SHIFT_TYPES.off renders a dashed slate chip labelled 'Day off' and SHIFT_TYPES.leave renders a rose chip labelled 'Leave' (with note 'Annual leave — approved' for Sofia Rossi, s7-0/s7-1), visually distinct from the dashed white '+ Add' empty cell used for unassigned slots. No public-holiday type exists, but leave/day-off satisfy the item."
+    },
+    {
+      "item": "The week's status (Draft or Published) is shown, and publishing goes through a confirmation that names the week and the number of unresolved conflicts or warnings",
+      "pass": false,
+      "evidence": "#statusBadge correctly shows 'Draft — not yet published' / 'Published' / 'Edited since publish'. The confirm modal title is generic ('Publish this week's roster?', #confirmModalTitle) and never includes the week's date range, and #confirmSummary only reports total hours and unassigned-shift count ('...with N shifts still unassigned'), not conflicts/warnings (none are tracked in the app at all)."
+    },
+    {
+      "item": "The grid is a <table> with staff names as row headers and days as column headers, and each shift or empty cell is keyboard-reachable with an accessible name that includes the person and the date (such as \"Add shift, Lan Pham, Tue 3 Nov\")",
+      "pass": true,
+      "evidence": "Markup uses a real <table> (`<table class=\"w-full min-w-[1100px] border-collapse text-sm\">`) with `<th scope=\"row\">` staff names and `<th scope=\"col\">` day headers; each cell is a native <button> with aria-label e.g. \"Add shift for Priya Nair on Wednesday, Nov 4, 2026 — currently unassigned\" / \"Edit ...'s shift on Monday, Nov 2: Morning 7:00 AM to 3:00 PM\", which includes both person and date and is natively focusable."
+    },
+    {
+      "item": "A week with no shifts yet shows a message with a way to start (such as \"Copy last week\"), and a loading state and a load error with a retry button exist",
+      "pass": false,
+      "evidence": "No empty-state, loading-state, or error/retry UI exists anywhere in the markup or script; roster data is hardcoded synchronously at load (`const roster = {...}`) with no async/loading/error code path."
+    }
+  ],
+  "tells": [
+    "kpi-icon-tiles — the four 'Scheduled hours / Team members / Open shifts / Overtime alerts' cards each pair a colored rounded-icon badge with a number (section.grid.grid-cols-2)",
+    "tracked-uppercase-labels — 'text-xs font-medium uppercase tracking-wide' on stat labels and table column headers ('TEAM MEMBER', 'SCHEDULED HOURS', etc.)",
+    "glass — header uses 'bg-white/95 backdrop-blur' (flagged by audit as no-backdrop-blur: blur(8px))",
+    "gradient — none detected (audit reports hardStopGradients: 0)",
+    "initials-avatar-non-person — staff row avatars are colored initials circles (PN, DC, ML...), though here they do represent real people so this is borderline/not a true tell",
+    "card-in-card — stat tiles and legend/table sections are all bordered+shadowed white panels nested inside the page's slate-50 background in the same visual style",
+    "oversized-radius — header logo badge uses rounded-xl (12px), flagged by audit's radius-scale rule (expected ≤8px)",
+    "hover-lift — table rows and shift cells use 'hover:bg-slate-50/60' and 'hover:brightness-95' / 'hover:border-indigo-400' transition effects"
+  ],
+  "notes": "Core data-entry interaction (shift modal, publish confirm modal, focus trap, toast) is well implemented and accessible, but the screen is missing most of the roster-specific business logic the checklist asks for: no week navigation, 12-hour time instead of 24-hour, no role/station on shift chips, no contracted-hours comparison, no required-cover footer, no conflict/rest-period detection, and no empty/loading/error states. Audit score 48/100, driven mainly by text-contrast, 12px font usage, backdrop-blur, and two-line table rows.",
+  "blind": true
+}

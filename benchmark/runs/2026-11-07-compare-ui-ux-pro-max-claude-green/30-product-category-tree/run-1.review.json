@@ -1,0 +1,60 @@
+{
+  "brief": "30-product-category-tree",
+  "run": 1,
+  "items": [
+    {
+      "item": "Each category in the tree shows a product count, the page states whether counts include subcategories, and in the sample data every parent's total equals its own products plus the totals of its children",
+      "pass": true,
+      "evidence": "renderTreeRow() badges each node with total = totalProductCount(node), a recursive sum of node.count plus all descendants' counts (page.html:349-353, 452). The detail panel explicitly distinguishes the two measures with labeled stat cards 'Direct products' (node.count) and 'Total incl. subcategories' (total) — e.g. for Computers & Laptops both the tree badge and the 'Total incl. subcategories' card read 782, confirming what the tree number represents. Because the figure is computed recursively, parent = own + children holds by construction for every node in the mock data."
+    },
+    {
+      "item": "The tree exposes its structure to screen readers (role=\"tree\" and \"treeitem\", or nested lists) with aria-expanded on parent nodes and the selected node marked, and nodes can be expanded, collapsed and selected from the keyboard",
+      "pass": true,
+      "evidence": "`<ul id=\"categoryTree\" role=\"tree\">`, each row is `<li role=\"treeitem\" aria-level=... aria-selected=\"...\" aria-expanded=\"...\">` with children nested in `<ul role=\"group\">` (page.html:152, 444-457). Toggle and select controls are native `<button>` elements (data-action=\"toggle\"/\"select\"), reachable by Tab and activatable with Enter/Space, and ArrowUp/ArrowDown rove focus between visible rows (page.html:888-896)."
+    },
+    {
+      "item": "Searching by name keeps the ancestors of each matching category visible and expanded so its place in the hierarchy is clear, and a search with no matches says so",
+      "pass": true,
+      "evidence": "buildFiltered() keeps a parent when any descendant matches (`show = selfPass || childResults.length > 0`) and sets `forceExpand = isFiltering && childResults.length > 0`, which overrides collapsed state in renderTreeRow (page.html:398-407, 423). #treeEmptyState shows 'No categories match your filters' / 'Try a different search term or clear the status filter.' when the filtered list is empty (page.html:153-157, 487-495)."
+    },
+    {
+      "item": "The detail panel shows the selected category's full path (such as \"Home › Kitchen › Cookware\"), name, URL slug, parent, visibility status, product count with a link to those products, and the last modified date and user",
+      "pass": false,
+      "evidence": "Path breadcrumb, name (h3), slug (/categories/<id> and a 'URL slug' field), parent stat card, status badge, and a 'View products' button (product count via stat cards) are all present (page.html:529-578). However there is no last-modified date or editor anywhere in the code — a repo-wide search for 'modified'/'updated' in page.html returns no matches, so this required field is simply absent."
+    },
+    {
+      "item": "Hidden or inactive categories are marked in the tree with a text label or icon (such as \"Hidden\"), not only by greying out",
+      "pass": true,
+      "evidence": "Non-active nodes render a status dot with `title` and `aria-label` set to the status label, e.g. `<span class=\"h-1.5 w-1.5 ... bg-slate-400\" title=\"Hidden\" aria-label=\"Hidden\">` (page.html:440-442). Row text colour does not change by status (only by selection), so the indicator is an icon/label rather than a grey-out effect — though the dot is visually tiny (6px) and easy to miss at a glance."
+    },
+    {
+      "item": "Deleting a category that still has products or subcategories is blocked or requires choosing where to move them, and the confirmation names the category and the counts affected",
+      "pass": false,
+      "evidence": "openDeleteModal() builds a message naming the category and affected counts, e.g. '\"X\" will be permanently removed along with its N subcategories, affecting M linked products.' (page.html:748-757) — but deleteCategory() always proceeds on confirm with no blocking and no option to reassign products/subcategories elsewhere (page.html:805-820); deletion of a populated category is fully allowed."
+    },
+    {
+      "item": "A category can be given a new parent without drag-and-drop (a parent picker or \"Move to…\" action), and the picker excludes the category itself and its own descendants",
+      "pass": false,
+      "evidence": "No move/reparent UI exists anywhere in the markup or script — no 'Move to' button, no parent-picker modal. `isDescendantOf()` is defined (page.html:389-393) but never called/used anywhere else in the file, i.e. dead code with no feature wired to it."
+    },
+    {
+      "item": "Selecting another category while the detail form has unsaved edits asks to save or discard first",
+      "pass": false,
+      "evidence": "selectCategory() immediately sets state.selectedId and re-renders the detail panel with no dirty-check (page.html:763-770); there is no tracking of unsaved form state anywhere, so edits are silently discarded when another tree node or breadcrumb/subcategory link is clicked."
+    },
+    {
+      "item": "With nothing selected the detail panel shows a prompt instead of blank fields, a catalogue with no categories offers to create the first one, and the tree has loading and load-error-with-retry states",
+      "pass": false,
+      "evidence": "renderDetail() does show a 'No category selected' prompt when state.selectedId is null (page.html:515-522). But there is no distinct empty-catalogue state — an empty categories array would reuse the generic #treeEmptyState copy 'No categories match your filters / Try a different search term or clear the status filter', which is wrong messaging and offers no create action. A repo-wide search for loading/retry/skeleton/spinner finds no matches — there are no loading or load-error-with-retry states at all."
+    }
+  ],
+  "tells": [
+    "kpi-icon-tiles (the 'Direct products / Total incl. subcategories / Subcategories / Parent category' stat cards each pair a small stroke icon with a label and a bold value, page.html:573-578, 650-661)",
+    "tracked-uppercase-labels (h2#treePanelTitle 'CATEGORY TREE' uses `uppercase tracking-wide`, flagged by the audit as a violation; the subcategories table header row also uses `uppercase tracking-wide text-xs font-semibold`, page.html:125, 637)",
+    "card-in-card (bordered, rounded 'General information' and 'Search engine optimization' panels, plus the stat-card grid, all nested inside the already-bordered white detail-panel `<section>`, page.html:162, 573-616)",
+    "oversized-radius (nav logo link and dialogs/cards use `rounded-xl` = 12px, exceeding the 8px dialog max; flagged directly by the audit's radius-scale violation on `nav > a.mb-4.flex`)",
+    "navy-sidebar-indigo-accent (icon rail nav is `bg-slate-900` with an indigo-500 logo tile and indigo-400/indigo-500/15 active-state accent on the Categories icon, page.html:46-60)"
+  ],
+  "notes": "Core tree/search/detail-view functionality is solid and reasonably accessible, but several workflow-safety features expected of a mature category manager are missing entirely: no unsaved-changes guard, no blocked/redirect-on-delete for populated categories, no reparent/move picker, no loading or error-retry states, and no last-modified metadata. The automated audit's own findings (26 text-contrast failures, one 12px radius violation, two drop-shadow cards, one uppercase-label violation) corroborate the uppercase-label and oversized-radius tells noted above.",
+  "blind": true
+}

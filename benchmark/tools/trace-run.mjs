@@ -94,8 +94,9 @@ async function main() {
   const cwd = path.join(out, `${cond}-${brief}-run-${run}`);
   fs.mkdirSync(cwd, { recursive: true });
   const page = path.join(cwd, `run-${run}.html`);
-  const prompt = (cond === 'green' ? GREEN : RED)(briefPrompt(brief, run % 2 ? 'EN' : 'VI'), page);
-  const args = claudeArgs(prompt, { model, addDirs: cond === 'green' ? [SKILL_DIR] : [], effort: get('--effort', null) });
+  const checks = cond === 'green' && a.includes('--checks');
+  const prompt = cond === 'green' ? GREEN(briefPrompt(brief, run % 2 ? 'EN' : 'VI'), page, SKILL_DIR, { checks }) : RED(briefPrompt(brief, run % 2 ? 'EN' : 'VI'), page);
+  const args = claudeArgs(prompt, { model, addDirs: cond === 'green' ? [SKILL_DIR] : [], effort: get('--effort', null), checks });
   args[args.indexOf('--output-format') + 1] = 'stream-json';
   args.push('--verbose');
   const started = Date.now();

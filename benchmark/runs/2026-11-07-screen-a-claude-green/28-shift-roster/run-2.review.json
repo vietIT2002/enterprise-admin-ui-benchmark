@@ -1,0 +1,54 @@
+{
+  "brief": "28-shift-roster",
+  "run": 2,
+  "items": [
+    {
+      "item": "The grid header names the week with its date range (such as \"Week 45 · 2–8 Nov 2026\"), every day column shows the weekday and date, and controls move to the previous, next and current week",
+      "pass": true,
+      "evidence": "h2#week-range shows fmtRange(ui.weekStart) e.g. \"02–08 thg 11, 2026\"; each th in #day-header-row shows WEEKDAY_SHORT (T2..CN) plus day.getDate(); #btn-prev/#btn-next/#btn-today call addDays(±7)/reset to BASE_WEEK_START and re-render. No explicit 'Week N' number is shown, only the date range."
+    },
+    {
+      "item": "Each shift shows its start and end time in one consistent 24-hour format and the role or station (such as \"07:00–15:00 · Cashier\"), and a shift that ends after midnight is marked as ending the next day",
+      "pass": false,
+      "evidence": "cellContent() renders shift buttons as `<span>${t.label}</span><span class=\"tnum\">${entry.start}–${entry.end}</span>` e.g. \"Ca tối / 22:00–06:00\" — consistent 24h time, but shows the shift-type label (Ca sáng/chiều/tối), not the employee's role/station (role only appears once per row under the name). The overnight 'Ca tối' shift (22:00–06:00) is rendered identically to same-day shifts with no '+1 day' / next-day marker anywhere in cellContent() or SHIFT_TYPES."
+    },
+    {
+      "item": "Each staff row shows the week's scheduled hours against contracted hours (such as \"36 / 40 h\"), the scheduled figure equals that person's shifts less unpaid breaks, and anyone over or under contract is flagged in words",
+      "pass": false,
+      "evidence": "Row's last cell is `weeklyHours(emp.id, days, weekData)` rendering a bare number (e.g. '48', '56', '32') via tnum span under header 'Tổng giờ'. EMPLOYEES objects (script line ~227) have no contracted-hours field, no '/40h' comparison, and no over/under-contract flag text anywhere."
+    },
+    {
+      "item": "A footer row shows, for each day, the staff count or hours scheduled against the required cover, and days below the requirement are marked in text (such as \"Short 1\")",
+      "pass": true,
+      "evidence": "renderCoverageRow() builds tfoot#coverage-row cells as `${scheduled}/${required}` plus `<span>Thiếu ${required-scheduled}</span>` when scheduled<required, using REQUIRED_COVERAGE=[5,5,5,5,5,7,6]. In the rendered base week every day happens to be staffed above requirement (e.g. '10/5', '12/5', '6/5'...) so the 'Thiếu' (Short) text never actually appears on screen, but the mechanism is implemented and would render it."
+    },
+    {
+      "item": "The sample data contains at least one rule conflict, such as overlapping shifts for one person or less than 11 hours' rest between a closing and the next opening shift, shown on the affected cell with a written reason",
+      "pass": false,
+      "evidence": "No conflict-detection code exists anywhere in the script (no function compares rest gaps or overlaps). E.g. Lê Hoàng Cường has 'Ca tối 22:00–06:00' Wed then 'Ca sáng 06:00–14:00' Thu with 0h rest, but no cell is flagged, styled differently, or given a written reason for this."
+    },
+    {
+      "item": "Approved leave, days off and public holidays appear as labelled cells (such as \"Annual leave\", \"Day off\") that look different from an empty, unscheduled cell",
+      "pass": false,
+      "evidence": "'Nghỉ' (Day off, bg-slate-50) and 'Nghỉ phép' (Annual leave, bg-slate-100 border-slate-300) are distinct from the empty '+' button (border-dashed text-slate-400) — but there is no public-holiday entry kind anywhere in entry.kind handling ('shift'|'off'|'leave'|'leave-pending'|'leave-continuation' only), so public holidays are not represented at all."
+    },
+    {
+      "item": "The week's status (Draft or Published) is shown, and publishing goes through a confirmation that names the week and the number of unresolved conflicts or warnings",
+      "pass": false,
+      "evidence": "#status-badge shows 'Dự thảo'/'Đã công bố'/'Có thay đổi mới' (Draft/Published/Changed) via renderHeaderStatus(). Clicking #btn-publish opens openConfirm() with title `Công bố lịch tuần ${fmtRange(...)}?` which names the week, but the body text is a static sentence about notifying staff — it never mentions a count of unresolved conflicts or warnings (consistent with no conflict detection existing)."
+    },
+    {
+      "item": "The grid is a <table> with staff names as row headers and days as column headers, and each shift or empty cell is keyboard-reachable with an accessible name that includes the person and the date (such as \"Add shift, Lan Pham, Tue 3 Nov\")",
+      "pass": true,
+      "evidence": "<table class=\"w-full border-collapse\"> with <th scope=\"row\"> per employee name and <th scope=\"col\"> per day; every cell button has aria-label built from `${emp.name}` + `${dayFull}` (e.g. 'Nguyễn Văn An, Ca sáng, 06:00–14:00, Thứ Hai, 02/11/2026' or 'Thêm ca cho X, <date>' for empty cells); roving tabindex + arrow-key navigation implemented in the #roster-rows keydown listener."
+    },
+    {
+      "item": "A week with no shifts yet shows a message with a way to start (such as \"Copy last week\"), and a loading state and a load error with a retry button exist",
+      "pass": false,
+      "evidence": "Loading state (data-state=\"loading\", aria-busy, #skeleton) and error state (data-state=\"error\", role=\"alert\", #retry button) both exist and are wired (setTimeout(render,300), ?state=error). However the only 'empty' state (data-state=\"empty\") is for a filtered-out employee list ('Không có nhân viên nào khớp' / Clear filters) — there is no scenario or UI for a week that genuinely has zero shifts, and no 'copy last week' or similar starter action exists anywhere in the script."
+    }
+  ],
+  "tells": [],
+  "notes": "Data generator (buildWeek/rand01) produces a fully-staffed week by construction, so several implemented-but-conditional features (coverage shortfall text, overnight-shift handling, conflict flags) either never trigger or were never built. No stylistic 'AI slop' tells were observed: no greeting header, no KPI icon tiles, no gradients/glass, no emoji icons, no uppercase tracked labels, standard 4-6px radii, muted slate sidebar with blue (not indigo) primary accent, hover states are subtle background-only. Primary gaps are functional: no contracted-hours comparison, no public holidays, no conflict/rest-rule detection, and no 'copy last week' / true empty-week flow.",
+  "blind": true
+}

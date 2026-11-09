@@ -1,0 +1,748 @@
+<title>User Management · Admin Console</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+  tailwind.config = {
+    theme: {
+      extend: {
+        fontFamily: { sans: ['Inter', 'ui-sans-serif', 'system-ui', 'sans-serif'] },
+        colors: {
+          accent: {
+            50: '#eef2ff', 100: '#e0e7ff', 400: '#818cf8', 500: '#6366f1', 600: '#4f46e5', 700: '#4338ca'
+          }
+        }
+      }
+    }
+  }
+</script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<style>
+  @font-face {
+    font-family: 'Inter';
+    src: local('Inter');
+  }
+  ::selection { background: #c7d2fe; color: #1e1b4b; }
+  body { -webkit-font-smoothing: antialiased; }
+  .tabular-nums { font-variant-numeric: tabular-nums; }
+  .focus-ring:focus-visible {
+    outline: 2px solid #6366f1;
+    outline-offset: 2px;
+  }
+  input:focus-visible, button:focus-visible, select:focus-visible, [tabindex]:focus-visible {
+    outline: 2px solid #6366f1;
+    outline-offset: 2px;
+  }
+  ::-webkit-scrollbar { width: 10px; height: 10px; }
+  ::-webkit-scrollbar-track { background: #f4f4f5; }
+  ::-webkit-scrollbar-thumb { background: #d4d4d8; border-radius: 999px; }
+  ::-webkit-scrollbar-thumb:hover { background: #a1a1aa; }
+  @keyframes fade-in { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
+  .animate-in { animation: fade-in 160ms cubic-bezier(0.16, 1, 0.3, 1); }
+  @keyframes skeleton-pulse { 0%, 100% { opacity: 0.55; } 50% { opacity: 0.9; } }
+  .skeleton { animation: skeleton-pulse 1.4s ease-in-out infinite; }
+  dialog::backdrop { background: rgba(24, 24, 27, 0.4); }
+  dialog { animation: fade-in 180ms cubic-bezier(0.16, 1, 0.3, 1); }
+  .toast-enter { animation: toast-in 220ms cubic-bezier(0.16, 1, 0.3, 1); }
+  @keyframes toast-in { from { opacity: 0; transform: translateY(8px) scale(0.98); } to { opacity: 1; transform: translateY(0) scale(1); } }
+</style>
+
+<body class="min-h-screen bg-zinc-50 text-zinc-900 font-sans antialiased">
+
+  <div class="flex min-h-screen">
+    <!-- Side navigation -->
+    <aside class="hidden lg:flex w-60 shrink-0 flex-col border-r border-zinc-200 bg-white">
+      <div class="flex items-center gap-2.5 px-5 h-16 border-b border-zinc-200">
+        <div class="h-7 w-7 rounded-md bg-accent-600 flex items-center justify-center">
+          <svg viewBox="0 0 24 24" class="h-4 w-4 text-white" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2 3 6v6c0 5 3.8 8.5 9 10 5.2-1.5 9-5 9-10V6z"/></svg>
+        </div>
+        <span class="text-sm font-semibold tracking-tight">Northbeam Admin</span>
+      </div>
+      <nav class="flex-1 px-3 py-4 space-y-0.5 text-sm">
+        <a href="#" class="flex items-center gap-2.5 rounded-md px-3 py-2 text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900 focus-ring">
+          <svg viewBox="0 0 24 24" class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M3 12 12 4l9 8M5 10v9a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-9"/></svg>
+          Overview
+        </a>
+        <a href="#" aria-current="page" class="flex items-center gap-2.5 rounded-md bg-accent-50 px-3 py-2 font-medium text-accent-700 focus-ring">
+          <svg viewBox="0 0 24 24" class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M17 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8ZM23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+          Users &amp; access
+        </a>
+        <a href="#" class="flex items-center gap-2.5 rounded-md px-3 py-2 text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900 focus-ring">
+          <svg viewBox="0 0 24 24" class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z"/><path stroke-linecap="round" stroke-linejoin="round" d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.6a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1Z"/></svg>
+          Settings
+        </a>
+        <a href="#" class="flex items-center gap-2.5 rounded-md px-3 py-2 text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900 focus-ring">
+          <svg viewBox="0 0 24 24" class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 2h6v4H9zM5 8h14l-1 12a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2z"/></svg>
+          Billing
+        </a>
+      </nav>
+      <div class="border-t border-zinc-200 p-3">
+        <div class="flex items-center gap-2.5 rounded-md px-2 py-2">
+          <div class="h-8 w-8 shrink-0 rounded-full bg-zinc-300 flex items-center justify-center text-xs font-semibold text-zinc-700">AD</div>
+          <div class="min-w-0">
+            <p class="truncate text-sm font-medium text-zinc-800">Alex Donovan</p>
+            <p class="truncate text-xs text-zinc-500">Org owner</p>
+          </div>
+        </div>
+      </div>
+    </aside>
+
+    <!-- Main -->
+    <div class="flex-1 min-w-0 flex flex-col">
+      <!-- Top bar -->
+      <header class="sticky top-0 z-20 flex h-16 items-center justify-between gap-4 border-b border-zinc-200 bg-white/90 backdrop-blur px-4 sm:px-6">
+        <div class="flex items-center gap-3 min-w-0">
+          <button class="lg:hidden -ml-1 p-2 rounded-md text-zinc-500 hover:bg-zinc-100 focus-ring" aria-label="Open navigation">
+            <svg viewBox="0 0 24 24" class="h-5 w-5" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" d="M4 7h16M4 12h16M4 17h16"/></svg>
+          </button>
+          <div class="min-w-0">
+            <h1 class="text-base font-semibold text-zinc-900 truncate">Users &amp; access</h1>
+            <p class="text-xs text-zinc-500 truncate hidden sm:block">Manage who can sign in and what they can do</p>
+          </div>
+        </div>
+        <div class="flex items-center gap-2 sm:gap-3 shrink-0">
+          <button class="relative p-2 rounded-md text-zinc-500 hover:bg-zinc-100 focus-ring" aria-label="Notifications">
+            <svg viewBox="0 0 24 24" class="h-5 w-5" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M18 8a6 6 0 1 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path stroke-linecap="round" stroke-linejoin="round" d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+            <span class="absolute top-1.5 right-1.5 h-1.5 w-1.5 rounded-full bg-accent-600"></span>
+          </button>
+          <button id="invite-btn" class="inline-flex items-center gap-1.5 rounded-md bg-accent-600 px-3.5 py-2 text-sm font-medium text-white shadow-sm hover:bg-accent-700 active:bg-accent-700 focus-ring transition-colors">
+            <svg viewBox="0 0 24 24" class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2.2"><path stroke-linecap="round" stroke-linejoin="round" d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8Zm10-4v6m3-3h-6"/></svg>
+            <span class="hidden sm:inline">Invite people</span>
+            <span class="sm:hidden">Invite</span>
+          </button>
+        </div>
+      </header>
+
+      <main class="flex-1 px-4 sm:px-6 py-6 space-y-5 max-w-7xl w-full mx-auto">
+        <!-- Summary strip -->
+        <div class="grid grid-cols-2 lg:grid-cols-4 gap-3">
+          <div class="rounded-lg border border-zinc-200 bg-white px-4 py-3.5">
+            <p class="text-xs font-medium text-zinc-500">Total accounts</p>
+            <p id="stat-total" class="mt-1 text-2xl font-semibold tabular-nums text-zinc-900">—</p>
+          </div>
+          <div class="rounded-lg border border-zinc-200 bg-white px-4 py-3.5">
+            <p class="text-xs font-medium text-zinc-500">Active</p>
+            <p id="stat-active" class="mt-1 text-2xl font-semibold tabular-nums text-emerald-700">—</p>
+          </div>
+          <div class="rounded-lg border border-zinc-200 bg-white px-4 py-3.5">
+            <p class="text-xs font-medium text-zinc-500">Pending invites</p>
+            <p id="stat-pending" class="mt-1 text-2xl font-semibold tabular-nums text-amber-700">—</p>
+          </div>
+          <div class="rounded-lg border border-zinc-200 bg-white px-4 py-3.5">
+            <p class="text-xs font-medium text-zinc-500">Deactivated</p>
+            <p id="stat-deactivated" class="mt-1 text-2xl font-semibold tabular-nums text-zinc-500">—</p>
+          </div>
+        </div>
+
+        <!-- Controls -->
+        <div class="rounded-lg border border-zinc-200 bg-white">
+          <div class="flex flex-col gap-3 border-b border-zinc-200 p-4 sm:flex-row sm:items-center sm:justify-between">
+            <div class="relative w-full sm:max-w-xs">
+              <svg viewBox="0 0 24 24" class="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-400" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path stroke-linecap="round" d="m21 21-4.3-4.3"/></svg>
+              <input id="search-input" type="search" placeholder="Search by name or email" class="w-full rounded-md border border-zinc-300 bg-white py-2 pl-9 pr-3 text-sm placeholder:text-zinc-400 focus-ring">
+            </div>
+            <div class="flex flex-wrap items-center gap-2">
+              <select id="role-filter" class="rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-700 focus-ring">
+                <option value="all">All roles</option>
+                <option value="Owner">Owner</option>
+                <option value="Admin">Admin</option>
+                <option value="Editor">Editor</option>
+                <option value="Member">Member</option>
+                <option value="Viewer">Viewer</option>
+              </select>
+              <select id="status-filter" class="rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-700 focus-ring">
+                <option value="all">All statuses</option>
+                <option value="Active">Active</option>
+                <option value="Pending">Pending invite</option>
+                <option value="Deactivated">Deactivated</option>
+              </select>
+            </div>
+          </div>
+
+          <!-- Bulk action bar -->
+          <div id="bulk-bar" class="hidden items-center justify-between gap-3 border-b border-accent-100 bg-accent-50 px-4 py-2.5">
+            <p class="text-sm font-medium text-accent-700"><span id="bulk-count">0</span> selected</p>
+            <div class="flex items-center gap-2">
+              <button id="bulk-reset" class="rounded-md px-2.5 py-1.5 text-sm font-medium text-accent-700 hover:bg-accent-100 focus-ring">Reset passwords</button>
+              <button id="bulk-deactivate" class="rounded-md px-2.5 py-1.5 text-sm font-medium text-red-700 hover:bg-red-100 focus-ring">Deactivate</button>
+              <button id="bulk-clear" class="rounded-md px-2.5 py-1.5 text-sm font-medium text-zinc-500 hover:bg-zinc-200 focus-ring">Clear</button>
+            </div>
+          </div>
+
+          <!-- Table -->
+          <div class="overflow-x-auto">
+            <table class="w-full text-left text-sm min-w-[860px]">
+              <thead>
+                <tr class="border-b border-zinc-200 text-xs text-zinc-500">
+                  <th class="w-10 py-2.5 pl-4 pr-2"><input id="select-all" type="checkbox" class="h-4 w-4 rounded border-zinc-300 text-accent-600 focus-ring"></th>
+                  <th class="py-2.5 pr-3 font-medium">Name</th>
+                  <th class="py-2.5 pr-3 font-medium">Role</th>
+                  <th class="py-2.5 pr-3 font-medium">Status</th>
+                  <th class="py-2.5 pr-3 font-medium">Last sign-in</th>
+                  <th class="py-2.5 pr-4 font-medium text-right">Actions</th>
+                </tr>
+              </thead>
+              <tbody id="table-body" class="divide-y divide-zinc-100"></tbody>
+            </table>
+          </div>
+
+          <!-- Empty state -->
+          <div id="empty-state" class="hidden flex-col items-center gap-2 px-6 py-14 text-center">
+            <div class="h-10 w-10 rounded-full bg-zinc-100 flex items-center justify-center">
+              <svg viewBox="0 0 24 24" class="h-5 w-5 text-zinc-400" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path stroke-linecap="round" d="m21 21-4.3-4.3"/></svg>
+            </div>
+            <p class="text-sm font-medium text-zinc-700">No matching accounts</p>
+            <p class="text-sm text-zinc-500 max-w-xs">Try a different name, email, role, or status — or invite someone new to the workspace.</p>
+            <button id="empty-invite-btn" class="mt-1 text-sm font-medium text-accent-600 hover:text-accent-700 focus-ring rounded">Invite someone →</button>
+          </div>
+
+          <!-- Footer / pagination -->
+          <div class="flex items-center justify-between border-t border-zinc-200 px-4 py-3 text-sm text-zinc-500">
+            <p id="row-count">Showing 0 of 0 accounts</p>
+            <div class="flex items-center gap-1">
+              <button disabled class="rounded-md px-2.5 py-1.5 text-zinc-300 cursor-not-allowed">Previous</button>
+              <button disabled class="rounded-md bg-zinc-100 px-2.5 py-1.5 font-medium text-zinc-500 cursor-not-allowed">1</button>
+              <button disabled class="rounded-md px-2.5 py-1.5 text-zinc-300 cursor-not-allowed">Next</button>
+            </div>
+          </div>
+        </div>
+      </main>
+    </div>
+  </div>
+
+  <!-- Invite dialog -->
+  <dialog id="invite-dialog" class="w-full max-w-md rounded-xl border border-zinc-200 bg-white p-0 shadow-xl backdrop:transition-opacity">
+    <form id="invite-form" method="dialog" class="flex flex-col">
+      <div class="flex items-start justify-between border-b border-zinc-200 px-5 py-4">
+        <div>
+          <h2 class="text-sm font-semibold text-zinc-900">Invite someone to the workspace</h2>
+          <p class="mt-0.5 text-xs text-zinc-500">They'll receive an email with a link to set up their account.</p>
+        </div>
+        <button type="button" data-close-dialog class="rounded-md p-1 text-zinc-400 hover:bg-zinc-100 hover:text-zinc-600 focus-ring" aria-label="Close">
+          <svg viewBox="0 0 24 24" class="h-5 w-5" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" d="m6 6 12 12M18 6 6 18"/></svg>
+        </button>
+      </div>
+      <div class="space-y-4 px-5 py-4">
+        <div>
+          <label for="invite-email" class="block text-xs font-medium text-zinc-700 mb-1.5">Email address</label>
+          <input id="invite-email" type="email" required placeholder="name@company.com" class="w-full rounded-md border border-zinc-300 px-3 py-2 text-sm placeholder:text-zinc-400 focus-ring">
+          <p id="invite-email-error" class="hidden mt-1.5 text-xs text-red-600">Enter a valid email address.</p>
+        </div>
+        <div>
+          <label for="invite-role" class="block text-xs font-medium text-zinc-700 mb-1.5">Role</label>
+          <select id="invite-role" class="w-full rounded-md border border-zinc-300 px-3 py-2 text-sm text-zinc-700 focus-ring">
+            <option>Admin</option>
+            <option selected>Editor</option>
+            <option>Member</option>
+            <option>Viewer</option>
+          </select>
+          <p class="mt-1.5 text-xs text-zinc-500">Roles can be changed later from the account menu.</p>
+        </div>
+      </div>
+      <div class="flex items-center justify-end gap-2 border-t border-zinc-200 bg-zinc-50 px-5 py-3.5 rounded-b-xl">
+        <button type="button" data-close-dialog class="rounded-md px-3.5 py-2 text-sm font-medium text-zinc-600 hover:bg-zinc-100 focus-ring">Cancel</button>
+        <button id="invite-submit" type="submit" class="inline-flex items-center gap-2 rounded-md bg-accent-600 px-3.5 py-2 text-sm font-medium text-white hover:bg-accent-700 focus-ring disabled:opacity-60 disabled:pointer-events-none">
+          <span id="invite-submit-label">Send invite</span>
+        </button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- Deactivate confirm dialog -->
+  <dialog id="deactivate-dialog" class="w-full max-w-sm rounded-xl border border-zinc-200 bg-white p-0 shadow-xl">
+    <div class="flex flex-col">
+      <div class="px-5 pt-5">
+        <div class="h-9 w-9 rounded-full bg-red-50 flex items-center justify-center">
+          <svg viewBox="0 0 24 24" class="h-5 w-5 text-red-600" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0ZM12 9v4M12 17h.01"/></svg>
+        </div>
+        <h2 id="deactivate-title" class="mt-3 text-sm font-semibold text-zinc-900">Deactivate this account?</h2>
+        <p id="deactivate-body" class="mt-1 text-sm text-zinc-500">They'll be signed out immediately and lose access until reactivated. This can be undone.</p>
+      </div>
+      <div class="flex items-center justify-end gap-2 px-5 py-4 mt-2">
+        <button type="button" data-close-dialog class="rounded-md px-3.5 py-2 text-sm font-medium text-zinc-600 hover:bg-zinc-100 focus-ring">Cancel</button>
+        <button id="deactivate-confirm" class="inline-flex items-center gap-2 rounded-md bg-red-600 px-3.5 py-2 text-sm font-medium text-white hover:bg-red-700 focus-ring disabled:opacity-60 disabled:pointer-events-none">
+          <span id="deactivate-confirm-label">Deactivate</span>
+        </button>
+      </div>
+    </div>
+  </dialog>
+
+  <!-- Reset password confirm dialog -->
+  <dialog id="reset-dialog" class="w-full max-w-sm rounded-xl border border-zinc-200 bg-white p-0 shadow-xl">
+    <div class="flex flex-col">
+      <div class="px-5 pt-5">
+        <div class="h-9 w-9 rounded-full bg-accent-50 flex items-center justify-center">
+          <svg viewBox="0 0 24 24" class="h-5 w-5 text-accent-600" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="11" width="16" height="10" rx="2"/><path stroke-linecap="round" stroke-linejoin="round" d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>
+        </div>
+        <h2 id="reset-title" class="mt-3 text-sm font-semibold text-zinc-900">Send password reset?</h2>
+        <p id="reset-body" class="mt-1 text-sm text-zinc-500">We'll email them a secure link to choose a new password. Their current password stays valid until they do.</p>
+      </div>
+      <div class="flex items-center justify-end gap-2 px-5 py-4 mt-2">
+        <button type="button" data-close-dialog class="rounded-md px-3.5 py-2 text-sm font-medium text-zinc-600 hover:bg-zinc-100 focus-ring">Cancel</button>
+        <button id="reset-confirm" class="inline-flex items-center gap-2 rounded-md bg-accent-600 px-3.5 py-2 text-sm font-medium text-white hover:bg-accent-700 focus-ring disabled:opacity-60 disabled:pointer-events-none">
+          <span id="reset-confirm-label">Send reset link</span>
+        </button>
+      </div>
+    </div>
+  </dialog>
+
+  <!-- Row action menu (single instance, repositioned) -->
+  <div id="row-menu" class="hidden fixed z-30 w-48 rounded-md border border-zinc-200 bg-white py-1 shadow-lg animate-in" role="menu">
+    <button data-action="reset" class="flex w-full items-center gap-2.5 px-3 py-2 text-left text-sm text-zinc-700 hover:bg-zinc-50 focus-ring" role="menuitem">
+      <svg viewBox="0 0 24 24" class="h-4 w-4 text-zinc-400" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="11" width="16" height="10" rx="2"/><path stroke-linecap="round" stroke-linejoin="round" d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>
+      Reset password
+    </button>
+    <button data-action="role" class="flex w-full items-center gap-2.5 px-3 py-2 text-left text-sm text-zinc-700 hover:bg-zinc-50 focus-ring" role="menuitem">
+      <svg viewBox="0 0 24 24" class="h-4 w-4 text-zinc-400" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M17 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8Z"/></svg>
+      Change role
+    </button>
+    <div class="my-1 border-t border-zinc-100"></div>
+    <button data-action="toggle-status" class="flex w-full items-center gap-2.5 px-3 py-2 text-left text-sm hover:bg-zinc-50 focus-ring" role="menuitem">
+      <svg viewBox="0 0 24 24" class="h-4 w-4 text-zinc-400" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M18.36 6.64a9 9 0 1 1-12.73 0M12 2v10"/></svg>
+      <span data-action-label>Deactivate</span>
+    </button>
+  </div>
+
+  <!-- Toast -->
+  <div id="toast" class="hidden fixed bottom-5 right-5 z-40 flex items-center gap-2.5 rounded-lg border border-zinc-200 bg-white px-4 py-3 shadow-lg text-sm text-zinc-800 toast-enter">
+    <svg id="toast-icon" viewBox="0 0 24 24" class="h-4 w-4 shrink-0 text-emerald-600" fill="none" stroke="currentColor" stroke-width="2.4"><path stroke-linecap="round" stroke-linejoin="round" d="m20 6-11 11L4 12"/></svg>
+    <span id="toast-message">Done.</span>
+  </div>
+
+  <script>
+    // ---------- Mock data ----------
+    const now = new Date('2026-11-07T15:00:00');
+    const minsAgo = (m) => new Date(now - m * 60000);
+    const hoursAgo = (h) => minsAgo(h * 60);
+    const daysAgo = (d) => hoursAgo(d * 24);
+
+    const initialUsers = [
+      { id: 'u1', name: 'Priya Natarajan', email: 'priya.natarajan@northbeam.io', role: 'Owner', status: 'Active', lastSignIn: minsAgo(6) },
+      { id: 'u2', name: 'Marcus Webb', email: 'marcus.webb@northbeam.io', role: 'Admin', status: 'Active', lastSignIn: minsAgo(42) },
+      { id: 'u3', name: 'Lena Fischer', email: 'lena.fischer@northbeam.io', role: 'Admin', status: 'Active', lastSignIn: hoursAgo(3) },
+      { id: 'u4', name: 'Oliver Brandt', email: 'oliver.brandt@northbeam.io', role: 'Editor', status: 'Active', lastSignIn: hoursAgo(5) },
+      { id: 'u5', name: 'Sofia Reyes', email: 'sofia.reyes@northbeam.io', role: 'Editor', status: 'Active', lastSignIn: daysAgo(1) },
+      { id: 'u6', name: 'Daniel Kowalski', email: 'daniel.kowalski@northbeam.io', role: 'Editor', status: 'Deactivated', lastSignIn: daysAgo(46) },
+      { id: 'u7', name: 'Hana Suzuki', email: 'hana.suzuki@northbeam.io', role: 'Member', status: 'Active', lastSignIn: daysAgo(2) },
+      { id: 'u8', name: 'Grace Okafor', email: 'grace.okafor@northbeam.io', role: 'Member', status: 'Active', lastSignIn: daysAgo(4) },
+      { id: 'u9', name: 'Tomás Dominguez', email: 'tomas.dominguez@northbeam.io', role: 'Member', status: 'Pending', lastSignIn: null },
+      { id: 'u10', name: 'Aisha Rahman', email: 'aisha.rahman@northbeam.io', role: 'Member', status: 'Pending', lastSignIn: null },
+      { id: 'u11', name: 'Jonas Berg', email: 'jonas.berg@northbeam.io', role: 'Viewer', status: 'Active', lastSignIn: daysAgo(9) },
+      { id: 'u12', name: 'Elena Vasquez', email: 'elena.vasquez@northbeam.io', role: 'Viewer', status: 'Active', lastSignIn: daysAgo(14) },
+      { id: 'u13', name: 'Noah Kim', email: 'noah.kim@northbeam.io', role: 'Viewer', status: 'Deactivated', lastSignIn: daysAgo(120) },
+      { id: 'u14', name: 'Ingrid Larsen', email: 'ingrid.larsen@northbeam.io', role: 'Member', status: 'Active', lastSignIn: hoursAgo(28) },
+      { id: 'u15', name: 'Felix Adeyemi', email: 'felix.adeyemi@northbeam.io', role: 'Editor', status: 'Active', lastSignIn: minsAgo(15) },
+    ];
+
+    let users = initialUsers.map(u => ({ ...u }));
+    let selected = new Set();
+    let filters = { search: '', role: 'all', status: 'all' };
+    let activeMenuUserId = null;
+    let activeMenuContext = null; // 'single' action context for current row menu
+    let toastTimer = null;
+
+    // ---------- Helpers ----------
+    function initials(name) {
+      return name.split(' ').map(p => p[0]).join('').slice(0, 2).toUpperCase();
+    }
+
+    const avatarPalette = ['bg-rose-100 text-rose-700', 'bg-amber-100 text-amber-700', 'bg-emerald-100 text-emerald-700', 'bg-sky-100 text-sky-700', 'bg-violet-100 text-violet-700', 'bg-cyan-100 text-cyan-700'];
+    function avatarClass(id) {
+      let hash = 0;
+      for (const ch of id) hash = (hash * 31 + ch.charCodeAt(0)) % avatarPalette.length;
+      return avatarPalette[hash];
+    }
+
+    function relativeTime(date) {
+      if (!date) return null;
+      const diffMs = now - date;
+      const mins = Math.round(diffMs / 60000);
+      if (mins < 1) return 'Just now';
+      if (mins < 60) return `${mins} min${mins === 1 ? '' : 's'} ago`;
+      const hours = Math.round(mins / 60);
+      if (hours < 24) return `${hours} hour${hours === 1 ? '' : 's'} ago`;
+      const days = Math.round(hours / 24);
+      if (days === 1) return 'Yesterday';
+      if (days < 30) return `${days} days ago`;
+      const months = Math.round(days / 30);
+      return `${months} month${months === 1 ? '' : 's'} ago`;
+    }
+
+    function statusBadge(status) {
+      const map = {
+        Active: 'bg-emerald-50 text-emerald-700 ring-1 ring-inset ring-emerald-200',
+        Pending: 'bg-amber-50 text-amber-700 ring-1 ring-inset ring-amber-200',
+        Deactivated: 'bg-zinc-100 text-zinc-500 ring-1 ring-inset ring-zinc-200',
+      };
+      const dot = { Active: 'bg-emerald-500', Pending: 'bg-amber-500', Deactivated: 'bg-zinc-400' };
+      const label = status === 'Pending' ? 'Pending invite' : status;
+      return `<span class="inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-xs font-medium ${map[status]}">
+        <span class="h-1.5 w-1.5 rounded-full ${dot[status]}"></span>${label}
+      </span>`;
+    }
+
+    function roleBadge(role) {
+      const map = {
+        Owner: 'bg-accent-50 text-accent-700',
+        Admin: 'bg-accent-50 text-accent-700',
+        Editor: 'bg-zinc-100 text-zinc-700',
+        Member: 'bg-zinc-100 text-zinc-700',
+        Viewer: 'bg-zinc-100 text-zinc-700',
+      };
+      return `<span class="inline-flex rounded-md px-2 py-0.5 text-xs font-medium ${map[role]}">${role}</span>`;
+    }
+
+    function showToast(message, variant = 'success') {
+      const toast = document.getElementById('toast');
+      const icon = document.getElementById('toast-icon');
+      document.getElementById('toast-message').textContent = message;
+      icon.innerHTML = variant === 'success'
+        ? '<path stroke-linecap="round" stroke-linejoin="round" d="m20 6-11 11L4 12"/>'
+        : '<path stroke-linecap="round" stroke-linejoin="round" d="M12 9v4M12 17h.01M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z"/>';
+      icon.classList.toggle('text-emerald-600', variant === 'success');
+      icon.classList.toggle('text-red-600', variant === 'error');
+      toast.classList.remove('hidden');
+      toast.classList.remove('toast-enter'); void toast.offsetWidth; toast.classList.add('toast-enter');
+      clearTimeout(toastTimer);
+      toastTimer = setTimeout(() => toast.classList.add('hidden'), 3200);
+    }
+
+    function getFiltered() {
+      const q = filters.search.trim().toLowerCase();
+      return users.filter(u => {
+        if (filters.role !== 'all' && u.role !== filters.role) return false;
+        if (filters.status !== 'all' && u.status !== filters.status) return false;
+        if (q && !(u.name.toLowerCase().includes(q) || u.email.toLowerCase().includes(q))) return false;
+        return true;
+      });
+    }
+
+    // ---------- Rendering ----------
+    function renderStats() {
+      document.getElementById('stat-total').textContent = users.length;
+      document.getElementById('stat-active').textContent = users.filter(u => u.status === 'Active').length;
+      document.getElementById('stat-pending').textContent = users.filter(u => u.status === 'Pending').length;
+      document.getElementById('stat-deactivated').textContent = users.filter(u => u.status === 'Deactivated').length;
+    }
+
+    function renderBulkBar() {
+      const bar = document.getElementById('bulk-bar');
+      if (selected.size > 0) {
+        bar.classList.remove('hidden');
+        bar.classList.add('flex');
+        document.getElementById('bulk-count').textContent = selected.size;
+      } else {
+        bar.classList.add('hidden');
+        bar.classList.remove('flex');
+      }
+    }
+
+    function renderTable() {
+      const tbody = document.getElementById('table-body');
+      const filtered = getFiltered();
+      const emptyState = document.getElementById('empty-state');
+      const tableWrap = tbody.closest('.overflow-x-auto');
+
+      document.getElementById('row-count').textContent = `Showing ${filtered.length} of ${users.length} accounts`;
+
+      if (filtered.length === 0) {
+        tableWrap.classList.add('hidden');
+        emptyState.classList.remove('hidden');
+        emptyState.classList.add('flex');
+        tbody.innerHTML = '';
+        renderBulkBar();
+        return;
+      }
+      tableWrap.classList.remove('hidden');
+      emptyState.classList.add('hidden');
+      emptyState.classList.remove('flex');
+
+      tbody.innerHTML = filtered.map(u => {
+        const isSelected = selected.has(u.id);
+        const isDeactivated = u.status === 'Deactivated';
+        const lastSignIn = u.status === 'Pending'
+          ? '<span class="text-zinc-400">Invite not accepted</span>'
+          : (relativeTime(u.lastSignIn) || '<span class="text-zinc-400">Never</span>');
+        return `
+        <tr class="group ${isSelected ? 'bg-accent-50/60' : 'hover:bg-zinc-50'} transition-colors" data-row="${u.id}">
+          <td class="py-2.5 pl-4 pr-2 align-middle">
+            <input type="checkbox" data-select="${u.id}" ${isSelected ? 'checked' : ''} class="h-4 w-4 rounded border-zinc-300 text-accent-600 focus-ring">
+          </td>
+          <td class="py-2.5 pr-3 align-middle">
+            <div class="flex items-center gap-2.5 min-w-0">
+              <div class="h-8 w-8 shrink-0 rounded-full flex items-center justify-center text-xs font-semibold ${avatarClass(u.id)} ${isDeactivated ? 'opacity-50' : ''}">${initials(u.name)}</div>
+              <div class="min-w-0">
+                <p class="truncate font-medium text-zinc-900 ${isDeactivated ? 'text-zinc-400' : ''}">${u.name}</p>
+                <p class="truncate text-xs text-zinc-500">${u.email}</p>
+              </div>
+            </div>
+          </td>
+          <td class="py-2.5 pr-3 align-middle">${roleBadge(u.role)}</td>
+          <td class="py-2.5 pr-3 align-middle">${statusBadge(u.status)}</td>
+          <td class="py-2.5 pr-3 align-middle text-zinc-600 tabular-nums whitespace-nowrap">${lastSignIn}</td>
+          <td class="py-2.5 pr-4 align-middle text-right">
+            <button data-menu-trigger="${u.id}" class="inline-flex h-8 w-8 items-center justify-center rounded-md text-zinc-400 hover:bg-zinc-200 hover:text-zinc-600 focus-ring" aria-label="Actions for ${u.name}" aria-haspopup="menu">
+              <svg viewBox="0 0 24 24" class="h-4 w-4" fill="currentColor"><circle cx="5" cy="12" r="1.8"/><circle cx="12" cy="12" r="1.8"/><circle cx="19" cy="12" r="1.8"/></svg>
+            </button>
+          </td>
+        </tr>`;
+      }).join('');
+
+      renderBulkBar();
+      syncSelectAllCheckbox(filtered);
+    }
+
+    function syncSelectAllCheckbox(filtered) {
+      const selectAll = document.getElementById('select-all');
+      const idsOnPage = filtered.map(u => u.id);
+      const selectedOnPage = idsOnPage.filter(id => selected.has(id));
+      selectAll.checked = idsOnPage.length > 0 && selectedOnPage.length === idsOnPage.length;
+      selectAll.indeterminate = selectedOnPage.length > 0 && selectedOnPage.length < idsOnPage.length;
+    }
+
+    function renderAll() {
+      renderStats();
+      renderTable();
+    }
+
+    // ---------- Row menu ----------
+    const rowMenu = document.getElementById('row-menu');
+
+    function openRowMenu(userId, triggerEl) {
+      activeMenuUserId = userId;
+      const user = users.find(u => u.id === userId);
+      const label = rowMenu.querySelector('[data-action-label]');
+      const toggleBtn = rowMenu.querySelector('[data-action="toggle-status"]');
+      const isDeactivated = user.status === 'Deactivated';
+      label.textContent = isDeactivated ? 'Reactivate' : 'Deactivate';
+      toggleBtn.classList.toggle('text-red-700', !isDeactivated);
+      toggleBtn.classList.toggle('text-emerald-700', isDeactivated);
+
+      const rect = triggerEl.getBoundingClientRect();
+      rowMenu.classList.remove('hidden');
+      const menuWidth = 192;
+      let left = rect.right - menuWidth;
+      left = Math.max(8, Math.min(left, window.innerWidth - menuWidth - 8));
+      let top = rect.bottom + 4;
+      const menuHeight = 132;
+      if (top + menuHeight > window.innerHeight) top = rect.top - menuHeight - 4;
+      rowMenu.style.left = `${left}px`;
+      rowMenu.style.top = `${top}px`;
+    }
+
+    function closeRowMenu() {
+      rowMenu.classList.add('hidden');
+      activeMenuUserId = null;
+    }
+
+    document.addEventListener('click', (e) => {
+      const trigger = e.target.closest('[data-menu-trigger]');
+      if (trigger) {
+        const id = trigger.getAttribute('data-menu-trigger');
+        if (activeMenuUserId === id) { closeRowMenu(); return; }
+        openRowMenu(id, trigger);
+        return;
+      }
+      if (!e.target.closest('#row-menu')) closeRowMenu();
+    });
+    window.addEventListener('scroll', closeRowMenu, true);
+    window.addEventListener('resize', closeRowMenu);
+
+    rowMenu.addEventListener('click', (e) => {
+      const btn = e.target.closest('[data-action]');
+      if (!btn || !activeMenuUserId) return;
+      const action = btn.getAttribute('data-action');
+      const userId = activeMenuUserId;
+      closeRowMenu();
+      if (action === 'reset') openResetDialog([userId]);
+      if (action === 'toggle-status') openDeactivateDialog([userId]);
+      if (action === 'role') showToast('Role editing opens in a future release.', 'error');
+    });
+
+    // ---------- Selection ----------
+    document.getElementById('table-body').addEventListener('change', (e) => {
+      const checkbox = e.target.closest('[data-select]');
+      if (!checkbox) return;
+      const id = checkbox.getAttribute('data-select');
+      if (checkbox.checked) selected.add(id); else selected.delete(id);
+      renderTable();
+    });
+
+    document.getElementById('select-all').addEventListener('change', (e) => {
+      const filtered = getFiltered();
+      if (e.target.checked) filtered.forEach(u => selected.add(u.id));
+      else filtered.forEach(u => selected.delete(u.id));
+      renderTable();
+    });
+
+    document.getElementById('bulk-clear').addEventListener('click', () => {
+      selected.clear();
+      renderTable();
+    });
+
+    // ---------- Filters ----------
+    let searchDebounce;
+    document.getElementById('search-input').addEventListener('input', (e) => {
+      clearTimeout(searchDebounce);
+      searchDebounce = setTimeout(() => {
+        filters.search = e.target.value;
+        renderTable();
+      }, 120);
+    });
+    document.getElementById('role-filter').addEventListener('change', (e) => {
+      filters.role = e.target.value;
+      renderTable();
+    });
+    document.getElementById('status-filter').addEventListener('change', (e) => {
+      filters.status = e.target.value;
+      renderTable();
+    });
+
+    // ---------- Dialog plumbing ----------
+    function setBusy(buttonEl, labelEl, busyText, restoreText) {
+      buttonEl.disabled = true;
+      const original = labelEl.textContent;
+      labelEl.innerHTML = `<span class="inline-flex items-center gap-2"><svg class="h-3.5 w-3.5 animate-spin" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="3" opacity="0.25"/><path d="M21 12a9 9 0 0 0-9-9" stroke="currentColor" stroke-width="3" stroke-linecap="round"/></svg>${busyText}</span>`;
+      return () => { buttonEl.disabled = false; labelEl.textContent = restoreText || original; };
+    }
+
+    document.querySelectorAll('[data-close-dialog]').forEach(btn => {
+      btn.addEventListener('click', () => btn.closest('dialog').close());
+    });
+    document.querySelectorAll('dialog').forEach(dialog => {
+      dialog.addEventListener('click', (e) => { if (e.target === dialog) dialog.close(); });
+    });
+
+    // Invite
+    const inviteDialog = document.getElementById('invite-dialog');
+    const inviteForm = document.getElementById('invite-form');
+    const inviteEmail = document.getElementById('invite-email');
+    const inviteEmailError = document.getElementById('invite-email-error');
+
+    document.getElementById('invite-btn').addEventListener('click', () => {
+      inviteForm.reset();
+      inviteEmailError.classList.add('hidden');
+      inviteEmail.classList.remove('border-red-400');
+      inviteDialog.showModal();
+      inviteEmail.focus();
+    });
+    document.getElementById('empty-invite-btn').addEventListener('click', () => document.getElementById('invite-btn').click());
+
+    inviteForm.addEventListener('submit', (e) => {
+      e.preventDefault();
+      const email = inviteEmail.value.trim();
+      const valid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+      if (!valid) {
+        inviteEmailError.classList.remove('hidden');
+        inviteEmail.classList.add('border-red-400');
+        inviteEmail.focus();
+        return;
+      }
+      const submitBtn = document.getElementById('invite-submit');
+      const label = document.getElementById('invite-submit-label');
+      const restore = setBusy(submitBtn, label, 'Sending…', 'Send invite');
+      setTimeout(() => {
+        const role = document.getElementById('invite-role').value;
+        const name = email.split('@')[0].replace(/[._]/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+        users.unshift({ id: 'u' + Date.now(), name, email, role, status: 'Pending', lastSignIn: null });
+        restore();
+        inviteDialog.close();
+        renderAll();
+        showToast(`Invitation sent to ${email}.`);
+      }, 700);
+    });
+
+    // Deactivate / reactivate
+    const deactivateDialog = document.getElementById('deactivate-dialog');
+    let deactivateTargetIds = [];
+
+    function openDeactivateDialog(ids) {
+      deactivateTargetIds = ids;
+      const targetUsers = users.filter(u => ids.includes(u.id));
+      const allDeactivated = targetUsers.every(u => u.status === 'Deactivated');
+      const title = document.getElementById('deactivate-title');
+      const body = document.getElementById('deactivate-body');
+      const confirmBtn = document.getElementById('deactivate-confirm');
+      const confirmLabel = document.getElementById('deactivate-confirm-label');
+
+      if (allDeactivated) {
+        const who = ids.length === 1 ? targetUsers[0].name : `${ids.length} accounts`;
+        title.textContent = `Reactivate ${ids.length === 1 ? 'this account' : who}?`;
+        body.textContent = "They'll regain access and be able to sign in again immediately.";
+        confirmLabel.textContent = 'Reactivate';
+        confirmBtn.classList.remove('bg-red-600', 'hover:bg-red-700');
+        confirmBtn.classList.add('bg-accent-600', 'hover:bg-accent-700');
+      } else {
+        const who = ids.length === 1 ? targetUsers[0].name : `${ids.length} accounts`;
+        title.textContent = ids.length === 1 ? `Deactivate ${targetUsers[0].name}?` : `Deactivate ${who}?`;
+        body.textContent = "They'll be signed out immediately and lose access until reactivated. This can be undone.";
+        confirmLabel.textContent = ids.length === 1 ? 'Deactivate' : `Deactivate ${ids.length}`;
+        confirmBtn.classList.add('bg-red-600', 'hover:bg-red-700');
+        confirmBtn.classList.remove('bg-accent-600', 'hover:bg-accent-700');
+      }
+      deactivateDialog.showModal();
+    }
+
+    document.getElementById('deactivate-confirm').addEventListener('click', () => {
+      const btn = document.getElementById('deactivate-confirm');
+      const label = document.getElementById('deactivate-confirm-label');
+      const busyText = label.textContent.startsWith('Reactivate') ? 'Reactivating…' : 'Deactivating…';
+      const restoreText = label.textContent;
+      const restore = setBusy(btn, label, busyText, restoreText);
+      setTimeout(() => {
+        const targets = users.filter(u => deactivateTargetIds.includes(u.id));
+        const reactivating = targets.every(u => u.status === 'Deactivated');
+        targets.forEach(u => { u.status = reactivating ? 'Active' : 'Deactivated'; });
+        deactivateTargetIds.forEach(id => selected.delete(id));
+        restore();
+        deactivateDialog.close();
+        renderAll();
+        showToast(reactivating
+          ? `${targets.length === 1 ? targets[0].name + ' was' : targets.length + ' accounts were'} reactivated.`
+          : `${targets.length === 1 ? targets[0].name + ' was' : targets.length + ' accounts were'} deactivated.`);
+      }, 600);
+    });
+
+    document.getElementById('bulk-deactivate').addEventListener('click', () => {
+      if (selected.size === 0) return;
+      openDeactivateDialog([...selected]);
+    });
+
+    // Reset password
+    const resetDialog = document.getElementById('reset-dialog');
+    let resetTargetIds = [];
+
+    function openResetDialog(ids) {
+      resetTargetIds = ids;
+      const targetUsers = users.filter(u => ids.includes(u.id));
+      const title = document.getElementById('reset-title');
+      const confirmLabel = document.getElementById('reset-confirm-label');
+      title.textContent = ids.length === 1 ? `Send password reset to ${targetUsers[0].name}?` : `Send password reset to ${ids.length} people?`;
+      confirmLabel.textContent = ids.length === 1 ? 'Send reset link' : `Send ${ids.length} reset links`;
+      resetDialog.showModal();
+    }
+
+    document.getElementById('reset-confirm').addEventListener('click', () => {
+      const btn = document.getElementById('reset-confirm');
+      const label = document.getElementById('reset-confirm-label');
+      const restoreText = label.textContent;
+      const restore = setBusy(btn, label, 'Sending…', restoreText);
+      setTimeout(() => {
+        const targets = users.filter(u => resetTargetIds.includes(u.id));
+        restore();
+        resetDialog.close();
+        showToast(targets.length === 1 ? `Reset link sent to ${targets[0].email}.` : `Reset links sent to ${targets.length} people.`);
+      }, 600);
+    });
+
+    document.getElementById('bulk-reset').addEventListener('click', () => {
+      if (selected.size === 0) return;
+      openResetDialog([...selected]);
+    });
+
+    // Escape closes row menu even when focus is elsewhere
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') closeRowMenu();
+    });
+
+    renderAll();
+  </script>
+</body>

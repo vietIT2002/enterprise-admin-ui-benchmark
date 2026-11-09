@@ -1,0 +1,58 @@
+{
+  "brief": "26-sales-pipeline-report",
+  "run": 1,
+  "items": [
+    {
+      "item": "The stage breakdown lists stages in pipeline order (not alphabetical), each with its win probability, and each stage's weighted value equals its open value × that probability, with the weighted total equal to the sum of the stages",
+      "pass": false,
+      "evidence": "renderByStage() iterates OPEN_STAGE_ORDER = ['prospecting','qualification','proposal','negotiation'] (correct pipeline order) and weighted = deals.reduce(s+weightedValue(d)) is mathematically open value × stage prob, but the rendered rightCells only show deal count, value, weighted value and pct(r.value/totalValue) — a 'share of pipeline' percentage, not the stage's win probability. No probability figure is shown anywhere in the By-stage panel."
+    },
+    {
+      "item": "Win rate is computed over closed deals only, won ÷ (won + lost), with the counts shown beside it (such as \"38% · 19 of 50 closed\"), and a salesperson with no closed deals shows \"—\" instead of 0% or NaN",
+      "pass": true,
+      "evidence": "computeWinRate() filters DEALS to stage==='closed_won'||'closed_lost', rate = total ? won.length/total : null (line ~438); KPI shows '10 won · 8 lost · 81.5% by value' beside 55.6%; per-rep rows use `r.wr.rate == null ? '—' : pct(r.wr.rate)` (line 513) so zero-closed reps show '—'."
+    },
+    {
+      "item": "The by-salesperson table ends in a totals row whose deal count, pipeline value and weighted value equal the sum of its rows and match the overall totals of the stage breakdown",
+      "pass": false,
+      "evidence": "renderBySalesperson() (lines 496-528) builds one barRow per rep via rows.forEach and appends nothing else — no totals row is constructed or appended to #bySalespersonRows."
+    },
+    {
+      "item": "The period can be set to this quarter, next quarter or a custom range, the page says which date it applies to (expected close date), and the results can also be narrowed to one salesperson or team",
+      "pass": false,
+      "evidence": "Only a custom date range exists: labeled 'Expected close' with #fDateFrom/#fDateTo (lines 110-116) — there are no 'This quarter'/'Next quarter' preset controls. Filtering narrows to individual reps via #repCheckboxList, but there is no team-level filter."
+    },
+    {
+      "item": "Every money value shows its currency (one currency for the whole report) with thousands separators and lines up by digit within its column, and any abbreviated headline figure (such as \"1.2M\") has the full amount available in the table or a title attribute",
+      "pass": true,
+      "evidence": "fmtUSD = new Intl.NumberFormat('en-US',{style:'currency',currency:'USD',maximumFractionDigits:0}) is used for every money value (e.g. '$1,321,225', '$3,353,000'); tabular-nums classes keep digits aligned (audit.json numericCells: misaligned 0 of 144); no abbreviated figures (1.2M-style) are used anywhere, so full amounts are always shown directly."
+    },
+    {
+      "item": "Open deals whose expected close date has already passed are flagged with words (such as \"Close date passed\"), not colour alone, and the number of such deals is shown per salesperson",
+      "pass": false,
+      "evidence": "Overdue deals get a text badge reading 'Overdue' (line 614: `... ring-rose-200\">Overdue</span>`), satisfying the word-flag requirement, but renderBySalesperson() never aggregates or displays an overdue-deal count per rep — only the raw deal count is shown."
+    },
+    {
+      "item": "Each stage and salesperson figure drills down to the deals behind it (deal, account, owner, value, stage, close date) through a link or button that is keyboard-focusable and has a descriptive accessible name",
+      "pass": false,
+      "evidence": "barRow() (lines 477-494) builds the salesperson/stage rows out of plain <div> elements with no click handler, href, or button role — clicking a bar/row does nothing, so there is no drill-down affordance at all."
+    },
+    {
+      "item": "When the filters match no deals, the page says so, names the active filters and offers to clear them; a loading indicator and a failed-load message with a retry action are also present",
+      "pass": false,
+      "evidence": "#emptyState shows generic text 'No deals match your filters' / 'Try widening the date range or clearing a filter.' plus a 'Clear filters' button (lines 216-221), but it never names which filters are active. DEALS is static inline data with no fetch, so there is no loading spinner and no failed-load/retry UI anywhere in the markup or script."
+    },
+    {
+      "item": "Export (CSV or Excel) produces the deal-level rows for the current filters, and its label or confirmation states the scope (such as \"Export 42 deals · Q4 2026\")",
+      "pass": false,
+      "evidence": "exportCSV() correctly exports sortDeals(getFilteredOpenDeals()) as deal-level CSV rows, but #btnExport's label is the static text 'Export CSV' (line 48) and there is no post-export confirmation — the scope (deal count, period) is never stated."
+    }
+  ],
+  "tells": [
+    "tracked-uppercase-labels",
+    "rainbow-status",
+    "oversized-radius"
+  ],
+  "notes": "tracked-uppercase-labels: table header row uses `text-xs uppercase tracking-wide text-slate-500` (line 189). rainbow-status: stage badges span six unrelated hues (slate/sky/amber/violet/emerald/rose) purely to distinguish pipeline stages (STAGE_META, lines 241-248). oversized-radius: audit.json flags `rounded-xl` (12px) cards/sections exceeding the ≤8px guideline (radius-scale violation, e.g. filter section and KPI cards). Initials avatars (MC, JP, SR, EK, MW, PN) represent actual sales reps, so initials-avatar-non-person does not apply. No gradients, glass/backdrop-blur, emoji icons, greeting header, KPI icon tiles, delta pills, sidebar, decorative charts, card-in-card, or hover-lift effects were found in the markup/script.",
+  "blind": true
+}

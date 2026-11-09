@@ -1,0 +1,539 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Categories — Catalog</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+  tailwind.config = {
+    theme: {
+      extend: {
+        colors: {
+          ink: '#1C2430',
+          paper: '#EDEFEC',
+          panel: '#FAFAF8',
+          line: '#D8DAD3',
+          teal: '#2F6F62',
+          amber: '#B8832E',
+          amberdeep: '#8A6220',
+          rust: '#9A3B32',
+          slate: '#6B6F67',
+          muted: '#5B6560',
+        },
+        fontFamily: {
+          sans: ['"IBM Plex Sans"', 'ui-sans-serif', 'system-ui', 'sans-serif'],
+          mono: ['"IBM Plex Mono"', 'ui-monospace', 'SFMono-Regular', 'monospace'],
+        },
+      },
+    },
+  };
+</script>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<style>
+  @media (prefers-reduced-motion: reduce) {
+    * { transition: none !important; }
+  }
+  ::selection { background: #2F6F62; color: #FAFAF8; }
+  textarea, input { font-family: inherit; }
+</style>
+</head>
+<body class="bg-paper font-sans text-ink">
+
+  <div class="flex flex-col md:h-screen">
+
+    <header class="border-b border-line bg-panel px-5 md:px-8 py-4 flex items-center justify-between gap-6 shrink-0">
+      <div class="min-w-0">
+        <h1 class="text-lg font-semibold text-ink">Categories</h1>
+        <p id="catalogStats" class="text-sm text-muted mt-0.5"></p>
+      </div>
+      <button id="newTopCategory" type="button" class="shrink-0 text-sm font-medium text-white bg-ink px-3.5 py-2 rounded-sm hover:bg-ink/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal focus-visible:ring-offset-1">
+        New category
+      </button>
+    </header>
+
+    <div class="flex flex-col md:flex-row flex-1 md:overflow-hidden">
+
+      <aside class="w-full md:w-[380px] bg-panel border-b md:border-b-0 md:border-r border-line flex flex-col max-h-[45vh] md:max-h-none md:overflow-hidden shrink-0">
+        <div class="p-3 border-b border-line shrink-0">
+          <input
+            id="searchInput"
+            type="text"
+            placeholder="Search categories"
+            class="w-full text-sm border border-line rounded-sm px-2.5 py-1.5 bg-white placeholder:text-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal"
+          />
+        </div>
+        <div id="tree" class="flex-1 overflow-y-auto py-2 px-2"></div>
+      </aside>
+
+      <main id="detail" class="flex-1 md:overflow-y-auto bg-white px-6 md:px-10 py-8"></main>
+
+    </div>
+  </div>
+
+<script>
+  // ---- Mock catalog data -------------------------------------------------
+  // Leaf nodes carry a raw `count`; every other node's count is the sum of
+  // its descendants, computed on the fly so the tree can never drift out of
+  // sync with its children.
+  const CATALOG = [
+    {
+      name: 'Electronics', status: 'active',
+      description: 'Consumer electronics and accessories, from personal audio to full computer setups.',
+      children: [
+        {
+          name: 'Audio', status: 'active',
+          description: 'Headphones, speakers, and listening accessories.',
+          children: [
+            {
+              name: 'Headphones', status: 'active',
+              description: 'Over-ear and in-ear headphones for everyday listening and calls.',
+              children: [
+                { name: 'Over-ear', status: 'active', count: 96, description: 'Full-size headphones with ear cups, including wireless and noise-cancelling models.', children: [] },
+                { name: 'In-ear', status: 'active', count: 88, description: 'Compact earbuds and in-ear monitors, wired and wireless.', children: [] },
+              ],
+            },
+            { name: 'Speakers', status: 'active', count: 428, description: 'Portable and home speakers, including smart speakers and soundbars.', children: [] },
+          ],
+        },
+        {
+          name: 'Computing', status: 'active',
+          description: 'Laptops, desktops, monitors, and the accessories that go with them.',
+          children: [
+            { name: 'Laptops', status: 'active', count: 512, description: 'Everyday, gaming, and ultraportable laptops.', children: [] },
+            { name: 'Desktops', status: 'active', count: 211, description: 'Tower and all-in-one desktop computers.', children: [] },
+            { name: 'Monitors', status: 'active', count: 340, description: 'Standalone displays for home and office setups.', children: [] },
+            { name: 'Accessories', status: 'active', count: 743, description: 'Keyboards, mice, docks, and other computing peripherals.', children: [] },
+          ],
+        },
+        { name: 'Smart Home', status: 'draft', count: 0, description: 'Connected lighting, sensors, and hubs. Not yet stocked — awaiting the first supplier shipment.', children: [] },
+      ],
+    },
+    {
+      name: 'Home & Garden', status: 'active',
+      description: 'Furniture, kitchenware, and decor for the home.',
+      children: [
+        { name: 'Furniture', status: 'active', count: 402, description: 'Seating, tables, and storage for living and dining spaces.', children: [] },
+        { name: 'Kitchen', status: 'active', count: 318, description: 'Cookware, small appliances, and kitchen tools.', children: [] },
+        { name: 'Decor', status: 'active', count: 234, description: 'Textiles, lighting, and decorative accessories.', children: [] },
+      ],
+    },
+    {
+      name: 'Apparel', status: 'active',
+      description: 'Clothing for men, women, and kids.',
+      children: [
+        {
+          name: "Men's", status: 'active',
+          description: 'Everyday and occasion wear for men.',
+          children: [
+            { name: 'Tops', status: 'active', count: 540, description: 'Shirts, t-shirts, and knitwear.', children: [] },
+            { name: 'Bottoms', status: 'active', count: 420, description: 'Trousers, jeans, and shorts.', children: [] },
+            { name: 'Outerwear', status: 'active', count: 380, description: 'Jackets and coats.', children: [] },
+          ],
+        },
+        {
+          name: "Women's", status: 'active',
+          description: 'Everyday and occasion wear for women.',
+          children: [
+            { name: 'Tops', status: 'active', count: 610, description: 'Shirts, t-shirts, and knitwear.', children: [] },
+            { name: 'Bottoms', status: 'active', count: 480, description: 'Trousers, jeans, and shorts.', children: [] },
+            { name: 'Outerwear', status: 'hidden', count: 430, description: 'Jackets and coats. Hidden from the storefront between seasons.', children: [] },
+          ],
+        },
+        {
+          name: "Kids'", status: 'active',
+          description: 'Clothing for children aged 2–12.',
+          children: [
+            { name: 'Boys', status: 'active', count: 130, description: 'Everyday and occasion wear for boys.', children: [] },
+            { name: 'Girls', status: 'active', count: 112, description: 'Everyday and occasion wear for girls.', children: [] },
+          ],
+        },
+      ],
+    },
+    {
+      name: 'Toys & Games', status: 'active',
+      description: 'Toys, games, and outdoor play equipment for kids.',
+      children: [
+        { name: 'Action Figures', status: 'active', count: 120, description: 'Collectible and play figures across licensed and original lines.', children: [] },
+        { name: 'Board Games', status: 'active', count: 165, description: 'Family, strategy, and party games.', children: [] },
+        { name: 'Outdoor Play', status: 'active', count: 156, description: 'Backyard and playground equipment, from trampolines to water toys.', children: [] },
+      ],
+    },
+    {
+      name: 'Sports & Outdoors', status: 'active',
+      description: 'Fitness, cycling, and outdoor gear.',
+      children: [
+        { name: 'Fitness', status: 'active', count: 268, description: 'Home gym equipment, yoga gear, and training accessories.', children: [] },
+        { name: 'Cycling', status: 'active', count: 194, description: 'Bikes, helmets, and cycling accessories.', children: [] },
+        { name: 'Camping', status: 'draft', count: 0, description: 'Tents, sleeping bags, and camp cookware. Not yet stocked.', children: [] },
+      ],
+    },
+  ];
+
+  // ---- State ---------------------------------------------------------------
+  let selectedId = '';
+  let expanded = new Set();
+  let searchQuery = '';
+  let editingDescription = false;
+  let confirmingDelete = null;
+  let addingUnder = null;
+  let showSavedFlash = false;
+
+  // ---- Helpers ---------------------------------------------------------------
+  function slugify(str) {
+    return str.toLowerCase().trim().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '') || 'category';
+  }
+
+  function escapeHtml(str) {
+    const map = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' };
+    return String(str).replace(/[&<>"']/g, (ch) => map[ch]);
+  }
+
+  function initTree(nodes, parent) {
+    nodes.forEach((n) => {
+      n.parent = parent;
+      n.children = n.children || [];
+      n.description = n.description || '';
+      n.status = n.status || 'active';
+      n.slug = (parent ? parent.slug + '/' : '') + slugify(n.name);
+      n.id = n.slug;
+      initTree(n.children, n);
+    });
+  }
+
+  function findById(id, nodes = CATALOG) {
+    for (const n of nodes) {
+      if (n.id === id) return n;
+      const found = findById(id, n.children);
+      if (found) return found;
+    }
+    return null;
+  }
+
+  function computeCount(node) {
+    if (!node.children.length) return node.count || 0;
+    return node.children.reduce((sum, c) => sum + computeCount(c), 0);
+  }
+
+  function countNodes(nodes) {
+    return nodes.reduce((sum, n) => sum + 1 + countNodes(n.children), 0);
+  }
+
+  function getPath(node) {
+    const path = [];
+    let cur = node;
+    while (cur) { path.unshift(cur); cur = cur.parent; }
+    return path;
+  }
+
+  function nodeMatchesOrDescendant(node, query) {
+    if (node.name.toLowerCase().includes(query)) return true;
+    return node.children.some((c) => nodeMatchesOrDescendant(c, query));
+  }
+
+  function highlightMatch(name, query) {
+    const idx = name.toLowerCase().indexOf(query);
+    if (idx === -1) return escapeHtml(name);
+    const before = name.slice(0, idx), match = name.slice(idx, idx + query.length), after = name.slice(idx + query.length);
+    return escapeHtml(before) + '<mark class="bg-amber/30 text-ink rounded-[1px]">' + escapeHtml(match) + '</mark>' + escapeHtml(after);
+  }
+
+  function statusLabel(s) { return s === 'active' ? 'Active' : s === 'draft' ? 'Draft' : 'Hidden'; }
+  function chipClass(s) { return s === 'active' ? 'bg-teal' : s === 'draft' ? 'bg-amber' : 'bg-slate'; }
+  function statusSelectClasses(s) {
+    if (s === 'active') return 'border-teal/40 text-teal bg-teal/5';
+    if (s === 'draft') return 'border-amber/50 text-amberdeep bg-amber/10';
+    return 'border-slate/40 text-slate bg-slate/10';
+  }
+
+  function addNode(parent, name) {
+    const siblings = parent ? parent.children : CATALOG;
+    const prefix = parent ? parent.slug + '/' : '';
+    const base = slugify(name);
+    let slug = base, i = 2;
+    while (siblings.some((s) => s.id === prefix + slug)) { slug = base + '-' + i; i++; }
+    const node = { name, status: 'draft', description: '', count: 0, children: [], parent, slug: prefix + slug, id: prefix + slug };
+    siblings.push(node);
+    if (parent) expanded.add(parent.id);
+    selectedId = node.id;
+  }
+
+  function isDescendantSelected(node) {
+    return node.children.some((c) => c.id === selectedId || isDescendantSelected(c));
+  }
+
+  function deleteNode(node) {
+    const siblings = node.parent ? node.parent.children : CATALOG;
+    const idx = siblings.indexOf(node);
+    if (idx !== -1) siblings.splice(idx, 1);
+    if (selectedId === node.id || isDescendantSelected(node)) {
+      selectedId = node.parent ? node.parent.id : (CATALOG[0] ? CATALOG[0].id : '');
+    }
+  }
+
+  function renderAddForm() {
+    return `<div class="flex items-center gap-2 py-1.5 pl-2 pr-1">
+      <input id="newCatInput" type="text" placeholder="Category name" class="flex-1 text-sm border border-line rounded-sm px-2 py-1 bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal" />
+      <button data-add-confirm type="button" class="text-xs font-medium text-white bg-ink px-2.5 py-1 rounded-sm hover:bg-ink/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal">Add</button>
+      <button data-add-cancel type="button" class="text-xs text-muted px-1 hover:text-ink">Cancel</button>
+    </div>`;
+  }
+
+  // ---- Render: tree ---------------------------------------------------------
+  function renderNode(node) {
+    const query = searchQuery.trim().toLowerCase();
+    const searching = query.length > 0;
+    if (searching && !nodeMatchesOrDescendant(node, query)) return '';
+
+    const hasChildren = node.children.length > 0;
+    const isOpen = searching ? true : expanded.has(node.id);
+    const count = computeCount(node);
+    const isSelected = node.id === selectedId;
+    const rowClasses = isSelected
+      ? 'bg-ink/[0.07] border-l-2 border-ink pl-[6px]'
+      : 'border-l-2 border-transparent pl-[6px] hover:bg-black/[0.03]';
+    const nameHtml = searching ? highlightMatch(node.name, query) : escapeHtml(node.name);
+
+    let html = '<div>';
+    html += '<div class="flex items-center gap-0.5">';
+    html += hasChildren
+      ? `<button data-toggle="${node.id}" type="button" aria-label="${isOpen ? 'Collapse' : 'Expand'} ${escapeHtml(node.name)}" class="w-5 h-7 flex items-center justify-center text-muted hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal rounded-sm shrink-0">${isOpen ? '▾' : '▸'}</button>`
+      : '<span class="w-5 h-7 shrink-0"></span>';
+    html += `<button data-select="${node.id}" type="button" class="flex-1 flex items-center gap-2 min-w-0 text-left py-1.5 rounded-sm ${rowClasses} focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal">`;
+    html += `<span class="w-2 h-2 rounded-[2px] ${chipClass(node.status)} shrink-0" title="Status: ${statusLabel(node.status)}"></span>`;
+    html += `<span class="truncate text-[14px] text-ink">${nameHtml}</span>`;
+    html += `<span class="ml-auto font-mono text-[12px] tabular-nums text-muted pr-2">${count.toLocaleString()}</span>`;
+    html += '</button></div>';
+    if (hasChildren && isOpen) {
+      html += `<div class="ml-[9px] pl-[12px] border-l border-line">${node.children.map(renderNode).join('')}</div>`;
+    }
+    html += '</div>';
+    return html;
+  }
+
+  function renderTree() {
+    const container = document.getElementById('tree');
+    const query = searchQuery.trim();
+    const listHtml = CATALOG.map(renderNode).join('');
+    let html = '';
+    if (addingUnder === 'root') html += renderAddForm();
+    if (listHtml.trim()) {
+      html += listHtml;
+    } else if (query) {
+      html += `<p class="text-sm text-muted px-2 py-4">No categories match "${escapeHtml(query)}". Try a different search term.</p>`;
+    }
+    container.innerHTML = html;
+    const input = document.getElementById('newCatInput');
+    if (input) input.focus();
+  }
+
+  // ---- Render: detail ---------------------------------------------------------
+  function renderDetail() {
+    const container = document.getElementById('detail');
+    const node = findById(selectedId) || CATALOG[0] || null;
+    if (!node) {
+      container.innerHTML = '<p class="text-sm text-muted">No categories yet. Create one to get started.</p>';
+      return;
+    }
+    selectedId = node.id;
+
+    const path = getPath(node);
+    const count = computeCount(node);
+
+    const breadcrumbHtml = path.slice(0, -1).map((a) =>
+      `<button data-select="${a.id}" type="button" class="hover:text-ink hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal rounded-sm">${escapeHtml(a.name)}</button><span aria-hidden="true" class="px-0.5">/</span>`
+    ).join('');
+
+    const emptyCallout = count === 0
+      ? `<div class="border border-dashed border-amber/50 bg-amber/5 rounded-sm p-4 text-sm text-ink/80 mb-6">No products assigned yet. Add products from the catalog to populate this category.</div>`
+      : '';
+
+    const descSection = editingDescription
+      ? `<textarea id="descInput" rows="3" class="w-full max-w-[640px] text-[15px] leading-relaxed border border-line rounded-sm p-2.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal">${escapeHtml(node.description)}</textarea>
+         <div class="mt-2"><button data-cancel-desc type="button" class="text-sm text-muted hover:underline">Cancel</button></div>`
+      : `<p class="text-[15px] leading-relaxed text-ink/80 max-w-[640px]">${node.description ? escapeHtml(node.description) : 'No description yet.'}</p>`;
+
+    const subcats = node.children.length
+      ? `<div class="border border-line rounded-sm divide-y divide-line">${node.children.map((c) => `
+          <button data-select="${c.id}" type="button" class="w-full flex items-center justify-between gap-3 px-3 py-2.5 text-left hover:bg-black/[0.03] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal">
+            <span class="flex items-center gap-2 min-w-0"><span class="w-2 h-2 rounded-[2px] ${chipClass(c.status)} shrink-0" title="Status: ${statusLabel(c.status)}"></span><span class="text-sm text-ink truncate">${escapeHtml(c.name)}</span></span>
+            <span class="font-mono text-xs tabular-nums text-muted shrink-0">${computeCount(c).toLocaleString()}</span>
+          </button>`).join('')}</div>`
+      : `<div class="border border-dashed border-line rounded-sm p-4 text-sm text-muted">No subcategories yet. Add one to start organizing products within ${escapeHtml(node.name)}.</div>`;
+
+    const addSubBlock = addingUnder === node.id
+      ? renderAddForm()
+      : `<button data-add-sub="${node.id}" type="button" class="mt-3 text-sm text-teal hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal rounded-sm">Add subcategory</button>`;
+
+    const deleteBlock = confirmingDelete === node.id
+      ? `<span class="text-sm text-ink/80">Delete "${escapeHtml(node.name)}" and its subcategories?</span>
+         <button data-delete-confirm="${node.id}" type="button" class="text-sm font-medium text-white bg-rust px-3 py-1.5 rounded-sm hover:bg-rust/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rust">Delete</button>
+         <button data-delete-cancel type="button" class="text-sm text-muted hover:underline">Cancel</button>`
+      : `<button data-delete="${node.id}" type="button" class="text-sm text-rust hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rust rounded-sm">Delete category</button>`;
+
+    container.innerHTML = `
+      <div class="max-w-[720px]">
+        <nav class="flex items-center gap-1 text-sm text-muted mb-4 flex-wrap" aria-label="Breadcrumb">
+          ${breadcrumbHtml}<span class="text-ink font-medium">${escapeHtml(node.name)}</span>
+        </nav>
+
+        <div class="flex items-start justify-between gap-6 mb-2">
+          <h1 class="text-2xl font-semibold text-ink leading-tight">${escapeHtml(node.name)}</h1>
+          <select data-status-select class="text-xs font-medium rounded-sm border px-2 py-1.5 shrink-0 ${statusSelectClasses(node.status)} focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal">
+            <option value="active" ${node.status === 'active' ? 'selected' : ''}>Active</option>
+            <option value="draft" ${node.status === 'draft' ? 'selected' : ''}>Draft</option>
+            <option value="hidden" ${node.status === 'hidden' ? 'selected' : ''}>Hidden</option>
+          </select>
+        </div>
+        <p class="font-mono text-[13px] text-muted mb-6">/${escapeHtml(node.slug)}</p>
+
+        <dl class="grid grid-cols-2 gap-6 py-4 border-y border-line mb-6 max-w-[420px]">
+          <div><dt class="text-xs text-muted mb-1">Products in this category</dt><dd class="font-mono text-xl text-ink tabular-nums">${count.toLocaleString()}</dd></div>
+          <div><dt class="text-xs text-muted mb-1">Direct subcategories</dt><dd class="font-mono text-xl text-ink tabular-nums">${node.children.length}</dd></div>
+        </dl>
+
+        ${emptyCallout}
+
+        <section class="mb-8">
+          <div class="flex items-center justify-between mb-2">
+            <h2 class="text-sm font-semibold text-ink">Description</h2>
+            <button data-edit-desc type="button" class="text-sm text-teal hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal rounded-sm">${editingDescription ? 'Save' : 'Edit'}</button>
+          </div>
+          ${descSection}
+          ${showSavedFlash ? '<p class="text-xs text-teal mt-2">Saved.</p>' : ''}
+        </section>
+
+        <section class="mb-8">
+          <h2 class="text-sm font-semibold text-ink mb-3">Subcategories</h2>
+          ${subcats}
+          ${addSubBlock}
+        </section>
+
+        <div class="flex items-center gap-4 pt-6 border-t border-line">
+          ${deleteBlock}
+        </div>
+      </div>
+    `;
+
+    const descInput = document.getElementById('descInput');
+    if (descInput) { descInput.focus(); descInput.selectionStart = descInput.selectionEnd = descInput.value.length; }
+    const addInput = document.getElementById('newCatInput');
+    if (addInput) addInput.focus();
+  }
+
+  function renderHeaderStats() {
+    const el = document.getElementById('catalogStats');
+    const totalNodes = countNodes(CATALOG);
+    const totalProducts = CATALOG.reduce((s, n) => s + computeCount(n), 0);
+    el.textContent = `${totalNodes} categories across ${CATALOG.length} departments, totalling ${totalProducts.toLocaleString()} products.`;
+  }
+
+  function render() {
+    renderHeaderStats();
+    renderTree();
+    renderDetail();
+  }
+
+  // ---- Actions ---------------------------------------------------------------
+  function confirmAdd() {
+    const input = document.getElementById('newCatInput');
+    if (!input) return;
+    const name = input.value.trim();
+    if (!name) { addingUnder = null; render(); return; }
+    const parent = addingUnder === 'root' ? null : findById(addingUnder);
+    addNode(parent, name);
+    addingUnder = null;
+    render();
+  }
+
+  function handleClick(e) {
+    const toggle = e.target.closest('[data-toggle]');
+    if (toggle) { const id = toggle.getAttribute('data-toggle'); expanded.has(id) ? expanded.delete(id) : expanded.add(id); renderTree(); return; }
+
+    const select = e.target.closest('[data-select]');
+    if (select) { selectedId = select.getAttribute('data-select'); editingDescription = false; confirmingDelete = null; addingUnder = null; showSavedFlash = false; render(); return; }
+
+    const addConfirm = e.target.closest('[data-add-confirm]');
+    if (addConfirm) { confirmAdd(); return; }
+
+    const addCancel = e.target.closest('[data-add-cancel]');
+    if (addCancel) { addingUnder = null; render(); return; }
+
+    const addSub = e.target.closest('[data-add-sub]');
+    if (addSub) { addingUnder = addSub.getAttribute('data-add-sub'); renderDetail(); return; }
+
+    const editDesc = e.target.closest('[data-edit-desc]');
+    if (editDesc) {
+      if (editingDescription) {
+        const ta = document.getElementById('descInput');
+        const node = findById(selectedId);
+        if (node && ta) node.description = ta.value.trim();
+        editingDescription = false;
+        showSavedFlash = true;
+        renderDetail();
+        setTimeout(() => { showSavedFlash = false; renderDetail(); }, 1500);
+      } else {
+        editingDescription = true;
+        renderDetail();
+      }
+      return;
+    }
+
+    const cancelDesc = e.target.closest('[data-cancel-desc]');
+    if (cancelDesc) { editingDescription = false; renderDetail(); return; }
+
+    const del = e.target.closest('[data-delete]');
+    if (del) { confirmingDelete = del.getAttribute('data-delete'); renderDetail(); return; }
+
+    const delConfirm = e.target.closest('[data-delete-confirm]');
+    if (delConfirm) {
+      const node = findById(delConfirm.getAttribute('data-delete-confirm'));
+      if (node) deleteNode(node);
+      confirmingDelete = null;
+      render();
+      return;
+    }
+
+    const delCancel = e.target.closest('[data-delete-cancel]');
+    if (delCancel) { confirmingDelete = null; renderDetail(); return; }
+  }
+
+  function handleChange(e) {
+    const sel = e.target.closest('[data-status-select]');
+    if (sel) { const node = findById(selectedId); if (node) node.status = sel.value; render(); }
+  }
+
+  function handleKeydown(e) {
+    if (e.target.id === 'newCatInput') {
+      if (e.key === 'Enter') { e.preventDefault(); confirmAdd(); }
+      else if (e.key === 'Escape') { addingUnder = null; render(); }
+    } else if (e.target.id === 'descInput' && e.key === 'Escape') {
+      editingDescription = false; renderDetail();
+    }
+  }
+
+  // ---- Init ---------------------------------------------------------------
+  initTree(CATALOG, null);
+  CATALOG.forEach((top) => expanded.add(top.id));
+  selectedId = 'electronics/audio/headphones';
+  (function expandToSelection() {
+    const node = findById(selectedId);
+    if (!node) return;
+    let p = node.parent;
+    while (p) { expanded.add(p.id); p = p.parent; }
+  })();
+
+  document.getElementById('newTopCategory').addEventListener('click', () => {
+    addingUnder = 'root'; editingDescription = false; confirmingDelete = null; render();
+  });
+  document.getElementById('searchInput').addEventListener('input', (e) => { searchQuery = e.target.value; renderTree(); });
+  document.addEventListener('click', handleClick);
+  document.addEventListener('change', handleChange);
+  document.addEventListener('keydown', handleKeydown);
+
+  render();
+</script>
+</body>
+</html>

@@ -1,0 +1,56 @@
+{
+  "brief": "20-ar-aging-report",
+  "run": 1,
+  "items": [
+    {
+      "item": "Balances are split into Current (not yet due) and past-due buckets of 1–30, 31–60, 61–90 and over 90 days, with no gaps or overlaps between ranges, and the page states whether days are counted from the due date or the invoice date",
+      "pass": true,
+      "evidence": "bucketOf(d): d<=0 'current', d<=30 'b1', d<=60 'b2', d<=90 'b3', else 'b4' (no gaps/overlaps, computed from daysOverdue(inv.due)); footer text: \"Aging is calculated from each invoice's due date, not its issue date.\""
+    },
+    {
+      "item": "Each customer's row total equals the sum of its buckets, and a grand-total row, set apart from the customer rows, equals the sum of every bucket column and of the total column",
+      "pass": true,
+      "evidence": "total = Object.values(buckets).reduce((a,b)=>a+b,0) per customer; footHTML() tfoot row (class 'border-t-2 border-navy', labelled 'Total (18 customers)') sums sums.current..sums.b4 and sums.total across the filtered/sorted list."
+    },
+    {
+      "item": "An as-of date control is present, and the heading or a summary line states the as-of date, the currency, the total receivable and the total overdue (such as \"As of 31 Oct 2026 · VND\")",
+      "pass": false,
+      "evidence": "\"As of November 7, 2026\" (header) is static text from a hardcoded const ASOF = new Date(Date.UTC(2026,10,7)) — no input/control to change it. No currency is named (only a bare $ symbol). Summary strip shows a 'Total outstanding' figure ($199,326.25, which includes the Current bucket) but no separate 'total overdue' figure exists anywhere."
+    },
+    {
+      "item": "Money columns are right-aligned with fixed-width digits, thousand separators and one decimal convention, and credit balances such as overpayments carry a leading minus or brackets instead of being signalled by red text alone",
+      "pass": true,
+      "evidence": "All amount cells use class 'num' (font-variant-numeric: tabular-nums) plus 'text-right'; fmt() uses n.toLocaleString('en-US',{style:'currency',currency:'USD'}) giving consistent thousand separators and two decimals (e.g. \"$1,800.00\"); audit.json numericCells: {total:45, misaligned:0, nonTabular:0}. No credit balances exist in the sample data, but toLocaleString currency formatting would render negatives with a leading minus, not color alone."
+    },
+    {
+      "item": "Users can search by customer name or code, filter by at least one of salesperson, customer group or branch, and restrict the list to customers with overdue balances, with the number of customers shown",
+      "pass": false,
+      "evidence": "searchInput only matches c.name or invoice number (applyFilters). The only other filter is #statusFilter with options all/current/watch/pastdue/overdue/critical — there is no salesperson, customer group, or branch filter anywhere in the markup or `state` object. footerCount does show a count (\"Showing X of Y customers\")."
+    },
+    {
+      "item": "Each customer row expands, through a keyboard-operable control such as a button with aria-expanded, into its open invoices (invoice number, invoice date, due date, days overdue, open amount), and those amounts add up to the customer's row",
+      "pass": false,
+      "evidence": "Expand trigger is `<tr class=\"row\" tabindex=\"0\">` with click/keydown(Enter/Space) handlers calling toggleRow() — not a <button>, and no `aria-expanded` attribute exists anywhere in page.html. The revealed detail table does list Invoice/Issued/Due/Status/Amount per invoice, summing to the customer's total, but the control fails the stated accessibility requirement."
+    },
+    {
+      "item": "Clicking a column header re-orders the customers and the header in use carries aria-sort; by default customers are ordered by their over-90 amount (or total balance), largest first",
+      "pass": false,
+      "evidence": "sort-btn click handlers call applySort() and re-render; default state is {sortKey:'total', sortDir:'desc'} (total balance, largest first — satisfies the default-order clause). However no `aria-sort` attribute is ever set; only custom `data-active`/`data-dir` attributes drive the CSS ▲/▼ indicator (`.sort-btn[data-active=\"true\"] .sort-indicator::after`)."
+    },
+    {
+      "item": "An Excel or CSV export is offered, and an @media print style removes navigation, filters and buttons while keeping the as-of date, column headings and grand total on paper",
+      "pass": true,
+      "evidence": "#exportBtn builds a CSV Blob and downloads 'ar-aging-report-2026-11-07.csv'. `@media print { .no-print{display:none!important} ... .detail-row{display:none!important} }` with the filters/export/print section carrying class `no-print`; the header (as-of date), `<thead>` column headings, and `<tfoot>` grand-total row are not hidden."
+    },
+    {
+      "item": "Filters that leave no balances show a message saying so instead of an empty grid or a row of zeros, and both a loading state and an error state with a retry action are built in",
+      "pass": false,
+      "evidence": "render() shows \"No customers match these filters. Try clearing a filter above.\" when sorted.length is 0 — but there is no loading state and no error/retry UI anywhere in the page; data comes from a hardcoded RAW_CUSTOMERS array rendered synchronously with no fetch/async path."
+    }
+  ],
+  "tells": [
+    "decorative-chart"
+  ],
+  "notes": "decorative-chart: each customer name cell includes a tiny bucket-proportion bar (`<div class=\"mt-1.5 flex h-1 w-28 ... bg-line\">` with colored width segments) that duplicates the adjacent numeric columns without adding new information. Audit.json also flags real defects worth noting even though not on the checklist: text-contrast errors (65, e.g. 2.07:1 on several bucket amount cells vs 4.5:1 required), table-row-height errors (53.5px rows vs 32–48px expected), and bucket column headers not right-aligned (6 instances) despite the data cells themselves being correctly aligned.",
+  "blind": true
+}

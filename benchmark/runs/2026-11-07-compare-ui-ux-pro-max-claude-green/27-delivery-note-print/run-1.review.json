@@ -1,0 +1,56 @@
+{
+  "brief": "27-delivery-note-print",
+  "run": 1,
+  "items": [
+    {
+      "item": "The header shows the delivery note number, issue date, source sales order or transfer number and dispatching warehouse, each with a visible label, and every date on the note uses one unambiguous format (such as 06 Nov 2026)",
+      "pass": false,
+      "evidence": "Note No., Date (\"November 7, 2026\") and Order Ref. (SO-88291) are labelled in the title band/#metaGrid, but dispatching warehouse has no labelled field — it's only inline prose in #senderBlock: \"Warehouse: WH-04 — Charlotte DC · VAT/EIN: 58-3301942\". Date formats also disagree across the note: header uses shipment.date = \"November 7, 2026\" while the footer uses `new Date().toLocaleString(\"en-US\",{dateStyle:\"medium\",timeStyle:\"short\"})` which renders as \"Nov 9, 2026, 8:48 AM\" — two different date formats on one document."
+    },
+    {
+      "item": "Sender (company name, address, tax ID), recipient (customer name, delivery address, contact person and phone) and carrier (carrier name, vehicle plate or driver name) appear in three separately labelled blocks",
+      "pass": false,
+      "evidence": "Sender is a labelled block (\"Shipped From\" / #senderBlock with name, address, tax ID) and recipient info is split across \"Customer\" (#customerBlock) and \"Deliver To\" (#deliverBlock) blocks, but carrier fields (Carrier, Vehicle Reg., Driver) are just <dt>/<dd> rows inside the generic #metaGrid dl mixed with Date/PO Number/Incoterm/Page — there is no separately labelled \"Carrier\" block."
+    },
+    {
+      "item": "The goods are in a real <table> with column headers in <thead>, giving per line: line number, item code, description, unit of measure, quantity ordered, quantity delivered and lot or serial number, with quantities right-aligned",
+      "pass": false,
+      "evidence": "A real <table> with <thead>/<th scope=\"col\"> headers (#, Item Code, Description, Ordered, Shipped, UoM, Packages, Notes) is present and Ordered/Shipped columns are right-aligned (class=\"text-right\"), but no lot or serial number column exists at all — the `items` data objects only have `{code, desc, ordered, shipped, uom, packages, note}`."
+    },
+    {
+      "item": "A line delivered short of the ordered quantity states the outstanding amount in words (such as \"Backorder: 4 pcs\") rather than by colour alone",
+      "pass": false,
+      "evidence": "Row 3 (SKU-30891, ordered 25 / shipped 24) is flagged with `bg-amber-50` and the note text \"Short-shipped — backorder BO-1187\", but this never states the outstanding quantity (1 unit) in words — it references a backorder ticket number, not an amount like \"Backorder: 1 pcs\"."
+    },
+    {
+      "item": "A footer gives the total quantity delivered, the number of packages and the gross weight with its unit, and the quantity total equals the sum of the lines",
+      "pass": false,
+      "evidence": "<tfoot> shows #totalShipped (159, correctly summed from the 6 lines: 12+40+24+60+8+15) and #totalPackages (\"9 pkgs\"), but no gross weight field exists anywhere in the markup or script."
+    },
+    {
+      "item": "Signature boxes are provided for the warehouse keeper (issued by), the driver or carrier and the receiver, each with room for printed name, signature and date, plus a remarks area for the condition of the goods on receipt",
+      "pass": true,
+      "evidence": "Three labelled columns \"Dispatched By (Warehouse)\", \"Carrier / Driver\", \"Received By (Customer)\" each contain Signature / \"Printed name & …\" / Date lines (.sig-line divs), and a \"Condition on Receipt\" section provides Good condition/Damaged/Partial checkboxes plus a blank remarks line for damage/partial notes."
+    },
+    {
+      "item": "A Print control that is a real <button> starts printing, and an @media print stylesheet hides the app navigation and on-screen controls, sets page margins and keeps the signature block from splitting across pages",
+      "pass": false,
+      "evidence": "`<button id=\"printBtn\">` calls `window.print()` and `@media print` hides `.no-print` and sets `@page { size: A4; margin: 12mm; }`, but the print CSS only applies `page-break-inside: avoid` to `tr` (table rows) — no rule protects the signature grid div from splitting across a page break."
+    },
+    {
+      "item": "The note's status (such as Draft, Dispatched, Delivered or Cancelled) is shown in words next to its number, and a draft or cancelled note prints with a visible \"DRAFT\" or \"CANCELLED\" mark so it cannot pass as a valid dispatch document",
+      "pass": false,
+      "evidence": "A \"Dispatched\" badge (`<span class=\"...text-emerald-800...\">Dispatched</span>`) sits next to the note number, but the status is a hardcoded string with no conditional logic in the script — there is no mechanism anywhere that would render a DRAFT/CANCELLED watermark if the status were different."
+    },
+    {
+      "item": "A loading state is present, and a note that fails to load or does not exist shows a message with Retry and a link back to the delivery note list, never an empty template with blank fields",
+      "pass": false,
+      "evidence": "No loading indicator, error state, Retry control or back-link exists; all content (`sender`, `customer`, `deliverTo`, `shipment`, `items`) is hardcoded JS data rendered synchronously, as acknowledged by the on-screen caption \"Mock data shown for layout preview only — use the Print button above for a clean printout.\""
+    }
+  ],
+  "tells": [
+    "tracked-uppercase-labels"
+  ],
+  "notes": "Document is a static mock (hardcoded JS objects, no fetch/loading/error handling). Audit flags (text-contrast, tabular-nums, numeric-align on the # column, uppercase-text, missing tel:/mailto: links, shadow-over-border) are consistent with the manual findings above. 'tracked-uppercase-labels' is pervasive: 'SHIPPED FROM', 'DELIVERY NOTE', 'NOTE NO.', 'CUSTOMER', 'DELIVER TO', 'GOODS SHIPPED', all metaGrid <dt> labels, and all signature captions use uppercase + tracking-wide/tracking-[0.2em].",
+  "blind": true
+}

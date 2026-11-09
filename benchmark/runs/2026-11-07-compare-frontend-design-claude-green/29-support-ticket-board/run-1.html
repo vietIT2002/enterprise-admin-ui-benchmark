@@ -1,0 +1,383 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Support queue — ticket board</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Semi+Condensed:wght@500;600;700&family=Public+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet">
+<script>
+  tailwind.config = {
+    theme: {
+      extend: {
+        colors: {
+          paper: '#F5F6F3',
+          panel: '#EEF0EC',
+          ink: '#1D2630',
+          steel: '#D7DEE3',
+          steeldark: '#B9C3CB',
+          steady: '#2E6F4E',
+          steadybg: '#E4EFE8',
+          watch: '#AD7A14',
+          watchbg: '#F4EADA',
+          breach: '#B4402E',
+          breachbg: '#F6E3DF',
+          route: '#2857A8',
+          routebg: '#E1E9F6',
+        },
+        fontFamily: {
+          display: ['"Barlow Semi Condensed"', 'sans-serif'],
+          body: ['"Public Sans"', 'sans-serif'],
+          mono: ['"IBM Plex Mono"', 'monospace'],
+        },
+      },
+    },
+  };
+</script>
+<style>
+  @media (prefers-reduced-motion: reduce) {
+    * { transition: none !important; animation: none !important; }
+  }
+  ::selection { background: #2857A8; color: #fff; }
+  .board-scroll::-webkit-scrollbar { height: 10px; width: 10px; }
+  .board-scroll::-webkit-scrollbar-track { background: transparent; }
+  .board-scroll::-webkit-scrollbar-thumb { background: #B9C3CB; border-radius: 6px; }
+  .col-scroll::-webkit-scrollbar { width: 8px; }
+  .col-scroll::-webkit-scrollbar-track { background: transparent; }
+  .col-scroll::-webkit-scrollbar-thumb { background: #B9C3CB; border-radius: 6px; }
+  [data-dropzone].drag-over { outline: 2px dashed #2857A8; outline-offset: -4px; background-color: #E1E9F6; }
+  .card-dragging { opacity: 0.45; }
+  .clamp-2 {
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+</style>
+</head>
+<body class="bg-paper text-ink font-body antialiased h-screen flex flex-col overflow-hidden">
+
+  <!-- Header -->
+  <header class="shrink-0 border-b border-steeldark bg-paper px-4 sm:px-6 py-3 flex flex-col gap-3">
+    <div class="flex flex-wrap items-end justify-between gap-3">
+      <div>
+        <h1 class="font-display text-2xl sm:text-3xl font-semibold tracking-tight leading-none">Support queue</h1>
+        <p id="boardMeta" class="font-body text-sm text-ink/60 mt-1">Loading tickets…</p>
+      </div>
+      <div class="flex flex-wrap items-center gap-2">
+        <label class="sr-only" for="searchInput">Search tickets</label>
+        <div class="relative">
+          <svg class="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-ink/40" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <circle cx="11" cy="11" r="7"></circle>
+            <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+          </svg>
+          <input id="searchInput" type="text" placeholder="Search by customer or subject"
+            class="w-56 sm:w-64 pl-8 pr-3 py-1.5 text-sm font-body rounded border border-steeldark bg-white placeholder:text-ink/40 focus:outline-none focus-visible:ring-2 focus-visible:ring-route focus-visible:border-route">
+        </div>
+        <label class="sr-only" for="priorityFilter">Filter by priority</label>
+        <select id="priorityFilter" class="py-1.5 px-2 text-sm font-body rounded border border-steeldark bg-white focus:outline-none focus-visible:ring-2 focus-visible:ring-route">
+          <option value="all">All priorities</option>
+          <option value="urgent">Urgent</option>
+          <option value="high">High</option>
+          <option value="normal">Normal</option>
+          <option value="low">Low</option>
+        </select>
+        <label class="sr-only" for="agentFilter">Filter by assignee</label>
+        <select id="agentFilter" class="py-1.5 px-2 text-sm font-body rounded border border-steeldark bg-white focus:outline-none focus-visible:ring-2 focus-visible:ring-route">
+          <option value="all">All agents</option>
+        </select>
+      </div>
+    </div>
+  </header>
+
+  <!-- Board -->
+  <main id="board" class="board-scroll flex-1 flex gap-4 overflow-x-auto overflow-y-hidden px-4 sm:px-6 py-4">
+    <!-- columns injected by JS -->
+  </main>
+
+  <script>
+    const now = Date.now();
+    const MIN = 60 * 1000;
+    const HOUR = 60 * MIN;
+
+    const STATUSES = [
+      { key: 'new',      label: 'New',                 accent: 'route',  bg: 'routebg'  },
+      { key: 'progress', label: 'In progress',         accent: 'ink',    bg: 'panel'    },
+      { key: 'waiting',  label: 'Waiting on customer',  accent: 'watch',  bg: 'watchbg'  },
+      { key: 'resolved', label: 'Resolved',            accent: 'steady', bg: 'steadybg' },
+    ];
+
+    const PRIORITY_META = {
+      urgent: { label: 'Urgent', color: '#B4402E' },
+      high:   { label: 'High',   color: '#AD7A14' },
+      normal: { label: 'Normal', color: '#2857A8' },
+      low:    { label: 'Low',    color: '#8A94A0' },
+    };
+
+    const AGENT_COLORS = {
+      'Priya Patel': '#5B5F97',
+      'Marcus Webb': '#6C8EA8',
+      'Jordan Lee':  '#8A6A8C',
+      'Dana Okafor': '#7A8B5E',
+    };
+
+    let tickets = [
+      { id: 'TCK-4825', subject: 'Two-factor codes rejected as invalid', company: 'Acme Corp', contact: 'Marcus Teller', priority: 'urgent', assignee: null, status: 'new', dueAt: now + 55 * MIN },
+      { id: 'TCK-4821', subject: 'Checkout fails with a 500 error on mobile Safari', company: 'Acme Corp', contact: 'Sarah Chen', priority: 'urgent', assignee: 'Priya Patel', status: 'new', dueAt: now + 45 * MIN },
+      { id: 'TCK-4820', subject: 'SSO login redirect loop since last release', company: 'Globex Industries', contact: 'Raj Mehta', priority: 'urgent', assignee: null, status: 'new', dueAt: now + 20 * MIN },
+      { id: 'TCK-4817', subject: 'Export to CSV truncates after 500 rows', company: 'Northwind Traders', contact: 'Lisa Novak', priority: 'normal', assignee: null, status: 'new', dueAt: now + 6 * HOUR },
+      { id: 'TCK-4815', subject: "Dark mode toggle doesn't persist after refresh", company: 'Wayne Enterprises', contact: 'Alfred Pennyworth', priority: 'low', assignee: null, status: 'new', dueAt: now + 26 * HOUR },
+
+      { id: 'TCK-4810', subject: 'API rate limit hit unexpectedly on the free tier', company: 'Initech', contact: 'Peter Gibbons', priority: 'high', assignee: 'Marcus Webb', status: 'progress', dueAt: now + 70 * MIN },
+      { id: 'TCK-4807', subject: 'Invoice #4482 shows an incorrect tax amount', company: 'Umbrella Logistics', contact: 'Jill Valentine', priority: 'normal', assignee: 'Dana Okafor', status: 'progress', dueAt: now + 210 * MIN },
+      { id: 'TCK-4802', subject: 'Attachment upload fails for files over 10MB', company: 'Hooli', contact: 'Gavin Belson', priority: 'high', assignee: 'Jordan Lee', status: 'progress', dueAt: now - 25 * MIN },
+      { id: 'TCK-4793', subject: 'Report scheduler stuck in pending state', company: 'Initech', contact: 'Peter Gibbons', priority: 'normal', assignee: 'Jordan Lee', status: 'progress', dueAt: now + 300 * MIN },
+
+      { id: 'TCK-4795', subject: 'Dashboard charts not loading for EU region users', company: 'Stark Industrial', contact: 'Pepper Potts', priority: 'urgent', assignee: 'Priya Patel', status: 'waiting', dueAt: now - 100 * MIN },
+      { id: 'TCK-4788', subject: 'Billing webhook delivery failing intermittently', company: 'Soylent Foods', contact: 'Charlton Heston', priority: 'high', assignee: 'Marcus Webb', status: 'waiting', dueAt: now + 240 * MIN },
+
+      { id: 'TCK-4779', subject: 'Unable to reset password — one-time code never arrives', company: 'Pied Piper', contact: 'Richard Hendricks', priority: 'high', assignee: 'Dana Okafor', status: 'resolved', resolvedAt: now - 2 * HOUR },
+      { id: 'TCK-4771', subject: 'Request to raise the seat limit on the team plan', company: 'Wonka Industries', contact: 'Augustus Gloop', priority: 'low', assignee: 'Jordan Lee', status: 'resolved', resolvedAt: now - 26 * HOUR },
+      { id: 'TCK-4760', subject: 'Data sync delay between mobile and web app', company: 'Gringotts Bank', contact: 'Bill Weasley', priority: 'normal', assignee: 'Priya Patel', status: 'resolved', resolvedAt: now - 30 * HOUR },
+    ];
+
+    const board = document.getElementById('board');
+    const searchInput = document.getElementById('searchInput');
+    const priorityFilter = document.getElementById('priorityFilter');
+    const agentFilter = document.getElementById('agentFilter');
+    const boardMeta = document.getElementById('boardMeta');
+
+    // populate agent filter
+    const agentNames = Object.keys(AGENT_COLORS);
+    agentNames.forEach(name => {
+      const opt = document.createElement('option');
+      opt.value = name;
+      opt.textContent = name;
+      agentFilter.appendChild(opt);
+    });
+    const unassignedOpt = document.createElement('option');
+    unassignedOpt.value = '__unassigned__';
+    unassignedOpt.textContent = 'Unassigned';
+    agentFilter.appendChild(unassignedOpt);
+
+    function initials(name) {
+      return name.split(' ').map(p => p[0]).join('').slice(0, 2).toUpperCase();
+    }
+
+    function formatDuration(ms) {
+      const abs = Math.abs(ms);
+      const totalMin = Math.round(abs / MIN);
+      const days = Math.floor(totalMin / (60 * 24));
+      const hours = Math.floor((totalMin % (60 * 24)) / 60);
+      const mins = totalMin % 60;
+      if (days > 0) return `${days}d ${hours}h`;
+      if (hours > 0) return `${hours}h ${mins}m`;
+      return `${mins}m`;
+    }
+
+    function slaInfo(ticket) {
+      if (ticket.status === 'resolved') {
+        const ago = now - ticket.resolvedAt;
+        return { state: 'done', text: `Resolved ${formatDuration(ago)} ago` };
+      }
+      const diff = ticket.dueAt - now;
+      if (diff < 0) {
+        return { state: 'breach', text: `Overdue ${formatDuration(diff)}` };
+      }
+      if (diff < 2 * HOUR) {
+        return { state: 'watch', text: `${formatDuration(diff)} left` };
+      }
+      return { state: 'steady', text: `${formatDuration(diff)} left` };
+    }
+
+    const SLA_STYLES = {
+      steady: 'bg-steadybg text-steady',
+      watch:  'bg-watchbg text-watch',
+      breach: 'bg-breachbg text-breach',
+      done:   'bg-panel text-ink/50',
+    };
+
+    function cardHtml(ticket) {
+      const pm = PRIORITY_META[ticket.priority];
+      const sla = slaInfo(ticket);
+      const agentColor = ticket.assignee ? AGENT_COLORS[ticket.assignee] : null;
+
+      const assigneeHtml = ticket.assignee
+        ? `<div class="flex items-center gap-1.5">
+             <span class="w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-mono font-semibold text-white shrink-0" style="background-color:${agentColor}">${initials(ticket.assignee)}</span>
+             <span class="text-[12px] font-body text-ink/70 truncate max-w-[110px]">${ticket.assignee}</span>
+           </div>`
+        : `<div class="flex items-center gap-1.5">
+             <span class="w-5 h-5 rounded-full border border-dashed border-steeldark shrink-0"></span>
+             <span class="text-[12px] font-body text-ink/40 italic">Unassigned</span>
+           </div>`;
+
+      const moveOptions = STATUSES
+        .map(s => `<option value="${s.key}" ${s.key === ticket.status ? 'selected' : ''}>${s.label}</option>`)
+        .join('');
+
+      return `
+        <article
+          draggable="true"
+          data-ticket-id="${ticket.id}"
+          class="ticket-card group relative bg-white border border-steeldark rounded-sm pl-3 pr-3 py-2.5 cursor-grab active:cursor-grabbing focus-within:ring-2 focus-within:ring-route"
+          style="border-left: 4px solid ${pm.color};"
+        >
+          <div class="flex items-start justify-between gap-2">
+            <span class="font-mono text-[11px] tracking-wide text-ink/45">${ticket.id}</span>
+            <span class="inline-flex items-center gap-1 text-[11px] font-body font-medium" style="color:${pm.color}">
+              <span class="w-1.5 h-1.5 rounded-full" style="background-color:${pm.color}"></span>${pm.label}
+            </span>
+          </div>
+
+          <h3 class="font-display font-semibold text-[15px] leading-snug mt-1.5 clamp-2">${ticket.subject}</h3>
+
+          <p class="text-[13px] font-body text-ink/70 mt-1 truncate">${ticket.company} · ${ticket.contact}</p>
+
+          <div class="flex items-center justify-between mt-2.5 gap-2">
+            ${assigneeHtml}
+            <span class="font-mono text-[11px] font-medium px-1.5 py-0.5 rounded whitespace-nowrap ${SLA_STYLES[sla.state]}">${sla.text}</span>
+          </div>
+
+          <label class="sr-only" for="move-${ticket.id}">Move ${ticket.id} to a different status</label>
+          <select
+            id="move-${ticket.id}"
+            data-move-select
+            data-ticket-id="${ticket.id}"
+            class="mt-2 w-full text-[11px] font-body text-ink/60 bg-panel border border-steel rounded px-1.5 py-1 opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 focus:opacity-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-route transition-opacity"
+          >
+            ${moveOptions}
+          </select>
+        </article>
+      `;
+    }
+
+    function matchesFilters(ticket) {
+      const q = searchInput.value.trim().toLowerCase();
+      const p = priorityFilter.value;
+      const a = agentFilter.value;
+
+      if (q) {
+        const hay = `${ticket.subject} ${ticket.company} ${ticket.contact}`.toLowerCase();
+        if (!hay.includes(q)) return false;
+      }
+      if (p !== 'all' && ticket.priority !== p) return false;
+      if (a !== 'all') {
+        if (a === '__unassigned__' && ticket.assignee) return false;
+        if (a !== '__unassigned__' && ticket.assignee !== a) return false;
+      }
+      return true;
+    }
+
+    function render() {
+      board.innerHTML = '';
+
+      STATUSES.forEach(status => {
+        const all = tickets.filter(t => t.status === status.key);
+        const visible = all.filter(matchesFilters);
+
+        const col = document.createElement('section');
+        col.className = 'flex flex-col flex-shrink-0 w-[300px] sm:w-[320px] bg-panel rounded-sm border border-steel overflow-hidden';
+        col.setAttribute('data-dropzone', status.key);
+        col.setAttribute('aria-label', `${status.label} tickets`);
+
+        const cardsHtml = visible.length
+          ? visible.map(cardHtml).join('')
+          : `<p class="text-[13px] font-body text-ink/40 italic px-1 py-6 text-center">No matching tickets</p>`;
+
+        col.innerHTML = `
+          <header class="shrink-0 border-t-[3px] px-3 pt-2.5 pb-2 bg-paper border-b border-steel" style="border-top-color:${colorFor(status.accent)}">
+            <div class="flex items-baseline justify-between">
+              <h2 class="font-display font-semibold text-base tracking-tight">${status.label}</h2>
+              <span class="font-mono text-[12px] text-ink/50">${visible.length}${visible.length !== all.length ? ` / ${all.length}` : ''}</span>
+            </div>
+          </header>
+          <div class="col-scroll flex-1 overflow-y-auto px-2.5 py-2.5 flex flex-col gap-2.5" data-card-list>
+            ${cardsHtml}
+          </div>
+        `;
+
+        board.appendChild(col);
+      });
+
+      attachDnD();
+      attachMoveSelects();
+      updateMeta();
+    }
+
+    function colorFor(accent) {
+      const map = { route: '#2857A8', ink: '#1D2630', watch: '#AD7A14', steady: '#2E6F4E' };
+      return map[accent];
+    }
+
+    function updateMeta() {
+      const open = tickets.filter(t => t.status !== 'resolved');
+      const breaching = open.filter(t => t.dueAt - now < 0).length;
+      const breachText = breaching > 0
+        ? `<span class="text-breach font-medium">${breaching} breaching SLA</span>`
+        : `0 breaching SLA`;
+      boardMeta.innerHTML = `${open.length} open tickets · ${breachText}`;
+    }
+
+    let draggedId = null;
+
+    function attachDnD() {
+      document.querySelectorAll('.ticket-card').forEach(card => {
+        card.addEventListener('dragstart', e => {
+          draggedId = card.getAttribute('data-ticket-id');
+          card.classList.add('card-dragging');
+          e.dataTransfer.effectAllowed = 'move';
+        });
+        card.addEventListener('dragend', () => {
+          card.classList.remove('card-dragging');
+          draggedId = null;
+        });
+      });
+
+      document.querySelectorAll('[data-dropzone]').forEach(zone => {
+        zone.addEventListener('dragover', e => {
+          e.preventDefault();
+          zone.classList.add('drag-over');
+        });
+        zone.addEventListener('dragleave', () => {
+          zone.classList.remove('drag-over');
+        });
+        zone.addEventListener('drop', e => {
+          e.preventDefault();
+          zone.classList.remove('drag-over');
+          const targetStatus = zone.getAttribute('data-dropzone');
+          moveTicket(draggedId, targetStatus);
+        });
+      });
+    }
+
+    function attachMoveSelects() {
+      document.querySelectorAll('[data-move-select]').forEach(sel => {
+        sel.addEventListener('click', e => e.stopPropagation());
+        sel.addEventListener('change', e => {
+          moveTicket(sel.getAttribute('data-ticket-id'), e.target.value);
+        });
+      });
+    }
+
+    function moveTicket(id, targetStatus) {
+      const ticket = tickets.find(t => t.id === id);
+      if (!ticket || ticket.status === targetStatus) return;
+      ticket.status = targetStatus;
+      if (targetStatus === 'resolved' && !ticket.resolvedAt) {
+        ticket.resolvedAt = Date.now();
+      }
+      render();
+    }
+
+    [searchInput, priorityFilter, agentFilter].forEach(el => {
+      el.addEventListener('input', render);
+      el.addEventListener('change', render);
+    });
+
+    render();
+  </script>
+</body>
+</html>

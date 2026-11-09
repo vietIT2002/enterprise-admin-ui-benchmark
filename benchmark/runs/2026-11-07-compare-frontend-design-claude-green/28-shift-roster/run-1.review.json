@@ -1,0 +1,54 @@
+{
+  "brief": "28-shift-roster",
+  "run": 1,
+  "items": [
+    {
+      "item": "The grid header names the week with its date range (such as \"Week 45 · 2–8 Nov 2026\"), every day column shows the weekday and date, and controls move to the previous, next and current week",
+      "pass": false,
+      "evidence": "Header shows a static '<p class=\"...font-display\">Week of Nov 9–15, 2026</p>' and day columns correctly render weekday+date via buildHead() ('Mon<span class=\"date-sub\">Nov 9</span>'), but there are no previous/next/current-week controls anywhere in the markup or script — DAYS/DATES are hard-coded arrays with no navigation handlers."
+    },
+    {
+      "item": "Each shift shows its start and end time in one consistent 24-hour format and the role or station (such as \"07:00–15:00 · Cashier\"), and a shift that ends after midnight is marked as ending the next day",
+      "pass": false,
+      "evidence": "fmtHour()/fmtTime() produce 12-hour times with 'a'/'p' suffixes (e.g. chip shows '6:45a–2:45p' for Maria Ibarra), not 24-hour format. Chips show only the shift-type label (Open/Mid/Close) and time, not the person's role/station. No logic anywhere checks for or marks an overnight/next-day end (shiftHours() silently adds 24h to negative diffs but nothing renders a 'next day' indicator)."
+    },
+    {
+      "item": "Each staff row shows the week's scheduled hours against contracted hours (such as \"36 / 40 h\"), the scheduled figure equals that person's shifts less unpaid breaks, and anyone over or under contract is flagged in words",
+      "pass": false,
+      "evidence": "Row header only shows e.g. '40h scheduled' (buildBody(): Math.round(weeklyHours(person)) + 'h scheduled') — there is no contracted-hours value anywhere in state.staff, no '/ 40h' comparison, and no over/under-contract wording."
+    },
+    {
+      "item": "A footer row shows, for each day, the staff count or hours scheduled against the required cover, and days below the requirement are marked in text (such as \"Short 1\")",
+      "pass": false,
+      "evidence": "buildCoverage() renders only the raw headcount per day plus a generic '<span class=\"cov-flag\">Low coverage</span>' when count < COVERAGE_MIN (e.g. Thursday = 2). The required-cover number (COVERAGE_MIN = 3) is never rendered in the UI, so counts are never shown against the requirement, and the shortfall is not quantified (no 'Short 1' style text)."
+    },
+    {
+      "item": "The sample data contains at least one rule conflict, such as overlapping shifts for one person or less than 11 hours' rest between a closing and the next opening shift, shown on the affected cell with a written reason",
+      "pass": false,
+      "evidence": "state.staff shifts allow only one shift per person per day (no overlap possible), and manual check of all close→next-shift gaps (e.g. Yuki Sat close 15:00–23:00 → Sun mid 10:00–18:00 = 11h, Omar Fri close 15:00–23:00 → Sat mid 12:00–20:00 = 13h) shows no <11h rest gap. No conflict-detection code or written-reason markup exists anywhere in the script."
+    },
+    {
+      "item": "Approved leave, days off and public holidays appear as labelled cells (such as \"Annual leave\", \"Day off\") that look different from an empty, unscheduled cell",
+      "pass": false,
+      "evidence": "Approved leave does get a distinct chip (cellContent(): type 'leave' renders '.chip-leave' with label 'Time off' / 'Approved', visible on Omar Haddad/Thu). However type 'off' (day off) is rendered identically to a truly empty cell — cellContent(): 'if (!shift || shift.type === \"off\") return cell-empty ... \"Not scheduled\"' — so days off are visually and semantically indistinguishable from unscheduled cells, and there is no public-holiday concept at all."
+    },
+    {
+      "item": "The week's status (Draft or Published) is shown, and publishing goes through a confirmation that names the week and the number of unresolved conflicts or warnings",
+      "pass": false,
+      "evidence": "Status badge '#status-badge' correctly toggles 'Draft'/'Published' text via applyLockState(). But the publish-btn click handler flips state.status directly and calls showToast('Published to the team') with no confirmation step at all — no dialog naming the week or reporting conflict/warning counts (none exist to report, per item 5)."
+    },
+    {
+      "item": "The grid is a <table> with staff names as row headers and days as column headers, and each shift or empty cell is keyboard-reachable with an accessible name that includes the person and the date (such as \"Add shift, Lan Pham, Tue 3 Nov\")",
+      "pass": false,
+      "evidence": "Markup is a real <table class=\"roster\"> with <th scope=\"row\" class=\"row-staff\"> per staff and <th> day headers — good. Cells are keyboard-reachable (tabindex=\"0\" role=\"button\", Enter/Space handlers). But aria-label is built as `person.name + ', ' + DAYS[dayIndex] + ', ' + (...)`, e.g. 'Maria Ibarra, Mon, Open' — it uses only the weekday abbreviation, never the date number from the DATES array, so the accessible name omits the date."
+    },
+    {
+      "item": "A week with no shifts yet shows a message with a way to start (such as \"Copy last week\"), and a loading state and a load error with a retry button exist",
+      "pass": false,
+      "evidence": "state.staff is hard-coded with shifts already populated; there is no empty-week code path, no 'Copy last week' affordance, and no loading or error/retry UI anywhere in the markup or script — render() runs synchronously against the static in-memory state."
+    }
+  ],
+  "tells": [],
+  "notes": "This is a custom-styled roster (navy/kraft/mustard/pine/brick/denim palette, Space Grotesk + IBM Plex Sans) rather than a generic admin template — no greeting header, KPI tiles, gradients, glass, emoji icons, rainbow statuses, sidebar promo, decorative charts, or oversized radii were found, so the 'tells' list is empty. The core interaction model (click/keyboard a cell → popover editor with segmented shift-type buttons and time inputs, toast confirmations, sticky header/first column) is well executed, but the screen is missing most of the roster-specific business logic the checklist probes for: week navigation, 24h time formatting, per-shift role display, overnight-shift marking, contracted-hours comparison, quantified coverage-vs-requirement, rule-conflict detection, day-off vs empty-cell distinction, publish confirmation, date-inclusive accessible names, and empty/loading/error states. Automated audit (score 64/100) separately flags real contrast failures (20 instances ~2:1, e.g. the sr-only 'Not scheduled' text) and a too-wide type/radius scale.",
+  "blind": true
+}

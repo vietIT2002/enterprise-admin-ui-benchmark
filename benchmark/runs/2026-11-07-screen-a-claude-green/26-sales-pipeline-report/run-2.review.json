@@ -1,0 +1,54 @@
+{
+  "brief": "26-sales-pipeline-report",
+  "run": 2,
+  "items": [
+    {
+      "item": "The stage breakdown lists stages in pipeline order (not alphabetical), each with its win probability, and each stage's weighted value equals its open value × that probability, with the weighted total equal to the sum of the stages",
+      "pass": false,
+      "evidence": "buildGroups() (page.html script) sorts groups by ui.sort which defaults to 'value' ('const keyFn = {...}[ui.sort] || ((g) => g.value)'); stage order therefore follows value-descending, not the STAGES pipeline order (Tiếp cận → Xác định nhu cầu → Đề xuất giải pháp → Đàm phán hợp đồng → Chờ ký hợp đồng). Also groupRowHtml() never renders a probability column for stage view — the 'Tỷ lệ thắng (kỳ)' column is explicitly set to null for stage view ('winRate: ui.view === 'rep' ? winRateOf(...) : null'), so no win-probability figure is shown per stage at all."
+    },
+    {
+      "item": "Win rate is computed over closed deals only, won ÷ (won + lost), with the counts shown beside it (such as \"38% · 19 of 50 closed\"), and a salesperson with no closed deals shows \"—\" instead of 0% or NaN",
+      "pass": false,
+      "evidence": "winRateOf() correctly computes won/(won+lost) over CLOSED array filtered by period/rep, and returns null (rendered as '—' via fmtEmpty) when there are no closed deals — e.g. 'Lê Hoàng Nam' and 'Vũ Thị Lan' show 0% not '—' only because they have decided (lost) deals, correctly. However nowhere is the underlying count shown beside the percentage: the summary line 'Tỷ lệ thắng (kỳ này) <span id=\"result-winrate\">52,6%</span>' and the per-row 'Tỷ lệ thắng (kỳ)' cells render only fmtPercent(winRate) with no 'X of Y closed' text."
+    },
+    {
+      "item": "The by-salesperson table ends in a totals row whose deal count, pipeline value and weighted value equal the sum of its rows and match the overall totals of the stage breakdown",
+      "pass": true,
+      "evidence": "tfoot row 'Tổng' shows 42 / 55.680.000.000 ₫ / 21.481.000.000 ₫, which equals the sum of the visible rep rows (14.260M+11.750M+7.450M+6.130M+6.100M+5.640M+3.140M+1.210M = 55.680.000.000). totalValue/totalWeighted are computed once in render() from filteredOpps() independent of ui.view, so switching to 'Theo giai đoạn' (stage view) renders the identical tfoot totals."
+    },
+    {
+      "item": "The period can be set to this quarter, next quarter or a custom range, the page says which date it applies to (expected close date), and the results can also be narrowed to one salesperson or team",
+      "pass": false,
+      "evidence": "Period tabs are thisQuarter / lastQuarter / thisYear / custom ('const opts = [[\"thisQuarter\",...],[\"lastQuarter\",...],[\"thisYear\",...],[\"custom\",...]]') — lastQuarter is computed as the *previous* quarter ('quarterOf(new Date(thisQuarter.start...getMonth()-1...))'), not next quarter, so 'next quarter' is unavailable. Basis line 'theo cơ hội đang mở dự kiến chốt trong kỳ đã chọn' does state expected-close-date basis (pass on that sub-point). Filtering only narrows to individual salesperson via #btn-rep/#rep-panel — there is no team entity in REPS data or any team filter, so narrowing to 'team' is not implemented."
+    },
+    {
+      "item": "Every money value shows its currency (one currency for the whole report) with thousands separators and lines up by digit within its column, and any abbreviated headline figure (such as \"1.2M\") has the full amount available in the table or a title attribute",
+      "pass": true,
+      "evidence": "All amounts are VND only ('Số tiền tính bằng VND'), column headers carry the currency mark ('Giá trị (₫)', 'Có trọng số (₫)'), and summary figures use fmtMoney() appending '₫' (e.g. 'Giá trị pipeline 55.680.000.000 ₫'). nfAmount0 = Intl.NumberFormat('vi-VN') yields '.' thousands separators, and all numeric cells carry the .tnum (tabular-nums) class — audit.json confirms numericCells.misaligned: 0. No abbreviated figures (e.g. '1.2M') appear anywhere, so the full-amount sub-requirement is vacuously satisfied."
+    },
+    {
+      "item": "Open deals whose expected close date has already passed are flagged with words (such as \"Close date passed\"), not colour alone, and the number of such deals is shown per salesperson",
+      "pass": false,
+      "evidence": "dayStatus() returns text like 'Quá hạn 12 ngày' (Overdue 12 days) alongside a red tone class on each detail row's close-date cell — word-based flag, not colour alone (pass on that sub-point). But there is no aggregate 'overdue deals' count anywhere per salesperson or stage group — groupRowHtml() only renders count/value/weighted/share/winRate columns, no overdue tally."
+    },
+    {
+      "item": "Each stage and salesperson figure drills down to the deals behind it (deal, account, owner, value, stage, close date) through a link or button that is keyboard-focusable and has a descriptive accessible name",
+      "pass": true,
+      "evidence": "Each group row has a real <button> with aria-expanded and a descriptive aria-label ('Mở rộng ' + g.name / 'Thu gọn ' + g.name), keyboard-focusable and operable; clicking/activating it expands detailRowHtml() rows showing deal name+id (linked '<a href=\"#CH-...\">'), account (o.customer), the complementary dimension (stage badge in rep view / rep name in stage view), value, weighted value, and close date with overdue status."
+    },
+    {
+      "item": "When the filters match no deals, the page says so, names the active filters and offers to clear them; a loading indicator and a failed-load message with a retry action are also present",
+      "pass": true,
+      "evidence": "data-state=\"empty\" block shows 'Không có cơ hội nào khớp với các bộ lọc này' plus a 'Xóa bộ lọc' (#empty-action) button; active filters remain visible as removable chips in #chips (rendered by renderChips() independent of empty state) naming e.g. 'Nhân viên: X'. data-state=\"loading\" shows an aria-busy skeleton (#skeleton), and data-state=\"error\" shows 'Không thể tải dữ liệu pipeline.' with a '#retry' Thử lại button — both reachable via ?state=loading / ?state=error."
+    },
+    {
+      "item": "Export (CSV or Excel) produces the deal-level rows for the current filters, and its label or confirmation states the scope (such as \"Export 42 deals · Q4 2026\")",
+      "pass": false,
+      "evidence": "#btn-export only fires 'announce(\"Đã bắt đầu xuất file: \" + count + \" cơ hội theo bộ lọc hiện tại.\")' — a toast claiming an export started, with no actual CSV/Excel generation or download, and no file of deal-level rows is produced. The button label 'Xuất 42 cơ hội' states a count but never the period/scope (e.g. 'Q4 2026') as the checklist example requires."
+    }
+  ],
+  "tells": [],
+  "notes": "Automated audit.json score is 100/100 but that tool only checks layout/typography mechanics (alignment, radii, contrast); it does not evaluate the functional requirements above, several of which fail. No template tells (greeting-header, kpi-icon-tiles, gradient, glass, emoji-icon, etc.) were observed — the page uses a plain slate/blue enterprise palette with no decorative chrome.",
+  "blind": true
+}

@@ -92,7 +92,14 @@ export function promoteBlind(folders) {
       const open = path.join(p.dir, `run-${p.run}.review.json`);
       const blind = path.join(p.dir, `run-${p.run}.review.blind.json`);
       if (!fs.existsSync(blind) || fs.existsSync(open)) continue;
-      const review = JSON.parse(fs.readFileSync(blind, 'utf8'));
+      let review;
+      try {
+        review = JSON.parse(fs.readFileSync(blind, 'utf8'));
+      } catch (e) {
+        // A reviewer wrote broken JSON (e.g. an unescaped quote in evidence): leave it for a manual fix, go on.
+        console.warn(`promoteBlind: ${blind} is not valid JSON (${e.message}); fix it and run promoteBlind again`);
+        continue;
+      }
       fs.writeFileSync(open, JSON.stringify({ ...review, blind: true }, null, 2) + '\n');
       fs.rmSync(blind);
       n++;

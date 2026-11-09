@@ -4,7 +4,7 @@
 //
 //   node benchmark/tools/bench.mjs --name 2026-11-06-smoke --agent claude|codex
 //        [--briefs 12-contract-detail,13-employee-onboarding] [--runs 1,2] [--conds red,green]
-//        [--no-review] [--blind [--seed N]] [--model sonnet] [--concurrency 3] [--yes]
+//        [--no-review] [--blind [--seed N]] [--checks] [--model sonnet] [--concurrency 3] [--yes]
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -92,14 +92,15 @@ export function findMisplaced(work, cwd, file) {
   return null;
 }
 
-export function claudeArgs(prompt, { model = 'sonnet', addDirs = [], effort = null } = {}) {
+export function claudeArgs(prompt, { model = 'sonnet', addDirs = [], effort = null, checks = false } = {}) {
   return [
     '-p', prompt,
     '--setting-sources', 'project', '--strict-mcp-config', '--no-session-persistence',
     '--output-format', 'json', '--model', model, '--permission-mode', 'acceptEdits',
     // Pre-approve the file tools: without this a Write could stop at a permission prompt nobody answers in -p mode.
-    '--allowedTools', 'Read,Write,Edit,Glob,Grep',
-    '--disallowedTools', 'Skill,Bash,WebFetch,WebSearch,NotebookEdit',
+    // checks: the agent may run node (the skill's checker); any other shell command stays denied in -p mode.
+    '--allowedTools', checks ? 'Read,Write,Edit,Glob,Grep,Bash(node:*)' : 'Read,Write,Edit,Glob,Grep',
+    '--disallowedTools', checks ? 'Skill,WebFetch,WebSearch,NotebookEdit' : 'Skill,Bash,WebFetch,WebSearch,NotebookEdit',
     ...(effort ? ['--effort', effort] : []),
     ...addDirs.flatMap((d) => ['--add-dir', d]),
   ];
@@ -115,11 +116,11 @@ export function parseClaudeJson(stdout) {
   }
 }
 
-export function runClaude(prompt, cwd, addDirs, model, effort = null) {
+export function runClaude(prompt, cwd, addDirs, model, effort = null, checks = false) {
   return new Promise((resolve) => {
     fs.mkdirSync(cwd, { recursive: true });
     const started = Date.now();
-    const child = spawn(CLAUDE, claudeArgs(prompt, { model, addDirs, effort }), { cwd, windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'] });
+    const child = spawn(CLAUDE, claudeArgs(prompt, { model, addDirs, effort, checks }), { cwd, windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'] });
     let out = '';
     let err = '';
     child.stdout.on('data', (d) => (out += d));
@@ -178,8 +179,10 @@ async function main() {
     if (agent === 'claude') {
       // --skill-dir points GREEN at another copy of the skill, for A/B tests of a skill change.
       const skillDir = path.resolve(get('--skill-dir', SKILL_DIR));
-      const prompt = p.cond === 'green' ? GREEN(briefPrompt(p.brief, p.lang), out, skillDir) : RED(briefPrompt(p.brief, p.lang), out);
-      r = await runClaude(prompt, cwd, p.cond === 'green' ? [skillDir] : [], model, get('--effort', null));
+      // --checks: GREEN agents may run node, so they can use a checker the skill ships.
+      const checks = p.cond === 'green' && a.includes('--checks');
+      const prompt = p.cond === 'green' ? GREEN(briefPrompt(p.brief, p.lang), out, skillDir, { checks }) : RED(briefPrompt(p.brief, p.lang), out);
+      r = await runClaude(prompt, cwd, p.cond === 'green' ? [skillDir] : [], model, get('--effort', null), checks);
       // claude -p sees the account's email and may put it in mock data: redact private strings before audit and screenshots.
       const found = fs.existsSync(out) ? out : findMisplaced(work, cwd, path.basename(out));
       if (found && found !== out) {

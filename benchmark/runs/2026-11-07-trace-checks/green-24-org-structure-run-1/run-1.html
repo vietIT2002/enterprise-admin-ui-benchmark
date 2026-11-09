@@ -1,0 +1,572 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Organisation structure · Acme HR</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+  [hidden] { display: none !important; }
+
+  .tnum { font-variant-numeric: tabular-nums; }
+  mark { background: #fef9c3; color: inherit; border-radius: 2px; padding: 0 1px; }
+  @media print {
+    aside, nav, button, input, select, [data-no-print] { display: none !important; }
+    main { padding: 0 !important; }
+    section { break-inside: avoid; }
+  }
+</style>
+</head>
+<body class="bg-white text-sm text-slate-900 antialiased">
+<div class="flex min-h-screen">
+  <aside class="w-56 shrink-0 border-r border-slate-200 bg-slate-50">
+    <div class="flex h-12 items-center px-4 font-semibold">Acme HR</div>
+    <nav aria-label="Main" class="px-2 pb-4">
+      <p class="px-2 pb-1 pt-3 text-xs font-medium text-slate-600">People</p>
+      <a href="#" class="flex h-8 items-center rounded px-2 text-slate-700 hover:bg-slate-100">Employees</a>
+      <a href="#" aria-current="page" class="flex h-8 items-center rounded bg-slate-200 px-2 font-medium">Org structure</a>
+      <a href="#" class="flex h-8 items-center rounded px-2 text-slate-700 hover:bg-slate-100">Leave</a>
+      <a href="#" class="flex h-8 items-center rounded px-2 text-slate-700 hover:bg-slate-100">Payroll</a>
+    </nav>
+  </aside>
+
+  <main class="min-w-0 flex-1 px-6 py-4">
+    <header class="flex items-start justify-between gap-4">
+      <h1 class="text-xl font-semibold">Organisation structure</h1>
+      <div class="flex shrink-0 items-center gap-2">
+        <button type="button" id="btn-print" class="h-8 rounded border border-slate-300 bg-white px-3 hover:bg-slate-50">Print</button>
+        <button type="button" id="btn-add" class="h-8 rounded bg-blue-700 px-3 font-medium text-white hover:bg-blue-800">Add department</button>
+      </div>
+    </header>
+
+    <div class="mt-3 flex flex-wrap items-center gap-2">
+      <input type="search" id="q" aria-label="Search departments by name or manager" placeholder="Search department or manager" class="h-8 w-72 rounded border border-slate-300 px-2">
+      <button type="button" id="btn-expand-all" class="h-8 rounded border border-slate-300 bg-white px-3 hover:bg-slate-50">Expand all</button>
+      <button type="button" id="btn-collapse-all" class="h-8 rounded border border-slate-300 bg-white px-3 hover:bg-slate-50">Collapse all</button>
+    </div>
+
+    <p class="mt-3 text-slate-600" data-result-count><span id="result-count" class="tnum">0</span> departments · <span id="result-total" class="tnum">0</span> people total</p>
+
+    <div class="mt-2 grid grid-cols-1 gap-4 lg:grid-cols-[360px_1fr]">
+      <section data-region="tree" aria-label="Departments" class="min-w-0">
+        <div data-state="ready" class="max-h-[calc(100dvh-230px)] overflow-y-auto overflow-x-auto rounded-md border border-slate-200">
+          <table role="treegrid" aria-label="Department hierarchy" class="w-full border-collapse">
+            <caption class="sr-only">Department hierarchy with manager and headcount</caption>
+            <thead class="sticky top-0 bg-slate-50 text-slate-700">
+              <tr role="row" class="h-10 border-b border-slate-200">
+                <th scope="col" role="columnheader" class="px-3 text-left font-medium">Department</th>
+                <th scope="col" role="columnheader" class="px-3 text-left font-medium">Manager</th>
+                <th scope="col" role="columnheader" class="px-3 text-right font-medium">Headcount</th>
+              </tr>
+            </thead>
+            <tbody id="tree-body"></tbody>
+          </table>
+          <div id="no-match" hidden class="border-t border-slate-200 px-4 py-6 text-center">
+            <p class="font-medium" id="no-match-text"></p>
+            <button type="button" id="clear-search" class="mt-2 h-8 rounded border border-slate-300 bg-white px-3 hover:bg-slate-50">Clear search</button>
+          </div>
+        </div>
+        <div data-state="empty" hidden class="rounded-md border border-dashed border-slate-300 px-6 py-10 text-center">
+          <p class="font-medium">No departments yet</p>
+          <p class="mt-1 text-slate-600">Departments appear here once you add the first one.</p>
+          <button type="button" id="empty-add" class="mt-3 h-8 rounded border border-slate-300 bg-white px-3 hover:bg-slate-50">Add department</button>
+        </div>
+        <div data-state="loading" aria-busy="true" hidden class="space-y-2 rounded-md border border-slate-200 p-3" aria-label="Loading departments">
+          <div class="h-3 w-2/3 rounded bg-slate-200"></div><div class="h-3 w-1/2 rounded bg-slate-200"></div><div class="h-3 w-3/5 rounded bg-slate-200"></div><div class="h-3 w-2/5 rounded bg-slate-200"></div>
+        </div>
+        <div data-state="error" hidden role="alert" class="rounded-md border border-red-200 bg-red-50 px-4 py-3 text-red-800">
+          <p class="font-medium">The org chart could not be loaded.</p>
+          <button type="button" class="retry mt-2 h-8 rounded border border-red-300 bg-white px-3 hover:bg-red-100">Retry</button>
+        </div>
+      </section>
+
+      <section aria-label="Department details" class="min-w-0 rounded-md border border-slate-200 p-4">
+        <div id="detail-none" hidden class="px-4 py-10 text-center">
+          <p class="font-medium">Select a department to see its details</p>
+          <button type="button" id="none-add" class="mt-3 h-8 rounded bg-blue-700 px-3 font-medium text-white hover:bg-blue-800">Add department</button>
+        </div>
+
+        <div id="detail-content">
+          <nav aria-label="Breadcrumb" class="text-slate-600" id="path"></nav>
+
+          <div class="mt-2 flex items-start justify-between gap-4">
+            <div class="min-w-0">
+              <div class="flex items-center gap-3">
+                <h2 id="d-name" class="text-lg font-semibold"></h2>
+                <span id="d-status" class="inline-flex h-6 items-center whitespace-nowrap rounded-full px-2 text-xs font-medium"></span>
+              </div>
+              <p class="text-slate-600" id="d-code"></p>
+            </div>
+            <div class="flex shrink-0 items-center gap-2">
+              <button type="button" id="btn-edit" class="h-8 rounded border border-slate-300 bg-white px-3 hover:bg-slate-50">Edit department</button>
+              <button type="button" id="btn-more" aria-haspopup="menu" aria-expanded="false" class="h-8 w-8 rounded border border-slate-300 bg-white hover:bg-slate-50">⋯</button>
+            </div>
+          </div>
+
+          <dl class="mt-4 grid grid-cols-2 gap-x-6 gap-y-2">
+            <div><dt class="text-slate-600">Manager</dt><dd id="d-manager" class="font-medium"></dd></div>
+            <div><dt class="text-slate-600">Title</dt><dd id="d-title"></dd></div>
+            <div><dt class="text-slate-600">Direct staff</dt><dd class="tnum" id="d-own"></dd></div>
+            <div><dt class="text-slate-600">Total headcount</dt><dd class="tnum font-medium" id="d-total"></dd></div>
+            <div><dt class="text-slate-600">Parent department</dt><dd id="d-parent"></dd></div>
+            <div><dt class="text-slate-600">Sub-departments</dt><dd class="tnum" id="d-subcount"></dd></div>
+          </dl>
+
+          <section class="mt-5" aria-labelledby="h-contact">
+            <h3 id="h-contact" class="text-base font-semibold">Contact</h3>
+            <div class="mt-2 flex items-center gap-3">
+              <span id="d-avatar" aria-hidden="true" class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-slate-200 text-xs font-medium text-slate-700"></span>
+              <div class="min-w-0">
+                <p class="font-medium" id="d-manager2"></p>
+                <p><a id="d-email" href="#" class="inline-flex h-6 items-center text-blue-700 hover:underline"></a></p>
+                <p><a id="d-phone" href="#" class="inline-flex h-6 items-center text-blue-700 hover:underline"></a></p>
+              </div>
+            </div>
+          </section>
+
+          <section class="mt-5" aria-labelledby="h-reports">
+            <h3 id="h-reports" class="text-base font-semibold">Sub-departments</h3>
+            <div data-region="reports" class="mt-2">
+              <div data-state="ready" class="overflow-x-auto rounded-md border border-slate-200">
+                <table class="w-full border-collapse">
+                  <caption class="sr-only">Sub-departments</caption>
+                  <thead class="bg-slate-50 text-slate-700">
+                    <tr class="h-9 border-b border-slate-200">
+                      <th scope="col" class="px-3 text-left font-medium">Department</th>
+                      <th scope="col" class="px-3 text-left font-medium">Manager</th>
+                      <th scope="col" class="px-3 text-right font-medium">Headcount</th>
+                    </tr>
+                  </thead>
+                  <tbody id="sub-rows"></tbody>
+                </table>
+              </div>
+              <div data-state="empty" hidden class="rounded-md border border-dashed border-slate-300 px-4 py-6 text-center">
+                <p class="font-medium">No sub-departments</p>
+                <button type="button" id="sub-add" class="mt-2 h-8 rounded border border-slate-300 bg-white px-3 hover:bg-slate-50">Add sub-department</button>
+              </div>
+              <div data-state="loading" aria-busy="true" hidden class="space-y-2 rounded-md border border-slate-200 p-3" aria-label="Loading sub-departments">
+                <div class="h-3 w-1/2 rounded bg-slate-200"></div><div class="h-3 w-2/5 rounded bg-slate-200"></div>
+              </div>
+              <div data-state="error" hidden role="alert" class="rounded-md border border-red-200 bg-red-50 px-4 py-3 text-red-800">
+                <p class="font-medium">Sub-departments could not be loaded.</p>
+                <button type="button" class="retry mt-2 h-8 rounded border border-red-300 bg-white px-3 text-red-800 hover:bg-red-100">Retry</button>
+              </div>
+            </div>
+          </section>
+
+          <p class="mt-5 text-slate-600" id="d-attribution"></p>
+        </div>
+      </section>
+    </div>
+  </main>
+</div>
+
+<div id="menu" role="menu" hidden class="fixed z-20 w-52 rounded-md border border-slate-200 bg-white py-1 shadow-md">
+  <button type="button" role="menuitem" data-act="add-sub" class="block h-8 w-full px-3 text-left hover:bg-slate-100">Add sub-department</button>
+  <button type="button" role="menuitem" data-act="deactivate" class="block h-8 w-full px-3 text-left text-red-700 hover:bg-slate-100">Deactivate department</button>
+</div>
+
+<div id="backdrop" hidden class="fixed inset-0 z-30 bg-slate-900/40"></div>
+<div id="confirm" role="alertdialog" aria-modal="true" aria-labelledby="confirm-title" aria-describedby="confirm-text" hidden class="fixed left-1/2 top-24 z-40 w-[440px] -translate-x-1/2 rounded-lg border border-slate-200 bg-white p-5 shadow-lg">
+  <h2 id="confirm-title" class="text-base font-semibold"></h2>
+  <p id="confirm-text" class="mt-2 text-slate-700"></p>
+  <div class="mt-4 flex justify-end gap-2" id="confirm-actions"></div>
+</div>
+
+<div id="toast" role="status" aria-live="polite" class="fixed bottom-4 right-4 z-50"></div>
+
+<script>
+  const LOCALE = 'en-US';
+  const fmtCount = (n) => new Intl.NumberFormat(LOCALE).format(n);
+  const fmtDate = (iso) => new Intl.DateTimeFormat(LOCALE, { day: '2-digit', month: '2-digit', year: 'numeric' }).format(new Date(iso + 'T00:00:00'));
+
+  // Mock data: a company's department hierarchy. parentId null marks the root.
+  let UNITS = [
+    { id: 'ceo', parentId: null, code: 'CEO-OFF', name: 'Acme Corporation', manager: 'Trần Quốc Huy', title: 'Chief executive officer', email: 'huy.tran@acmecorp.example', phone: '+84 28 3822 1010', own: 4, status: 'Active', updatedBy: 'Phan Thị Yến', updatedAt: '2026-10-02' },
+    { id: 'ops', parentId: 'ceo', code: 'OPS', name: 'Operations', manager: 'Nguyễn Thị Mai', title: 'VP operations', email: 'mai.nguyen@acmecorp.example', phone: '+84 28 3822 1021', own: 6, status: 'Active', updatedBy: 'Phan Thị Yến', updatedAt: '2026-09-18' },
+    { id: 'log', parentId: 'ops', code: 'LOG', name: 'Logistics', manager: 'Phạm Văn Đức', title: 'Logistics manager', email: 'duc.pham@acmecorp.example', phone: '+84 28 3822 1033', own: 28, status: 'Active', updatedBy: 'Nguyễn Thị Mai', updatedAt: '2026-08-04' },
+    { id: 'mfg', parentId: 'ops', code: 'MFG', name: 'Manufacturing', manager: 'Lê Văn Sơn', title: 'Manufacturing manager', email: 'son.le@acmecorp.example', phone: '+84 28 3822 1034', own: 54, status: 'Active', updatedBy: 'Nguyễn Thị Mai', updatedAt: '2026-07-21' },
+    { id: 'qaops', parentId: 'ops', code: 'QA-OPS', name: 'Quality assurance', manager: 'Hoàng Thị Nga', title: 'QA manager', email: 'nga.hoang@acmecorp.example', phone: '+84 28 3822 1035', own: 15, status: 'Active', updatedBy: 'Nguyễn Thị Mai', updatedAt: '2026-06-30' },
+    { id: 'salesmkt', parentId: 'ceo', code: 'S&M', name: 'Sales & marketing', manager: 'Đỗ Thị Hương', title: 'VP sales & marketing', email: 'huong.do@acmecorp.example', phone: '+84 28 3822 1041', own: 5, status: 'Active', updatedBy: 'Phan Thị Yến', updatedAt: '2026-09-02' },
+    { id: 'sales', parentId: 'salesmkt', code: 'SALES', name: 'Sales', manager: 'Vũ Minh Tuấn', title: 'Sales manager', email: 'tuan.vu@acmecorp.example', phone: '+84 28 3822 1042', own: 32, status: 'Active', updatedBy: 'Đỗ Thị Hương', updatedAt: '2026-05-14' },
+    { id: 'mkt', parentId: 'salesmkt', code: 'MKT', name: 'Marketing', manager: 'Ngô Thị Lan', title: 'Marketing manager', email: 'lan.ngo@acmecorp.example', phone: '+84 28 3822 1043', own: 14, status: 'Active', updatedBy: 'Đỗ Thị Hương', updatedAt: '2026-04-27' },
+    { id: 'eng', parentId: 'ceo', code: 'ENG', name: 'Engineering', manager: 'Bùi Văn Khoa', title: 'VP engineering', email: 'khoa.bui@acmecorp.example', phone: '+84 28 3822 1051', own: 8, status: 'Active', updatedBy: 'Phan Thị Yến', updatedAt: '2026-10-11' },
+    { id: 'prodeng', parentId: 'eng', code: 'PROD-ENG', name: 'Product engineering', manager: 'Trịnh Thị Thu', title: 'Engineering manager', email: 'thu.trinh@acmecorp.example', phone: '+84 28 3822 1052', own: 26, status: 'Active', updatedBy: 'Bùi Văn Khoa', updatedAt: '2026-09-25' },
+    { id: 'plateng', parentId: 'eng', code: 'PLAT-ENG', name: 'Platform engineering', manager: 'Đặng Văn Long', title: 'Engineering manager', email: 'long.dang@acmecorp.example', phone: '+84 28 3822 1053', own: 19, status: 'Active', updatedBy: 'Bùi Văn Khoa', updatedAt: '2026-08-19' },
+    { id: 'qaeng', parentId: 'eng', code: 'QA-ENG', name: 'QA engineering', manager: 'Lý Thị Hạnh', title: 'QA manager', email: 'hanh.ly@acmecorp.example', phone: '+84 28 3822 1054', own: 11, status: 'Active', updatedBy: 'Bùi Văn Khoa', updatedAt: '2026-07-07' },
+    { id: 'fin', parentId: 'ceo', code: 'FIN', name: 'Finance', manager: 'Trần Thị Bích', title: 'Chief financial officer', email: 'bich.tran@acmecorp.example', phone: '+84 28 3822 1061', own: 12, status: 'Active', updatedBy: 'Phan Thị Yến', updatedAt: '2026-09-30' },
+    { id: 'hr', parentId: 'ceo', code: 'HR', name: 'Human resources', manager: 'Phan Thị Yến', title: 'HR director', email: 'yen.phan@acmecorp.example', phone: '+84 28 3822 1071', own: 9, status: 'Active', updatedBy: 'Trần Quốc Huy', updatedAt: '2026-06-15' },
+    { id: 'legal', parentId: 'ceo', code: 'LEGAL', name: 'Legal & compliance', manager: 'Vũ Thị Kim', title: 'Legal manager', email: 'kim.vu@acmecorp.example', phone: '+84 28 3822 1081', own: 4, status: 'Restructuring', updatedBy: 'Phan Thị Yến', updatedAt: '2026-11-01' },
+  ];
+
+  const TONE = { Active: 'bg-green-50 text-green-800', Restructuring: 'bg-blue-50 text-blue-800' };
+
+  const params = new URLSearchParams(location.search);
+  const forced = params.get('state'); // ?state=empty|loading|error
+  if (forced === 'empty') UNITS = [];
+
+  const EXPAND_KEY = 'org-structure-expanded';
+  const loadExpanded = () => { try { return new Set(JSON.parse(localStorage.getItem(EXPAND_KEY) || '[]')); } catch { return new Set(); } };
+  const saveExpanded = (s) => { try { localStorage.setItem(EXPAND_KEY, JSON.stringify([...s])); } catch {} };
+
+  const rootUnit = UNITS.find((u) => u.parentId === null) || null;
+  const ui = {
+    q: '',
+    selected: params.get('dept') || (rootUnit ? rootUnit.id : null),
+    expanded: loadExpanded(),
+    focusId: null,
+    savedExpanded: null,
+  };
+
+  const $ = (id) => document.getElementById(id);
+  const byId = (id) => UNITS.find((u) => u.id === id);
+  const childrenOf = (id) => UNITS.filter((u) => u.parentId === id);
+  function totalOf(id) {
+    const u = byId(id);
+    if (!u) return 0;
+    return u.own + childrenOf(id).reduce((s, c) => s + totalOf(c.id), 0);
+  }
+  function ancestorsOf(id) {
+    const path = [];
+    let u = byId(id);
+    while (u && u.parentId) {
+      u = byId(u.parentId);
+      if (u) path.unshift(u);
+    }
+    return path;
+  }
+  function expandAncestors(id) {
+    ancestorsOf(id).forEach((a) => ui.expanded.add(a.id));
+  }
+  if (ui.selected) expandAncestors(ui.selected);
+  if (rootUnit) ui.expanded.add(rootUnit.id);
+
+  const announce = (html) => {
+    $('toast').innerHTML = `<div class="flex items-center gap-3 rounded-md border border-slate-200 bg-white px-4 py-3 shadow-md">${html}</div>`;
+    clearTimeout(announce.t);
+    announce.t = setTimeout(() => ($('toast').innerHTML = ''), 6000);
+  };
+  const showRegion = (region, state) => document.querySelectorAll(`[data-region="${region}"] [data-state]`).forEach((e) => (e.hidden = e.dataset.state !== state));
+  const escapeHtml = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  function highlight(text, q) {
+    if (!q) return escapeHtml(text);
+    const i = text.toLowerCase().indexOf(q.toLowerCase());
+    if (i < 0) return escapeHtml(text);
+    return escapeHtml(text.slice(0, i)) + '<mark>' + escapeHtml(text.slice(i, i + q.length)) + '</mark>' + escapeHtml(text.slice(i + q.length));
+  }
+  function initials(name) {
+    return name.trim().split(/\s+/).slice(-2).map((p) => p[0]).join('').toUpperCase();
+  }
+
+  function matchSet(q) {
+    if (!q) return null;
+    const include = new Set();
+    UNITS.forEach((u) => {
+      if ((u.name + ' ' + u.manager).toLowerCase().includes(q)) {
+        include.add(u.id);
+        let p = u.parentId;
+        while (p) {
+          include.add(p);
+          p = byId(p) ? byId(p).parentId : null;
+        }
+      }
+    });
+    return include;
+  }
+
+  function buildRows() {
+    const q = ui.q.trim().toLowerCase();
+    const include = matchSet(q);
+    const rows = [];
+    function walk(parentId, level) {
+      let kids = childrenOf(parentId);
+      if (include) kids = kids.filter((k) => include.has(k.id));
+      kids.forEach((k, i) => {
+        const hasChildren = childrenOf(k.id).some((c) => !include || include.has(c.id));
+        const expanded = include ? true : ui.expanded.has(k.id);
+        rows.push({ unit: k, level, hasChildren, expanded, setsize: kids.length, posinset: i + 1 });
+        if (hasChildren && expanded) walk(k.id, level + 1);
+      });
+    }
+    walk(null, 1);
+    return rows;
+  }
+
+  function syncUrl() {
+    const p = new URLSearchParams();
+    if (ui.selected) p.set('dept', ui.selected);
+    if (forced) p.set('state', forced);
+    history.replaceState(null, '', p.toString() ? '?' + p : location.pathname);
+  }
+
+  function renderTree() {
+    if (!UNITS.length) {
+      showRegion('tree', 'empty');
+      return;
+    }
+    const rows = buildRows();
+    const q = ui.q.trim();
+    const total = UNITS.length ? totalOf(rootUnit.id) : 0;
+    const matching = q ? UNITS.filter((u) => (u.name + ' ' + u.manager).toLowerCase().includes(q.toLowerCase())).length : UNITS.length;
+    $('result-count').textContent = fmtCount(matching);
+    $('result-total').textContent = fmtCount(total);
+
+    if (!rows.length) {
+      $('tree-body').innerHTML = '';
+      $('no-match-text').textContent = `No department matches "${q}"`;
+      $('no-match').hidden = false;
+      showRegion('tree', 'ready');
+      return;
+    }
+    $('no-match').hidden = true;
+    if (!ui.focusId || !rows.some((r) => r.unit.id === ui.focusId)) ui.focusId = ui.selected && rows.some((r) => r.unit.id === ui.selected) ? ui.selected : rows[0].unit.id;
+
+    $('tree-body').innerHTML = rows.map((r) => {
+      const u = r.unit;
+      const selected = u.id === ui.selected;
+      const tabbable = u.id === ui.focusId;
+      const pad = 8 + r.level * 20;
+      const chevron = r.hasChildren ? (r.expanded ? '▾' : '▸') : '';
+      return `<tr role="row" data-id="${u.id}" aria-level="${r.level}" aria-setsize="${r.setsize}" aria-posinset="${r.posinset}" ${r.hasChildren ? `aria-expanded="${r.expanded}"` : ''} aria-selected="${selected}" tabindex="${tabbable ? '0' : '-1'}"
+          class="h-10 cursor-default border-b border-slate-200 last:border-0 outline-none focus-visible:ring-2 focus-visible:ring-blue-700 ${selected ? 'bg-blue-50' : 'hover:bg-slate-50'}">
+        <td role="gridcell" class="max-w-0 px-3" style="padding-left:${pad}px">
+          <span class="flex items-center gap-1.5">
+            <span data-chevron aria-hidden="true" class="flex h-5 w-5 shrink-0 items-center justify-center text-slate-500">${chevron}</span>
+            <span class="truncate" title="${escapeHtml(u.name)}"><span class="text-slate-600">${u.code}</span> · ${highlight(u.name, q)}</span>
+          </span>
+        </td>
+        <td role="gridcell" class="max-w-40 truncate px-3" title="${escapeHtml(u.manager)}">${highlight(u.manager, q)}</td>
+        <td role="gridcell" class="tnum px-3 text-right">${fmtCount(totalOf(u.id))}</td>
+      </tr>`;
+    }).join('');
+    showRegion('tree', 'ready');
+    focusRow(ui.focusId, false);
+  }
+
+  function focusRow(id, moveFocus) {
+    document.querySelectorAll('#tree-body tr[role="row"]').forEach((tr) => (tr.tabIndex = tr.dataset.id === id ? 0 : -1));
+    ui.focusId = id;
+    if (moveFocus) {
+      const el = document.querySelector(`#tree-body tr[data-id="${id}"]`);
+      if (el) el.focus();
+    }
+  }
+
+  function renderDetail() {
+    const u = ui.selected && UNITS.length ? byId(ui.selected) : null;
+    $('detail-none').hidden = !!u;
+    $('detail-content').hidden = !u;
+    if (!u) return;
+
+    const path = [...ancestorsOf(u.id), u];
+    $('path').innerHTML = path.map((p, i) => i === path.length - 1
+      ? `<span aria-current="page">${escapeHtml(p.name)}</span>`
+      : `<button type="button" data-goto="${p.id}" class="hover:underline">${escapeHtml(p.name)}</button> <span aria-hidden="true">/</span>`
+    ).join(' ');
+
+    $('d-name').textContent = u.name;
+    $('d-code').textContent = u.code;
+    $('d-status').textContent = u.status;
+    $('d-status').className = `inline-flex h-6 items-center whitespace-nowrap rounded-full px-2 text-xs font-medium ${TONE[u.status]}`;
+    $('d-manager').textContent = u.manager;
+    $('d-manager2').textContent = u.manager;
+    $('d-title').textContent = u.title;
+    $('d-own').textContent = `${fmtCount(u.own)} people`;
+    $('d-total').textContent = `${fmtCount(totalOf(u.id))} people`;
+    const parent = u.parentId ? byId(u.parentId) : null;
+    $('d-parent').innerHTML = parent ? `<button type="button" data-goto="${parent.id}" class="text-blue-700 hover:underline">${escapeHtml(parent.name)}</button>` : '—';
+    const subs = childrenOf(u.id);
+    $('d-subcount').textContent = fmtCount(subs.length);
+    $('d-avatar').textContent = initials(u.manager);
+    $('d-email').textContent = u.email;
+    $('d-email').href = 'mailto:' + u.email;
+    $('d-phone').textContent = u.phone;
+    $('d-phone').href = 'tel:' + u.phone.replace(/[^+\d]/g, '');
+    $('d-attribution').textContent = `Last changed by ${u.updatedBy} · ${fmtDate(u.updatedAt)}`;
+
+    $('sub-rows').innerHTML = subs.map((s) => `<tr class="h-9 border-b border-slate-200 last:border-0 hover:bg-slate-50">
+        <td class="px-3"><button type="button" data-goto="${s.id}" class="text-blue-700 hover:underline">${escapeHtml(s.code)} · ${escapeHtml(s.name)}</button></td>
+        <td class="max-w-40 truncate px-3" title="${escapeHtml(s.manager)}">${escapeHtml(s.manager)}</td>
+        <td class="tnum px-3 text-right">${fmtCount(totalOf(s.id))}</td>
+      </tr>`).join('');
+    showRegion('reports', subs.length ? 'ready' : 'empty');
+  }
+
+  function render() {
+    syncUrl();
+    renderTree();
+    renderDetail();
+  }
+
+  function selectUnit(id, push) {
+    ui.selected = id;
+    expandAncestors(id);
+    saveExpanded(ui.expanded);
+    if (push) {
+      const p = new URLSearchParams(location.search);
+      p.set('dept', id);
+      history.pushState({ dept: id }, '', '?' + p);
+    }
+    render();
+    focusRow(id, true);
+  }
+
+  // Tree interaction: click the chevron toggles, click elsewhere on the row selects (trees.md).
+  $('tree-body').addEventListener('click', (e) => {
+    const tr = e.target.closest('tr[role="row"]');
+    if (!tr) return;
+    const id = tr.dataset.id;
+    if (e.target.closest('[data-chevron]')) {
+      if (ui.expanded.has(id)) ui.expanded.delete(id);
+      else ui.expanded.add(id);
+      saveExpanded(ui.expanded);
+      ui.focusId = id;
+      renderTree();
+      focusRow(id, true);
+    } else {
+      selectUnit(id, true);
+    }
+  });
+
+  $('tree-body').addEventListener('keydown', (e) => {
+    const tr = e.target.closest('tr[role="row"]');
+    if (!tr) return;
+    const rows = buildRows().map((r) => ({ id: r.unit.id, parentId: r.unit.parentId, hasChildren: r.hasChildren, expanded: r.expanded, name: r.unit.name }));
+    const i = rows.findIndex((r) => r.id === tr.dataset.id);
+    if (i < 0) return;
+    const r = rows[i];
+    const go = (id) => { if (id) { e.preventDefault(); focusRow(id, true); } };
+    switch (e.key) {
+      case 'ArrowDown': return go(rows[i + 1] && rows[i + 1].id);
+      case 'ArrowUp': return go(rows[i - 1] && rows[i - 1].id);
+      case 'Home': return go(rows[0] && rows[0].id);
+      case 'End': return go(rows[rows.length - 1] && rows[rows.length - 1].id);
+      case 'ArrowRight':
+        e.preventDefault();
+        if (r.hasChildren && !r.expanded) { ui.expanded.add(r.id); saveExpanded(ui.expanded); renderTree(); focusRow(r.id, true); }
+        else return go(rows[i + 1] && rows[i + 1].parentId === r.id ? rows[i + 1].id : undefined);
+        return;
+      case 'ArrowLeft':
+        e.preventDefault();
+        if (r.expanded && r.hasChildren) { ui.expanded.delete(r.id); saveExpanded(ui.expanded); renderTree(); focusRow(r.id, true); }
+        else return go(r.parentId);
+        return;
+      case 'Enter':
+      case ' ':
+        e.preventDefault();
+        return selectUnit(r.id, true);
+      case '*':
+        e.preventDefault();
+        rows.filter((x) => x.parentId === r.parentId && x.hasChildren).forEach((x) => ui.expanded.add(x.id));
+        saveExpanded(ui.expanded);
+        renderTree();
+        focusRow(r.id, true);
+        return;
+      default:
+        if (e.key.length === 1 && /\S/.test(e.key)) {
+          const order = [...rows.slice(i + 1), ...rows.slice(0, i)];
+          const next = order.find((x) => x.name.toLowerCase().startsWith(e.key.toLowerCase()));
+          return go(next && next.id);
+        }
+    }
+  });
+
+  // Navigation from breadcrumb, parent link and sub-department rows.
+  document.addEventListener('click', (e) => {
+    const b = e.target.closest('[data-goto]');
+    if (b) selectUnit(b.dataset.goto, true);
+  });
+  window.addEventListener('popstate', () => {
+    ui.selected = new URLSearchParams(location.search).get('dept') || (rootUnit ? rootUnit.id : null);
+    if (ui.selected) expandAncestors(ui.selected);
+    render();
+  });
+
+  // Search
+  let qTimer;
+  $('q').addEventListener('input', (e) => {
+    clearTimeout(qTimer);
+    qTimer = setTimeout(() => {
+      const was = ui.q;
+      ui.q = e.target.value;
+      if (ui.q && !was) ui.savedExpanded = new Set(ui.expanded);
+      if (!ui.q && ui.savedExpanded) { ui.expanded = ui.savedExpanded; ui.savedExpanded = null; }
+      render();
+    }, 250);
+  });
+  $('clear-search').addEventListener('click', () => { $('q').value = ''; $('q').dispatchEvent(new Event('input')); $('q').focus(); });
+
+  $('btn-expand-all').addEventListener('click', () => { UNITS.forEach((u) => { if (childrenOf(u.id).length) ui.expanded.add(u.id); }); saveExpanded(ui.expanded); renderTree(); });
+  $('btn-collapse-all').addEventListener('click', () => { ui.expanded.clear(); if (rootUnit) ui.expanded.add(rootUnit.id); saveExpanded(ui.expanded); renderTree(); });
+
+  // Header and empty-state actions
+  function addDepartment() { announce('<span>Opening the new-department form…</span>'); }
+  $('btn-add').addEventListener('click', addDepartment);
+  $('empty-add').addEventListener('click', addDepartment);
+  $('none-add').addEventListener('click', addDepartment);
+  $('btn-edit').addEventListener('click', () => announce(`<span>Opening ${escapeHtml(byId(ui.selected).name)} for editing…</span>`));
+  $('sub-add').addEventListener('click', addDepartment);
+
+  // Overflow menu
+  $('btn-more').addEventListener('click', (e) => {
+    const r = e.currentTarget.getBoundingClientRect();
+    Object.assign($('menu').style, { top: r.bottom + 4 + 'px', left: r.right - 208 + 'px' });
+    $('menu').hidden = false;
+    e.currentTarget.setAttribute('aria-expanded', 'true');
+    $('menu').querySelector('button').focus();
+  });
+  $('menu').addEventListener('click', (e) => {
+    const a = e.target.closest('[data-act]');
+    if (!a) return;
+    $('menu').hidden = true;
+    $('btn-more').setAttribute('aria-expanded', 'false');
+    const u = byId(ui.selected);
+    if (a.dataset.act === 'add-sub') announce(`<span>Opening a new department under ${escapeHtml(u.name)}…</span>`);
+    else confirmDeactivate(u);
+  });
+  document.addEventListener('click', (e) => { if (!e.target.closest('#menu, #btn-more')) $('menu').hidden = true; });
+
+  function confirmDeactivate(u) {
+    const kids = childrenOf(u.id).length;
+    $('backdrop').hidden = $('confirm').hidden = false;
+    if (u.own > 0 || kids > 0) {
+      const parts = [];
+      if (u.own > 0) parts.push(`${fmtCount(u.own)} staff`);
+      if (kids > 0) parts.push(`${fmtCount(kids)} sub-department${kids > 1 ? 's' : ''}`);
+      $('confirm-title').textContent = `Cannot deactivate ${u.name}`;
+      $('confirm-text').textContent = `${u.name} still has ${parts.join(' and ')}. Reassign them to another department first.`;
+      $('confirm-actions').innerHTML = `<button type="button" id="confirm-close" class="h-8 rounded border border-slate-300 bg-white px-3 hover:bg-slate-50">Close</button>`;
+      $('confirm-close').addEventListener('click', closeConfirm);
+      $('confirm-close').focus();
+    } else {
+      $('confirm-title').textContent = `Deactivate ${u.name}?`;
+      $('confirm-text').textContent = `${u.name} has no staff or sub-departments. It will be hidden from the org chart until reactivated.`;
+      $('confirm-actions').innerHTML = `<button type="button" id="confirm-cancel" class="h-8 rounded border border-slate-300 bg-white px-3 hover:bg-slate-50">Cancel</button>
+        <button type="button" id="confirm-ok" class="h-8 rounded bg-red-700 px-3 font-medium text-white hover:bg-red-800">Deactivate department</button>`;
+      $('confirm-cancel').addEventListener('click', closeConfirm);
+      $('confirm-cancel').focus();
+      $('confirm-ok').addEventListener('click', () => {
+        closeConfirm();
+        announce(`<span>${escapeHtml(u.name)} deactivated.</span>`);
+      });
+    }
+  }
+  function closeConfirm() { $('backdrop').hidden = $('confirm').hidden = true; $('btn-more').focus(); }
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape') { $('menu').hidden = true; if (!$('confirm').hidden) closeConfirm(); } });
+
+  $('btn-print').addEventListener('click', () => window.print());
+  document.querySelectorAll('.retry').forEach((b) => b.addEventListener('click', () => { location.search = ''; }));
+
+  if (forced === 'loading' || forced === 'error') {
+    showRegion('tree', forced);
+    showRegion('reports', forced);
+    $('result-count').textContent = '—';
+    $('result-total').textContent = '—';
+    $('detail-none').hidden = true;
+    $('detail-content').hidden = true;
+  } else {
+    render();
+  }
+</script>
+</body>
+</html>

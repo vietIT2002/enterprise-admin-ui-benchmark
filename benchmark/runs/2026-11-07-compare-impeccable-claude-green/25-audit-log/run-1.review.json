@@ -1,0 +1,57 @@
+{
+  "brief": "25-audit-log",
+  "run": 1,
+  "items": [
+    {
+      "item": "Each entry shows when, who (the person's name and account, or \"System\" or the integration's name for automated changes), the action, the affected record (type plus ID or name) and the outcome (such as Success, Failed or Denied) in text",
+      "pass": false,
+      "evidence": "when/who/action/outcome are all present (e.g. row shows 'Nov 7, 2026, 4:10 PM', 'Noor Abdullah / noor.abdullah@vantage.io', 'Revoked API key', 'Success' badge text). But the affected-record field (buildDetails() -> ev.resource) frequently gives only a bare type with no ID or name, e.g. case \"api_key.created\"/\"api_key.revoked\" => resource: \"API Key\", case \"auth.mfa.disabled\"/\"auth.password.reset\" => resource: \"Security\", case \"webhook.updated\" => resource: \"Webhook\", case \"security.session.updated\" => resource: \"Security Policy\" — none identify which specific key/webhook/session was affected."
+    },
+    {
+      "item": "Timestamps give the date and the time to the second with the time zone stated (such as \"05/11/2026 14:32:07 UTC+7\"), and entries are listed newest first",
+      "pass": false,
+      "evidence": "fmtDateTime() used in the table only formats to the minute with no seconds or zone (produces 'Nov 7, 2026, 4:10 PM', visible in first.png). fmtFull(), used for the hover title and drawer 'Timestamp' row, adds seconds but appends the literal string ' (local time)' instead of a stated zone offset (e.g. 'UTC+7'). Newest-first sort is correct: events.sort((a,b)=>b.timestamp-a.timestamp) and default state.sortDir='desc', confirmed by full.png showing Nov 7 at top down to Nov 4 at bottom."
+    },
+    {
+      "item": "An update entry shows each changed field with its old and new value side by side under \"Before\" and \"After\" labels, so the change reads correctly without relying on colour",
+      "pass": false,
+      "evidence": "changesHtml in openDrawer() renders c.before in a '<span class=\"line-through text-slate-400 ...\">' and c.after in '<span class=\"text-emerald-700 ...\">' separated by an arrow icon — there are no 'Before'/'After' text labels anywhere in this markup, so the distinction relies on strikethrough styling and colour only."
+    },
+    {
+      "item": "Passwords, tokens and other secret fields never appear in clear text; their changes are shown masked (such as \"•••••• changed\")",
+      "pass": true,
+      "evidence": "case \"billing.payment_method.updated\" renders before/after as 'Visa •••• 4471' -> 'Mastercard •••• 2290'; api_key.created only lists scopes in the message, never the key value; no password value is ever rendered (auth.password.reset just has a descriptive message)."
+    },
+    {
+      "item": "Filters cover a date range with presets, the actor, the action type and the record type, a search box finds a record by its ID, and the number of matching entries is shown",
+      "pass": false,
+      "evidence": "#rangeFilter has presets (1d/7d/30d/90d/all) and #actorFilter lists actors — both present. But there is no action-type filter (only #categoryFilter, grouping into 5 broad categories like 'Billing', not individual actions) and no record-type filter at all. #searchInput's match logic (getFiltered(): hay = [actor.name, actor.email, action.label, resource, ip, category]) never includes ev.id, so searching by record/event ID does not work. #resultCount ('Showing 1–20 of 72 events') does show the matching count."
+    },
+    {
+      "item": "Entries are read-only: no edit or delete control appears on any entry, and the page states that the log cannot be altered",
+      "pass": true,
+      "evidence": "No edit/delete buttons exist on rows or in the drawer; footer text states 'Events are retained for 400 days and cannot be edited or deleted, including by workspace owners.'"
+    },
+    {
+      "item": "Export to CSV or Excel covers exactly the entries matching the current filters, and the export control states how many entries it will include",
+      "pass": false,
+      "evidence": "exportBtn handler calls getFiltered() (respects all active filters, not just the current page) to build the CSV — correct scope. But the button itself just reads 'Export CSV' with no count; the number of entries ('Exported N events to CSV') is only revealed in a toast after the export already happened, not stated on the control beforehand."
+    },
+    {
+      "item": "The log is a table with column header cells, and each entry's details open from a keyboard-operable control (a button with aria-expanded or a link) rather than only from a click on the row",
+      "pass": true,
+      "evidence": "<table> has a <thead> with <th> cells (Time, Actor, Action, Category, Status, IP Address). Each row also renders '<button ... aria-label=\"View details\">' with a chevron icon; being a real <button> it is natively keyboard-focusable/operable (Enter/Space fires a click that bubbles to the row's open() handler), so opening the drawer is not limited to a mouse click on the row — though the button lacks an aria-expanded attribute."
+    },
+    {
+      "item": "Filters that match nothing show a message with a clear-filters action, and a loading state and an error state with retry are built in",
+      "pass": false,
+      "evidence": "#emptyState shows 'No matching events' plus a '#emptyClearBtn' Clear filters button, and withSkeleton()/skeletonRows() implement a loading skeleton — both present. No error state exists anywhere in the script (no failed-fetch UI, no retry control); the app only ever generates mock data synchronously with generateEvents(96), so there's no code path for a load error at all."
+    }
+  ],
+  "tells": [
+    "tracked-uppercase-labels",
+    "card-in-card"
+  ],
+  "notes": "tracked-uppercase-labels: sidebar section headers 'WORKSPACE'/'CONFIGURATION' (class 'text-xs font-medium text-slate-400 uppercase tracking-wide') and every table header cell ('text-xs font-semibold text-slate-500 uppercase tracking-wide') — also flagged by audit.json's uppercase-text rule (9 occurrences). card-in-card: the drawer ('Event detail' panel) nests additional bordered boxes inside itself for the Actor block and each changed-field row (e.g. 'rounded-md border border-slate-200 px-3 py-2.5' inside an already-panelled drawer). Audit.json also separately flags surface-shadow (cards use shadow-sm in addition to a border) and table-row-two-line (every row stacks 2 lines), which are real deviations from the flat/single-line list-page convention though not in the given tell vocabulary.",
+  "blind": true
+}

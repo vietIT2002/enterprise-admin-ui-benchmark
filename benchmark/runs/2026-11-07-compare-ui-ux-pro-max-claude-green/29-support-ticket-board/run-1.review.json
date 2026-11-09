@@ -1,0 +1,59 @@
+{
+  "brief": "29-support-ticket-board",
+  "run": 1,
+  "items": [
+    {
+      "item": "Every status column heading shows the status name and its ticket count, and the count equals the cards shown or the column states how many are not shown (such as \"Showing 20 of 134\")",
+      "pass": true,
+      "evidence": "columnTemplate() renders '<h2>'+status.label+'</h2>' plus a badge with tickets.length, and the body renders tickets.map(cardTemplate) for the exact same filtered array with no slicing — e.g. 'New' shows badge 5 and renders all 5 cards (TCK-1031, 1030, 1029, 1028, 1027)."
+    },
+    {
+      "item": "Each card shows the ticket number (such as #4821), subject, customer, priority as a word or code (such as \"P1 · Urgent\") and the assignee, or an explicit \"Unassigned\"",
+      "pass": true,
+      "evidence": "cardTemplate() outputs t.id (e.g. 'TCK-1031'), subject, customer.name + company, a priority badge with p.label ('Urgent'/'High'/...), and either the agent's first name with avatar or the explicit 'Unassigned' badge with dashed-circle icon."
+    },
+    {
+      "item": "Open tickets show the time left to the next SLA target and which target it is (such as \"Resolution due in 2h 15m\"), and breached tickets show how long they are overdue (such as \"Breached 40m ago\") in text or with an icon, not by colour alone",
+      "pass": false,
+      "evidence": "slaInfo() only ever produces generic text 'Due in ' + duration or 'Overdue by ' + duration (page.html lines 332-335); there is only one slaDueAt per ticket and no label for which SLA target (first response vs resolution) it refers to, e.g. card for TCK-1031 just shows 'Due in 1h 30m'."
+    },
+    {
+      "item": "Tickets in a waiting status (such as \"Waiting on customer\") show their SLA timer as paused instead of counting down",
+      "pass": false,
+      "evidence": "slaInfo(t, now) applies the same countdown math to every open-type status including 'pending' (Pending Customer); there is no branch for t.status === 'pending' and no 'Paused' state — TCK-1015 in the Pending Customer column shows a live countdown 'Due in 2d 12h' like any other open ticket."
+    },
+    {
+      "item": "Within each column the cards are ordered by SLA due time or by priority, and the board states which ordering is used",
+      "pass": false,
+      "evidence": "Cards render in ticketsData array order (effectively ticket-creation/insertion order) with no .sort() call anywhere in render()/columnTemplate(); e.g. the New column shows TCK-1031, 1030, 1029, 1028, 1027 — not sorted by slaDueAt (1028 is already overdue at -20min yet appears 4th) or by priority. No ordering label exists in the UI."
+    },
+    {
+      "item": "Search finds tickets by number, subject or customer, and filters cover assignee (including \"Me\" and \"Unassigned\"), priority and SLA state (such as breached or due within 1 hour)",
+      "pass": false,
+      "evidence": "getFilteredTickets() does search id+subject+customer.name+company (OK), and assigneeFilter has only 'all', 'unassigned', and each agent's real name — no 'Me' option (no current-user concept exists anywhere in the code); priorityFilter exists but there is no SLA-state filter control (breached / due within 1h) at all."
+    },
+    {
+      "item": "Each card has keyboard-reachable actions to assign the ticket (including \"Assign to me\") and to change its status without dragging, with accessible names that include the ticket number",
+      "pass": false,
+      "evidence": "Each card has a keyboard-reachable '<select id=\"move-'+t.id+'\">' with sr-only label 'Move ticket '+t.id+' to a different status' (status change works, named with ticket number), but there is no per-card assign control at all — assignee can only be changed inside the detail modal's '#modal-assignee' select, and no 'Assign to me' option/action exists anywhere."
+    },
+    {
+      "item": "An empty column shows a short message instead of blank space, a search or filter with no matches offers to clear it, and loading and failed-load (with retry) states exist",
+      "pass": false,
+      "evidence": "emptyColumnTemplate() does show 'No tickets here' with an inbox icon when a column's filtered list is empty, but there is no 'clear search/filters' affordance anywhere when getFilteredTickets() returns zero results, and there is no loading state or failed-load/retry state in the code — render() runs synchronously against the in-memory ticketsData array."
+    },
+    {
+      "item": "Every relative time (such as \"Updated 3h ago\") also exposes the exact date, time and timezone, in a <time datetime> element or a title attribute",
+      "pass": false,
+      "evidence": "No '<time>' element exists anywhere in page.html. The relative SLA strings ('Due in 1h 30m', 'Overdue by 45m') are plain '<span>' text with no title attribute carrying the absolute slaDueAt timestamp or timezone; the only title attributes present are on the assignee avatar ('Assigned to X'/'Unassigned'), unrelated to time."
+    }
+  ],
+  "tells": [
+    "rainbow-status: column headers use five distinct hues (bg-sky-500, bg-indigo-500, bg-amber-500, bg-emerald-500, bg-slate-400) as decorative status dots, layered on top of differently-colored priority badges (red/orange/amber/slate), with no stated semantic color system.",
+    "hover-lift: ticket cards use 'transition-shadow hover:border-slate-300 hover:shadow-md' (page.html line 361) purely as a decorative hover affordance on static (non-interactive-beyond-click) cards.",
+    "oversized-radius: columns and modals use rounded-xl (12px), exceeding the 3-radius/8px-max convention — flagged directly by the audit ('div#board > section.flex.h-full: 12px actual, expected ≤8px').",
+    "card-in-card: the ticket detail modal nests a bg-slate-50 rounded-lg '<dl>' info block (page.html line 554) inside the already-bordered white modal panel."
+  ],
+  "notes": "Automated audit score 66/100 with text-contrast (48 instances, e.g. the red/emerald stat-strip labels at 3.58–4.41:1), font-size-base, radius-scale, and surface-shadow (cards use a drop shadow instead of a 1px border) violations. Functionally the board covers CRUD-ish ticket creation/move/assign/priority editing and keyboard modal focus-trapping well, but misses several SLA-specific and empty/loading-state requirements from the checklist.",
+  "blind": true
+}
